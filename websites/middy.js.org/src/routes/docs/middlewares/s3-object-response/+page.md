@@ -24,7 +24,7 @@ npm install --save-dev @aws-sdk/client-s3
 - `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSv3Client` from `aws-xray-sdk` in.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `contextKey` (string) (default `s3-object-response`): The key under `context.middyContext` where the pending `fetch` Promise for the source object is published. Override it to run two instances side by side.
-- `allowedHosts` (array of strings) (default: the supporting access point shapes, see below): Hosts the presigned `getObjectContext.inputS3Url` may point at. An entry containing `*` matches label by label, `*` standing for exactly one DNS label; any other entry matches that hostname and its subdomains, with or without a leading dot. Entries are compared case-insensitively as punycode and must be bare hostnames (no port, path or credentials). Only `https:` URLs without an explicit port are fetched. Set it for an S3 compatible endpoint such as `['minio.internal']`.
+- `allowedHosts` (array of strings) (default: the supporting access point shapes, see below): Hosts the presigned `getObjectContext.inputS3Url` may point at. An entry containing `*` matches label by label, `*` standing for exactly one non-empty DNS label; any other entry matches that hostname and its subdomains, with or without a leading dot. Entries are compared case-insensitively as punycode and must be bare hostnames (no port, path or credentials). Only `https:` URLs without an explicit port are fetched. Set it for an S3 compatible endpoint such as `['minio.internal']`.
 
   The default admits every host S3 Object Lambda hands out for the supporting access point, and nothing else under `amazonaws.com` (no EC2, bucket, API Gateway or Object Lambda endpoint):
 
@@ -43,7 +43,7 @@ NOTES:
 - `getObjectContext.inputS3Url` is checked against `allowedHosts` before it is fetched. An `http:` URL, an explicit port or a host outside the list fails the invocation with a 400 `HttpError` and nothing is fetched, so a crafted event cannot make the function GET an arbitrary URL.
 - XRay doesn't support tracing of `fetch`, you will need a workaround, see https://github.com/aws/aws-xray-sdk-node/issues/531#issuecomment-1378562164
 - Lambda is required to have IAM permission for `s3-object-lambda:WriteGetObjectResponse`
-- `context.middyContext['s3-object-response']` is a pending `fetch` Promise kicked off in the `before` hook. **Your handler must `await` it** — otherwise a network/404/auth failure surfaces as an unhandled promise rejection rather than as a caught error in your handler. The samples below show the correct pattern.
+- `context.middyContext['s3-object-response']` is a pending `fetch` Promise kicked off in the `before` hook. **Your handler must `await` it**: otherwise a network/404/auth failure surfaces as an unhandled promise rejection rather than as a caught error in your handler. The samples below show the correct pattern.
 
 ## Sample usage
 

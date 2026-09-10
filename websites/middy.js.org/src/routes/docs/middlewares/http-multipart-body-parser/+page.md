@@ -26,7 +26,7 @@ npm install --save @middy/http-multipart-body-parser
 - `disableContentTypeCheck` (`boolean`) (optional): Skip `Content-Type` check for Form Data.. Default: `false`.
 - `disableContentTypeError` (`boolean`) (optional): Skip throwing 415 when `Content-Type` is invalid. Default: `false`.
 
-**Note**: `busboy.limits` defaults to `{ fieldNameSize: 100, fields: 1000, parts: 1000 }`; set `fileSize` and `fieldSize` too when you know the sizes to expect. A part that exceeds `fileSize` or `fieldSize`, or a form that exceeds `fields`, `files` or `parts`, throws a `413 Payload Too Large` (with the offending `filename`, `fieldname`, or `limit` under `cause.data`) rather than being silently truncated or dropped. A field name longer than `fieldNameSize` throws a `422 Unprocessable Entity`, as does a body that ends before its closing boundary.
+**Note**: `busboy.limits` defaults to `{ fieldNameSize: 100, fields: 1000, parts: 1000 }`; set `fileSize` and `fieldSize` too when you know the sizes to expect. A part that exceeds `fileSize` or `fieldSize`, or a form that exceeds `fields`, `files` or `parts`, throws a `413 Payload Too Large` (with the offending `filename`, `fieldname`, or `limit` under `cause.data`) rather than being silently truncated or dropped. A field name longer than `fieldNameSize` throws the same `413` with `limit: "fieldNameSize"` under `cause.data`. A part whose `Content-Disposition` carries no `name`, or a body that ends before its closing boundary, throws a `422 Unprocessable Entity` with the reason under `cause.data.reason`.
 
 **Note**: bracketed fields (`a[]`) collect into an array under `a`, and a plain `a` part before or after them joins that array. A file field sent more than once becomes an array of attachments.
 

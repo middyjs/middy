@@ -213,7 +213,7 @@ test("parseJson on Firehose data (real AWS shape: deliveryStreamArn, recordId, n
 });
 
 test("parseJson on SQS body (plain text per AWS contract)", async () => {
-	// SQS bodies are delivered as plain text by Lambda — see
+	// SQS bodies are delivered as plain text by Lambda, see
 	// docs.aws.amazon.com/lambda/latest/dg/with-sqs.html. The parser must
 	// NOT base64-decode SQS bodies.
 	const handler = middy().use(eventBatchParser({ body: parseJson() }));

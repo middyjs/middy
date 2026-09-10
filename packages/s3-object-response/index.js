@@ -84,7 +84,8 @@ const hostMatches = (hostname, allowedHost) => {
 		if (want.length !== have.length) return false;
 		// Stryker disable next-line EqualityOperator: equivalent; the label counts were just checked equal, so an extra iteration compares want[len] with have[len], both undefined, which can never return false.
 		for (let i = 0; i < want.length; i += 1) {
-			if (want[i] !== "*" && want[i] !== have[i]) return false;
+			// `*` is exactly one label, so it does not stand for an empty one.
+			if (want[i] === "*" ? have[i] === "" : want[i] !== have[i]) return false;
 		}
 		return true;
 	}
@@ -160,7 +161,10 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
 	};
 
 	const s3ObjectResponseMiddlewareAfter = async (request) => {
-		if (!client) {
+		// With `awsClientAssumeRole` the client is rebuilt when sts refetches the
+		// credentials, so it is resolved on every invocation (util memoises on
+		// the credential promise identity, so a hit costs one microtask).
+		if (!client || options.awsClientAssumeRole) {
 			client = await clientInit(request);
 		}
 

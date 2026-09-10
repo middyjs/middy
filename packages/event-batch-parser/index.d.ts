@@ -3,7 +3,7 @@
 import type middy from "@middy/core";
 import type { Request } from "@middy/core";
 
-// Buffer extends Uint8Array — typed via Uint8Array to avoid a hard @types/node
+// Buffer extends Uint8Array, typed via Uint8Array to avoid a hard @types/node
 // dependency at the type-test boundary.
 export interface RecordFraming {
 	payload: Uint8Array;

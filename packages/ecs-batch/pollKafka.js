@@ -30,11 +30,15 @@ export const pollKafkaValidateOptions = (options) =>
 
 const noop = () => {};
 
+// A Buffer is a Uint8Array; viewing either over its own memory encodes the
+// same bytes without a copy.
 const toBase64 = (val) => {
 	if (val == null) return null;
-	// Stryker disable next-line ConditionalExpression: equivalent; a Buffer is a Uint8Array, so the next branch copies and encodes the same bytes.
-	if (Buffer.isBuffer(val)) return val.toString("base64");
-	if (val instanceof Uint8Array) return Buffer.from(val).toString("base64");
+	if (val instanceof Uint8Array) {
+		return Buffer.from(val.buffer, val.byteOffset, val.byteLength).toString(
+			"base64",
+		);
+	}
 	return Buffer.from(String(val)).toString("base64");
 };
 
@@ -91,9 +95,32 @@ const buildKafkaEvent = (opts, eventSource, batch) => {
 // Both normalise to the key eachBatch uses per message.
 // https://docs.aws.amazon.com/lambda/latest/dg/kafka-retry-configurations.html
 const failureKey = (itemIdentifier) =>
-	typeof itemIdentifier === "object"
+	itemIdentifier !== null && typeof itemIdentifier === "object"
 		? `${itemIdentifier.partition}-${itemIdentifier.offset}`
 		: itemIdentifier;
+// A batchItemFailures entry whose itemIdentifier is null, empty or names no
+// record in the batch invalidates the whole response: Lambda then retries
+// every record. `ids` is the failed set to act on (every record when the
+// response is invalid) and `error` the reason to raise through onError.
+// https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html
+// https://docs.aws.amazon.com/lambda/latest/dg/kafka-retry-configurations.html
+const batchFailures = (response, knownIds, toKey) => {
+	const ids = new Set();
+	for (const entry of response?.batchItemFailures ?? []) {
+		const itemIdentifier = entry?.itemIdentifier;
+		const key = toKey(itemIdentifier);
+		if (!knownIds.has(key)) {
+			return {
+				ids: knownIds,
+				error: new Error("Invalid batchItemFailures entry", {
+					cause: { package: pkg, data: { itemIdentifier } },
+				}),
+			};
+		}
+		ids.add(key);
+	}
+	return { ids };
+};
 
 export const pollKafka = (opts) => {
 	pollKafkaValidateOptions(opts);
@@ -112,15 +139,32 @@ export const pollKafka = (opts) => {
 	// batch is in flight at a time (partitionsConsumedConcurrently=1) so a
 	// single ack-gate per poller suffices.
 	let resolveNext;
+	let rejectNext = noop;
 	let resolveAck;
 	let inflight = Promise.resolve();
 	let inflightIds = new Set();
 	let started = false;
+	let crashError;
 
 	const waitForEvent = () =>
-		new Promise((r) => {
-			resolveNext = r;
+		new Promise((resolve, reject) => {
+			// A crash that landed while the runner held the previous batch.
+			if (crashError) return reject(crashError);
+			resolveNext = resolve;
+			rejectNext = reject;
 		});
+
+	// kafkajs restarts the consumer itself after a retriable crash and emits
+	// CRASH with `restart: true`. A non-retriable one (SASL authentication,
+	// authorization) is emitted with `restart: false` and leaves the consumer
+	// stopped, so the loop would park forever. Fail the poll instead: the
+	// worker reports it through onError, exits 1 and the primary re-forks it.
+	// https://kafka.js.org/docs/instrumentation-events#consumer
+	const onCrash = ({ payload }) => {
+		if (payload.restart) return;
+		crashError = payload.error;
+		rejectNext(crashError);
+	};
 	const waitForAck = () =>
 		new Promise((r) => {
 			resolveAck = r;
@@ -143,7 +187,7 @@ export const pollKafka = (opts) => {
 		const event = buildKafkaEvent(opts, eventSource, batch);
 		inflightIds = new Set(batch.messages.map((m) => recordId(batch, m)));
 		const ackGate = waitForAck();
-		// Stryker disable next-line OptionalChaining: equivalent; consumer.run() is only called once the loop below has parked in waitForEvent, so resolveNext is always set by the time kafkajs delivers a batch.
+		// Stryker disable next-line OptionalChaining: equivalent; there is no await between consumer.run() and the loop's first waitForEvent() below, so resolveNext is set before kafkajs can deliver a batch.
 		resolveNext?.({ event, done: false });
 		// The handler may outlast the group's session timeout. kafkajs only
 		// heartbeats between eachBatch calls, so keep the session alive while
@@ -179,6 +223,7 @@ export const pollKafka = (opts) => {
 		consumer,
 		async *poll(signal) {
 			if (!started) {
+				consumer.on(consumer.events.CRASH, onCrash);
 				await consumer.connect();
 				for (const topic of opts.topics) {
 					await consumer.subscribe({
@@ -243,13 +288,11 @@ export const pollKafka = (opts) => {
 			}
 		},
 		async acknowledge(_event, response) {
-			const failed = new Set(
-				// Stryker disable next-line ArrayDeclaration: equivalent; the placeholder entry has no itemIdentifier, and every record id is a "topic-partition-offset" string, so the lookup behaves as with an empty list.
-				(response?.batchItemFailures ?? []).map((f) =>
-					failureKey(f.itemIdentifier),
-				),
-			);
-			resolveAck?.(failed);
+			const failed = batchFailures(response, inflightIds, failureKey);
+			// An invalid response releases the gate with every record failed, so
+			// nothing resolves or commits and kafkajs fetches the batch again.
+			resolveAck?.(failed.ids);
+			if (failed.error) throw failed.error;
 		},
 	};
 };

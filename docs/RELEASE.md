@@ -33,7 +33,7 @@ At a given point in time, if you want to draft a new release, you need to follow
 
 - Work lands on `develop` through pull requests; a release is the merge of `develop` into `main`. Nothing is committed to `main` directly, and the `main` ruleset requires two approving reviews, CODEOWNERS review and every status check in [.github/rulesets/main.json](../.github/rulesets/main.json).
 - Do the version bump on `develop`, or on a `release/X.Y.Z` branch off `develop` when it needs several commits or a review before it lands there.
-- `develop` moves to the next version as soon as a release is cut (it is `8.0.0-alpha.0` now), so a patch for a shipped line does not start from `develop`. A `7.9.x` hotfix branches from tag `7.9.2`, is released through its own PR to `main`, and is ported back to `develop` afterwards.
+- `develop` moves to the next version as soon as a release is cut (it is `8.0.0-alpha.0` now), so a patch for a shipped line does not start from `develop`. It lands on that line's maintenance branch (`7.x`), see [Maintenance releases](#maintenance-releases).
 
 ### 2. Version bump
 
@@ -59,8 +59,8 @@ At a given point in time, if you want to draft a new release, you need to follow
 
 Publishing is two-phase: CI stages, a maintainer approves.
 
-1. [release.yml](../.github/workflows/release.yml) runs build -> GitHub release -> publish. The Build job refuses to pack unless every workspace carries the root version and `package-lock.json` links every `@middy/*` dependency to its workspace, then copies the root `LICENSE` into each package directory (gitignored) so every tarball ships it. Approve the `npm-publish` environment when the Publish job requests review.
-2. The Publish job verifies the provenance attestation of every tarball, then runs `npm stage publish` for each one and fails on the first that does not stage, so a green job means every tarball the Build job packed is staged: nothing is live yet. `npm run release:staged` lists what is queued, with the actor and shasum behind each entry.
+1. [release.yml](../.github/workflows/release.yml) runs build -> GitHub release -> publish. The Build job runs each workspace's `build` script (today only `rds`, which fetches the certificate modules `npm ci --ignore-scripts` skips), refuses to pack unless every workspace carries the root version, `package-lock.json` links every `@middy/*` dependency to its workspace and `packages/rds/certificates` holds at least 35 modules, then copies the root `LICENSE` into each package directory (gitignored) so every tarball ships it. Approve the `npm-publish` environment when the Publish job requests review.
+2. The Publish job verifies the provenance attestation of every tarball, then runs `npm stage publish` for each one under the dist-tag the Build job chose (see [Dist-tags](#dist-tags)) and fails on the first that does not stage, so a green job means every tarball the Build job packed is staged: nothing is live yet. `npm run release:staged` lists what is queued, with the actor and shasum behind each entry.
 3. Run `npm run release:approve` (requires npm login with 2FA) to take the release live. It only approves staged ids matching the release version, and refuses when the number of staged ids differs from the number of workspaces.
 
 All packages are published using OpenID Connect with a stage-only trusted publisher. Each new package must be configured first.
@@ -122,8 +122,41 @@ gh api -X PUT repos/middyjs/middy/rulesets/<id> --input .github/rulesets/main.js
 gh api -X PUT repos/middyjs/middy/rulesets/<id> --input .github/rulesets/develop.json
 ```
 
+## Maintenance releases
+
+A shipped major line is patched from a long-lived `<major>.x` branch once `develop` has moved on to the next major. For 7.x:
+
+1. Create the branch from the last tag of the line, once:
+
+   ```bash
+   git checkout -b 7.x 7.9.2
+   git push origin 7.x
+   ```
+
+2. Protect it like `main`. [.github/rulesets/maintenance.json](../.github/rulesets/maintenance.json) is `main.json` with the branch condition set to `refs/heads/[0-9]*.x`, so one ruleset covers every maintenance branch (ruleset fnmatch has no `+`; the Actions branch filter in `release.yml` supports it and uses `[0-9]+.x`). It is not live yet; create it once, then update it with PUT like the others:
+
+   ```bash
+   gh api -X POST repos/middyjs/middy/rulesets --input .github/rulesets/maintenance.json
+   gh api -X PUT repos/middyjs/middy/rulesets/<id> --input .github/rulesets/maintenance.json
+   ```
+
+3. Hotfix PRs target `7.x` instead of `main`. Bump the version as in step 2 (`npm run release:sync` included), on the hotfix branch or on a `release/7.9.3` branch off `7.x`. Merging triggers [release.yml](../.github/workflows/release.yml) exactly as on `main`; steps 3 and 4 apply unchanged, with `7.x` in place of `main` when tagging.
+4. Port the fix forward to `develop` in a separate PR.
+
+### Dist-tags
+
+`release.yml` picks the npm dist-tag in the Build job from the version and the registry's current `@middy/core`:
+
+| Version | Dist-tag |
+| --- | --- |
+| Pre-release (`X.Y.Z-alpha.N`) | `next` |
+| Stable, at or above the registry's `latest` | `latest` |
+| Stable, below the registry's `latest` (a `7.9.3` after `8.0.0`) | the major line, `7.x` |
+
+So a maintenance release never moves `latest` backwards, and `npm install @middy/core@7.x` follows the line. There is no publish script to edit.
+
 ## Setting up new major release
 
 - `package.json`: update `engines` versions
 - Update the Node.js versions used by CI to the current AWS Lambda runtimes: the `node-version` matrix in `test-unit.yml` and `NODE_VERSION` in the other workflows under `.github/workflows/`, then apply the Rulesets step above because the unit check names include the version.
-- Pre-release versions (`X.Y.Z-alpha.N`) are staged under the `next` dist-tag and stable versions under `latest`. `release.yml` picks the tag from the version, there is no publish script to edit.
+- Nothing to change for npm: `release.yml` picks the dist-tag from the version, see [Dist-tags](#dist-tags). Once the new major is on `latest`, patches for the previous line go through its maintenance branch, see [Maintenance releases](#maintenance-releases).

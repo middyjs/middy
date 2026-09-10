@@ -1,5 +1,12 @@
-import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	ok,
+	rejects,
+	strictEqual,
+	throws,
+} from "node:assert/strict";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { syncBuiltinESMExports } from "node:module";
 import { describe, test } from "node:test";
 import middy, { middyValidateOptions } from "./index.js";
 
@@ -14,6 +21,21 @@ const defaultContext = {
 // middy never awaits it.
 const thenKey = "then";
 const createThenable = (onThen) => ({ [thenKey]: onThen });
+
+// Core schedules the early timeout through the `setTimeout` it imports by
+// name from node:timers. The suite's timer mock patches the module object
+// and the global, but that ESM binding only follows after a sync, and it has
+// to be synced again once the mock is reset so later tests get the real
+// timer back.
+const withMockedCoreTimers = async (t, run) => {
+	syncBuiltinESMExports();
+	try {
+		await run();
+	} finally {
+		t.mock.timers.reset();
+		syncBuiltinESMExports();
+	}
+};
 
 describe("middy core", () => {
 	test.beforeEach(async (t) => {
@@ -386,27 +408,37 @@ describe("middy core", () => {
 	});
 
 	test("Should handle error thrown by timeoutEarlyResponse", async (t) => {
-		const timeoutError = new Error("Custom timeout error");
-		const plugin = {
-			timeoutEarlyInMillis: 1,
-			timeoutEarlyResponse: () => {
-				throw timeoutError;
-			},
-		};
-		const context = {
-			getRemainingTimeInMillis: () => 100,
-		};
-		const handler = middy(async (event, context, { signal }) => {
-			t.mock.timers.tick(100);
-			return true;
-		}, plugin);
+		await withMockedCoreTimers(t, async () => {
+			const timeoutError = new Error("Custom timeout error");
+			const plugin = {
+				timeoutEarlyInMillis: 1,
+				timeoutEarlyResponse: () => {
+					throw timeoutError;
+				},
+			};
+			const context = {
+				// Early timeout fires at 100 - 1 = 99ms.
+				getRemainingTimeInMillis: () => 100,
+			};
+			let capturedSignal;
+			// Handler resolves at 200ms, after the early timeout, so a mutant that
+			// skips the timeout branch yields "handler-response" instead of hanging.
+			const handler = middy((event, context, { signal }) => {
+				capturedSignal = signal;
+				return new Promise((resolve) => {
+					setTimeout(() => resolve("handler-response"), 200);
+				});
+			}, plugin);
 
-		try {
-			await handler(defaultEvent, context);
-		} catch (e) {
-			strictEqual(e, timeoutError);
-			strictEqual(e.message, "Custom timeout error");
-		}
+			const pending = handler(defaultEvent, context);
+			t.mock.timers.tick(200);
+
+			// A resolution can never be identical to the error object, so this
+			// also fails when the timeout branch does not run.
+			const caught = await pending.catch((e) => e);
+			strictEqual(caught, timeoutError);
+			strictEqual(capturedSignal.aborted, true);
+		});
 	});
 
 	test('Thrown error from "after" middlewares should handled', async (t) => {
@@ -1122,57 +1154,75 @@ describe("middy core", () => {
 	});
 
 	test("Should abort handler when timeout expires", async (t) => {
-		const plugin = {
-			timeoutEarlyInMillis: 1,
-			timeoutEarlyResponse: () => true,
-		};
-		const context = {
-			getRemainingTimeInMillis: () => 2,
-		};
-
-		const handler = middy((event, context, { signal }) => {
-			signal.onabort = (abort) => {
-				ok(abort.target.aborted);
+		await withMockedCoreTimers(t, async () => {
+			const plugin = {
+				timeoutEarlyInMillis: 1,
+				timeoutEarlyResponse: () => true,
 			};
-			return Promise.race([]);
-		}, plugin);
+			const context = {
+				// Early timeout fires at 2 - 1 = 1ms.
+				getRemainingTimeInMillis: () => 2,
+			};
 
-		try {
-			const response = await handler(defaultEvent, context);
-			ok(response);
-		} catch (_e) {}
+			let abortedAtAbortEvent;
+			// Still pending at the early timeout; resolves at 100ms so a mutant
+			// that never fires the timeout yields "handler-response", not a hang.
+			const handler = middy((event, context, { signal }) => {
+				signal.onabort = (abort) => {
+					abortedAtAbortEvent = abort.target.aborted;
+				};
+				return new Promise((resolve) => {
+					setTimeout(() => resolve("handler-response"), 100);
+				});
+			}, plugin);
+
+			const pending = handler(defaultEvent, context);
+			t.mock.timers.tick(100);
+
+			strictEqual(await pending, true);
+			strictEqual(abortedAtAbortEvent, true);
+		});
 	});
 
 	test("Should abort a non-async handler returning a pending promise when timeout expires", async (t) => {
-		// Not declared `async`: the early-timeout race keys on the RETURNED
-		// VALUE being a thenable, not on the function declaration, so a plain
-		// function handing back a pending promise must still be aborted.
-		const plugin = {
-			timeoutEarlyInMillis: 1,
-			timeoutEarlyResponse: () => "early response",
-		};
-		const context = {
-			getRemainingTimeInMillis: () => 2,
-		};
+		await withMockedCoreTimers(t, async () => {
+			// Not declared `async`: the early-timeout race keys on the RETURNED
+			// VALUE being a thenable, not on the function declaration, so a plain
+			// function handing back a pending promise must still be aborted.
+			const plugin = {
+				timeoutEarlyInMillis: 1,
+				timeoutEarlyResponse: () => "early response",
+			};
+			const context = {
+				// Early timeout fires at 2 - 1 = 1ms.
+				getRemainingTimeInMillis: () => 2,
+			};
 
-		let abortFired = false;
-		let capturedSignal;
-		const handler = middy((event, context, { signal }) => {
-			capturedSignal = signal;
-			signal.addEventListener("abort", () => {
-				abortFired = true;
-			});
-			return new Promise(() => {});
-		}, plugin);
+			let abortFired = false;
+			let capturedSignal;
+			// Still pending at the early timeout; resolves at 100ms so a mutant
+			// that never fires the timeout yields "handler-response", not a hang.
+			const handler = middy((event, context, { signal }) => {
+				capturedSignal = signal;
+				signal.addEventListener("abort", () => {
+					abortFired = true;
+				});
+				return new Promise((resolve) => {
+					setTimeout(() => resolve("handler-response"), 100);
+				});
+			}, plugin);
 
-		const response = await handler(defaultEvent, context);
+			const pending = handler(defaultEvent, context);
+			t.mock.timers.tick(100);
+			const response = await pending;
 
-		// abort() dispatches listeners synchronously inside timeoutResolve,
-		// before timeoutEarlyResponse resolves the race, so both must be
-		// observable by the time the handler settles.
-		strictEqual(response, "early response");
-		strictEqual(abortFired, true);
-		strictEqual(capturedSignal.aborted, true);
+			// abort() dispatches listeners synchronously inside timeoutResolve,
+			// before timeoutEarlyResponse resolves the race, so both must be
+			// observable by the time the handler settles.
+			strictEqual(response, "early response");
+			strictEqual(abortFired, true);
+			strictEqual(capturedSignal.aborted, true);
+		});
 	});
 
 	test("Should return a non-Promise handler result while the reserve window has time left", async (t) => {
@@ -1372,47 +1422,62 @@ describe("middy core", () => {
 	});
 
 	test("Should throw error when timeout expires", async (t) => {
-		const plugin = {
-			timeoutEarlyInMillis: 1,
-		};
-		const context = {
-			getRemainingTimeInMillis: () => 100,
-		};
-		const handler = middy(async (event, context, { signal }) => {
-			t.mock.timers.tick(100);
-			return true;
-		}, plugin);
+		await withMockedCoreTimers(t, async () => {
+			const plugin = {
+				timeoutEarlyInMillis: 1,
+			};
+			const context = {
+				// Early timeout fires at 100 - 1 = 99ms.
+				getRemainingTimeInMillis: () => 100,
+			};
+			let capturedSignal;
+			// Handler resolves at 200ms, after the early timeout, so a mutant that
+			// skips the timeout branch resolves instead of hanging.
+			const handler = middy((event, context, { signal }) => {
+				capturedSignal = signal;
+				return new Promise((resolve) => {
+					setTimeout(() => resolve("handler-response"), 200);
+				});
+			}, plugin);
 
-		try {
-			await handler(defaultEvent, context);
-		} catch (e) {
-			strictEqual(e.name, "TimeoutError");
-			strictEqual(e.message, "[AbortError]: The operation was aborted.");
-			deepStrictEqual(e.cause, { package: "@middy/core" });
-		}
+			const pending = handler(defaultEvent, context);
+			t.mock.timers.tick(200);
+
+			await rejects(pending, {
+				name: "TimeoutError",
+				message: "[AbortError]: The operation was aborted.",
+				cause: { package: "@middy/core" },
+			});
+			strictEqual(capturedSignal.aborted, true);
+		});
 	});
 
 	test("Should not invoke timeoutEarlyResponse on success", async (t) => {
-		let timeoutCalled = false;
-		const plugin = {
-			timeoutEarlyInMillis: 50,
-			timeoutEarlyResponse: () => {
-				timeoutCalled = true;
-			},
-		};
-		const context = {
-			getRemainingTimeInMillis: () => 100,
-		};
-		const handler = middy(async (event, context, { signal }) => {
-			return true;
-		}, plugin);
+		await withMockedCoreTimers(t, async () => {
+			let timeoutCalled = false;
+			const plugin = {
+				timeoutEarlyInMillis: 50,
+				timeoutEarlyResponse: () => {
+					timeoutCalled = true;
+				},
+			};
+			const context = {
+				// Early timeout would fire at 100 - 50 = 50ms if not cleared.
+				getRemainingTimeInMillis: () => 100,
+			};
+			const handler = middy(async (event, context, { signal }) => {
+				return true;
+			}, plugin);
 
-		const response = await handler(defaultEvent, context);
-		ok(response);
+			const response = await handler(defaultEvent, context);
+			strictEqual(response, true);
 
-		t.mock.timers.tick(200);
+			// Advance past the would-be delay; the success path must have cleared
+			// the timer so timeoutEarlyResponse never runs.
+			t.mock.timers.tick(200);
 
-		ok(!timeoutCalled);
+			strictEqual(timeoutCalled, false);
+		});
 	});
 
 	test("Should handle handler without timeout (no getRemainingTimeInMillis)", async (t) => {
@@ -1425,50 +1490,71 @@ describe("middy core", () => {
 	});
 
 	test("Should use lambdaContext.getRemainingTimeInMillis as fallback", async (t) => {
-		const plugin = {
-			timeoutEarlyInMillis: 1,
-			timeoutEarlyResponse: () => true,
-		};
-		const context = {
-			lambdaContext: {
-				getRemainingTimeInMillis: () => 100,
-			},
-		};
+		await withMockedCoreTimers(t, async () => {
+			let clockReads = 0;
+			const plugin = {
+				timeoutEarlyInMillis: 1,
+				timeoutEarlyResponse: () => "timed out",
+			};
+			const context = {
+				lambdaContext: {
+					// Early timeout fires at 100 - 1 = 99ms, but only if the
+					// fallback clock is consulted.
+					getRemainingTimeInMillis: () => {
+						clockReads++;
+						return 100;
+					},
+				},
+			};
 
-		const handler = middy(async () => {
-			return "response";
-		}, plugin);
+			// Handler resolves at 200ms, after the early timeout: without the
+			// fallback no timer is scheduled and "response" comes back instead.
+			const handler = middy(
+				() =>
+					new Promise((resolve) => {
+						setTimeout(() => resolve("response"), 200);
+					}),
+				plugin,
+			);
 
-		const response = await handler(defaultEvent, context);
-		strictEqual(response, "response");
+			const pending = handler(defaultEvent, context);
+			t.mock.timers.tick(200);
+
+			strictEqual(await pending, "timed out");
+			strictEqual(clockReads, 1);
+		});
 	});
 
 	test("Should use default timeoutEarlyResponse when timeout expires", async (t) => {
-		t.mock.timers.reset();
-		const context = {
-			getRemainingTimeInMillis: () => 10,
-		};
-		const handler = middy(
-			async () => {
-				await new Promise((resolve) => setTimeout(resolve, 50));
-				return true;
-			},
-			{ timeoutEarlyInMillis: 1 },
-		);
+		await withMockedCoreTimers(t, async () => {
+			const context = {
+				// Early timeout fires at 10 - 1 = 9ms.
+				getRemainingTimeInMillis: () => 10,
+			};
+			const handler = middy(
+				async () => {
+					await new Promise((resolve) => setTimeout(resolve, 50));
+					return true;
+				},
+				{ timeoutEarlyInMillis: 1 },
+			);
 
-		try {
-			await handler(defaultEvent, context);
-			throw new Error("Expected timeout");
-		} catch (e) {
-			strictEqual(e.name, "TimeoutError");
-			strictEqual(e.message, "[AbortError]: The operation was aborted.");
-			deepStrictEqual(e.cause, { package: "@middy/core" });
-		}
+			const pending = handler(defaultEvent, context);
+			t.mock.timers.tick(50);
+
+			await rejects(pending, {
+				name: "TimeoutError",
+				message: "[AbortError]: The operation was aborted.",
+				cause: { package: "@middy/core" },
+			});
+		});
 	});
 
 	test("Should not emit TimeoutNegativeWarning when remaining time is below timeoutEarlyInMillis", async (t) => {
 		// Use real timers so a negative setTimeout delay would surface a warning.
+		// Sync after the reset so core's node:timers binding is the real one too.
 		t.mock.timers.reset();
+		syncBuiltinESMExports();
 		const warnings = [];
 		const onWarning = (warning) => {
 			warnings.push(warning.name);
@@ -1486,9 +1572,11 @@ describe("middy core", () => {
 			{ timeoutEarlyInMillis: 5 },
 		);
 
-		// Either outcome (handler response or early timeout) is acceptable; the
-		// observable contract is that no negative-delay warning is emitted.
-		await handler(defaultEvent, context).catch(() => {});
+		// The already-resolved handler promise wins the race in a microtask,
+		// before the clamped 0ms timer can reach the timers phase, so the
+		// response is deterministic; the contract under test is that no
+		// negative-delay warning is emitted.
+		strictEqual(await handler(defaultEvent, context), "response");
 
 		// Warnings are emitted on a later tick; wait for them to flush.
 		await new Promise((resolve) => globalThis.setTimeout(resolve, 10));
@@ -1498,27 +1586,32 @@ describe("middy core", () => {
 	});
 
 	test("Should not invoke timeoutEarlyResponse on error", async (t) => {
-		let timeoutCalled = false;
-		const plugin = {
-			timeoutEarlyInMillis: 50,
-			timeoutEarlyResponse: () => {
-				timeoutCalled = true;
-			},
-		};
-		const context = {
-			getRemainingTimeInMillis: () => 100,
-		};
-		const error = new Error("Oops!");
-		const handler = middy(async (event, context, { signal }) => {
-			throw error;
-		}, plugin);
+		await withMockedCoreTimers(t, async () => {
+			let timeoutCalled = false;
+			const plugin = {
+				timeoutEarlyInMillis: 50,
+				timeoutEarlyResponse: () => {
+					timeoutCalled = true;
+				},
+			};
+			const context = {
+				// Early timeout would fire at 100 - 50 = 50ms if not cleared.
+				getRemainingTimeInMillis: () => 100,
+			};
+			const error = new Error("Oops!");
+			const handler = middy(async (event, context, { signal }) => {
+				throw error;
+			}, plugin);
 
-		const response = await handler(defaultEvent, context).catch((err) => err);
-		strictEqual(response, error);
+			const response = await handler(defaultEvent, context).catch((err) => err);
+			strictEqual(response, error);
 
-		t.mock.timers.tick(100);
+			// Advance past the would-be delay; the catch path must have cleared
+			// the timer so timeoutEarlyResponse never runs.
+			t.mock.timers.tick(100);
 
-		ok(!timeoutCalled);
+			strictEqual(timeoutCalled, false);
+		});
 	});
 
 	test("internal option seeds a fresh per-request object (no leak between invocations)", async (t) => {
@@ -1686,36 +1779,40 @@ describe("middy core", () => {
 
 	// index.js:66 - timeoutEarly is false when timeoutEarlyInMillis is 0
 	test("Should not schedule early timeout when timeoutEarlyInMillis is 0", async (t) => {
-		// Real timers (the early-timeout uses node:timers setTimeout, not mocked).
-		t.mock.timers.reset();
-		let timeoutCalled = false;
-		const plugin = {
-			timeoutEarlyInMillis: 0,
-			timeoutEarlyResponse: () => {
-				timeoutCalled = true;
-				return "timed out";
-			},
-		};
-		const context = {
-			// If `timeoutEarly` were (incorrectly) truthy with timeoutEarlyInMillis 0,
-			// an early timer would be scheduled at delay = 50 - 0 = 50ms.
-			getRemainingTimeInMillis: () => 50,
-		};
-		// Handler resolves at 100ms, after the would-be early timeout (50ms).
-		const handler = middy(
-			() =>
-				new Promise((resolve) => {
-					setTimeout(() => resolve("response"), 100);
-				}),
-			plugin,
-		);
+		await withMockedCoreTimers(t, async () => {
+			let timeoutCalled = false;
+			const plugin = {
+				timeoutEarlyInMillis: 0,
+				timeoutEarlyResponse: () => {
+					timeoutCalled = true;
+					return "timed out";
+				},
+			};
+			const context = {
+				// If `timeoutEarly` were (incorrectly) truthy with timeoutEarlyInMillis 0,
+				// an early timer would be scheduled at delay = 50 - 0 = 50ms.
+				getRemainingTimeInMillis: () => 50,
+			};
+			// Handler resolves at 100ms, after the would-be early timeout (50ms).
+			const handler = middy(
+				() =>
+					new Promise((resolve) => {
+						setTimeout(() => resolve("response"), 100);
+					}),
+				plugin,
+			);
 
-		const response = await handler(defaultEvent, context);
+			// Both timers are scheduled synchronously by the call, so one tick past
+			// the handler delay settles the race either way.
+			const pending = handler(defaultEvent, context);
+			t.mock.timers.tick(100);
+			const response = await pending;
 
-		// With timeoutEarly correctly false, no early timer fires and the handler
-		// response is returned; a mutant enabling it would yield "timed out".
-		strictEqual(response, "response");
-		strictEqual(timeoutCalled, false);
+			// With timeoutEarly correctly false, no early timer fires and the handler
+			// response is returned; a mutant enabling it would yield "timed out".
+			strictEqual(response, "response");
+			strictEqual(timeoutCalled, false);
+		});
 	});
 
 	// index.js:112 - onError only registered when middleware provides one
@@ -1759,123 +1856,126 @@ describe("middy core", () => {
 
 	// index.js:168 - handler receives a working abort signal aborted on timeout
 	test("Should pass a working abort signal that is aborted on early timeout", async (t) => {
-		// Real timers: the early-timeout uses `node:timers` setTimeout, which the
-		// mock-timer harness does not intercept.
-		t.mock.timers.reset();
-		let receivedSignal;
-		let abortedAtAbortEvent;
-		const plugin = {
-			timeoutEarlyInMillis: 1,
-			timeoutEarlyResponse: () => true,
-		};
-		const context = {
-			// Early-timeout fires at delay 10 - 1 = 9ms.
-			getRemainingTimeInMillis: () => 10,
-		};
-		const handler = middy((event, context, { signal }) => {
-			receivedSignal = signal;
-			strictEqual(signal.aborted, false);
-			return new Promise((resolve) => {
-				signal.addEventListener("abort", () => {
-					abortedAtAbortEvent = signal.aborted;
-					resolve(true);
+		await withMockedCoreTimers(t, async () => {
+			let receivedSignal;
+			let abortedAtAbortEvent;
+			const plugin = {
+				timeoutEarlyInMillis: 1,
+				timeoutEarlyResponse: () => true,
+			};
+			const context = {
+				// Early-timeout fires at delay 10 - 1 = 9ms.
+				getRemainingTimeInMillis: () => 10,
+			};
+			const handler = middy((event, context, { signal }) => {
+				receivedSignal = signal;
+				strictEqual(signal.aborted, false);
+				return new Promise((resolve) => {
+					signal.addEventListener("abort", () => {
+						abortedAtAbortEvent = signal.aborted;
+						resolve(true);
+					});
+					// Fallback so the promise always settles (no hang) even if a mutant
+					// drops the signal; the assertions below still fail in that case.
+					setTimeout(() => resolve(true), 1000);
 				});
-				// Fallback so the promise always settles (no hang) even if a mutant
-				// drops the signal; the assertions below still fail in that case.
-				setTimeout(() => resolve(true), 1000);
-			});
-		}, plugin);
+			}, plugin);
 
-		await handler(defaultEvent, context);
+			const pending = handler(defaultEvent, context);
+			t.mock.timers.tick(1000);
+			await pending;
 
-		ok(receivedSignal instanceof AbortSignal);
-		strictEqual(abortedAtAbortEvent, true);
-		strictEqual(receivedSignal.aborted, true);
+			ok(receivedSignal instanceof AbortSignal);
+			strictEqual(abortedAtAbortEvent, true);
+			strictEqual(receivedSignal.aborted, true);
+		});
 	});
 
 	// index.js:194 - early-timeout delay is (remaining - timeoutEarlyInMillis)
 	test("Should fire early timeout at remaining minus timeoutEarlyInMillis", async (t) => {
-		// Real timers (the early-timeout uses node:timers setTimeout, not mocked).
-		t.mock.timers.reset();
-		const plugin = {
-			timeoutEarlyInMillis: 80,
-			timeoutEarlyResponse: () => "timed out",
-		};
-		const context = {
-			// Correct early-timeout delay is 200 - 80 = 120ms. The `+` mutant would
-			// schedule it at 200 + 80 = 280ms. The handler resolves at 200ms, so:
-			//   correct: timeout (120ms) wins  -> "timed out"
-			//   mutant:  handler (200ms) wins  -> "handler-response"
-			getRemainingTimeInMillis: () => 200,
-		};
-		const handler = middy(
-			() =>
-				new Promise((resolve) => {
-					setTimeout(() => resolve("handler-response"), 200);
-				}),
-			plugin,
-		);
+		await withMockedCoreTimers(t, async () => {
+			const plugin = {
+				timeoutEarlyInMillis: 80,
+				timeoutEarlyResponse: () => "timed out",
+			};
+			const context = {
+				// Correct early-timeout delay is 200 - 80 = 120ms. The `+` mutant would
+				// schedule it at 200 + 80 = 280ms. The handler resolves at 200ms, so:
+				//   correct: timeout (120ms) wins  -> "timed out"
+				//   mutant:  handler (200ms) wins  -> "handler-response"
+				getRemainingTimeInMillis: () => 200,
+			};
+			const handler = middy(
+				() =>
+					new Promise((resolve) => {
+						setTimeout(() => resolve("handler-response"), 200);
+					}),
+				plugin,
+			);
 
-		const response = await handler(defaultEvent, context);
-		strictEqual(response, "timed out");
+			const pending = handler(defaultEvent, context);
+			t.mock.timers.tick(200);
+			const response = await pending;
+			strictEqual(response, "timed out");
+		});
 	});
 
 	// index.js:210 - scheduled timeout is cleared after handler completes
 	test("Should clear the scheduled early timeout after handler completes", async (t) => {
-		// Real timers (the early-timeout uses node:timers setTimeout, not mocked).
-		t.mock.timers.reset();
-		let timeoutCalled = false;
-		const plugin = {
-			timeoutEarlyInMillis: 10,
-			timeoutEarlyResponse: () => {
-				timeoutCalled = true;
-			},
-		};
-		const context = {
-			// Early-timeout would fire at delay 50 - 10 = 40ms if not cleared.
-			getRemainingTimeInMillis: () => 50,
-		};
-		const handler = middy(async () => "response", plugin);
+		await withMockedCoreTimers(t, async () => {
+			let timeoutCalled = false;
+			const plugin = {
+				timeoutEarlyInMillis: 10,
+				timeoutEarlyResponse: () => {
+					timeoutCalled = true;
+				},
+			};
+			const context = {
+				// Early-timeout would fire at delay 50 - 10 = 40ms if not cleared.
+				getRemainingTimeInMillis: () => 50,
+			};
+			const handler = middy(async () => "response", plugin);
 
-		const response = await handler(defaultEvent, context);
-		strictEqual(response, "response");
+			const response = await handler(defaultEvent, context);
+			strictEqual(response, "response");
 
-		// The timer was scheduled (timeoutEarly active) but the handler resolved
-		// first; cleanup must clearTimeout so it never fires afterwards. Wait past
-		// the would-be delay (40ms) to confirm it was cleared.
-		await new Promise((resolve) => setTimeout(resolve, 120));
-		ok(!timeoutCalled);
+			// The timer was scheduled (timeoutEarly active) but the handler resolved
+			// first; cleanup must clearTimeout so it never fires afterwards. Advance
+			// past the would-be delay (40ms) to confirm it was cleared.
+			t.mock.timers.tick(120);
+			ok(!timeoutCalled);
+		});
 	});
 
 	// index.js:210 (catch path) - scheduled early timeout is cleared when the
 	// handler throws, so timeoutEarlyResponse never fires afterwards.
 	test("Should clear the scheduled early timeout when the handler throws", async (t) => {
-		// Real timers (the early-timeout uses node:timers setTimeout, not mocked).
-		t.mock.timers.reset();
-		let timeoutCalled = false;
-		const handlerError = new Error("boom");
-		const plugin = {
-			timeoutEarlyInMillis: 10,
-			timeoutEarlyResponse: () => {
-				timeoutCalled = true;
-			},
-		};
-		const context = {
-			// Early-timeout would fire at delay 50 - 10 = 40ms if not cleared.
-			getRemainingTimeInMillis: () => 50,
-		};
-		// Handler rejects quickly, before the would-be early timeout (40ms).
-		const handler = middy(async () => {
-			throw handlerError;
-		}, plugin);
+		await withMockedCoreTimers(t, async () => {
+			let timeoutCalled = false;
+			const handlerError = new Error("boom");
+			const plugin = {
+				timeoutEarlyInMillis: 10,
+				timeoutEarlyResponse: () => {
+					timeoutCalled = true;
+				},
+			};
+			const context = {
+				// Early-timeout would fire at delay 50 - 10 = 40ms if not cleared.
+				getRemainingTimeInMillis: () => 50,
+			};
+			// Handler rejects quickly, before the would-be early timeout (40ms).
+			const handler = middy(async () => {
+				throw handlerError;
+			}, plugin);
 
-		const caught = await handler(defaultEvent, context).catch((e) => e);
-		strictEqual(caught, handlerError);
+			const caught = await handler(defaultEvent, context).catch((e) => e);
+			strictEqual(caught, handlerError);
 
-		// Wait past the would-be delay (40ms); the catch-path cleanup must have
-		// cleared the timer so timeoutEarlyResponse never runs.
-		await new Promise((resolve) => setTimeout(resolve, 120));
-		ok(!timeoutCalled);
+			// Advance past the would-be delay (40ms); the catch-path cleanup must
+			// have cleared the timer so timeoutEarlyResponse never runs.
+			t.mock.timers.tick(120);
+			ok(!timeoutCalled);
+		});
 	});
 
 	// A distinct error thrown by onError aggregates with the handler error

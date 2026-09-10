@@ -1,3 +1,5 @@
+/// <reference types="node" />
+import type { PeerCertificate } from "node:tls";
 import { expect, test } from "tstyche";
 import ssl, { type SslConfig, type SslOptions } from "./ssl.js";
 
@@ -21,6 +23,10 @@ test("ssl rejects unknown options", () => {
 	expect(ssl).type.not.toBeCallableWith(ca, { checkServerIdentity: () => {} });
 });
 
-test("ssl config no longer exposes checkServerIdentity", () => {
-	expect<SslConfig["ssl"]>().type.not.toHaveProperty("checkServerIdentity");
+test("ssl config pins checkServerIdentity to servername", () => {
+	expect(
+		ssl(ca, { servername: "db.example.com" }).ssl.checkServerIdentity,
+	).type.toBe<
+		((hostname: string, cert: PeerCertificate) => Error | undefined) | undefined
+	>();
 });

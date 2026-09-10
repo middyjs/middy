@@ -218,7 +218,7 @@ test("durable context: nested ctx.step calls inside recordHandler scope under th
 		{ status: "fulfilled", value: 10 },
 		{ status: "fulfilled", value: 20 },
 	]);
-	// Order interleaves because steps run concurrently — what matters is that
+	// Order interleaves because steps run concurrently, what matters is that
 	// every per-record step *and* its nested sub-step appear, demonstrating
 	// the nested step ran under a context whose `step` recorded onto the same
 	// durable execution.

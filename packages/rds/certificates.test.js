@@ -1,5 +1,6 @@
-import { ok, strictEqual } from "node:assert/strict";
+import { match, ok, strictEqual } from "node:assert/strict";
 import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -47,6 +48,25 @@ const regions = [
 
 for (const region of regions) {
 	const url = new URL(`./certificates/${region}.js`, import.meta.url);
+	const declaration = fileURLToPath(
+		new URL(`./certificates/${region}.d.ts`, import.meta.url),
+	);
+	// Both files are build output; a sandbox or CI checkout may hold neither.
+	// The release workflow asserts the full set exists before packing.
+	test(`certificate ${region} ships a declaration file`, {
+		skip:
+			existsSync(fileURLToPath(url)) && existsSync(declaration)
+				? false
+				: "certificates not built",
+	}, async () => {
+		// Stryker's sandbox prepends `// @ts-nocheck` to every .d.ts, so match
+		// the two statements rather than the exact file.
+		const source = await readFile(declaration, "utf8");
+		match(
+			source,
+			/^(?:\/\/ @ts-nocheck\n)?declare const ca: string;\nexport default ca;\n$/,
+		);
+	});
 	test(`certificate ${region} is a non-empty PEM bundle`, {
 		skip: existsSync(fileURLToPath(url)) ? false : "certificates not built",
 	}, async () => {

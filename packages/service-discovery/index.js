@@ -107,7 +107,7 @@ const serviceDiscoveryMiddleware = (opts = {}) => {
 				.send(command)
 				.catch((e) => catchInvalidSignatureException(e, client, command))
 				.then((resp) => resp.Instances)
-				.catch(evictCacheOnFailure(options.cacheKey, internalKey));
+				.catch(evictCacheOnFailure(options.cacheKey, internalKey, values));
 		}
 
 		return values;
@@ -129,7 +129,12 @@ const serviceDiscoveryMiddleware = (opts = {}) => {
 	};
 
 	const serviceDiscoveryMiddlewareBefore = (request) => {
-		if (client) return serviceDiscoveryMiddlewareFetch(request);
+		// With `awsClientAssumeRole` the client is rebuilt when sts refetches the
+		// credentials, so it is resolved on every invocation (util memoises on
+		// the credential promise identity, so a hit costs one microtask).
+		if (client && !options.awsClientAssumeRole) {
+			return serviceDiscoveryMiddlewareFetch(request);
+		}
 		return clientInit(request).then((resolvedClient) => {
 			client = resolvedClient;
 			return serviceDiscoveryMiddlewareFetch(request);

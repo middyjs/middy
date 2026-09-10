@@ -865,7 +865,7 @@ test("It should escape regex metacharacters in static path segments", async (t) 
 	}
 });
 
-// Behavior pinning tests — these lock in semantics so optimizations
+// Behavior pinning tests, these lock in semantics so optimizations
 // cannot silently regress matching order, parameter capture, or 404 paths.
 
 test("It should route to the matching dynamic route when multiple segment counts coexist", async (t) => {
@@ -1297,17 +1297,70 @@ test("It should throw on a duplicate static route even without validateOptions",
 	}
 });
 
-test("It should throw on a duplicate static route registered through method ANY", () => {
+test("It should throw on a duplicate static route registered twice through method ANY", () => {
 	try {
 		httpRouter([
-			{ method: "ANY", path: "/a", handler: () => "any" },
-			{ method: "GET", path: "/a", handler: () => "get" },
+			{ method: "ANY", path: "/a", handler: () => "first" },
+			{ method: "ANY", path: "/a/", handler: () => "second" },
 		]);
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.message, "Duplicate route");
-		deepStrictEqual(e.cause.data, { method: "GET", path: "/a" });
+		strictEqual(e.cause.package, "@middy/http-router");
+		deepStrictEqual(e.cause.data, { method: "ANY", path: "/a" });
 	}
+});
+
+// A method-specific static route and an ANY static route on the same path are
+// allowed, like their dynamic counterparts: the method-specific one wins and
+// ANY serves every other method, whichever was registered first.
+test("It should prefer a method-specific static route over ANY registered after it", async (t) => {
+	const handler = httpRouter([
+		{ method: "GET", path: "/a", handler: () => "get" },
+		{ method: "ANY", path: "/a", handler: () => "any" },
+	]);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/a" }, defaultContext),
+		"get",
+	);
+	strictEqual(
+		await handler({ httpMethod: "POST", path: "/a" }, defaultContext),
+		"any",
+	);
+	strictEqual(
+		await handler({ httpMethod: "POST", path: "/a/" }, defaultContext),
+		"any",
+	);
+});
+
+test("It should prefer a method-specific static route over ANY registered before it", async (t) => {
+	const handler = httpRouter([
+		{ method: "ANY", path: "/a", handler: () => "any" },
+		{ method: "GET", path: "/a", handler: () => "get" },
+	]);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/a" }, defaultContext),
+		"get",
+	);
+	strictEqual(
+		await handler({ httpMethod: "DELETE", path: "/a" }, defaultContext),
+		"any",
+	);
+});
+
+test("It should prefer a static ANY route over a dynamic method-specific route", async (t) => {
+	const handler = httpRouter([
+		{ method: "GET", path: "/a/{id}", handler: () => "dynamic" },
+		{ method: "ANY", path: "/a/b", handler: () => "static-any" },
+	]);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/a/b" }, defaultContext),
+		"static-any",
+	);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/a/c" }, defaultContext),
+		"dynamic",
+	);
 });
 
 // Root path is not over-trimmed (index.js:77)
@@ -1588,5 +1641,101 @@ test("It should allow a method-specific and an ANY dynamic route on the same pat
 	strictEqual(
 		await handler({ httpMethod: "POST", path: "/a/1" }, defaultContext),
 		"any",
+	);
+});
+
+// Two dynamic routes that differ only in the parameter name match exactly the
+// same requests, so the second can never be reached: a duplicate, whatever the
+// capture is called.
+test("It should throw on a duplicate dynamic route that differs only in parameter name", () => {
+	try {
+		httpRouter([
+			{ method: "GET", path: "/a/{id}", handler: () => "first" },
+			{ method: "GET", path: "/a/{userId}", handler: () => "second" },
+		]);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.message, "Duplicate route");
+		strictEqual(e.cause.package, "@middy/http-router");
+		deepStrictEqual(e.cause.data, { method: "GET", path: "/a/{userId}" });
+	}
+});
+
+test("It should throw on a duplicate dynamic ANY route that differs only in parameter name", () => {
+	try {
+		httpRouter([
+			{ method: "ANY", path: "/a/{id}", handler: () => "first" },
+			{ method: "ANY", path: "/a/{userId}", handler: () => "second" },
+		]);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.message, "Duplicate route");
+		deepStrictEqual(e.cause.data, { method: "ANY", path: "/a/{userId}" });
+	}
+});
+
+test("It should allow the same dynamic pattern under different methods with different parameter names", async (t) => {
+	const handler = httpRouter([
+		{ method: "GET", path: "/a/{x}", handler: (event) => event.pathParameters },
+		{
+			method: "POST",
+			path: "/a/{y}",
+			handler: (event) => event.pathParameters,
+		},
+	]);
+	deepStrictEqual(
+		await handler({ httpMethod: "GET", path: "/a/1" }, defaultContext),
+		{ x: "1" },
+	);
+	deepStrictEqual(
+		await handler({ httpMethod: "POST", path: "/a/2" }, defaultContext),
+		{ y: "2" },
+	);
+});
+
+// The segment pre-filter must ignore a single trailing slash on the request,
+// or `/a/b/` (three slashes) never reaches `/a/{x}` (two).
+test("It should match a fixed-depth dynamic route when the request carries a trailing slash", async (t) => {
+	const handler = httpRouter([
+		{ method: "GET", path: "/a/{x}", handler: (event) => event.pathParameters },
+	]);
+	deepStrictEqual(
+		await handler({ httpMethod: "GET", path: "/a/b/" }, defaultContext),
+		{ x: "b" },
+	);
+	deepStrictEqual(
+		await handler({ httpMethod: "GET", path: "/a/b" }, defaultContext),
+		{ x: "b" },
+	);
+});
+
+test("It should 404 a trailing-slash request against a deeper dynamic route", async (t) => {
+	const handler = httpRouter([
+		{ method: "GET", path: "/a/{x}/{y}", handler: () => "deep" },
+	]);
+	try {
+		await handler({ httpMethod: "GET", path: "/a/b/" }, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 404);
+	}
+});
+
+test("It should register a {proxy+} route and a single-segment route on the same prefix as distinct patterns", async (t) => {
+	const handler = httpRouter([
+		{ method: "GET", path: "/files/{id}", handler: () => "id" },
+		{ method: "GET", path: "/files/{proxy+}", handler: () => "proxy" },
+	]);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/files/1" }, defaultContext),
+		"id",
+	);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/files/a/b" }, defaultContext),
+		"proxy",
+	);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/files" }, defaultContext),
+		"proxy",
 	);
 });

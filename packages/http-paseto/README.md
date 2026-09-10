@@ -31,7 +31,7 @@
 ## Install
 
 ```bash
-npm install --save @middy/http-paseto
+npm install --save @middy/http-paseto paseto
 ```
 
 

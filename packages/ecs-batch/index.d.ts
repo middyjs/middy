@@ -1,10 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import type { MiddyfiedHandler } from "@middy/core";
-import type {
-	Context as LambdaContext,
-	Handler as LambdaHandler,
-} from "aws-lambda";
+import type { Context as LambdaContext } from "aws-lambda";
 
 export interface Poller<TEvent, TResponse = unknown> {
 	source: string;
@@ -12,8 +8,21 @@ export interface Poller<TEvent, TResponse = unknown> {
 	acknowledge: (event: TEvent, response: TResponse) => Promise<void> | void;
 }
 
+/**
+ * Invoked as `handler(event, context)`. One call signature (rather than a
+ * union of handler types) so an inline function gets `event` and `context`
+ * typed from the poller; a plain Lambda `Handler` and a `middy()` handler are
+ * assignable too. Same shape as the routers' `RouteHandler`.
+ */
+export type RunnerHandler<TEvent, TResult> = (
+	event: TEvent,
+	context: LambdaContext,
+	...rest: any[]
+	// biome-ignore lint/suspicious/noConfusingVoidType: Lambda's `Handler` returns `void | Promise<TResult>`, and `undefined` would refuse it
+) => void | TResult | Promise<TResult>;
+
 export interface RunnerOptions<TEvent = unknown, TResult = unknown> {
-	handler: LambdaHandler<TEvent, TResult> | MiddyfiedHandler<TEvent, TResult>;
+	handler: RunnerHandler<TEvent, TResult>;
 	poller: Poller<TEvent, TResult>;
 	workers?: number;
 	timeout?: number;

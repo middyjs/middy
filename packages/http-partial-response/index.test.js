@@ -257,13 +257,87 @@ test("It should respond 400 when fields grouping depth exceeds the cap", async (
 	await expect400(handler, grouped, "Selector exceeds a depth of 100");
 });
 
-test("It should respond 400 when fields is not a string", async (t) => {
+test("It should respond 400 when fields is neither a string nor an array of strings", async (t) => {
 	const handler = middy(() => createDefaultObjectResponse());
 
 	handler.use(httpPartialResponse());
 
-	// VPC Lattice V2 delivers every query string value as an array.
-	await expect400(handler, ["firstname"], "Selector must be a string");
+	await expect400(handler, 42, "Selector must be a string");
+	await expect400(handler, { a: 1 }, "Selector must be a string");
+	await expect400(handler, ["firstname", 42], "Selector must be a string");
+});
+
+// VPC Lattice V2 delivers every query string value as an array, one entry per
+// occurrence. The last occurrence wins, as it does for a repeated parameter
+// on the other event formats.
+test("It should filter by the last entry of an array selector", async (t) => {
+	const handler = middy(() => createDefaultObjectResponse());
+
+	handler.use(httpPartialResponse());
+
+	const response = await handler(
+		{
+			version: "2.0",
+			method: "GET",
+			headers: {},
+			queryStringParameters: { fields: ["firstname", "lastname"] },
+		},
+		defaultContext,
+	);
+
+	deepStrictEqual(response.body, { lastname: "doe" });
+});
+
+test("It should treat an empty array selector as no selector", async (t) => {
+	const handler = middy(() => createDefaultObjectResponse());
+
+	handler.use(httpPartialResponse());
+
+	const response = await handler(
+		{ headers: {}, queryStringParameters: { fields: [] } },
+		defaultContext,
+	);
+
+	deepStrictEqual(response.body, { firstname: "john", lastname: "doe" });
+});
+
+// A selector the middleware refuses is refused before the handler runs: the
+// 400 is the same whatever the handler would have done, and the work the
+// handler would have done is not done for a response that cannot be sent.
+const expect400BeforeHandler = async (fields, reason) => {
+	let handlerRan = false;
+	const handler = middy(() => {
+		handlerRan = true;
+		return createDefaultObjectResponse();
+	});
+	handler.use(httpPartialResponse());
+	await expect400(handler, fields, reason);
+	strictEqual(handlerRan, false);
+};
+
+test("It should refuse a non-string selector before the handler runs", async (t) => {
+	await expect400BeforeHandler(42, "Selector must be a string");
+});
+
+test("It should refuse an over-length selector before the handler runs", async (t) => {
+	await expect400BeforeHandler(
+		new Array(5000).fill("a").join(","),
+		"Selector exceeds 2048 characters",
+	);
+});
+
+test("It should refuse an over-depth selector before the handler runs", async (t) => {
+	await expect400BeforeHandler(
+		new Array(150).fill("a").join("/"),
+		"Selector exceeds a depth of 100",
+	);
+});
+
+test("It should not run the selector checks in before when there is no selector", async (t) => {
+	const { before } = httpPartialResponse();
+	const request = { event: { queryStringParameters: {} } };
+	strictEqual(before(request), undefined);
+	strictEqual(before({ event: undefined }), undefined);
 });
 
 test("It should respond 400 when mask throws", async (t) => {

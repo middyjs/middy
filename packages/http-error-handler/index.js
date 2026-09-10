@@ -32,6 +32,27 @@ const optionSchema = {
 export const httpErrorHandlerValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
+// An Error `cause` keeps its `name`, its `message` and, when it has one, its
+// own `cause`, all the way down; the stack stays out. Anything that is not an
+// Error (a thrown string, `null`, a plain object) is handed to JSON.stringify
+// as it is. A chain that loops back on itself stops at the repeat.
+const serializeCause = (value, seen = new Set()) => {
+	if (
+		value === null ||
+		typeof value !== "object" ||
+		typeof value.message !== "string"
+	) {
+		return value;
+	}
+	if (seen.has(value)) return "[Circular]";
+	seen.add(value);
+	const json = { name: value.name, message: value.message };
+	if (value.cause !== undefined) {
+		json.cause = serializeCause(value.cause, seen);
+	}
+	return json;
+};
+
 // The generic 500 that replaces a non-http (or `expose: false`) error. On an
 // Error, `message` and `cause` are non-enumerable, so a downstream logger doing
 // `JSON.stringify(request.error)` would otherwise see only
@@ -48,7 +69,7 @@ class FallbackError extends Error {
 			statusCode: this.statusCode,
 			message: this.message,
 			expose: this.expose,
-			cause: String(this.cause?.message ?? this.cause),
+			cause: serializeCause(this.cause),
 		};
 	}
 }

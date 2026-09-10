@@ -1650,13 +1650,27 @@ test("pollKafka validator requires brokers + groupId + topics", () => {
 
 const makeFakeKafkaConsumer = () => {
 	const subscriptions = [];
+	const listeners = [];
 	let runConfig;
 	return {
 		subscriptions,
+		listeners,
 		connectCalled: 0,
 		disconnectCalled: 0,
+		// kafkajs instrumentation events: consumer.on(consumer.events.CRASH, fn)
+		// hands the listener { id, type, timestamp, payload }.
+		events: { CRASH: "consumer.crash" },
 		runHandler: () => runConfig.eachBatch,
 		runConfig: () => runConfig,
+		emit(type, payload) {
+			for (const [name, fn] of listeners) {
+				if (name === type) fn({ id: "1", type, timestamp: 0, payload });
+			}
+		},
+		on(name, fn) {
+			listeners.push([name, fn]);
+			return () => {};
+		},
 		async connect() {
 			this.connectCalled++;
 		},
@@ -2826,7 +2840,7 @@ test("runWorker uses default exitImpl when not injected", async () => {
 	});
 	await loopPromise;
 	process.removeListener("SIGTERM", onSigterm);
-	// don't call onSigterm — it would invoke the real process.exit
+	// don't call onSigterm, it would invoke the real process.exit
 });
 
 test("runPrimary uses default cluster impl when none injected", async () => {
@@ -3294,14 +3308,20 @@ test("pollKafka selfManaged emits the documented SelfManagedKafka event without 
 	});
 	const { value } = await firstNext;
 	deepStrictEqual(value, expectedKafkaEvent(fixture));
-	// An object identifier for another offset does not block this one.
-	await poller.acknowledge(value, {
-		batchItemFailures: [
-			{ itemIdentifier: { partition: "mytopic-0", offset: 99 } },
-		],
-	});
+	// An object identifier for an offset that is not in the batch invalidates
+	// the response: nothing resolves and the whole batch is retried.
+	// https://docs.aws.amazon.com/lambda/latest/dg/kafka-retry-configurations.html
+	await rejects(
+		() =>
+			poller.acknowledge(value, {
+				batchItemFailures: [
+					{ itemIdentifier: { partition: "mytopic-0", offset: 99 } },
+				],
+			}),
+		/Invalid batchItemFailures entry/,
+	);
 	await eachBatchPromise;
-	deepStrictEqual(resolveCalls, ["15"]);
+	deepStrictEqual(resolveCalls, []);
 	ac.abort();
 	await it.next();
 });
@@ -4348,18 +4368,29 @@ for (const [name, make] of streamPollers) {
 		strictEqual((await done).done, true);
 	});
 
-	test(`${name} waits pollingDelay between empty GetRecords calls`, async () => {
+	test(`${name} waits pollingDelay between empty GetRecords calls`, async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout"] });
 		const ac = new AbortController();
 		const client = makeEmptyStreamClient(ac, 50);
 		const done = make({ pollingDelay: 40, client }).poll(ac.signal).next();
 		await settleMacrotask();
 		strictEqual(client.records, 1, "the second call waits for the delay");
-		await sleep(100);
+		t.mock.timers.tick(39);
+		await settleMacrotask();
+		strictEqual(client.records, 1, "not before pollingDelay has elapsed");
+		t.mock.timers.tick(1);
+		await settleMacrotask();
+		strictEqual(client.records, 2, "one call per elapsed delay");
+		t.mock.timers.tick(60);
+		await settleMacrotask();
+		strictEqual(client.records, 3, "three calls 100 ms in, not fifty");
 		ok(
 			client.records >= 2 && client.records < 50,
 			`${client.records} calls after 100 ms`,
 		);
 		ac.abort();
+		// The loop is parked in its delay; the next tick lets it see the abort.
+		t.mock.timers.tick(40);
 		strictEqual((await done).done, true);
 	});
 }
@@ -4618,6 +4649,8 @@ test("pollAmq strips every STOMP destination prefix down to the physical name", 
 		["/remote-temp-queue/tmp", "tmp"],
 		["/remote-temp-topic/tmp", "tmp"],
 		["/queue/a/queue/b", "a/queue/b"],
+		// Only a leading prefix is stripped; one further in is part of the name.
+		["orders/queue/x", "orders/queue/x"],
 	];
 	for (const [destination, physicalName] of cases) {
 		const stomp = makeFakeStompClient();
@@ -4871,6 +4904,20 @@ const brokerPollers = [
 const idle = Symbol("idle");
 const within = (promise, ms) =>
 	Promise.race([promise, sleep(ms).then(() => idle)]);
+// Under mock timers: whether `promise` has settled by now.
+const settledOr = (promise) =>
+	Promise.race([promise, settleMacrotask().then(() => idle)]);
+// The broker pollers sleep in 50 ms steps while a window is open; advance the
+// mocked clock the same way, letting each step's continuation run. Pending
+// continuations (a delivery waking the loop) run before the first tick so the
+// window they open starts at the current time.
+const advance = async (t, ms) => {
+	await settleMacrotask();
+	for (let elapsed = 0; elapsed < ms; elapsed += 50) {
+		t.mock.timers.tick(Math.min(50, ms - elapsed));
+		await settleMacrotask();
+	}
+};
 
 for (const { name, make } of brokerPollers) {
 	test(`${name} yields a full batch without waiting for the window`, async () => {
@@ -4911,7 +4958,8 @@ for (const { name, make } of brokerPollers) {
 		ac.abort();
 	});
 
-	test(`${name} yields at the next poll tick once a batch fills mid-window`, async () => {
+	test(`${name} yields at the next poll tick once a batch fills mid-window`, async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
 		const { poller, deliver, bodies } = make({
 			batchSize: 2,
 			batchWindowMs: 5000,
@@ -4920,20 +4968,25 @@ for (const { name, make } of brokerPollers) {
 		const it = poller.poll(ac.signal);
 		const { firstNext } = await drainPollSetup(it);
 		deliver(1);
-		await sleep(60);
+		await advance(t, 60);
+		strictEqual(await settledOr(firstNext), idle, "one message, window open");
 		deliver(1);
-		const first = await within(firstNext, 300);
-		notStrictEqual(first, idle, "yielded within 300 ms");
+		strictEqual(await settledOr(firstNext), idle, "full, next tick pending");
+		await advance(t, 50);
+		const first = await settledOr(firstNext);
+		notStrictEqual(first, idle, "yielded at the next 50 ms tick");
 		deepStrictEqual(bodies(first.value), ["body-1", "body-2"]);
 		ac.abort();
 	});
 
-	test(`${name} does not yield while nothing is pending`, async () => {
+	test(`${name} does not yield while nothing is pending`, async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
 		const { poller } = make({ batchSize: 1, batchWindowMs: 20 });
 		const ac = new AbortController();
 		const it = poller.poll(ac.signal);
 		const { firstNext } = await drainPollSetup(it);
-		strictEqual(await within(firstNext, 100), idle);
+		await advance(t, 100);
+		strictEqual(await settledOr(firstNext), idle);
 		ac.abort();
 		strictEqual((await firstNext).done, true);
 	});
@@ -4953,15 +5006,22 @@ for (const { name, make } of brokerPollers) {
 		ac.abort();
 	});
 
-	test(`${name} holds a partial batch for the default window`, async () => {
-		const { poller, deliver } = make({ batchSize: 2 });
+	test(`${name} holds a partial batch for the default window`, async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+		const { poller, deliver, bodies } = make({ batchSize: 2 });
 		const ac = new AbortController();
 		const it = poller.poll(ac.signal);
 		const { firstNext } = await drainPollSetup(it);
 		deliver(1);
-		strictEqual(await within(firstNext, 100), idle);
+		await advance(t, 100);
+		strictEqual(await settledOr(firstNext), idle, "held at 100 ms");
+		await advance(t, 899);
+		strictEqual(await settledOr(firstNext), idle, "held at 999 ms");
+		await advance(t, 1);
+		const first = await settledOr(firstNext);
+		notStrictEqual(first, idle, "yielded when the 1000 ms window closed");
+		deepStrictEqual(bodies(first.value), ["body-1"]);
 		ac.abort();
-		strictEqual((await firstNext).done, true);
 	});
 
 	test(`${name} yields whatever is pending at once when batchWindowMs is 0`, async (t) => {
@@ -4986,3 +5046,539 @@ for (const { name, make } of brokerPollers) {
 		}
 	});
 }
+
+// --- runPollLoop: a throwing onError must not stop the loop ------------------
+
+test("runPollLoop keeps polling when onError throws on a handler failure", async () => {
+	// onError is user code (a logger, an APM client). If it throws, the loop
+	// must carry on to the next batch instead of rejecting and taking the
+	// worker down with it.
+	const poller = stubPoller([{ Records: [1] }, { Records: [2] }]);
+	const seen = [];
+	let calls = 0;
+	await runPollLoop({
+		poller,
+		handler: async () => {
+			calls++;
+			if (calls === 1) throw new Error("boom");
+			return { batchItemFailures: [] };
+		},
+		timeout: 1000,
+		signal: new AbortController().signal,
+		onError: (err, event) => {
+			seen.push({ err, event });
+			throw new Error("logger down");
+		},
+	});
+	strictEqual(calls, 2);
+	strictEqual(seen.length, 1);
+	strictEqual(seen[0].err.message, "boom");
+	deepStrictEqual(seen[0].event, { Records: [1] });
+	// The second batch was handled and acknowledged as usual.
+	deepStrictEqual(
+		poller.acked.map((a) => a.event),
+		[{ Records: [2] }],
+	);
+});
+
+test("runPollLoop keeps polling when onError throws on an acknowledge failure", async () => {
+	const acked = [];
+	const poller = {
+		source: "test",
+		async *poll() {
+			yield { Records: [1] };
+			yield { Records: [2] };
+		},
+		async acknowledge(event) {
+			if (event.Records[0] === 1) throw new Error("ack-fail");
+			acked.push(event);
+		},
+	};
+	const seen = [];
+	let calls = 0;
+	await runPollLoop({
+		poller,
+		handler: async () => {
+			calls++;
+			return { batchItemFailures: [] };
+		},
+		timeout: 1000,
+		signal: new AbortController().signal,
+		onError: (err) => {
+			seen.push(err.message);
+			throw new Error("logger down");
+		},
+	});
+	strictEqual(calls, 2);
+	deepStrictEqual(seen, ["ack-fail"]);
+	deepStrictEqual(acked, [{ Records: [2] }]);
+});
+
+// --- pollKafka: consumer crashes ---------------------------------------------
+// kafkajs restarts the consumer itself after a retriable crash and emits
+// consumer.events.CRASH with `restart: true`. A non-retriable one (SASL
+// authentication, authorization) is emitted with `restart: false` and the
+// consumer stays stopped, so the poll loop would otherwise park forever.
+
+const kafkaCrash = (
+	consumer,
+	restart,
+	message = "SASL authentication failed",
+) => {
+	const error = new Error(message);
+	consumer.emit(consumer.events.CRASH, { error, groupId: "g", restart });
+	return error;
+};
+
+test("pollKafka throws a non-retriable consumer crash from poll() and disconnects", async () => {
+	const consumer = makeFakeKafkaConsumer();
+	const poller = pollKafka({ ...kafkaBase, consumer });
+	const ac = new AbortController();
+	const it = poller.poll(ac.signal);
+	const { firstNext } = await drainKafkaSetup(it);
+	const error = kafkaCrash(consumer, false);
+	const outcome = await within(
+		firstNext.then(
+			() => "yielded",
+			(e) => e,
+		),
+		200,
+	);
+	strictEqual(outcome, error);
+	strictEqual(consumer.disconnectCalled, 1);
+});
+
+test("pollKafka stays parked through a retriable consumer crash", async () => {
+	const consumer = makeFakeKafkaConsumer();
+	const poller = pollKafka({ ...kafkaBase, consumer });
+	const ac = new AbortController();
+	const it = poller.poll(ac.signal);
+	const { firstNext } = await drainKafkaSetup(it);
+	kafkaCrash(consumer, true, "KafkaJSNumberOfRetriesExceeded");
+	strictEqual(await within(firstNext, 30), idle, "still parked");
+	// kafkajs restarted the consumer and delivers the next batch as usual.
+	const { payload } = makeKafkaBatchPayload(kafkaBatchOf("1"));
+	const eachBatchPromise = consumer.runHandler()(payload);
+	const { value } = await firstNext;
+	deepStrictEqual(Object.keys(value.records), ["t1-0"]);
+	await poller.acknowledge(value, { batchItemFailures: [] });
+	await eachBatchPromise;
+	ac.abort();
+	strictEqual((await it.next()).done, true);
+});
+
+test("pollKafka throws a non-retriable crash that lands while the handler holds a batch", async () => {
+	const consumer = makeFakeKafkaConsumer();
+	const poller = pollKafka({ ...kafkaBase, consumer });
+	const ac = new AbortController();
+	const it = poller.poll(ac.signal);
+	const { firstNext } = await drainKafkaSetup(it);
+	const { calls, payload } = makeKafkaBatchPayload(kafkaBatchOf("1"));
+	const eachBatchPromise = consumer.runHandler()(payload);
+	const { value } = await firstNext;
+	const error = kafkaCrash(consumer, false);
+	// The batch already handed over is still acknowledged and committed.
+	await poller.acknowledge(value, { batchItemFailures: [] });
+	await eachBatchPromise;
+	deepStrictEqual(calls.resolved, ["1"]);
+	const outcome = await within(
+		it.next().then(
+			() => "yielded",
+			(e) => e,
+		),
+		200,
+	);
+	strictEqual(outcome, error);
+	strictEqual(consumer.disconnectCalled, 1);
+});
+
+test("runWorker reports a non-retriable Kafka crash through onError and exits 1", async () => {
+	const consumer = makeFakeKafkaConsumer();
+	const errors = [];
+	const exits = [];
+	const { onSigterm } = await runWorker(
+		{
+			handler: async () => ({ batchItemFailures: [] }),
+			poller: pollKafka({ ...kafkaBase, consumer }),
+			timeout: 1000,
+			gracefulShutdownMs: 1000,
+			onError: (err, event) => errors.push({ err, event }),
+		},
+		{ exit: (code) => exits.push(code) },
+	);
+	for (let i = 0; i < 8; i++) await Promise.resolve();
+	const error = kafkaCrash(consumer, false);
+	await settleMacrotask();
+	process.removeListener("SIGTERM", onSigterm);
+	deepStrictEqual(errors, [{ err: error, event: undefined }]);
+	deepStrictEqual(exits, [1]);
+});
+
+// --- batchItemFailures entries that invalidate the whole response -----------
+// Lambda treats a response with an empty-string, null or unknown
+// itemIdentifier as a failure of the whole batch: every record is retried.
+// https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html
+// https://docs.aws.amazon.com/lambda/latest/dg/kafka-retry-configurations.html
+
+const invalidBatchItemFailures = [
+	[null],
+	[{}],
+	[{ itemIdentifier: null }],
+	[{ itemIdentifier: "" }],
+	[{ itemIdentifier: "not-in-batch" }],
+];
+
+const expectInvalidBatchFailure = (err, pkgName, itemIdentifier) => {
+	strictEqual(err.message, "Invalid batchItemFailures entry");
+	deepStrictEqual(err.cause, {
+		package: pkgName,
+		data: { itemIdentifier },
+	});
+	return true;
+};
+
+test("pollSqs.acknowledge deletes nothing and raises when an entry does not identify a record", async () => {
+	for (const batchItemFailures of invalidBatchItemFailures) {
+		const client = makeCapturingClient(() => ({}));
+		const poller = pollSqs({
+			queueUrl: "https://sqs.us-east-1.amazonaws.com/111/q",
+			client,
+		});
+		const event = {
+			Records: [
+				{ messageId: "m1", receiptHandle: "rh1" },
+				{ messageId: "m2", receiptHandle: "rh2" },
+			],
+		};
+		await rejects(
+			() => poller.acknowledge(event, { batchItemFailures }),
+			(err) =>
+				expectInvalidBatchFailure(
+					err,
+					"@middy/ecs-batch/pollSqs",
+					batchItemFailures[0]?.itemIdentifier,
+				),
+		);
+		deepStrictEqual(client.calls, [], JSON.stringify(batchItemFailures));
+	}
+});
+
+test("pollKafka.acknowledge commits nothing and raises when an entry does not identify a record", async () => {
+	const cases = [
+		...invalidBatchItemFailures,
+		[{ itemIdentifier: { partition: "t1-0", offset: 99 } }],
+		[{ itemIdentifier: { partition: "other-0", offset: 1 } }],
+	];
+	for (const batchItemFailures of cases) {
+		const consumer = makeFakeKafkaConsumer();
+		const poller = pollKafka({ ...kafkaBase, consumer });
+		const ac = new AbortController();
+		const it = poller.poll(ac.signal);
+		const { firstNext } = await drainKafkaSetup(it);
+		const { calls, payload } = makeKafkaBatchPayload(kafkaBatchOf("1", "2"));
+		const eachBatchPromise = consumer.runHandler()(payload);
+		const { value } = await firstNext;
+		await rejects(
+			() => poller.acknowledge(value, { batchItemFailures }),
+			(err) =>
+				expectInvalidBatchFailure(
+					err,
+					"@middy/ecs-batch/pollKafka",
+					batchItemFailures[0]?.itemIdentifier,
+				),
+		);
+		// The gate is released with every record failed so eachBatch returns
+		// and kafkajs fetches the batch again from the last committed offset.
+		await eachBatchPromise;
+		deepStrictEqual(calls.resolved, [], JSON.stringify(batchItemFailures));
+		deepStrictEqual(calls.commits, [], JSON.stringify(batchItemFailures));
+		ac.abort();
+		await it.next();
+	}
+});
+
+test("pollKafka.acknowledge raises before any batch when the entry identifies no record", async () => {
+	const consumer = makeFakeKafkaConsumer();
+	const poller = pollKafka({ ...kafkaBase, consumer });
+	await rejects(
+		() =>
+			poller.acknowledge(undefined, {
+				batchItemFailures: [{ itemIdentifier: "t1-0-1" }],
+			}),
+		(err) =>
+			expectInvalidBatchFailure(err, "@middy/ecs-batch/pollKafka", "t1-0-1"),
+	);
+});
+
+test("pollAmq.acknowledge nacks every message and raises when an entry does not identify a record", async () => {
+	for (const batchItemFailures of invalidBatchItemFailures) {
+		const stomp = makeFakeStompClient();
+		const poller = pollAmq({
+			...amqBase,
+			batchSize: 2,
+			batchWindowMs: 5000,
+			client: stomp,
+		});
+		const ac = new AbortController();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		stomp.subscribeCb()(null, stompFrame({ "message-id": "m1" }, "a"));
+		stomp.subscribeCb()(null, stompFrame({ "message-id": "m2" }, "b"));
+		const { value } = await firstNext;
+		await rejects(
+			() => poller.acknowledge(value, { batchItemFailures }),
+			(err) =>
+				expectInvalidBatchFailure(
+					err,
+					"@middy/ecs-batch/pollAmq",
+					batchItemFailures[0]?.itemIdentifier,
+				),
+		);
+		deepStrictEqual(stomp.acked, [], JSON.stringify(batchItemFailures));
+		deepStrictEqual(
+			stomp.nacked.map((m) => m.headers["message-id"]),
+			["m1", "m2"],
+			JSON.stringify(batchItemFailures),
+		);
+		// The batch is settled: a second acknowledge finds nothing to do.
+		await poller.acknowledge(value, { batchItemFailures: [] });
+		strictEqual(stomp.acked.length, 0);
+		ac.abort();
+	}
+});
+
+test("pollRmq.acknowledge requeues every delivery and raises when an entry does not identify a record", async () => {
+	for (const batchItemFailures of invalidBatchItemFailures) {
+		const channel = makeFakeRmqChannel();
+		const poller = pollRmq({
+			queue: "q",
+			connection: makeFakeRmqConnection(channel),
+			channel,
+			batchSize: 2,
+			batchWindowMs: 5000,
+		});
+		const ac = new AbortController();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		for (const tag of [1, 2]) {
+			channel.consumeCb()({
+				fields: { deliveryTag: tag },
+				properties: {},
+				content: Buffer.from(`b${tag}`),
+			});
+		}
+		const { value } = await firstNext;
+		await rejects(
+			() => poller.acknowledge(value, { batchItemFailures }),
+			(err) =>
+				expectInvalidBatchFailure(
+					err,
+					"@middy/ecs-batch/pollRmq",
+					batchItemFailures[0]?.itemIdentifier,
+				),
+		);
+		deepStrictEqual(channel.acked, [], JSON.stringify(batchItemFailures));
+		deepStrictEqual(
+			channel.nacked.map((m) => m.fields.deliveryTag),
+			[1, 2],
+			JSON.stringify(batchItemFailures),
+		);
+		deepStrictEqual(channel.nackArgs, [
+			[false, true],
+			[false, true],
+		]);
+		ac.abort();
+	}
+});
+
+// --- pollSqs: region and ARN from every documented queue URL form -----------
+// Endpoint hostnames per
+// https://docs.aws.amazon.com/general/latest/gr/sqs-service.html (standard,
+// api.aws, FIPS and the legacy <region>.queue.amazonaws.com forms) and the
+// interface VPC endpoint form vpce-<id>.sqs.<region>.vpce.amazonaws.com.
+
+const receiveOneSqs = (ac, config) => {
+	const client = makeCapturingClient(() => {
+		ac.abort();
+		return { Messages: [{ MessageId: "m", ReceiptHandle: "r", Body: "" }] };
+	});
+	if (config) client.config = config;
+	return client;
+};
+
+test("pollSqs derives the region and ARN from VPC endpoint, FIPS, api.aws, China and legacy queue URLs", async () => {
+	// The ARN partition follows the region: aws-cn for China, aws-us-gov for
+	// GovCloud. https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html
+	const cases = [
+		[
+			"https://vpce-0123456789abcdef0-abcdefgh.sqs.us-east-1.vpce.amazonaws.com/123456789012/orders",
+			"us-east-1",
+			"aws",
+		],
+		[
+			"https://sqs-fips.us-gov-west-1.amazonaws.com/123456789012/orders",
+			"us-gov-west-1",
+			"aws-us-gov",
+		],
+		["https://sqs.us-east-2.api.aws/123456789012/orders", "us-east-2", "aws"],
+		[
+			"https://sqs.cn-north-1.amazonaws.com.cn/123456789012/orders",
+			"cn-north-1",
+			"aws-cn",
+		],
+		[
+			"https://us-east-2.queue.amazonaws.com/123456789012/orders",
+			"us-east-2",
+			"aws",
+		],
+		[
+			"https://sqs.eu-west-3.amazonaws.com:443/123456789012/orders",
+			"eu-west-3",
+			"aws",
+		],
+	];
+	for (const [queueUrl, region, partition] of cases) {
+		const ac = new AbortController();
+		const { value } = await pollSqs({ queueUrl, client: receiveOneSqs(ac) })
+			.poll(ac.signal)
+			.next();
+		strictEqual(value.Records[0].awsRegion, region, queueUrl);
+		strictEqual(
+			value.Records[0].eventSourceARN,
+			`arn:${partition}:sqs:${region}:123456789012:orders`,
+			queueUrl,
+		);
+	}
+});
+
+test("pollSqs falls back to the client's region when the queue URL carries none", async () => {
+	// The bare legacy us-east-1 host and custom endpoints (LocalStack, a
+	// private DNS name) have no region in the hostname.
+	for (const queueUrl of [
+		"https://queue.amazonaws.com/123456789012/orders",
+		"http://localhost:4566/123456789012/orders",
+	]) {
+		const ac = new AbortController();
+		let asked = 0;
+		const client = receiveOneSqs(ac, {
+			region: async () => {
+				asked++;
+				return "eu-central-1";
+			},
+		});
+		const { value } = await pollSqs({ queueUrl, client })
+			.poll(ac.signal)
+			.next();
+		strictEqual(value.Records[0].awsRegion, "eu-central-1", queueUrl);
+		strictEqual(
+			value.Records[0].eventSourceARN,
+			"arn:aws:sqs:eu-central-1:123456789012:orders",
+			queueUrl,
+		);
+		strictEqual(asked, 1, "resolved once per poller");
+	}
+});
+
+test("pollSqs prefers the region in the queue URL over the client's", async () => {
+	const ac = new AbortController();
+	const client = receiveOneSqs(ac, { region: async () => "eu-central-1" });
+	const { value } = await pollSqs({
+		queueUrl: "https://sqs.us-west-2.amazonaws.com/123456789012/orders",
+		client,
+	})
+		.poll(ac.signal)
+		.next();
+	strictEqual(value.Records[0].awsRegion, "us-west-2");
+	strictEqual(
+		value.Records[0].eventSourceARN,
+		"arn:aws:sqs:us-west-2:123456789012:orders",
+	);
+});
+
+test("pollSqs treats only a hostname whose first label is the region as a legacy endpoint", async () => {
+	// The legacy form is exactly <region>.queue.amazonaws.com. A custom
+	// endpoint that merely ends in that suffix is not one, so its region comes
+	// from the client rather than from the hostname.
+	const ac = new AbortController();
+	const client = receiveOneSqs(ac, { region: async () => "eu-central-1" });
+	const { value } = await pollSqs({
+		queueUrl: "https://proxy.us-east-1.queue.amazonaws.com/123456789012/orders",
+		client,
+	})
+		.poll(ac.signal)
+		.next();
+	strictEqual(value.Records[0].awsRegion, "eu-central-1");
+	strictEqual(
+		value.Records[0].eventSourceARN,
+		"arn:aws:sqs:eu-central-1:123456789012:orders",
+	);
+});
+
+test("pollSqs leaves the region and ARN unset when neither the queue URL nor the client carries one", async () => {
+	// A custom client may expose a config without the SDK's region resolver;
+	// that must not throw, and no ARN can be composed without a region.
+	const ac = new AbortController();
+	const client = receiveOneSqs(ac, {});
+	const { value } = await pollSqs({
+		queueUrl: "https://queue.amazonaws.com/123456789012/orders",
+		client,
+	})
+		.poll(ac.signal)
+		.next();
+	strictEqual(value.Records[0].awsRegion, undefined);
+	strictEqual(value.Records[0].eventSourceARN, undefined);
+});
+
+// --- pollKinesis: region from the client when no ARN is configured ---------
+
+test("pollKinesis falls back to the client's region when streamArn and awsRegion are omitted", async () => {
+	const client = {
+		config: { region: async () => "eu-north-1" },
+		send: async (cmd) => {
+			if (cmd.constructor.name === "GetShardIteratorCommand") {
+				return { ShardIterator: "i" };
+			}
+			return { NextShardIterator: null, Records: [oneKinesisRecord] };
+		},
+	};
+	const { value } = await pollKinesis({ ...kinesisBase, client })
+		.poll(new AbortController().signal)
+		.next();
+	strictEqual(value.Records[0].awsRegion, "eu-north-1");
+	strictEqual(value.Records[0].eventSourceARN, undefined);
+});
+
+test("pollKinesis prefers the region in streamArn over the client's", async () => {
+	const streamArn = "arn:aws:kinesis:ap-southeast-2:111:stream/events";
+	const client = {
+		config: { region: async () => "eu-north-1" },
+		send: async (cmd) => {
+			if (cmd.constructor.name === "GetShardIteratorCommand") {
+				return { ShardIterator: "i" };
+			}
+			return { NextShardIterator: null, Records: [oneKinesisRecord] };
+		},
+	};
+	const { value } = await pollKinesis({ ...kinesisBase, streamArn, client })
+		.poll(new AbortController().signal)
+		.next();
+	strictEqual(value.Records[0].awsRegion, "ap-southeast-2");
+	strictEqual(value.Records[0].eventSourceARN, streamArn);
+});
+
+test("pollKinesis leaves awsRegion unset when the client carries no region resolver", async () => {
+	// A custom client may expose a config without the SDK's region resolver;
+	// that must not throw.
+	const client = {
+		config: {},
+		send: async (cmd) => {
+			if (cmd.constructor.name === "GetShardIteratorCommand") {
+				return { ShardIterator: "i" };
+			}
+			return { NextShardIterator: null, Records: [oneKinesisRecord] };
+		},
+	};
+	const { value } = await pollKinesis({ ...kinesisBase, client })
+		.poll(new AbortController().signal)
+		.next();
+	strictEqual(value.Records[0].awsRegion, undefined);
+	strictEqual(value.Records[0].eventSourceARN, undefined);
+});

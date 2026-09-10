@@ -804,3 +804,39 @@ test("It should destroy a derived client when it is evicted", async (t) => {
 	await handler(eventFor(8), defaultContext);
 	deepStrictEqual(destroyed, ["https://d0.example.com/production"]);
 });
+
+test("It should rebuild a derived client when the assumed-role credentials are refetched", async (t) => {
+	const { FakeClient, constructions } = makeFakeClientFactory();
+	let credentials = Promise.resolve({ accessKeyId: "a" });
+	const handler = middy(() => "string")
+		.before((request) => {
+			request.internal.role = credentials;
+		})
+		.use(wsResponse({ AwsClient: FakeClient, awsClientAssumeRole: "role" }));
+	const event = {
+		requestContext: {
+			domainName: "d.example.com",
+			stage: "production",
+			connectionId: "conn-1",
+		},
+	};
+
+	await handler(event, defaultContext);
+	// The same cached credential promise keeps the endpoint's client.
+	await handler(event, defaultContext);
+	strictEqual(constructions.length, 1);
+	// sts refetched twice: each new promise object rebuilds the client for
+	// the endpoint instead of keeping the first, by then expired, session.
+	credentials = Promise.resolve({ accessKeyId: "b" });
+	await handler(event, defaultContext);
+	credentials = Promise.resolve({ accessKeyId: "c" });
+	await handler(event, defaultContext);
+	deepStrictEqual(
+		constructions.map((c) => [c.endpoint, c.credentials]),
+		[
+			["https://d.example.com/production", { accessKeyId: "a" }],
+			["https://d.example.com/production", { accessKeyId: "b" }],
+			["https://d.example.com/production", { accessKeyId: "c" }],
+		],
+	);
+});

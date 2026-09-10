@@ -190,24 +190,36 @@ const normalizeAlgorithms = (algorithm) => {
 
 // Every reader below returns a string or undefined. The event is Lambda's, but
 // its shape is not guaranteed, so nothing here assumes a type it did not check.
+// The `event?.` links are kept for that reason even though they are
+// equivalent under mutation: every reader runs only after the authorization
+// and proof headers have been read off the event, which a null event cannot
+// have supplied. The `requestContext?.` and `http?.` links are not equivalent
+// and stay unpinned: the ALB test (no `requestContext`) and the REST test (no
+// `http`) kill them.
 const asString = (value) => (typeof value === "string" ? value : undefined);
 
 // Covers API Gateway HTTP (v2), API Gateway REST (v1) and ALB.
-const readMethod = (event) =>
-	// Stryker disable next-line OptionalChaining: equivalent. Both readers only run once the authorization and proof headers have been read off the event, which cannot happen for a null event, so the `event?.` links never short-circuit in practice. They stay because the readers are defensive about a shape Lambda does not guarantee.
-	asString(event?.requestContext?.http?.method) ?? asString(event?.httpMethod);
+const readMethod = (event) => {
+	// Stryker disable OptionalChaining: equivalent, see the note above; only the `event?.` links are on these lines.
+	const requestContext = event?.requestContext;
+	const httpMethod = asString(event?.httpMethod);
+	// Stryker restore OptionalChaining
+	return asString(requestContext?.http?.method) ?? httpMethod;
+};
 
 // `htu` names the URI the client requested, so the path has to be the one that
 // arrived rather than the one the router matched. API Gateway REST strips the
 // stage from `event.path` and keeps it on `requestContext.path`, so preferring
 // the latter is what makes a stage other than `$default` work at all. HTTP
 // (v2) has no `requestContext.path`; ALB has neither, and only `path`.
-// Stryker disable OptionalChaining: equivalent, for the same reason as readMethod above.
-const readPath = (event) =>
-	asString(event?.rawPath) ??
-	asString(event?.requestContext?.path) ??
-	asString(event?.path);
-// Stryker restore OptionalChaining
+const readPath = (event) => {
+	// Stryker disable OptionalChaining: equivalent, see the note above; only the `event?.` links are on these lines.
+	const rawPath = asString(event?.rawPath);
+	const requestContext = event?.requestContext;
+	const path = asString(event?.path);
+	// Stryker restore OptionalChaining
+	return rawPath ?? asString(requestContext?.path) ?? path;
+};
 
 // Never the Host header: a client controls it, so trusting it would let a proof
 // be minted for any origin the attacker chose. `requestContext.domainName` is
@@ -215,8 +227,9 @@ const readPath = (event) =>
 // why it is a safe fallback. Behind a CDN or any other proxy, set `origin`.
 const readOrigin = (event, configured) => {
 	if (configured) return configured;
-	// Stryker disable next-line OptionalChaining: equivalent, for the same reason as readMethod above.
-	const domainName = asString(event?.requestContext?.domainName);
+	// Stryker disable next-line OptionalChaining: equivalent, see the note above; only the `event?.` link is on this line.
+	const requestContext = event?.requestContext;
+	const domainName = asString(requestContext?.domainName);
 	return domainName ? `https://${domainName}` : undefined;
 };
 
@@ -265,8 +278,7 @@ export const verifyDpopProof = (
 	const algorithm = ALGORITHMS[header.alg];
 
 	const jwk = header.jwk;
-	// Stryker disable next-line OptionalChaining: equivalent. `||` only evaluates the second arm when the first is false, which requires `jwk.kty` to have matched, so `jwk` is never nullish here.
-	if (jwk?.kty !== algorithm.kty || jwk?.crv !== algorithm.crv) {
+	if (jwk?.kty !== algorithm.kty || jwk.crv !== algorithm.crv) {
 		throw new Error(`Proof 'jwk' does not match '${header.alg}'`);
 	}
 	for (const member of PRIVATE_MEMBERS) {
@@ -408,8 +420,8 @@ const httpDpopMiddleware = (opts = {}) => {
 		}
 
 		// Resolved and parsed here rather than inside the proof check, so an
-		// undeterminable request URI — an ALB, or anything else with no
-		// `requestContext.domainName`, and no `origin` configured — is a 500 the
+		// undeterminable request URI, an ALB, or anything else with no
+		// `requestContext.domainName`, and no `origin` configured, is a 500 the
 		// operator can act on and never a 401 the caller is left to guess at. A
 		// malformed `origin` never reaches this point; it fails at construction.
 		const requestOrigin = readOrigin(request.event, origin);

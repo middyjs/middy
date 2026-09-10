@@ -114,7 +114,7 @@ const s3Middleware = (opts = {}) => {
 					}
 					return value;
 				})
-				.catch(evictCacheOnFailure(options.cacheKey, internalKey));
+				.catch(evictCacheOnFailure(options.cacheKey, internalKey, values));
 		}
 		return values;
 	};
@@ -133,7 +133,12 @@ const s3Middleware = (opts = {}) => {
 	};
 
 	const s3MiddlewareBefore = (request) => {
-		if (client) return s3MiddlewareFetch(request);
+		// With `awsClientAssumeRole` the client is rebuilt when sts refetches the
+		// credentials, so it is resolved on every invocation (util memoises on
+		// the credential promise identity, so a hit costs one microtask).
+		if (client && !options.awsClientAssumeRole) {
+			return s3MiddlewareFetch(request);
+		}
 		return clientInit(request).then((resolvedClient) => {
 			client = resolvedClient;
 			return s3MiddlewareFetch(request);

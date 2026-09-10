@@ -8,7 +8,7 @@ for them (using the message and the status code provided by the error object). A
 We recommend generating these HTTP errors with the npm module [`http-errors`](https://npm.im/http-errors). When manually catching and setting errors with `statusCode >= 500` setting `{expose: true}`
 is needed for them to be handled.
 
-When non-http errors (those without `statusCode`) or errors with `expose: false` occur, they are returned with a 500 status code. In that case `request.error` is replaced with a generic `Error` that carries the original error as `cause`, so middlewares that run after this one can still inspect it. It has a `toJSON()` returning `{ statusCode, message, expose, cause }` (with `cause` reduced to its message), so `JSON.stringify(request.error)` keeps the message. See [Ordering](#ordering) for where to register it.
+When non-http errors (those without `statusCode`) or errors with `expose: false` occur, they are returned with a 500 status code. In that case `request.error` is replaced with a generic `Error` that carries the original error as `cause`, so middlewares that run after this one can still inspect it. It has a `toJSON()` returning `{ statusCode, message, expose, cause }`, where an `Error` cause becomes `{ name, message, cause? }` recursively (stack omitted, a cycle stops at `"[Circular]"`) and any other thrown value is kept as is, so `JSON.stringify(request.error)` keeps the message and every layer of the cause chain. See [Ordering](#ordering) for where to register it.
 
 ## Install
 

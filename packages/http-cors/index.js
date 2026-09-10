@@ -1,6 +1,10 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { normalizeHttpResponse, validateOptions } from "@middy/util";
+import {
+	normalizeHttpResponse,
+	resolveHttpEventVersion,
+	validateOptions,
+} from "@middy/util";
 
 const name = "http-cors";
 const pkg = `@middy/${name}`;
@@ -59,7 +63,7 @@ const asciiOriginFast = /^https?:\/\/[a-z0-9.-]+(?::\d+)?$/i;
 const originToPunycode = (origin) => {
 	// Stryker disable next-line ConditionalExpression,StringLiteral: "*" fails both the asciiOriginFast regex and the /^(https?:\/\/)(.+)$/ match, so it is returned unchanged downstream regardless; the early-return is a pure fast-path with no observable effect.
 	if (!origin || origin === "*") return origin;
-	// Fast-path: ASCII origin without wildcard — just canonicalize case.
+	// Fast-path: ASCII origin without wildcard, just canonicalize case.
 	// `new URL().host` lowercases the host portion; reproduce that here.
 	if (asciiOriginFast.test(origin)) {
 		// Lowercase only the scheme+host portion (which is all of it for this regex).
@@ -253,9 +257,7 @@ const httpCorsMiddleware = (opts = {}) => {
 		if (maxAge && !Object.hasOwn(headers, "Access-Control-Max-Age")) {
 			headers["Access-Control-Max-Age"] = maxAge;
 		}
-		const httpMethod = getVersionHttpMethod[request.event.version ?? "1.0"]?.(
-			request.event,
-		);
+		const httpMethod = readHttpMethod(request.event);
 		if (
 			httpMethod === "OPTIONS" &&
 			options.cacheControl &&
@@ -268,9 +270,7 @@ const httpCorsMiddleware = (opts = {}) => {
 	const httpCorsMiddlewareBefore = (request) => {
 		if (options.disableBeforePreflightResponse) return;
 
-		const method = getVersionHttpMethod[request.event.version ?? "1.0"]?.(
-			request.event,
-		);
+		const method = readHttpMethod(request.event);
 		if (method === "OPTIONS") {
 			normalizeHttpResponse(request);
 			const eventHeaders = request.event.headers ?? {};
@@ -287,7 +287,11 @@ const httpCorsMiddleware = (opts = {}) => {
 				}
 			}
 
-			const requestHeadersValue = headerValue(
+			// A repeated header arrives as one array entry per value (VPC Lattice
+			// V2); every entry names a header the client wants to send, so they are
+			// all checked, unlike Origin and Access-Control-Request-Method, which
+			// are single-valued and take the first entry.
+			const requestHeadersValue = headerListValue(
 				eventHeaders["Access-Control-Request-Headers"] ??
 					eventHeaders["access-control-request-headers"],
 			);
@@ -341,12 +345,23 @@ const getVersionHttpMethod = Object.assign(Object.create(null), {
 	// top level (no `requestContext.http`; `requestContext` holds the
 	// service/target-group ARNs).
 	// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html#event-structure-v2
-	// Stryker disable next-line OptionalChaining: equivalent for every documented version 2.0 event; API Gateway HTTP API, Lambda function URL and VPC Lattice V2 events all carry requestContext, so the first optional chain never short-circuits (the `http?.` chain is pinned by the VPC Lattice tests).
 	"2.0": (event) => event.requestContext?.http?.method ?? event.method,
+	// VPC Lattice V1: no `version`, top-level `method`.
+	// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html#event-structure-v1
+	vpc: (event) => event.method,
 });
+
+const readHttpMethod = (event) =>
+	getVersionHttpMethod[resolveHttpEventVersion(event)]?.(event);
 
 // VPC Lattice V2 delivers every header value as an array.
 const headerValue = (value) => (Array.isArray(value) ? value[0] : value);
+
+// For a list-valued header (RFC 9110 §5.3), a repeated header and one
+// comma-joined header mean the same thing, so the array is folded back into
+// the single list form the check below parses.
+const headerListValue = (value) =>
+	Array.isArray(value) ? value.join(", ") : value;
 
 // header in official name, lowercase variant handled
 const addHeaderPart = (headers, header, value) => {
@@ -359,11 +374,15 @@ const addHeaderPart = (headers, header, value) => {
 		return;
 	}
 	// A handler (or `vary`) may already list the token; `Vary: Origin, Origin`
-	// is harmless to caches but wrong on the wire.
+	// is harmless to caches but wrong on the wire. `Vary: *` already says the
+	// response varies on everything (RFC 9110 §12.5.5), so it is left alone too.
 	const wanted = value.toLowerCase();
 	const present = String(current)
 		.split(",")
-		.some((token) => token.trim().toLowerCase() === wanted);
+		.some((token) => {
+			const existing = token.trim();
+			return existing === "*" || existing.toLowerCase() === wanted;
+		});
 	if (present) return;
 	headers[sanitizedHeader] = `${current}, ${value}`;
 };

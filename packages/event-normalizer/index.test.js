@@ -1462,3 +1462,23 @@ test("It should reject a nested S3 record without s3 with a 422", async (t) => {
 		"aws:s3",
 	);
 });
+
+// decodeURIComponent throws a URIError on a key that is not valid
+// percent-encoding; like a missing field it is a malformed record.
+test("It should reject an S3 record whose key is not valid percent-encoding with a 422", async (t) => {
+	await expectMalformedRecord(
+		{
+			Records: [
+				{ eventSource: "aws:s3", s3: { object: { key: "photos/%E0%A4%A" } } },
+			],
+		},
+		"aws:s3",
+	);
+});
+
+test("It should reject an S3 Batch task whose key is not valid percent-encoding with a 422", async (t) => {
+	await expectMalformedRecord(
+		{ tasks: [{ s3Key: "%zz.jpg" }] },
+		"aws:s3:batch",
+	);
+});

@@ -1,5 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import tls from "node:tls";
 
 export default (ca, { servername } = {}) => {
 	const ssl = {
@@ -8,6 +9,8 @@ export default (ca, { servername } = {}) => {
 	};
 	if (servername) {
 		ssl.servername = servername;
+		ssl.checkServerIdentity = (_host, cert) =>
+			tls.checkServerIdentity(servername, cert);
 	}
 	return { ssl };
 };

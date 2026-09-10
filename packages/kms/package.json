@@ -69,11 +69,6 @@
 	"peerDependencies": {
 		"@aws-sdk/client-kms": "^3.0.0"
 	},
-	"peerDependenciesMeta": {
-		"@aws-sdk/client-kms": {
-			"optional": true
-		}
-	},
 	"devDependencies": {
 		"@aws-sdk/client-kms": "^3.0.0",
 		"@middy/core": "8.0.0-alpha.0",

@@ -13,6 +13,8 @@ const defaults = {
 	gracefulShutdownMs: 110_000,
 };
 
+const noop = () => {};
+
 const optionSchema = {
 	type: "object",
 	properties: {
@@ -115,9 +117,18 @@ export const runPollLoop = async ({
 	timeout,
 	invokedFunctionArn,
 	signal,
-	onError,
+	onError = noop,
 	contextOverride,
 }) => {
+	// onError is user code (a logger, an APM client). A throw from it must
+	// not reject the loop, which would take the worker down with it.
+	const report = (err, event) => {
+		try {
+			onError(err, event);
+		} catch {
+			// nothing left to report it to
+		}
+	};
 	for await (const event of poller.poll(signal)) {
 		if (signal.aborted) break;
 		const batchStart = Date.now();
@@ -132,7 +143,7 @@ export const runPollLoop = async ({
 		try {
 			response = await handler(event, context);
 		} catch (err) {
-			onError?.(err, event);
+			report(err, event);
 			// Handler threw: skip ack so the source's native retry path takes over
 			// (SQS visibility timeout, Kafka uncommitted offset, RMQ unacked, etc.).
 			continue;
@@ -140,7 +151,7 @@ export const runPollLoop = async ({
 		try {
 			await poller.acknowledge(event, response);
 		} catch (err) {
-			onError?.(err, event);
+			report(err, event);
 		}
 	}
 };

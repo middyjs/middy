@@ -21,14 +21,15 @@ npm install --save @middy/http-partial-response
 
 ## Limits
 
-The selector is refused with a `400 Bad Request` when it:
+The selector is checked in the `before` phase, so a refused selector answers `400 Bad Request` without running the handler, when it:
 
 - is longer than 2048 characters
 - nests or groups deeper than 100 levels (counted as `/` and `(` characters)
-- is not a string (VPC Lattice V2 delivers query string values as arrays)
-- cannot be applied by `json-mask`
+- is not a string
 
-The reason is in `cause.data.reason`. A missing or empty selector leaves the response untouched.
+A selector `json-mask` cannot apply is refused with the same `400` in the `after` phase. The reason is in `cause.data.reason`. A missing or empty selector leaves the response untouched.
+
+VPC Lattice V2 delivers every query string value as an array, one entry per occurrence. The last entry is the selector, as the last occurrence of a repeated parameter wins on the other event formats; an empty array is no selector.
 
 ## Sample usage
 

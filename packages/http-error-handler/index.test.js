@@ -563,11 +563,11 @@ test("It should serialize the generic 500 fallback to JSON with its message and 
 		statusCode: 500,
 		message: "Internal Server Error",
 		expose: true,
-		cause: "A leaky internal detail",
+		cause: { name: "Error", message: "A leaky internal detail" },
 	});
 });
 
-test("It should serialize a primitive cause on the generic 500 fallback as a string", async (t) => {
+test("It should serialize a primitive cause on the generic 500 fallback as itself", async (t) => {
 	let serialized;
 	const handler = middy(() => {
 		throw "boom";
@@ -591,7 +591,7 @@ test("It should serialize a primitive cause on the generic 500 fallback as a str
 
 // `throw null` reaches onError as `request.error === null`; the fallback still
 // has to serialize (a downstream logger must not blow up on a nullish cause).
-test("It should serialize a null cause on the generic 500 fallback as a string", async (t) => {
+test("It should serialize a null cause on the generic 500 fallback as null", async (t) => {
 	let serialized;
 	const handler = middy(() => {
 		throw null;
@@ -609,6 +609,147 @@ test("It should serialize a null cause on the generic 500 fallback as a string",
 		statusCode: 500,
 		message: "",
 		expose: true,
-		cause: "null",
+		cause: null,
+	});
+});
+
+// A cause that is itself an Error keeps its `name` and `message` and, when it
+// has one, its own `cause`, all the way down. Reducing it to a single message
+// string lost every layer below the first; the stack stays out of the JSON.
+test("It should serialize a nested Error cause on the generic 500 fallback recursively", async (t) => {
+	let serialized;
+	const handler = middy(() => {
+		throw new Error("outer", {
+			cause: new TypeError("middle", { cause: new RangeError("inner") }),
+		});
+	})
+		.use({
+			onError: (request) => {
+				serialized = JSON.stringify(request.error);
+			},
+		})
+		.use(httpErrorHandler({ logger: false }));
+
+	await handler(defaultEvent, defaultContext);
+
+	deepStrictEqual(JSON.parse(serialized), {
+		statusCode: 500,
+		message: "",
+		expose: true,
+		cause: {
+			name: "Error",
+			message: "outer",
+			cause: {
+				name: "TypeError",
+				message: "middle",
+				cause: { name: "RangeError", message: "inner" },
+			},
+		},
+	});
+});
+
+// A cause that is not an Error is handed to JSON.stringify as it is. Every
+// HttpError in middy carries a plain `{ package, data }` object as its cause;
+// reducing that to `{ name, message }` would drop both fields.
+test("It should serialize a plain-object cause on the generic 500 fallback as it is", async (t) => {
+	let serialized;
+	const handler = middy(() => {
+		throw new HttpError(500, {
+			cause: { package: "@middy/example", data: { reason: "why" } },
+		});
+	})
+		.use({
+			onError: (request) => {
+				serialized = JSON.stringify(request.error);
+			},
+		})
+		.use(httpErrorHandler({ logger: false }));
+
+	await handler(defaultEvent, defaultContext);
+
+	deepStrictEqual(JSON.parse(serialized), {
+		statusCode: 500,
+		message: "",
+		expose: true,
+		cause: {
+			name: "InternalServerError",
+			message: "Internal Server Error",
+			cause: { package: "@middy/example", data: { reason: "why" } },
+		},
+	});
+});
+
+// JSON.stringify drops keys whose value is `undefined`, so only the object
+// `toJSON()` hands back shows whether a `cause` key was added for nothing.
+test("It should serialize an Error cause without a cause of its own with no cause key", async (t) => {
+	let serialized;
+	let json;
+	const handler = middy(() => {
+		throw new Error("plain");
+	})
+		.use({
+			onError: (request) => {
+				serialized = JSON.stringify(request.error);
+				json = request.error.toJSON();
+			},
+		})
+		.use(httpErrorHandler({ logger: false }));
+
+	await handler(defaultEvent, defaultContext);
+
+	ok(!Object.hasOwn(JSON.parse(serialized).cause, "cause"));
+	deepStrictEqual(json, {
+		statusCode: 500,
+		message: "",
+		expose: true,
+		cause: { name: "Error", message: "plain" },
+	});
+});
+
+// `throw undefined` reaches onError as `request.error === undefined`; the
+// fallback has nothing to report as a cause, so the key is left out.
+test("It should serialize an undefined cause on the generic 500 fallback with no cause key", async (t) => {
+	let serialized;
+	const handler = middy(() => {
+		throw undefined;
+	})
+		.use({
+			onError: (request) => {
+				serialized = JSON.stringify(request.error);
+			},
+		})
+		.use(httpErrorHandler({ logger: false }));
+
+	await handler(defaultEvent, defaultContext);
+
+	deepStrictEqual(JSON.parse(serialized), {
+		statusCode: 500,
+		message: "",
+		expose: true,
+	});
+});
+
+// An error whose cause chain loops back on itself must not recurse forever.
+test("It should serialize a self-referencing cause on the generic 500 fallback without looping", async (t) => {
+	let serialized;
+	const handler = middy(() => {
+		const error = new Error("loop");
+		error.cause = error;
+		throw error;
+	})
+		.use({
+			onError: (request) => {
+				serialized = JSON.stringify(request.error);
+			},
+		})
+		.use(httpErrorHandler({ logger: false }));
+
+	await handler(defaultEvent, defaultContext);
+
+	deepStrictEqual(JSON.parse(serialized), {
+		statusCode: 500,
+		message: "",
+		expose: true,
+		cause: { name: "Error", message: "loop", cause: "[Circular]" },
 	});
 });

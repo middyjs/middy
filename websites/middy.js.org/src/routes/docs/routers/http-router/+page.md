@@ -29,7 +29,8 @@ NOTES:
 - `pathParameters` will automatically be set if not already set
 - Path parameters in kebab notation (`{my-var}`) are not supported. Workaround example below.
 - Static routes (those without `{var}`) are evaluated first, followed by Dynamic routes (those with `{var}`) evaluated in the order they appear.
-- A method-specific route wins over an `ANY` route on the same path regardless of registration order. Dynamic `ANY` routes are evaluated after every method-specific dynamic route, each group in the order they appear. Registering a path twice for the same method (including through `ANY`) throws, static or dynamic; a method-specific and an `ANY` route on the same dynamic path are allowed.
+- A method-specific route wins over an `ANY` route on the same path regardless of registration order, static or dynamic; the `ANY` route serves the remaining methods. Static `ANY` routes are consulted after the method-specific static routes and before any dynamic route; dynamic `ANY` routes are evaluated after every method-specific dynamic route, each group in the order they appear.
+- Registering a path twice for the same method throws `Duplicate route`, static or dynamic, and so does registering it twice through `ANY`. Two dynamic paths that differ only in parameter name (`/user/{id}` and `/user/{userId}`) match the same requests and count as duplicates.
 
 ## Sample usage
 
@@ -123,4 +124,33 @@ export const handler = middy()
   .use(httpHeaderNormalizer())
   .handler(httpRouterHandler(routes))
 
+```
+
+## TypeScript
+
+`routes[].handler` is typed as `RouteHandler<TEvent, TResult>`, a single call signature `(event, context) => TResult | Promise<TResult>` that a plain Lambda handler, a `middy()` handler and an inline arrow all satisfy. An inline `handler: (event, context) => ...` gets `event` and `context` typed from the router's generics (default `APIGatewayProxyEvent` and `APIGatewayProxyResult`), or from a typed sibling route.
+
+The router returns a `MiddyfiedHandler<TEvent, TResult>`. Wrapping it with `middy().handler(httpRouterHandler(routes))` needs the same generics on `middy`, because `middy()` alone defaults its event to `unknown`; alternatively pass the router straight into `middy()` and attach middleware with `.use()`.
+
+```typescript
+import middy from '@middy/core'
+import httpRouterHandler from '@middy/http-router'
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
+
+const routes = [
+  {
+    method: 'GET' as const,
+    path: '/user/{id}',
+    handler: async (event, context) => ({ statusCode: 200, body: event.pathParameters?.id ?? '' })
+  }
+]
+
+// Either name the event and result on `middy`
+export const handler = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
+  .use(httpHeaderNormalizer())
+  .handler(httpRouterHandler(routes))
+
+// or wrap the router directly
+export const handler = middy(httpRouterHandler(routes))
+  .use(httpHeaderNormalizer())
 ```

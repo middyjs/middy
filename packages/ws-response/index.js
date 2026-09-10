@@ -8,7 +8,7 @@ import {
 import {
 	canPrefetch,
 	catchInvalidSignatureException,
-	createClient,
+	createClientInit,
 	createPrefetchClient,
 	validateOptions,
 } from "@middy/util";
@@ -50,8 +50,11 @@ const wsResponseMiddleware = (opts = {}) => {
 	// Clients built from `event.requestContext` are keyed by endpoint so a
 	// function served through several stages or custom domains posts to the
 	// endpoint the request arrived on, instead of the first one the container
-	// saw. Bounded so an unbounded set of domains cannot grow memory.
-	const derivedClients = new Map();
+	// saw. Bounded so an unbounded set of domains cannot grow memory. Each
+	// endpoint keeps its own util client init, which rebuilds the client when
+	// sts refetches the `awsClientAssumeRole` credentials and forgets a
+	// rejected init so the next invocation retries.
+	const derivedClients = new Map(); // endpoint -> { init, client }
 	const derivedClientsMax = 8;
 
 	const resolveClient = async (request) => {
@@ -64,23 +67,20 @@ const wsResponseMiddleware = (opts = {}) => {
 			awsClientOptions.endpoint ??= `https://${request.event.requestContext.domainName}/${request.event.requestContext.stage}`;
 		}
 		const { endpoint } = awsClientOptions;
-		if (derivedClients.has(endpoint)) return derivedClients.get(endpoint);
-		// Only a resolved client is memoized, so a rejected init is retried on
-		// the next invocation.
-		const derivedClient = await createClient(
-			{ ...options, awsClientOptions },
-			request,
-		);
-		derivedClients.set(endpoint, derivedClient);
+		const derived = derivedClients.get(endpoint) ?? {
+			init: createClientInit({ ...options, awsClientOptions }),
+		};
+		derived.client = await derived.init(request);
+		// Only a resolved client is memoized, so a rejected init never counts
+		// against the bound; on a hit this re-sets the same entry.
+		derivedClients.set(endpoint, derived);
 		if (derivedClients.size > derivedClientsMax) {
-			const [oldestEndpoint, oldestClient] = derivedClients
-				.entries()
-				.next().value;
+			const [oldestEndpoint, oldest] = derivedClients.entries().next().value;
 			derivedClients.delete(oldestEndpoint);
 			// Release the evicted client's keep-alive sockets.
-			oldestClient.destroy?.();
+			oldest.client.destroy?.();
 		}
-		return derivedClient;
+		return derived.client;
 	};
 
 	const wsResponseMiddlewareAfter = async (request) => {

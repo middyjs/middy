@@ -69,11 +69,6 @@
 	"peerDependencies": {
 		"paseto": "^4.0.0"
 	},
-	"peerDependenciesMeta": {
-		"paseto": {
-			"optional": true
-		}
-	},
 	"devDependencies": {
 		"@middy/core": "8.0.0-alpha.0",
 		"@types/aws-lambda": "^8.0.0",

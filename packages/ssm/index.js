@@ -128,7 +128,6 @@ const ssmMiddleware = (opts = {}) => {
 				.then((resp) => {
 					// Don't sanitize key, mapped to set value in options
 					const result = {};
-					// Stryker disable next-line ArrayDeclaration: a non-empty fallback injects a bogus fetchKey whose indexOf is -1, so it only writes result[bogus]=Promise.reject and value[undefined]=undefined; neither is ever read back (only requested keys are resolved), so it is indistinguishable from the empty fallback.
 					for (const fetchKey of resp.InvalidParameters ?? []) {
 						const internalKey = internalKeys[fetchKeys.indexOf(fetchKey)];
 						// Copy rather than mutate the cached object in place, so the
@@ -184,7 +183,7 @@ const ssmMiddleware = (opts = {}) => {
 			const fetchKey = options.fetchData[internalKey];
 			if (!fetchKey.endsWith("/")) continue; // Skip not path passed in
 			values[internalKey] = fetchPathRequest(fetchKey).catch(
-				evictCacheOnFailure(options.cacheKey, internalKey),
+				evictCacheOnFailure(options.cacheKey, internalKey, values),
 			);
 		}
 		return values;
@@ -234,7 +233,12 @@ const ssmMiddleware = (opts = {}) => {
 	};
 
 	const ssmMiddlewareBefore = (request) => {
-		if (client) return ssmMiddlewareFetch(request);
+		// With `awsClientAssumeRole` the client is rebuilt when sts refetches the
+		// credentials, so it is resolved on every invocation (util memoises on
+		// the credential promise identity, so a hit costs one microtask).
+		if (client && !options.awsClientAssumeRole) {
+			return ssmMiddlewareFetch(request);
+		}
 		return clientInit(request).then((resolvedClient) => {
 			client = resolvedClient;
 			return ssmMiddlewareFetch(request);

@@ -31,7 +31,7 @@ npm install --save @middy/http-cors
 - `cacheControl` (string) (optional): value to put in Cache-Control header on pre-flight (OPTIONS) requests (default: `undefined`)
 - `vary` (string) (optional): value for the `Vary` response header, applied only when the handler set no `Vary` (or `vary`) header of its own; a handler-set value is kept as-is in either casing. `Origin` is appended automatically whenever the emitted `Access-Control-Allow-Origin` can depend on the request `Origin`: on every response once `origins` lists anything other than `*` (including a mismatch or a request with no `Origin`), when a wildcard reflects the request origin, or when `*` is sent with credentials. A bare `origin` never varies, so it adds nothing. (default: `undefined`)
 
-**Note**: VPC Lattice V2 events (`version: "2.0"` with a top-level `method` and header values delivered as arrays) are supported; an array header value is read as its first element. `Origin` is appended to `Vary` only when the header does not already list it.
+**Note**: VPC Lattice V1 events (top-level `method`, no `version`) and V2 events (`version: "2.0"` with a top-level `method` and header values delivered as arrays) are supported, preflights included. An array `Origin` or `Access-Control-Request-Method` is read as its first element; an array `Access-Control-Request-Headers` is joined, so every entry is checked against `requestHeaders`. `Origin` is appended to `Vary` only when the header does not already list it, and never to a handler-set `Vary: *`, which already covers everything.
 
 ```javascript
 import middy from '@middy/core'

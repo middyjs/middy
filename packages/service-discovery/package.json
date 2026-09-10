@@ -65,11 +65,6 @@
 	"peerDependencies": {
 		"@aws-sdk/client-servicediscovery": "^3.0.0"
 	},
-	"peerDependenciesMeta": {
-		"@aws-sdk/client-servicediscovery": {
-			"optional": true
-		}
-	},
 	"dependencies": {
 		"@middy/util": "8.0.0-alpha.0"
 	},

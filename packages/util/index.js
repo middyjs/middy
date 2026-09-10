@@ -110,18 +110,16 @@ const stableStringify = (value, seen = new WeakSet()) => {
 	if (value === null || typeof value !== "object") return JSON.stringify(value);
 	if (seen.has(value)) return '"[Circular]"';
 	seen.add(value);
-	let result;
-	if (Array.isArray(value)) {
-		result = `[${value.map((v) => stableStringify(v, seen)).join(",")}]`;
-	} else {
-		const keys = Object.keys(value)
-			.filter((k) => typeof value[k] !== "function")
-			.sort();
-		// Stryker disable next-line StringLiteral: removing the key/value join "," is equivalent; JSON.stringify quotes every key, so no two distinct objects can ever serialize to the same string with or without the separator (and equal objects stay equal).
-		result = `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k], seen)}`).join(",")}}`;
-	}
+	const isArray = Array.isArray(value);
+	const parts = isArray
+		? value.map((v) => stableStringify(v, seen))
+		: Object.keys(value)
+				.filter((k) => typeof value[k] !== "function")
+				.sort()
+				.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k], seen)}`);
 	seen.delete(value);
-	return result;
+	const joined = parts.join(",");
+	return isArray ? `[${joined}]` : `{${joined}}`;
 };
 
 const resolveInstance = (name) => {
@@ -227,8 +225,17 @@ const checkRule = (rule, value, path, fail) => {
 		if (hasStringConstraint && typeof value !== "string") {
 			fail(`Option '${path}' must be string`);
 		}
-		if (pattern !== undefined && value.match(pattern) === null) {
-			fail(`Option '${path}' must match pattern ${pattern}`);
+		if (pattern !== undefined) {
+			let matched;
+			try {
+				matched = value.match(pattern) !== null;
+			} catch {
+				// A pattern that does not compile is a malformed schema, not a
+				// mismatch; the RegExp SyntaxError is surfaced as the packaged
+				// TypeError like every other schema error.
+				schemaFail(`Invalid pattern for option '${path}'`);
+			}
+			if (!matched) fail(`Option '${path}' must match pattern ${pattern}`);
 		}
 		if (value.length < minLength) {
 			fail(`Option '${path}' must have length >= ${minLength}`);
@@ -310,8 +317,8 @@ export const validateOptions = (packageName, schema, options = {}) => {
 	} catch (e) {
 		// Re-wrap an internal malformed-schema `SchemaError` so callers still see
 		// the documented `TypeError` + `cause.package`; mismatch errors already
-		// carry that shape and pass through untouched.
-		// Stryker disable next-line ConditionalExpression: forcing this true is equivalent; the only non-SchemaError reaching here is a `fail()` TypeError that already carries cause.package, so re-wrapping it via `fail(e.message)` produces an identical message + cause.
+		// carry that shape and pass through untouched, as does an error a
+		// predicate threw.
 		if (e instanceof SchemaError) {
 			fail(e.message);
 		}
@@ -340,7 +347,9 @@ export const createClient = async (options, request) => {
 
 	// Role Credentials
 	if (options.awsClientAssumeRole) {
-		if (!request) {
+		// The credentials live in `request.internal`; without it the client would
+		// silently be built on the function's own role.
+		if (!request?.internal) {
 			throw new Error("Request required when assuming role", {
 				cause: { package: pkg },
 			});
@@ -373,17 +382,25 @@ export const createClientInit = (options) => {
 	let pending;
 	let credentials;
 	return (request) => {
+		// Stryker disable next-line ConditionalExpression: equivalent; without awsClientAssumeRole the lookup reads internal[undefined], which is undefined like the initial credentials, so the branch never resets the memo.
 		if (awsClientAssumeRole) {
-			const current = request?.internal[awsClientAssumeRole];
+			// A request without `internal` is left to createClient, which rejects
+			// with the packaged error rather than throwing here synchronously.
+			const current = request?.internal?.[awsClientAssumeRole];
 			if (current !== credentials) {
 				credentials = current;
 				pending = undefined;
 			}
 		}
-		pending ??= createClient(options, request).catch((e) => {
-			pending = undefined;
-			throw e;
-		});
+		if (pending === undefined) {
+			// Only the current attempt is forgotten on failure: one superseded by
+			// refetched credentials may still reject after its replacement began.
+			const attempt = createClient(options, request).catch((e) => {
+				if (pending === attempt) pending = undefined;
+				throw e;
+			});
+			pending = attempt;
+		}
 		return pending;
 	};
 };
@@ -708,7 +725,13 @@ export const processCache = (
 					middlewareFetch,
 					middlewareFetchRequest,
 				);
-				const entry = { value: cached.value, expiry: effectiveExpiry, refresh };
+				const entry = {
+					value: cached.value,
+					expiry: effectiveExpiry,
+					refresh,
+					middlewareFetch,
+					middlewareFetchRequest,
+				};
 				cache.set(cacheKey, entry);
 				return entry;
 			}
@@ -716,6 +739,12 @@ export const processCache = (
 			return cached;
 		}
 	}
+	// The expiry learned by the previous cycle is dropped before the fetch: still
+	// ahead of the clock (the entry was cleared, evicted or capped by a shorter
+	// cacheExpiry), it would floor whatever this cycle learns and pin every
+	// later cycle to the first one's expiry.
+	if (options.cacheLearnedExpiry)
+		options.cacheLearnedExpiry[cacheKey] = undefined;
 	const value = middlewareFetch(middlewareFetchRequest);
 	silenceFetchRejections(value);
 	// cacheExpiry semantics:
@@ -737,8 +766,7 @@ export const processCache = (
 		// the same tick would refetch and no refresh could be scheduled.
 		const learned = learnedExpiry(options, cacheKey);
 		if (learned > now) {
-			// Stryker disable next-line EqualityOperator: equivalent; when learned === expiry the assignment writes the same number back, so <= cannot be told apart from <.
-			if (learned < expiry) expiry = learned;
+			expiry = Math.min(expiry, learned);
 		} else {
 			options.cacheLearnedExpiry[cacheKey] = undefined;
 		}
@@ -749,7 +777,15 @@ export const processCache = (
 			middlewareFetch,
 			middlewareFetchRequest,
 		);
-		cache.set(cacheKey, { value, expiry, refresh });
+		// The fetch and request are kept so an expiry learned once the fetch
+		// resolves (see setCacheKeyExpiry) can reschedule this refresh.
+		cache.set(cacheKey, {
+			value,
+			expiry,
+			refresh,
+			middlewareFetch,
+			middlewareFetchRequest,
+		});
 		evictCache(cacheMaxSize);
 	}
 	return { value, expiry };
@@ -778,10 +814,17 @@ export const modifyCache = (cacheKey, value) => {
 // `.catch` handler for a per-key fetch: drop the failed key from the cached
 // value and flag the entry modified so the next `processCache` call refetches
 // only that key, then rethrow so the current invocation still fails.
-export const evictCacheOnFailure = (cacheKey, internalKey) => (e) => {
+// `values` is the object the fetch returned. Given, the key is only dropped
+// while the entry still holds that fetch's promise for it: a fetch that fails
+// after its entry expired and a newer cycle replaced it must not evict the
+// fresh value. The promise is compared rather than the object because the
+// modified path merges a refetch into the entry's existing value object.
+export const evictCacheOnFailure = (cacheKey, internalKey, values) => (e) => {
 	const value = getCache(cacheKey).value ?? {};
-	value[internalKey] = undefined;
-	modifyCache(cacheKey, value);
+	if (values === undefined || value[internalKey] === values[internalKey]) {
+		value[internalKey] = undefined;
+		modifyCache(cacheKey, value);
+	}
 	throw e;
 };
 
@@ -795,6 +838,12 @@ export const evictCacheOnFailure = (cacheKey, internalKey) => (e) => {
 // is not a unix timestamp (Infinity for "no expiry", NaN, a duration, a
 // negative number) carries no information: it never displaces a fresh learned
 // expiry and clears a stale one.
+// A fetch usually learns inside its `.then`, after `processCache` stored the
+// entry with the configured lifetime and scheduled the refresh for it. When
+// the learned expiry shortens that entry, its refresh is moved up to match, so
+// the rotation is paid in the background rather than by the first request
+// after it. Nothing is scheduled when this caller has caching disabled: an
+// entry found under the key then belongs to another instance.
 export const setCacheKeyExpiry = (options, expiryMs) => {
 	const { cacheKey } = options;
 	const now = Date.now();
@@ -808,6 +857,21 @@ export const setCacheKeyExpiry = (options, expiryMs) => {
 	options.cacheLearnedExpiry ??= {};
 	options.cacheLearnedExpiry[cacheKey] =
 		clamp === Number.POSITIVE_INFINITY ? undefined : clamp;
+	const entry = cache.get(cacheKey);
+	if (
+		entry &&
+		clamp < entry.expiry &&
+		(options.cacheKeyExpiry?.[cacheKey] ?? options.cacheExpiry)
+	) {
+		clearTimeout(entry.refresh);
+		entry.expiry = clamp;
+		entry.refresh = scheduleRefresh(
+			clamp - now,
+			options,
+			entry.middlewareFetch,
+			entry.middlewareFetchRequest,
+		);
+	}
 };
 
 const evictCache = (maxSize) => {
@@ -1007,20 +1071,34 @@ const omitInstance = (obj, pathTree, mask) => {
 // Built-ins stay leaves: their own properties are not data to redact (a
 // Buffer's indices, a RegExp's lastIndex, a stream's internal state) and a
 // spread copy would strip the state that makes them what they are.
-const isOpaque = (value) =>
-	value instanceof Date ||
-	value instanceof RegExp ||
-	value instanceof Map ||
-	value instanceof Set ||
-	value instanceof WeakMap ||
-	value instanceof WeakSet ||
-	value instanceof ArrayBuffer ||
-	ArrayBuffer.isView(value) ||
-	typeof value.then === "function" ||
-	value instanceof ReadableStream ||
-	value instanceof WritableStream ||
-	value._readableState !== undefined ||
-	value._writableState !== undefined;
+const isOpaque = (value) => {
+	if (
+		value instanceof Date ||
+		value instanceof RegExp ||
+		value instanceof Map ||
+		value instanceof Set ||
+		value instanceof WeakMap ||
+		value instanceof WeakSet ||
+		value instanceof ArrayBuffer ||
+		ArrayBuffer.isView(value) ||
+		value instanceof ReadableStream ||
+		value instanceof WritableStream
+	) {
+		return true;
+	}
+	// The remaining probes read properties. A Proxy with a strict `get` trap (a
+	// framework's request wrapper) throws for one it does not carry; it is not
+	// data to walk either, so it stays a leaf.
+	try {
+		return (
+			typeof value.then === "function" ||
+			value._readableState !== undefined ||
+			value._writableState !== undefined
+		);
+	} catch {
+		return true;
+	}
+};
 
 // `cause`, `stack` and `AggregateError.errors` are own but non-enumerable, so a
 // spread drops them, and `cause.data` is where middy puts the payload that

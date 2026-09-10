@@ -3231,6 +3231,227 @@ test("It should reflect an array Origin header from a VPC Lattice V2 event in th
 	});
 });
 
+// Lattice V2 can deliver a repeated `Access-Control-Request-Headers` as one
+// array entry per header. Every entry has to be checked, not only the first.
+test("It should check every entry of an array Access-Control-Request-Headers on a VPC Lattice V2 preflight", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestHeaders: ["authorization"],
+		}),
+	);
+
+	const event = latticeV2Event("OPTIONS", {
+		"access-control-request-headers": ["authorization", "x-disallowed"],
+	});
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {},
+	});
+});
+
+test("It should allow a VPC Lattice V2 preflight whose array Access-Control-Request-Headers are all allowed", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestHeaders: ["authorization", "x-custom"],
+			headers: "authorization, x-custom",
+		}),
+	);
+
+	const event = latticeV2Event("OPTIONS", {
+		"access-control-request-headers": ["authorization", "x-custom"],
+	});
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Headers": "authorization, x-custom",
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+// A `version: "2.0"` event with no `requestContext` at all (a hand-built or
+// trimmed event) must resolve its method from the top level, not throw.
+test("It should answer a preflight on a version 2.0 event with no requestContext", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+		}),
+	);
+
+	const event = { version: "2.0", method: "OPTIONS", headers: {} };
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: { "Access-Control-Allow-Origin": "*" },
+	});
+});
+
+test("It should apply cacheControl in the after hook on a version 2.0 OPTIONS event with no requestContext", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(httpCors({ origin: "*", cacheControl: "max-age=3600" }));
+
+	const event = { version: "2.0", method: "OPTIONS", headers: {} };
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+			"Cache-Control": "max-age=3600",
+		},
+	});
+});
+
+// *** VPC Lattice V1 events *** //
+// No `version`, top-level `method` and `raw_path`, plain string header values.
+// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html#event-structure-v1
+const latticeV1Event = (method, headers) => ({
+	raw_path: "/path/to/resource",
+	method,
+	headers,
+	query_parameters: {},
+	body: "",
+	is_base64_encoded: false,
+});
+
+test("It should answer a VPC Lattice V1 preflight", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			methods: "GET,POST",
+		}),
+	);
+
+	const event = latticeV1Event("OPTIONS", {
+		origin: "https://example.com",
+		"access-control-request-method": "POST",
+	});
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Methods": "GET,POST",
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should apply cacheControl in the after hook on a VPC Lattice V1 OPTIONS event", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(httpCors({ origin: "*", cacheControl: "max-age=3600" }));
+
+	const event = latticeV1Event("OPTIONS", {});
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+			"Cache-Control": "max-age=3600",
+		},
+	});
+});
+
+test("It should not apply cacheControl in the after hook on a VPC Lattice V1 GET event", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(httpCors({ origin: "*", cacheControl: "max-age=3600" }));
+
+	const event = latticeV1Event("GET", {});
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: { "Access-Control-Allow-Origin": "*" },
+	});
+});
+
+// *** Vary: * is complete *** //
+// RFC 9110 §12.5.5: `*` means the response varies on everything, so there is
+// nothing to add. `*, Origin` is wrong on the wire.
+test("It should not append Origin to a handler Vary: * header", async (t) => {
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		headers: { Vary: "*" },
+	}));
+
+	handler.use(
+		httpCors({
+			origins: ["https://example.com", "https://example.org"],
+		}),
+	);
+
+	const event = {
+		headers: { Origin: "https://example.com" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Origin": "https://example.com",
+			Vary: "*",
+		},
+	});
+});
+
+test("It should not append Origin to a handler lowercase vary: * header", async (t) => {
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		headers: { vary: " * " },
+	}));
+
+	handler.use(
+		httpCors({
+			origins: ["https://example.com", "https://example.org"],
+		}),
+	);
+
+	const event = {
+		headers: { Origin: "https://example.com" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Origin": "https://example.com",
+			vary: " * ",
+		},
+	});
+});
+
 // *** Vary: Origin dedupe *** //
 test("It should not append Origin to a Vary header that already lists it", async (t) => {
 	const handler = middy((event, context) => ({

@@ -78,9 +78,15 @@ const buildS3BatchResponse = ({ records, source, settled, request }) => {
 const encodeFirehoseData = (value, fallback) => {
 	if (value === undefined || value === null) return fallback;
 	if (typeof value === "string") return Buffer.from(value).toString("base64");
-	// Stryker disable next-line ConditionalExpression: a Buffer is a Uint8Array, so the next branch produces identical base64; forcing this false changes nothing observable.
-	if (Buffer.isBuffer(value)) return value.toString("base64");
-	if (value instanceof Uint8Array) return Buffer.from(value).toString("base64");
+	// A Buffer is a Uint8Array; viewing either over its own memory encodes the
+	// same bytes without a copy.
+	if (value instanceof Uint8Array) {
+		return Buffer.from(
+			value.buffer,
+			value.byteOffset,
+			value.byteLength,
+		).toString("base64");
+	}
 	return Buffer.from(JSON.stringify(value)).toString("base64");
 };
 

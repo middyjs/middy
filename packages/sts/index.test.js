@@ -945,3 +945,80 @@ test("It should refetch inside the 60 s margin before the AssumeRole Expiration"
 	await handler(defaultEvent, defaultContext);
 	strictEqual(sendStub.callCount, 2);
 });
+
+test("It should rebuild the client when the assumed-role credentials are refetched", async (t) => {
+	const constructions = [];
+	class FakeClient {
+		constructor(awsClientOptions) {
+			constructions.push(awsClientOptions);
+		}
+		send() {
+			return Promise.resolve({
+				Credentials: {
+					AccessKeyId: "id",
+					SecretAccessKey: "secret",
+					SessionToken: "token",
+				},
+			});
+		}
+	}
+	let credentials = Promise.resolve({ accessKeyId: "a" });
+	const handler = middy(() => {})
+		.before((request) => {
+			request.internal.role = credentials;
+		})
+		.use(
+			sts({
+				AwsClient: FakeClient,
+				awsClientAssumeRole: "role",
+				cacheExpiry: 0,
+				fetchData: { key: { RoleArn: "arn:aws:iam::0:role/r" } },
+			}),
+		);
+
+	await handler(defaultEvent, defaultContext);
+	// A later invocation carrying the same cached credential promise keeps
+	// the client.
+	await handler(defaultEvent, defaultContext);
+	strictEqual(constructions.length, 1);
+	deepStrictEqual(constructions[0].credentials, { accessKeyId: "a" });
+
+	// sts refetched: request.internal now holds a new promise object, so the
+	// client is rebuilt with the new session instead of keeping the expired one.
+	credentials = Promise.resolve({ accessKeyId: "b" });
+	await handler(defaultEvent, defaultContext);
+	strictEqual(constructions.length, 2);
+	deepStrictEqual(constructions[1].credentials, { accessKeyId: "b" });
+	await handler(defaultEvent, defaultContext);
+	strictEqual(constructions.length, 2);
+});
+
+test("It should construct the client once without awsClientAssumeRole", async (t) => {
+	let constructed = 0;
+	class FakeClient {
+		constructor() {
+			constructed += 1;
+		}
+		send() {
+			return Promise.resolve({
+				Credentials: {
+					AccessKeyId: "id",
+					SecretAccessKey: "secret",
+					SessionToken: "token",
+				},
+			});
+		}
+	}
+	const handler = middy(() => {}).use(
+		sts({
+			AwsClient: FakeClient,
+			disablePrefetch: true,
+			cacheExpiry: 0,
+			fetchData: { key: { RoleArn: "arn:aws:iam::0:role/r" } },
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(constructed, 1);
+});

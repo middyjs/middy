@@ -782,6 +782,17 @@ test("It should reject access-point-like hosts with a missing or extra label", a
 	);
 });
 
+test("It should not let * match an empty label", async (t) => {
+	await expectRejectedInputUrl(
+		t,
+		"https://ap.s3-accesspoint..amazonaws.com/key?signature",
+	);
+	await expectRejectedInputUrl(
+		t,
+		"https://.s3-accesspoint.us-east-1.amazonaws.com/key?signature",
+	);
+});
+
 test("It should accept every supporting access point host shape by default", async (t) => {
 	for (const host of [
 		"my-s3-ap-111122223333.s3-accesspoint.us-east-1.amazonaws.com",
@@ -911,4 +922,67 @@ test("It should send no Body when the handler returns null", async (t) => {
 		RequestToken: defaultEvent.getObjectContext.outputToken,
 		Body: undefined,
 	});
+});
+
+test("It should rebuild the client when the assumed-role credentials are refetched", async (t) => {
+	t.mock.method(globalThis, "fetch", async () => new Response("body"));
+	const constructions = [];
+	class FakeClient {
+		constructor(awsClientOptions) {
+			constructions.push(awsClientOptions);
+		}
+		send() {
+			return Promise.resolve({ statusCode: 200 });
+		}
+	}
+	let credentials = Promise.resolve({ accessKeyId: "a" });
+	const handler = middy(async () => ({ Body: "body" }))
+		.before((request) => {
+			request.internal.role = credentials;
+		})
+		.use(
+			s3ObjectResponse({
+				AwsClient: FakeClient,
+				awsClientAssumeRole: "role",
+			}),
+		);
+
+	await handler(defaultEvent, defaultContext);
+	// A later invocation carrying the same cached credential promise keeps
+	// the client.
+	await handler(defaultEvent, defaultContext);
+	strictEqual(constructions.length, 1);
+	deepStrictEqual(constructions[0].credentials, { accessKeyId: "a" });
+
+	// sts refetched: request.internal now holds a new promise object, so the
+	// client is rebuilt with the new session instead of keeping the expired one.
+	credentials = Promise.resolve({ accessKeyId: "b" });
+	await handler(defaultEvent, defaultContext);
+	strictEqual(constructions.length, 2);
+	deepStrictEqual(constructions[1].credentials, { accessKeyId: "b" });
+	await handler(defaultEvent, defaultContext);
+	strictEqual(constructions.length, 2);
+});
+
+test("It should construct the client once without awsClientAssumeRole", async (t) => {
+	t.mock.method(globalThis, "fetch", async () => new Response("body"));
+	let constructed = 0;
+	class FakeClient {
+		constructor() {
+			constructed += 1;
+		}
+		send() {
+			return Promise.resolve({ statusCode: 200 });
+		}
+	}
+	const handler = middy(async () => ({ Body: "body" })).use(
+		s3ObjectResponse({
+			AwsClient: FakeClient,
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(constructed, 1);
 });

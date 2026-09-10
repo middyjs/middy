@@ -288,6 +288,40 @@ test("createClientInit", () => {
 test("evictCacheOnFailure", () => {
 	const handler = util.evictCacheOnFailure("someKey", "internalKey");
 	expect(handler(new Error("boom"))).type.toBe<never>();
+	const values: Record<string, unknown> = {};
+	expect(util.evictCacheOnFailure("someKey", "internalKey", values)).type.toBe<
+		(e: unknown) => never
+	>();
+});
+
+test("createClientInit infers the client from an SDK client class", () => {
+	const initClient = util.createClientInit({
+		AwsClient: SSMClient,
+		awsClientOptions: { region: "ca-central-1" },
+	});
+	expect(initClient(sampleRequest)).type.toBe<Promise<SSMClient>>();
+	expect(
+		util.createPrefetchClient({ AwsClient: SSMClient, awsClientOptions: {} }),
+	).type.toBe<SSMClient>();
+});
+
+test("helpers accept a structural request without @middy/core types", () => {
+	const request = {
+		event: { path: "/foo" },
+		context: sampleRequest.context,
+		response: undefined,
+		error: undefined,
+		internal: { key: "value" as const },
+	};
+	expect(util.getInternal("key", request)).type.toBe<
+		Promise<{ key: "value" }>
+	>();
+	expect(util.contextNamespace(request, "ssm")).type.toBe<
+		Record<string, unknown>
+	>();
+	expect(util.normalizeHttpResponse(request)).type.toBe<
+		Record<string, unknown>
+	>();
 });
 
 test("setCacheKeyExpiry", () => {

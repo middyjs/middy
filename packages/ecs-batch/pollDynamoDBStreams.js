@@ -1,6 +1,8 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { setTimeout as delay } from "node:timers/promises";
+// The module object rather than a named import so a test's mock timers can
+// intercept setTimeout; a named import binds the real function at load time.
+import timers from "node:timers/promises";
 import {
 	DynamoDBStreamsClient,
 	GetRecordsCommand,
@@ -126,7 +128,7 @@ export const pollDynamoDBStreams = (opts) => {
 						),
 					};
 				} else if (pollingDelay > 0) {
-					await delay(pollingDelay);
+					await timers.setTimeout(pollingDelay);
 				}
 			}
 		},

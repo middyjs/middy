@@ -1,6 +1,8 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { setTimeout as delay } from "node:timers/promises";
+// The module object rather than a named import so a test's mock timers can
+// intercept setTimeout; a named import binds the real function at load time.
+import timers from "node:timers/promises";
 import { validateOptions } from "@middy/util";
 import stompit from "stompit";
 
@@ -43,7 +45,6 @@ const readBody = (message) =>
 
 // ActiveMQ STOMP destinations are "/queue/<name>", "/topic/<name>", the
 // "/temp-" and "/remote-temp-" variants; Lambda carries the physical name only.
-// Stryker disable next-line Regex: equivalent; ActiveMQ STOMP destinations always start with the prefix, so an unanchored match still lands at index 0.
 const stompDestinationPrefix = /^\/(?:remote-)?(?:temp-)?(?:queue|topic)\//;
 
 // Headers ActiveMQ's STOMP FrameTranslator puts on a MESSAGE frame, plus the
@@ -106,11 +107,33 @@ const buildAmqRecord = (headers, body, subscribedDestination) => ({
 			"",
 		),
 	},
-	// Stryker disable next-line StringLiteral: equivalent; Buffer.from treats an empty encoding as utf-8.
-	data: Buffer.from(body, "utf-8").toString("base64"),
+	data: Buffer.from(body).toString("base64"),
 	timestamp: Number(headers.timestamp ?? Date.now()),
 	properties: toProperties(headers),
 });
+
+// A batchItemFailures entry whose itemIdentifier is null, empty or names no
+// record in the batch invalidates the whole response: Lambda then retries
+// every record. `ids` is the failed set to act on (every record when the
+// response is invalid) and `error` the reason to raise through onError.
+// https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html
+// https://docs.aws.amazon.com/lambda/latest/dg/kafka-retry-configurations.html
+const batchFailures = (response, knownIds) => {
+	const ids = new Set();
+	for (const entry of response?.batchItemFailures ?? []) {
+		const itemIdentifier = entry?.itemIdentifier;
+		if (!knownIds.has(itemIdentifier)) {
+			return {
+				ids: knownIds,
+				error: new Error("Invalid batchItemFailures entry", {
+					cause: { package: pkg, data: { itemIdentifier } },
+				}),
+			};
+		}
+		ids.add(itemIdentifier);
+	}
+	return { ids };
+};
 
 export const pollAmq = (opts) => {
 	pollAmqValidateOptions(opts);
@@ -176,7 +199,7 @@ export const pollAmq = (opts) => {
 					Date.now() < deadline &&
 					!signal.aborted
 				) {
-					await delay(Math.min(50, deadline - Date.now()));
+					await timers.setTimeout(Math.min(50, deadline - Date.now()));
 				}
 				if (signal.aborted) return;
 				const taken = pendingMessages.splice(0, batchSize);
@@ -190,14 +213,16 @@ export const pollAmq = (opts) => {
 			}
 		},
 		async acknowledge(event, response) {
-			const failed = new Set(
-				// Stryker disable next-line ArrayDeclaration: equivalent; the placeholder entry has no itemIdentifier, and every STOMP MESSAGE frame carries a message-id, so the lookup behaves as with an empty list.
-				(response?.batchItemFailures ?? []).map((f) => f.itemIdentifier),
-			);
 			const taken = inflight.get(event) ?? [];
 			inflight.delete(event);
+			// An unknown or already settled batch has nothing left to validate.
+			if (taken.length === 0) return;
+			const failed = batchFailures(
+				response,
+				new Set(taken.map((t) => t.record.messageID)),
+			);
 			for (const t of taken) {
-				if (failed.has(t.record.messageID)) {
+				if (failed.ids.has(t.record.messageID)) {
 					// Stryker disable next-line OptionalChaining: equivalent; every event in `inflight` came out of poll(), which assigns client before it yields.
 					client?.nack(t.message);
 				} else {
@@ -205,6 +230,9 @@ export const pollAmq = (opts) => {
 					client?.ack(t.message);
 				}
 			}
+			// An invalid response nacks every message (the whole batch is
+			// retried, as from Lambda) and then raises the reason.
+			if (failed.error) throw failed.error;
 		},
 	};
 };

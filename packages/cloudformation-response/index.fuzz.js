@@ -15,8 +15,11 @@ globalThis.fetch = async (_url, init) => {
 };
 
 const handler = middy((event) => event).use(middleware());
+// A Lambda context always names its log stream, which is the PhysicalResourceId
+// fallback; without one the middleware raises a package error by design.
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
+	logStreamName: "2026/03/14/[$LATEST]abcdef1234567890",
 };
 
 test("fuzz `event` w/ `object`", async () => {

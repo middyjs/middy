@@ -1449,3 +1449,98 @@ test("It should split names into batches of awsRequestLimit with a shorter tail"
 test("It should batch 12 names as [10, 2] with the default awsRequestLimit", async (t) => {
 	deepStrictEqual(await getParametersBatchSizes(12), [10, 2]);
 });
+
+test("It should rebuild the client when the assumed-role credentials are refetched", async (t) => {
+	const constructions = [];
+	class FakeClient {
+		constructor(awsClientOptions) {
+			constructions.push(awsClientOptions);
+		}
+		send() {
+			return Promise.resolve({ Parameters: [{ Name: "/k", Value: "v" }] });
+		}
+	}
+	let credentials = Promise.resolve({ accessKeyId: "a" });
+	const handler = middy(() => {})
+		.before((request) => {
+			request.internal.role = credentials;
+		})
+		.use(
+			ssm({
+				AwsClient: FakeClient,
+				awsClientAssumeRole: "role",
+				cacheExpiry: 0,
+				fetchData: { key: "/k" },
+			}),
+		);
+
+	await handler(event, context);
+	// A later invocation carrying the same cached credential promise keeps
+	// the client.
+	await handler(event, context);
+	strictEqual(constructions.length, 1);
+	deepStrictEqual(constructions[0].credentials, { accessKeyId: "a" });
+
+	// sts refetched: request.internal now holds a new promise object, so the
+	// client is rebuilt with the new session instead of keeping the expired one.
+	credentials = Promise.resolve({ accessKeyId: "b" });
+	await handler(event, context);
+	strictEqual(constructions.length, 2);
+	deepStrictEqual(constructions[1].credentials, { accessKeyId: "b" });
+	await handler(event, context);
+	strictEqual(constructions.length, 2);
+});
+
+test("It should construct the client once without awsClientAssumeRole", async (t) => {
+	let constructed = 0;
+	class FakeClient {
+		constructor() {
+			constructed += 1;
+		}
+		send() {
+			return Promise.resolve({ Parameters: [{ Name: "/k", Value: "v" }] });
+		}
+	}
+	const handler = middy(() => {}).use(
+		ssm({
+			AwsClient: FakeClient,
+			disablePrefetch: true,
+			cacheExpiry: 0,
+			fetchData: { key: "/k" },
+		}),
+	);
+
+	await handler(event, context);
+	await handler(event, context);
+	strictEqual(constructed, 1);
+});
+
+test("It should leave the cache untouched when GetParameters reports no InvalidParameters", async (t) => {
+	const mockService = mockClient(SSMClient)
+		.on(GetParametersCommand)
+		.resolves({
+			Parameters: [{ Name: "/dev/service_name/key_name", Value: "key-value" }],
+		});
+	const sendStub = mockService.send;
+	let internalKeys;
+	const handler = middy(() => {})
+		.use(
+			ssm({
+				AwsClient: SSMClient,
+				cacheExpiry: -1,
+				cacheKey: "ssm-no-invalid-parameters",
+				fetchData: { key: "/dev/service_name/key_name" },
+				disablePrefetch: true,
+			}),
+		)
+		.before((request) => {
+			internalKeys = Object.keys(request.internal);
+		});
+
+	await handler(event, context);
+	await handler(event, context);
+	strictEqual(sendStub.callCount, 1);
+	// A response without InvalidParameters must not touch the cached entry:
+	// nothing is evicted and no stray key reaches request.internal.
+	deepStrictEqual(internalKeys, ["key"]);
+});

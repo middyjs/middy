@@ -70,6 +70,10 @@ const rdsMiddleware = (opts = {}) => {
 	if (options.internalKey && opts.cacheExpiry === undefined) {
 		options.cacheExpiry = 0;
 	}
+	// `processCache` honours the per-key override first; every lifetime check
+	// below must see the same value it does.
+	const cacheExpiry =
+		options.cacheKeyExpiry?.[options.cacheKey] ?? options.cacheExpiry;
 	if (typeof options.client !== "function") {
 		throw new Error(
 			options.client === undefined
@@ -146,7 +150,7 @@ const rdsMiddleware = (opts = {}) => {
 	// still held when the next one starts belongs to a finished invocation.
 	const reclaim = () => {
 		for (const [request, client] of holders) {
-			if (options.cacheExpiry === 0) close(client);
+			if (cacheExpiry === 0) close(client);
 			release(request);
 		}
 	};
@@ -161,7 +165,7 @@ const rdsMiddleware = (opts = {}) => {
 	const fetch = (request) => {
 		const pending = Promise.try(() => connect(request)).then(
 			(client) => {
-				if (options.cacheExpiry === 0) return client;
+				if (cacheExpiry === 0) return client;
 				const current = getCache(options.cacheKey).value;
 				if (current === undefined || current === pending) {
 					return adopt(client);
@@ -180,21 +184,34 @@ const rdsMiddleware = (opts = {}) => {
 			},
 			(e) => {
 				// Drop the rejected promise so the next invocation reconnects
-				// instead of replaying the failure for the life of the entry.
-				clearCache(options.cacheKey);
+				// instead of replaying the failure for the life of the entry. A
+				// connect that already replaced this one (a refresh timer, or a
+				// broken-client reconnect racing it) owns the entry: leave it.
+				if (getCache(options.cacheKey).value === pending) {
+					clearCache(options.cacheKey);
+				}
 				throw e;
 			},
 		);
 		return pending;
 	};
 
-	if (!options.internalKey && canPrefetch(options)) {
+	if (!options.internalKey && canPrefetch({ ...options, cacheExpiry })) {
 		processCache(options, fetch);
 	}
 
+	// Under `internalKey` a background refresh could only reconnect with the
+	// token of the invocation that stored the entry, stale by then. Let the
+	// entry expire instead; the next invocation reconnects with its own token.
+	const connectCached = (request) => {
+		const entry = processCache(options, () => fetch(request), request);
+		if (options.internalKey) clearTimeout(getCache(options.cacheKey).refresh);
+		return entry;
+	};
+
 	const rdsMiddlewareBefore = async (request) => {
 		if (isExecutionModeDurable(request?.context)) reclaim();
-		const entry = processCache(options, () => fetch(request), request);
+		const entry = connectCached(request);
 		let client = await entry.value;
 		if (client.broken) {
 			// The adapter flagged an unexpected disconnect: drop the dead client
@@ -202,22 +219,22 @@ const rdsMiddleware = (opts = {}) => {
 			// invocation already replaced the entry, join its reconnect instead
 			// of starting a second one that would race it for the cache.
 			if (
-				options.cacheExpiry === 0 ||
+				cacheExpiry === 0 ||
 				getCache(options.cacheKey).value === entry.value
 			) {
 				clearCache(options.cacheKey);
 				retire(client);
 				live = undefined;
 			}
-			client = await processCache(options, () => fetch(request), request).value;
+			client = await connectCached(request).value;
 		}
 		setContextNamespace(request, options.contextKey, client);
 		lease(request, client);
 	};
 	const rdsMiddlewareAfter = async (request) => {
 		try {
-			if (options.cacheExpiry === 0) {
-				await request.context.middyContext?.[options.contextKey].end();
+			if (cacheExpiry === 0) {
+				await request.context.middyContext?.[options.contextKey]?.end();
 			}
 		} catch (e) {
 			console.error("%s: cleanup error: %s", pkg, e.message);

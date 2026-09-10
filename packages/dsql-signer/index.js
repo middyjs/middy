@@ -138,7 +138,7 @@ const dsqlSignerMiddleware = (opts = {}) => {
 					setCacheKeyExpiry(options, Date.now() + lifetimeMs);
 					return token;
 				})
-				.catch(evictCacheOnFailure(options.cacheKey, internalKey));
+				.catch(evictCacheOnFailure(options.cacheKey, internalKey, values));
 		}
 
 		return values;

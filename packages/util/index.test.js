@@ -1,5 +1,6 @@
 import {
 	deepStrictEqual,
+	doesNotThrow,
 	notStrictEqual,
 	ok,
 	rejects,
@@ -104,6 +105,22 @@ describe("createClient", () => {
 		} catch (e) {
 			strictEqual(e.message, "Request required when assuming role");
 		}
+	});
+
+	test("createClient should reject when assuming a role and the request has no internal", async (t) => {
+		const AwsClient = class {
+			send = t.mock.fn();
+		};
+		await rejects(
+			createClient(
+				{ AwsClient, awsClientAssumeRole: "adminRole" },
+				{ event: {}, context: {} },
+			),
+			{
+				message: "Request required when assuming role",
+				cause: { package: "@middy/util" },
+			},
+		);
 	});
 
 	test("createClient should create AWS Client with role", async (t) => {
@@ -2478,6 +2495,28 @@ describe("omit mechanics", () => {
 		strictEqual(inst.secret, "keep");
 	});
 
+	// A framework's request wrapper can be a Proxy whose `get` trap throws for a
+	// property it does not carry. The built-in probes (`then`, stream state)
+	// must not surface that; the value is not data to walk, so it stays a leaf.
+	test("keeps a Proxy with a strict get trap as a leaf", () => {
+		class Wrapper {
+			constructor() {
+				this.secret = "s";
+			}
+		}
+		const proxy = new Proxy(new Wrapper(), {
+			get(target, key) {
+				if (!(key in target)) {
+					throw new TypeError(`unknown property ${String(key)}`);
+				}
+				return target[key];
+			},
+		});
+		const tree = buildPathTree(["wrapped.secret"]);
+		strictEqual(omit({ wrapped: proxy }, tree).wrapped, proxy);
+		strictEqual(omit({ wrapped: proxy }, tree, "***").wrapped, proxy);
+	});
+
 	// A literal own `constructor` key still equal to Object keeps the payload a
 	// record, so it would be omitted if the guard did not skip the segment.
 	test("skips an omitPath containing the constructor segment", () => {
@@ -2825,6 +2864,52 @@ describe("createClientInit", () => {
 			cause: { package: "@middy/util" },
 		});
 	});
+
+	test("rejects, rather than throws, when assuming a role and the request has no internal", async () => {
+		const initClient = createClientInit({
+			AwsClient: class {},
+			awsClientOptions: {},
+			awsClientAssumeRole: "role",
+		});
+		let pending;
+		doesNotThrow(() => {
+			pending = initClient({ event: {}, context: {} });
+		});
+		await rejects(pending, {
+			message: "Request required when assuming role",
+			cause: { package: "@middy/util" },
+		});
+	});
+
+	// Credentials refetched while an earlier init is still pending start a new
+	// attempt; the earlier one failing afterwards must not forget the new one.
+	test("a stale rejection does not forget the attempt that replaced it", async () => {
+		let calls = 0;
+		let rejectFirst;
+		const initClient = createClientInit({
+			AwsClient: class {
+				constructor() {
+					calls += 1;
+				}
+			},
+			awsClientOptions: {},
+			awsClientAssumeRole: "role",
+		});
+		const first = initClient({
+			internal: {
+				role: new Promise((_, reject) => {
+					rejectFirst = reject;
+				}),
+			},
+		});
+		const refreshed = Promise.resolve({ accessKeyId: "b" });
+		const second = initClient({ internal: { role: refreshed } });
+		rejectFirst(new Error("stale"));
+		await rejects(first, /Failed to resolve internal values/);
+		strictEqual(initClient({ internal: { role: refreshed } }), second);
+		await second;
+		strictEqual(calls, 1);
+	});
 });
 
 describe("evictCacheOnFailure", () => {
@@ -2861,6 +2946,69 @@ describe("evictCacheOnFailure", () => {
 			),
 			/x/,
 		);
+	});
+
+	// A fetch that fails after its entry expired and was replaced must not
+	// evict the fresh cycle's value: the entry no longer holds its promise.
+	test("leaves a fresh entry intact when a replaced cycle's fetch fails late", async (t) => {
+		const options = { cacheKey: "evict-late", cacheExpiry: 100 };
+		let rejectFirst;
+		let attempt = 0;
+		const fetch = () => {
+			attempt += 1;
+			const values = {};
+			values.a = (
+				attempt === 1
+					? new Promise((_, reject) => {
+							rejectFirst = reject;
+						})
+					: Promise.resolve("fresh")
+			).catch(evictCacheOnFailure(options.cacheKey, "a", values));
+			return values;
+		};
+		const first = processCache(options, fetch, { internal: {} });
+		t.mock.timers.tick(100);
+		const second = processCache(options, fetch, { internal: {} });
+		strictEqual(attempt, 2);
+		rejectFirst(new Error("late failure"));
+		await rejects(first.value.a, /late failure/);
+		const entry = getCache(options.cacheKey);
+		strictEqual(entry.modified, undefined);
+		strictEqual(entry.value, second.value);
+		strictEqual(await entry.value.a, "fresh");
+		clearCache(options.cacheKey);
+	});
+
+	// A modified entry keeps its own value object and merges the refetched keys
+	// into it, so the guard has to compare the key's promise, not the object.
+	test("evicts a refetched key that fails again on the modified path", async () => {
+		const options = { cacheKey: "evict-modified", cacheExpiry: -1 };
+		let attempt = 0;
+		const fetch = (request, cachedValues = {}) => {
+			attempt += 1;
+			const values = {};
+			if (!cachedValues.a) {
+				values.a = (
+					attempt === 3
+						? Promise.resolve("ok")
+						: Promise.reject(new Error(`fail ${attempt}`))
+				).catch(evictCacheOnFailure(options.cacheKey, "a", values));
+			}
+			if (!cachedValues.b) values.b = Promise.resolve("b");
+			return values;
+		};
+		const first = processCache(options, fetch, { internal: {} });
+		await rejects(first.value.a, /fail 1/);
+		strictEqual(getCache(options.cacheKey).modified, true);
+		const second = processCache(options, fetch, { internal: {} });
+		await rejects(second.value.a, /fail 2/);
+		strictEqual(getCache(options.cacheKey).modified, true);
+		strictEqual(getCache(options.cacheKey).value.a, undefined);
+		const third = processCache(options, fetch, { internal: {} });
+		strictEqual(await third.value.a, "ok");
+		strictEqual(await third.value.b, "b");
+		strictEqual(attempt, 3);
+		clearCache(options.cacheKey);
 	});
 });
 
@@ -2903,6 +3051,20 @@ describe("setCacheKeyExpiry", () => {
 		strictEqual(options.cacheLearnedExpiry.k, now + 4_000);
 		setCacheKeyExpiry(options, now + 8_000);
 		strictEqual(options.cacheLearnedExpiry.k, now + 4_000);
+	});
+
+	// An entry is unexpired only while its expiry is strictly ahead of the
+	// clock, so a learned expiry due this very millisecond is already past and
+	// must not floor what the new cycle learns.
+	test("treats a learned expiry due this very millisecond as stale", (t) => {
+		t.mock.timers.setTime(now);
+		const options = {
+			cacheKey: "k",
+			cacheExpiry: -1,
+			cacheLearnedExpiry: { k: now },
+		};
+		setCacheKeyExpiry(options, now + 5_000);
+		strictEqual(options.cacheLearnedExpiry.k, now + 5_000);
 	});
 
 	test("clears a stale learned expiry when the fetched value carries none", (t) => {
@@ -2973,6 +3135,153 @@ describe("setCacheKeyExpiry", () => {
 		t.mock.timers.tick(1);
 		processCache(options, fetch);
 		strictEqual(fetches, 2);
+		clearCache(options.cacheKey);
+	});
+
+	// A fetch learns the expiry inside its `.then`, after processCache stored
+	// the entry with the configured lifetime and scheduled the refresh for it.
+	// The learned expiry moves that refresh up, so the rotation is paid in the
+	// background instead of by the first request after it.
+	test("reschedules the background refresh to an expiry learned after the entry was stored", (t) => {
+		t.mock.timers.setTime(now);
+		const options = { cacheKey: "learned-reschedule", cacheExpiry: -1 };
+		const request = { internal: {} };
+		const seen = [];
+		const fetch = (req) => {
+			seen.push(req);
+			return { a: seen.length };
+		};
+		processCache(options, fetch, request);
+		strictEqual(getCache(options.cacheKey).refresh, undefined);
+		setCacheKeyExpiry(options, now + 5_000);
+		const entry = getCache(options.cacheKey);
+		notStrictEqual(entry.refresh, undefined);
+		strictEqual(entry.expiry, now + 5_000);
+		t.mock.timers.tick(4_999);
+		strictEqual(seen.length, 1);
+		t.mock.timers.tick(1);
+		strictEqual(seen.length, 2);
+		// The refresh replays the request the entry was fetched with.
+		strictEqual(seen[1], request);
+		// The refetched entry keeps the configured lifetime until it learns anew.
+		strictEqual(getCache(options.cacheKey).expiry, Number.POSITIVE_INFINITY);
+		strictEqual(getCache(options.cacheKey).refresh, undefined);
+		clearCache(options.cacheKey);
+	});
+
+	test("replaces the refresh scheduled for a duration with one at the learned expiry", (t) => {
+		t.mock.timers.setTime(now);
+		const options = { cacheKey: "learned-replace", cacheExpiry: 10_000 };
+		let fetches = 0;
+		const fetch = () => {
+			fetches += 1;
+			return { a: fetches };
+		};
+		processCache(options, fetch);
+		const scheduled = getCache(options.cacheKey).refresh;
+		notStrictEqual(scheduled, undefined);
+		setCacheKeyExpiry(options, now + 5_000);
+		notStrictEqual(getCache(options.cacheKey).refresh, scheduled);
+		t.mock.timers.tick(5_000);
+		strictEqual(fetches, 2);
+		// The timer set for the configured duration was cleared, not doubled up.
+		t.mock.timers.tick(5_000);
+		strictEqual(fetches, 2);
+		t.mock.timers.tick(5_000);
+		strictEqual(fetches, 3);
+		clearCache(options.cacheKey);
+	});
+
+	// While the entry is live, a refresh timer left behind is only a cache
+	// hit. Once the entry is cleared, it would refill the key nobody asked for.
+	test("leaves no timer behind once the moved-up refresh is cleared", (t) => {
+		t.mock.timers.setTime(now);
+		const options = { cacheKey: "learned-orphan", cacheExpiry: 10_000 };
+		let fetches = 0;
+		const fetch = () => {
+			fetches += 1;
+			return { a: fetches };
+		};
+		processCache(options, fetch);
+		setCacheKeyExpiry(options, now + 5_000);
+		// clearCache cancels the refresh the entry holds: the moved-up one. The
+		// timer set for the configured duration must already be gone.
+		clearCache(options.cacheKey);
+		t.mock.timers.tick(10_000);
+		strictEqual(fetches, 1);
+		deepStrictEqual(getCache(options.cacheKey), {});
+	});
+
+	test("keeps the scheduled refresh when the learned expiry is not sooner", (t) => {
+		t.mock.timers.setTime(now);
+		const options = { cacheKey: "learned-later", cacheExpiry: 50 };
+		let fetches = 0;
+		const fetch = () => {
+			fetches += 1;
+			return { a: fetches };
+		};
+		processCache(options, fetch);
+		const { refresh } = getCache(options.cacheKey);
+		notStrictEqual(refresh, undefined);
+		setCacheKeyExpiry(options, now + 5_000);
+		strictEqual(getCache(options.cacheKey).refresh, refresh);
+		strictEqual(getCache(options.cacheKey).expiry, now + 50);
+		setCacheKeyExpiry(options, now + 50);
+		strictEqual(getCache(options.cacheKey).refresh, refresh);
+		t.mock.timers.tick(50);
+		strictEqual(fetches, 2);
+		clearCache(options.cacheKey);
+	});
+
+	test("schedules nothing for a learned expiry when caching is disabled", (t) => {
+		t.mock.timers.setTime(now);
+		// Nothing is stored with caching off, so there is nothing to reschedule.
+		const off = { cacheKey: "learned-off", cacheExpiry: 0 };
+		processCache(off, () => ({ a: 1 }));
+		setCacheKeyExpiry(off, now + 5_000);
+		deepStrictEqual(getCache(off.cacheKey), {});
+		// An entry another instance stored under the same key is left alone.
+		const other = { cacheKey: "learned-off", cacheExpiry: -1 };
+		processCache(other, () => ({ a: 1 }));
+		setCacheKeyExpiry(off, now + 5_000);
+		strictEqual(getCache(off.cacheKey).refresh, undefined);
+		strictEqual(getCache(off.cacheKey).expiry, Number.POSITIVE_INFINITY);
+		const perKey = {
+			cacheKey: "learned-off",
+			cacheExpiry: -1,
+			cacheKeyExpiry: { "learned-off": 0 },
+		};
+		setCacheKeyExpiry(perKey, now + 5_000);
+		strictEqual(getCache(off.cacheKey).refresh, undefined);
+		clearCache(off.cacheKey);
+	});
+
+	test("does not schedule a refresh for a learned expiry beyond the setTimeout ceiling", (t) => {
+		t.mock.timers.setTime(now);
+		const options = { cacheKey: "learned-ceiling", cacheExpiry: -1 };
+		processCache(options, () => ({ a: 1 }));
+		setCacheKeyExpiry(options, now + 2147483648);
+		strictEqual(getCache(options.cacheKey).expiry, now + 2147483648);
+		strictEqual(getCache(options.cacheKey).refresh, undefined);
+		clearCache(options.cacheKey);
+	});
+
+	test("reschedules a modified entry with the fetch that last refilled it", (t) => {
+		t.mock.timers.setTime(now);
+		const options = { cacheKey: "learned-modified-fetch", cacheExpiry: -1 };
+		const calls = [];
+		processCache(options, () => {
+			calls.push("first");
+			return { a: 1, b: undefined };
+		});
+		modifyCache(options.cacheKey, { a: 1, b: undefined });
+		processCache(options, () => {
+			calls.push("second");
+			return { b: 2 };
+		});
+		setCacheKeyExpiry(options, now + 5_000);
+		t.mock.timers.tick(5_000);
+		deepStrictEqual(calls, ["first", "second", "second"]);
 		clearCache(options.cacheKey);
 	});
 
@@ -3119,28 +3428,52 @@ describe("setCacheKeyExpiry", () => {
 		clearCache(options.cacheKey);
 	});
 
-	test("processCache schedules a refresh from the expiry learned on the first miss after the clamp passes", (t) => {
+	// The floor in setCacheKeyExpiry keeps the earliest expiry learned within a
+	// cycle. It must not carry over to the next cycle: a value learned by the
+	// previous fetch and still ahead of the clock would otherwise cap what the
+	// new fetch learns, pinning every later cycle to the first one's expiry.
+	test("processCache drops the previous cycle's learned expiry before refetching", (t) => {
+		t.mock.timers.setTime(now);
+		const options = { cacheKey: "learned-previous", cacheExpiry: -1 };
+		let fetches = 0;
+		const fetch = () => {
+			fetches += 1;
+			setCacheKeyExpiry(options, Date.now() + 5_000);
+			return { a: fetches };
+		};
+		processCache(options, fetch);
+		strictEqual(getCache(options.cacheKey).expiry, now + 5_000);
+		clearCache(options.cacheKey);
+		t.mock.timers.tick(1_000);
+		processCache(options, fetch);
+		strictEqual(fetches, 2);
+		strictEqual(getCache(options.cacheKey).expiry, now + 6_000);
+		strictEqual(options.cacheLearnedExpiry[options.cacheKey], now + 6_000);
+		clearCache(options.cacheKey);
+	});
+
+	test("processCache folds an expiry learned synchronously on the refresh miss into the entry it stores", (t) => {
 		t.mock.timers.setTime(now);
 		const options = { cacheKey: "learned-refresh", cacheExpiry: -1 };
 		let fetches = 0;
 		const fetch = () => {
 			fetches += 1;
 			// The first cycle learns after the entry is stored (as a fetch does
-			// once its promise resolves); the refetch learns synchronously so the
-			// miss can fold the new expiry into the entry it stores.
+			// once its promise resolves), which moves the refresh up; the refetch
+			// learns synchronously so the miss can fold the new expiry into the
+			// entry it stores.
 			if (fetches > 1) setCacheKeyExpiry(options, Date.now() + 5_000);
 			return { a: fetches };
 		};
 		processCache(options, fetch);
 		setCacheKeyExpiry(options, now + 5_000);
-		strictEqual(getCache(options.cacheKey).refresh, undefined);
-		t.mock.timers.tick(6_000);
-		strictEqual(fetches, 1);
+		t.mock.timers.tick(5_000);
+		strictEqual(fetches, 2);
 		processCache(options, fetch);
 		processCache(options, fetch);
 		strictEqual(fetches, 2);
 		const entry = getCache(options.cacheKey);
-		strictEqual(entry.expiry, now + 11_000);
+		strictEqual(entry.expiry, now + 10_000);
 		notStrictEqual(entry.refresh, undefined);
 		t.mock.timers.tick(5_000);
 		strictEqual(fetches, 3);

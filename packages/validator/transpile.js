@@ -70,7 +70,7 @@ export const nestedSchema = (pointer, schema) => {
 			{ cause: { package: pkg } },
 		);
 	}
-	// RFC 6901: `~1` is an encoded `/`, `~0` an encoded `~`. Order matters —
+	// RFC 6901: `~1` is an encoded `/`, `~0` an encoded `~`. Order matters -
 	// unescaping `~0` first would turn `~01` into `~1` and then into `/`.
 	const keys = pointer
 		.slice(1)

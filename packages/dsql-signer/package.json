@@ -65,11 +65,6 @@
 	"peerDependencies": {
 		"@aws-sdk/dsql-signer": "^3.0.0"
 	},
-	"peerDependenciesMeta": {
-		"@aws-sdk/dsql-signer": {
-			"optional": true
-		}
-	},
 	"dependencies": {
 		"@middy/util": "8.0.0-alpha.0"
 	},

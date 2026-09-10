@@ -29,13 +29,7 @@ const config = {
 		prerender: {
 			concurrency: 5,
 			crawl: false,
-			entries: [
-				"/",
-				"/sitemap.xml",
-				"/llms.txt",
-				"/llms-full.txt",
-				"/search.json",
-			],
+			entries: ["/sitemap.xml", "/llms.txt", "/llms-full.txt", "/search.json"],
 			handleHttpError: "warn", // 'fail'
 			handleMissingId: "warn", // 'fail'
 			handleEntryGeneratorMismatch: "warn", // 'fail'

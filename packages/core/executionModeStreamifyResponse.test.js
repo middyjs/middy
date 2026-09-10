@@ -946,11 +946,29 @@ describe("executionModeStreamifyResponse", () => {
 		strictEqual(caught, streamErr);
 	});
 
+	// The writer waits out backpressure with `once(stream, "drain")`, which
+	// subscribes through `stream.once`. Counting those subscriptions and
+	// answering each with a drain lets a regression that waits for a drain
+	// nobody else will emit finish and fail on the count, instead of hanging
+	// the run.
+	const answerDrainWaits = (stream) => {
+		let waits = 0;
+		const originalOnce = stream.once.bind(stream);
+		stream.once = (name, listener) => {
+			if (name === "drain") {
+				waits += 1;
+				setImmediate(() => stream.emit("drain"));
+			}
+			return originalOnce(name, listener);
+		};
+		return () => waits;
+	};
+
 	// L95 mutant #1 - ConditionalExpression `if (!ok && position < length)` -> `if (true)`.
 	// When write() returns true (no backpressure) the real code must NOT await
-	// 'drain'. The mutant awaits 'drain' after every write; with a stream that
-	// returns true and never emits 'drain', the mutant hangs (times out) while the
-	// real code completes. Body spans multiple chunks so the loop body runs > once.
+	// 'drain'. The mutant awaits 'drain' after every write; the drain spy answers
+	// and counts those waits, so the mutant fails on the count while the real
+	// code never waits. Body spans multiple chunks so the loop body runs > once.
 	test("Should not await drain when writes succeed (no backpressure)", async (t) => {
 		t.mock.timers.reset();
 		const chunkSize = 16384;
@@ -967,8 +985,8 @@ describe("executionModeStreamifyResponse", () => {
 			},
 		});
 		// Force every write() to report success (no backpressure) so the real code
-		// never awaits drain. Guarantee no 'drain' is ever emitted: if the mutant
-		// awaits drain it will hang and the test times out.
+		// never awaits drain. Nothing here emits 'drain' on its own, so a drain
+		// seen by the listener below can only be the spy answering a wait.
 		const origWrite = responseStream.write.bind(responseStream);
 		responseStream.write = (...args) => {
 			origWrite(...args);
@@ -977,6 +995,7 @@ describe("executionModeStreamifyResponse", () => {
 		responseStream.on("drain", () => {
 			drainEmitted = true;
 		});
+		const drainWaits = answerDrainWaits(responseStream);
 
 		const handler = middy({
 			executionMode: executionModeStreamifyResponse,
@@ -986,6 +1005,7 @@ describe("executionModeStreamifyResponse", () => {
 
 		strictEqual(written.join(""), input, "all bytes delivered in order");
 		ok(written.length > 1, "body was chunked across multiple writes");
+		strictEqual(drainWaits(), 0, "drain was never awaited");
 		strictEqual(
 			drainEmitted,
 			false,
@@ -995,17 +1015,17 @@ describe("executionModeStreamifyResponse", () => {
 
 	// L95 mutant #2 - EqualityOperator `position < length` -> `position <= length`.
 	// Body is an EXACT multiple of chunkSize, so after the final write
-	// `position === length`. The final write reports backpressure (ok === false).
-	// Real code: `!ok && position < length` => false, loop ends, no drain awaited.
-	// Mutant: `!ok && position <= length` => true, awaits 'drain' after the final
-	// write. We never emit 'drain' after the last write, so the mutant hangs.
+	// `position === length`. Every write reports backpressure (ok === false).
+	// Real code: `!ok && position < length` is false after the final write, so
+	// it awaits 'drain' after the first two chunks only. Mutant: `position <=
+	// length` is still true, so it awaits a third 'drain'; the drain spy answers
+	// it and the count below fails instead of the test hanging.
 	test("Should not await drain after the final exact-boundary chunk", async (t) => {
 		t.mock.timers.reset();
 		const chunkSize = 16384;
 		const input = "x".repeat(chunkSize * 3); // exact multiple => final position === length
 		const written = [];
 		let writeCount = 0;
-		let finalDrainAwaited = false;
 
 		const responseStream = new Writable({
 			write(chunk, encoding, callback) {
@@ -1021,18 +1041,10 @@ describe("executionModeStreamifyResponse", () => {
 		responseStream.write = (...args) => {
 			writeCount += 1;
 			origWrite(...args);
-			// Report backpressure (false) on EVERY chunk, including the last. For all
-			// but the last chunk emit a 'drain' so the real loop can proceed; after the
-			// final chunk emit NO drain. The real code does not await drain on the final
-			// chunk (position === length), so it completes. The `<=` mutant would await
-			// the (never emitted) final drain and hang.
-			if (writeCount < totalChunks) {
-				setImmediate(() => responseStream.emit("drain"));
-			} else {
-				finalDrainAwaited = true;
-			}
+			// Report backpressure (false) on EVERY chunk, including the last.
 			return false;
 		};
+		const drainWaits = answerDrainWaits(responseStream);
 
 		const handler = middy({
 			executionMode: executionModeStreamifyResponse,
@@ -1042,7 +1054,11 @@ describe("executionModeStreamifyResponse", () => {
 
 		strictEqual(written.join(""), input, "all bytes delivered in order");
 		strictEqual(writeCount, totalChunks, "exact chunk count, no overrun");
-		ok(finalDrainAwaited, "final chunk was written without emitting a drain");
+		strictEqual(
+			drainWaits(),
+			totalChunks - 1,
+			"drain awaited after the non-final chunks only",
+		);
 	});
 
 	test("Should trigger requestEnd hook after stream ends", async (t) => {

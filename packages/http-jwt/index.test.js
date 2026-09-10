@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { promisify } from "node:util";
 import { exportJWK, importPKCS8, importSPKI, SignJWT } from "jose";
 import middy from "../core/index.js";
+import httpErrorHandler from "../http-error-handler/index.js";
 import realHttpJwt, { httpJwtValidateOptions } from "./index.js";
 
 // Test helper: tests below pre-date the removal of the `secretKey` option.
@@ -31,13 +32,29 @@ const httpJwt = (opts = {}) => {
 	return realHttpJwt({ setToContext: true, ...opts });
 };
 
-const generateKeyPairAsync = promisify(generateKeyPair);
+const generateKeyPairUncached = promisify(generateKeyPair);
+
+// Key generation dominates this suite's runtime, so each (kty, opts, slot)
+// combination is generated once and shared across tests; KeyObjects are
+// immutable, so sharing is safe. Tests that need two distinct keys of the
+// same kind ask for different slots.
+const keyPairs = new Map();
+const generateKeyPairAsync = (kty, opts = {}, slot = 0) => {
+	const cacheKey = `${kty}:${JSON.stringify(opts)}:${slot}`;
+	let pending = keyPairs.get(cacheKey);
+	if (!pending) {
+		pending = generateKeyPairUncached(kty, opts);
+		keyPairs.set(cacheKey, pending);
+	}
+	return pending;
+};
 
 const jwksFixture = async ({
 	kty = "rsa",
 	alg = "RS256",
 	kid = "test-kid",
 	namedCurve,
+	slot = 0,
 } = {}) => {
 	const opts =
 		kty === "rsa"
@@ -45,7 +62,7 @@ const jwksFixture = async ({
 			: kty === "ec"
 				? { namedCurve: namedCurve ?? "P-256" }
 				: {};
-	const { privateKey, publicKey } = await generateKeyPairAsync(kty, opts);
+	const { privateKey, publicKey } = await generateKeyPairAsync(kty, opts, slot);
 	const jwk = await exportJWK(publicKey);
 	jwk.kid = kid;
 	jwk.alg = alg;
@@ -1085,7 +1102,7 @@ test("issuers: single-issuer happy path", async (t) => {
 
 test("issuers: multi-issuer routes by iss to the right JWKS", async (t) => {
 	const fixA = await jwksFixture({ kid: "a" });
-	const fixB = await jwksFixture({ kid: "b" });
+	const fixB = await jwksFixture({ kid: "b", slot: 1 });
 	const issA = "https://idp.example.com/poolA";
 	const issB = "https://idp.example.com/poolB";
 	const uriA = nextJwksUri();
@@ -1179,7 +1196,7 @@ test("issuers: token with iss not in map throws 401 Unknown issuer", async (t) =
 
 test("issuers: token claiming iss A but signed by pool B fails verification", async (t) => {
 	const fixA = await jwksFixture({ kid: "a" });
-	const fixB = await jwksFixture({ kid: "b" });
+	const fixB = await jwksFixture({ kid: "b", slot: 1 });
 	const issA = "https://idp.example.com/poolA";
 	const issB = "https://idp.example.com/poolB";
 	const uriA = nextJwksUri();
@@ -1795,7 +1812,7 @@ test("issuers: JWKS document without keys array surfaces as 502", async (t) => {
 		} catch (e) {
 			strictEqual(e.statusCode, 502);
 			strictEqual(e.cause.package, "@middy/http-jwt");
-			ok(e.cause.data.reason.includes("JWKS fetch failed"));
+			ok(e.cause.data.reason.includes("Invalid JWKS document"));
 		}
 	} finally {
 		fetchStub.restore();
@@ -2999,7 +3016,7 @@ test("issuers: invalid-JWKS-document message text (missing keys array)", async (
 			strictEqual(e.statusCode, 502);
 			ok(
 				e.cause.data.reason.includes(
-					"JWKS fetch failed: Invalid JWKS document: missing keys array",
+					"Invalid JWKS document: missing keys array",
 				),
 			);
 		}
@@ -3770,7 +3787,7 @@ const spkiDer = (publicKey) =>
 
 test("It should verify against either key during a rotation overlap", async (t) => {
 	const retiring = await generateKeyPairAsync("ec", { namedCurve: "P-256" });
-	const current = await generateKeyPairAsync("ec", { namedCurve: "P-256" });
+	const current = await generateKeyPairAsync("ec", { namedCurve: "P-256" }, 1);
 	const keyData = [spkiDer(current.publicKey), spkiDer(retiring.publicKey)];
 
 	// Minted before the rotation and not yet expired, so it must still verify.
@@ -3807,8 +3824,8 @@ test("It should verify against either key during a rotation overlap", async (t) 
 
 test("It should still reject a token signed by no configured key", async (t) => {
 	const stranger = await generateKeyPairAsync("ec", { namedCurve: "P-256" });
-	const a = await generateKeyPairAsync("ec", { namedCurve: "P-256" });
-	const b = await generateKeyPairAsync("ec", { namedCurve: "P-256" });
+	const a = await generateKeyPairAsync("ec", { namedCurve: "P-256" }, 1);
+	const b = await generateKeyPairAsync("ec", { namedCurve: "P-256" }, 2);
 	const token = await signToken({
 		privateKey: stranger.privateKey,
 		alg: "ES256",
@@ -3868,7 +3885,7 @@ test("It should accept a KeyObject that the caller resolved itself", async (t) =
 
 test("It should accept an array of KeyObjects", async (t) => {
 	const retiring = await generateKeyPairAsync("ec", { namedCurve: "P-256" });
-	const current = await generateKeyPairAsync("ec", { namedCurve: "P-256" });
+	const current = await generateKeyPairAsync("ec", { namedCurve: "P-256" }, 1);
 	const token = await signToken({
 		privateKey: retiring.privateKey,
 		alg: "ES256",
@@ -4090,7 +4107,7 @@ test("It should reject an expectedClaims value that strict equality can never ma
 // turns every rotation-era 401 into a dead end.
 
 test("It should report the signing key's claim failure, not an earlier key's signature miss", async (t) => {
-	const other = await generateKeyPairAsync("ec", { namedCurve: "P-256" });
+	const other = await generateKeyPairAsync("ec", { namedCurve: "P-256" }, 1);
 	const signer = await generateKeyPairAsync("ec", { namedCurve: "P-256" });
 	const token = await signToken({
 		privateKey: signer.privateKey,
@@ -4115,7 +4132,7 @@ test("It should keep the signing key's claim failure when a later key misses on 
 	// Same as above with the order flipped, so neither "keep the first" nor "keep
 	// the last" passes both.
 	const signer = await generateKeyPairAsync("ec", { namedCurve: "P-256" });
-	const other = await generateKeyPairAsync("ec", { namedCurve: "P-256" });
+	const other = await generateKeyPairAsync("ec", { namedCurve: "P-256" }, 1);
 	const token = await signToken({
 		privateKey: signer.privateKey,
 		alg: "ES256",
@@ -4336,7 +4353,7 @@ test("issuers: JWKS fetch is aborted after jwksTimeoutMs and surfaces as 504", a
 			strictEqual(e.statusCode, 504);
 			strictEqual(e.message, "Gateway Timeout");
 			strictEqual(e.cause.package, "@middy/http-jwt");
-			ok(e.cause.data.reason.includes("JWKS fetch failed"));
+			ok(/timeout/i.test(e.cause.data.reason));
 		}
 		strictEqual(signals.length, 1);
 		strictEqual(signals[0].aborted, true);
@@ -4440,7 +4457,7 @@ test("issuers: a JWKS document of exactly 1 MiB is accepted", async (t) => {
 
 test("issuers: a JWK with use 'enc' is skipped in favour of the 'sig' key with the same kid", async (t) => {
 	const enc = await jwksFixture({ kid: "shared" });
-	const sig = await jwksFixture({ kid: "shared" });
+	const sig = await jwksFixture({ kid: "shared", slot: 1 });
 	const iss = "https://idp.example.com/pool";
 	const jwksUri = nextJwksUri();
 	// Signed by the second key; picking the first would fail the signature.
@@ -4642,10 +4659,7 @@ test("issuers: a 2xx JWKS response with no body surfaces as a clear 502", async 
 		} catch (e) {
 			strictEqual(e.statusCode, 502);
 			strictEqual(e.cause.package, "@middy/http-jwt");
-			strictEqual(
-				e.cause.data.reason,
-				"JWKS fetch failed: JWKS response has no body",
-			);
+			strictEqual(e.cause.data.reason, "JWKS response has no body");
 		}
 	} finally {
 		fetchStub.restore();
@@ -4734,7 +4748,7 @@ test("issuers: a JWKS document that is not JSON surfaces as 502", async (t) => {
 			strictEqual(e.statusCode, 502);
 			strictEqual(e.message, "Bad Gateway");
 			strictEqual(e.cause.package, "@middy/http-jwt");
-			ok(e.cause.data.reason.startsWith("JWKS fetch failed: "));
+			ok(e.cause.data.reason.includes("JSON"));
 		}
 	} finally {
 		fetchStub.restore();
@@ -4779,11 +4793,186 @@ test("issuers: a remembered JWKS timeout keeps answering 504 inside cooldownDura
 				ok(false, "expected throw");
 			} catch (e) {
 				strictEqual(e.statusCode, 504);
-				ok(e.cause.data.reason.includes("JWKS fetch failed"));
+				ok(/timeout/i.test(e.cause.data.reason));
 			}
 		}
 		strictEqual(fetchN, 1);
 	} finally {
 		globalThis.fetch = original;
+	}
+});
+
+// The 502/504 for a JWKS failure used util's default `expose = code < 500`, so
+// http-error-handler replaced them with its generic 500 and the documented
+// gateway status never reached the client.
+test("issuers: a JWKS timeout reaches the client as a 504 through http-error-handler", async (t) => {
+	const { privateKey, kid } = await jwksFixture();
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+	const token = await signToken({ privateKey, alg: "RS256", kid, iss });
+	const original = globalThis.fetch;
+	globalThis.fetch = (input, init) =>
+		new Promise((_, reject) => {
+			init.signal.addEventListener("abort", () => reject(init.signal.reason), {
+				once: true,
+			});
+		});
+	try {
+		const handler = middy(() => ({ statusCode: 200 }))
+			.use(httpErrorHandler({ logger: false }))
+			.use(
+				httpJwt({
+					issuers: { [iss]: { jwksUri } },
+					algorithm: "RS256",
+					disablePrefetch: true,
+					jwksTimeoutMs: 10,
+				}),
+			);
+		const response = await handler(
+			{ headers: { authorization: `Bearer ${token}` } },
+			{ ...defaultContext },
+		);
+		strictEqual(response.statusCode, 504);
+		strictEqual(response.body, "Gateway Timeout");
+	} finally {
+		globalThis.fetch = original;
+	}
+});
+
+test("issuers: a failing JWKS endpoint reaches the client as a 502 through http-error-handler", async (t) => {
+	const { privateKey, kid } = await jwksFixture();
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+	const token = await signToken({ privateKey, alg: "RS256", kid, iss });
+	const fetchStub = installFetch({
+		[jwksUri]: () => new Response("nope", { status: 503 }),
+	});
+	try {
+		const handler = middy(() => ({ statusCode: 200 }))
+			.use(httpErrorHandler({ logger: false }))
+			.use(
+				httpJwt({
+					issuers: { [iss]: { jwksUri } },
+					algorithm: "RS256",
+					disablePrefetch: true,
+				}),
+			);
+		const response = await handler(
+			{ headers: { authorization: `Bearer ${token}` } },
+			{ ...defaultContext },
+		);
+		strictEqual(response.statusCode, 502);
+		strictEqual(response.body, "Bad Gateway");
+	} finally {
+		fetchStub.restore();
+	}
+});
+
+// The three resolver time comparisons below were carrying Stryker disables that
+// claimed a boundary could not be reached without unsafe global time mocking.
+// node:test's per-test `t.mock.timers` reaches each one deterministically.
+test("issuers: the default cacheExpiry of 600s expires a cached document", async (t) => {
+	// Pins the `?? 600_000` default: without it the staleness check compares
+	// against undefined and a cached document would never expire.
+	const { privateKey, jwk, kid } = await jwksFixture();
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+	const token = await signToken({ privateKey, alg: "RS256", kid, iss });
+	t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+	const fetchStub = installFetch({
+		[jwksUri]: jwksResponse({ keys: [jwk] }),
+	});
+	try {
+		const handler = middy(() => ({ statusCode: 200 })).use(
+			httpJwt({
+				issuers: { [iss]: { jwksUri } },
+				algorithm: "RS256",
+				cooldownDuration: 0,
+				disablePrefetch: true,
+			}),
+		);
+		const event = { headers: { authorization: `Bearer ${token}` } };
+		await handler(event, { ...defaultContext });
+		strictEqual(fetchStub.calls.length, 1);
+		t.mock.timers.tick(600_001);
+		await handler(event, { ...defaultContext });
+		strictEqual(fetchStub.calls.length, 2);
+	} finally {
+		fetchStub.restore();
+	}
+});
+
+test("issuers: a cached document is still fresh at exactly cacheExpiry", async (t) => {
+	// `now - cacheTime > cacheMaxAge`: at equality the cache is reused.
+	const { privateKey, jwk, kid } = await jwksFixture();
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+	const token = await signToken({ privateKey, alg: "RS256", kid, iss });
+	t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+	const fetchStub = installFetch({
+		[jwksUri]: jwksResponse({ keys: [jwk] }),
+	});
+	try {
+		const handler = middy(() => ({ statusCode: 200 })).use(
+			httpJwt({
+				issuers: { [iss]: { jwksUri } },
+				algorithm: "RS256",
+				cacheExpiry: 1000,
+				cooldownDuration: 0,
+				disablePrefetch: true,
+			}),
+		);
+		const event = { headers: { authorization: `Bearer ${token}` } };
+		await handler(event, { ...defaultContext });
+		t.mock.timers.tick(1000);
+		await handler(event, { ...defaultContext });
+		strictEqual(fetchStub.calls.length, 1);
+		t.mock.timers.tick(1);
+		await handler(event, { ...defaultContext });
+		strictEqual(fetchStub.calls.length, 2);
+	} finally {
+		fetchStub.restore();
+	}
+});
+
+test("issuers: the cooldown has elapsed at exactly cooldownDuration", async (t) => {
+	// `now - lastFetchTime < cooldownDuration`: at equality a rotation refetch
+	// is allowed again, so a key published in the meantime is found.
+	const { privateKey, jwk, kid } = await jwksFixture();
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+	const token = await signToken({ privateKey, alg: "RS256", kid, iss });
+	t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+	let fetchN = 0;
+	const fetchStub = installFetch({
+		[jwksUri]: () => {
+			fetchN += 1;
+			// The key only appears on the second fetch, as after a rotation.
+			return jwksResponse({ keys: fetchN === 1 ? [] : [jwk] })();
+		},
+	});
+	try {
+		const handler = middy(() => ({ statusCode: 200 })).use(
+			httpJwt({
+				issuers: { [iss]: { jwksUri } },
+				algorithm: "RS256",
+				cooldownDuration: 30_000,
+				disablePrefetch: true,
+			}),
+		);
+		const event = { headers: { authorization: `Bearer ${token}` } };
+		try {
+			await handler(event, { ...defaultContext });
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+		}
+		strictEqual(fetchN, 1);
+		t.mock.timers.tick(30_000);
+		const response = await handler(event, { ...defaultContext });
+		strictEqual(response.statusCode, 200);
+		strictEqual(fetchN, 2);
+	} finally {
+		fetchStub.restore();
 	}
 });

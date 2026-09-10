@@ -187,7 +187,7 @@ export const resolveSchemaVersion = async (
 	const cacheKey = `${merged.cacheKey}:${schemaVersionId}`;
 	const baseExpiry = merged.cacheKeyExpiry?.[merged.cacheKey];
 	const cacheKeyExpiry =
-		// Stryker disable next-line ConditionalExpression: equivalent — when baseExpiry is undefined the else branch yields {...merged.cacheKeyExpiry, [cacheKey]: undefined}, and processCache reads `cacheKeyExpiry?.[cacheKey] ?? cacheExpiry`, so undefined collapses to the same cacheExpiry as the then branch
+		// Stryker disable next-line ConditionalExpression: equivalent, when baseExpiry is undefined the else branch yields {...merged.cacheKeyExpiry, [cacheKey]: undefined}, and processCache reads `cacheKeyExpiry?.[cacheKey] ?? cacheExpiry`, so undefined collapses to the same cacheExpiry as the then branch
 		baseExpiry === undefined
 			? merged.cacheKeyExpiry
 			: { ...merged.cacheKeyExpiry, [cacheKey]: baseExpiry };
@@ -200,7 +200,7 @@ export const resolveSchemaVersion = async (
 	let client;
 	const ensureClient = async () => {
 		if (client) return client;
-		// Stryker disable next-line ConditionalExpression: equivalent (forcing the else) — with no awsClientAssumeRole, createClient(merged, request) merges an empty credential set and delegates to createPrefetchClient with identical awsClientOptions, producing the same client as the then branch
+		// Stryker disable next-line ConditionalExpression: equivalent (forcing the else), with no awsClientAssumeRole, createClient(merged, request) merges an empty credential set and delegates to createPrefetchClient with identical awsClientOptions, producing the same client as the then branch
 		if (canPrefetch(merged)) {
 			client = createPrefetchClient(merged);
 		} else {

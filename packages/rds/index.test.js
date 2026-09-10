@@ -1,6 +1,6 @@
 import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
-import { clearCache, processCache } from "@middy/util";
+import { clearCache, processCache, setContextNamespace } from "@middy/util";
 import middy from "../core/index.js";
 import rdsSigner from "../rds-signer/index.js";
 import rdsMiddleware, { rdsValidateOptions } from "./index.js";
@@ -22,6 +22,24 @@ const buildClient = (t, { client, end } = {}) => {
 	const clientFn = client ?? t.mock.fn(() => ({ end: endFn, mark: "client" }));
 	return { client: clientFn, end: endFn };
 };
+
+test("It should tolerate an explicit cacheKeyExpiry: undefined", async (t) => {
+	// `{ ...defaults, ...opts }` lets an explicit undefined override the `{}`
+	// default, so the per-key lookup must not assume the map exists.
+	const { client, end } = buildClient(t);
+	const handler = middy(() => {}).use(
+		rdsMiddleware({
+			client,
+			config: { host: validHost },
+			cacheExpiry: 0,
+			cacheKeyExpiry: undefined,
+			disablePrefetch: true,
+		}),
+	);
+	await handler(defaultEvent, newContext());
+	strictEqual(client.mock.callCount(), 1);
+	strictEqual(end.mock.callCount(), 1);
+});
 
 test("It should instantiate the client and attach it to context", async (t) => {
 	const { client } = buildClient(t);
@@ -1387,4 +1405,146 @@ test("It should keep an invocation's own client when the connect that replaced i
 	strictEqual(captured, clients[3]);
 	strictEqual(clients[1].end.mock.callCount(), 1);
 	strictEqual(clients[3].end.mock.callCount(), 0);
+});
+
+test("It should honour cacheKeyExpiry -1 over cacheExpiry 0 and keep one client open", async (t) => {
+	const { client, end } = buildClient(t);
+	const handler = middy(() => {}).use(
+		rdsMiddleware({
+			client,
+			config: { host: validHost },
+			cacheKey: "rds-keyexpiry-infinite",
+			cacheKeyExpiry: { "rds-keyexpiry-infinite": -1 },
+			cacheExpiry: 0,
+			disablePrefetch: true,
+		}),
+	);
+	await handler(defaultEvent, newContext());
+	await handler(defaultEvent, newContext());
+	await handler(defaultEvent, newContext());
+	strictEqual(client.mock.callCount(), 1);
+	strictEqual(end.mock.callCount(), 0);
+});
+
+test("It should honour cacheKeyExpiry 0 over cacheExpiry -1 and close per invocation", async (t) => {
+	const { client, end } = buildClient(t);
+	const handler = middy(() => {}).use(
+		rdsMiddleware({
+			client,
+			config: { host: validHost },
+			cacheKey: "rds-keyexpiry-zero",
+			cacheKeyExpiry: { "rds-keyexpiry-zero": 0 },
+			cacheExpiry: -1,
+		}),
+	);
+	// The per-key expiry disables caching, so nothing is prefetched either.
+	strictEqual(client.mock.callCount(), 0);
+	await handler(defaultEvent, newContext());
+	strictEqual(end.mock.callCount(), 1);
+	await handler(defaultEvent, newContext());
+	await handler(defaultEvent, newContext());
+	strictEqual(client.mock.callCount(), 3);
+	strictEqual(end.mock.callCount(), 3);
+});
+
+test("It should not refresh a token-authenticated connection in the background", async (t) => {
+	t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+	const { client } = buildClient(t);
+	let token = "token-1";
+	const handler = middy(() => {})
+		.before(async (request) => {
+			request.internal.rdsToken = token;
+		})
+		.use(
+			rdsMiddleware({
+				client,
+				config: { host: validHost },
+				internalKey: "rdsToken",
+				cacheKey: "rds-token-refresh",
+				cacheExpiry: 20,
+				disablePrefetch: true,
+			}),
+		);
+	await handler(defaultEvent, newContext());
+	// The entry expires without a background reconnect, which could only
+	// replay the token of the invocation that stored it; the next invocation
+	// reconnects with its own.
+	token = "token-2";
+	t.mock.timers.tick(25);
+	await flush();
+	strictEqual(client.mock.callCount(), 1);
+	await handler(defaultEvent, newContext());
+	token = "token-3";
+	t.mock.timers.tick(25);
+	await flush();
+	await handler(defaultEvent, newContext());
+	deepStrictEqual(
+		client.mock.calls.map((call) => call.arguments[0].password),
+		["token-1", "token-2", "token-3"],
+	);
+});
+
+test("It should keep a refreshed entry when the reconnect it replaced fails", async (t) => {
+	t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+	const { client, clients, connects } = buildDeferredClients(t);
+	let captured;
+	const handler = middy(() => {})
+		.use(
+			rdsMiddleware({
+				client,
+				config: { host: validHost },
+				cacheKey: "rds-stale-reject",
+				cacheExpiry: 20,
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			captured = request.context.middyContext.rds;
+		});
+	await handler(defaultEvent, newContext());
+	clients[0].broken = true;
+	const inFlight = handler(defaultEvent, newContext());
+	await flush();
+	t.mock.timers.tick(20);
+	await flush();
+	strictEqual(clients.length, 3);
+	// The refresh replaced the cache entry while the invocation's reconnect
+	// was in flight. That reconnect failing must drop only itself, not the
+	// refresh's entry, or the next invocation reconnects for nothing.
+	connects[0].reject(new Error("connect refused"));
+	await rejects(inFlight, /connect refused/);
+	connects[1].resolve();
+	await flush();
+	const next = handler(defaultEvent, newContext());
+	await flush();
+	strictEqual(clients.length, 3);
+	await next;
+	strictEqual(captured, clients[2]);
+});
+
+test("It should not log a cleanup error when a cacheExpiry 0 connect fails beside another namespace", async (t) => {
+	const client = t.mock.fn(async () => {
+		throw new Error("connect refused");
+	});
+	const handler = middy(() => {})
+		.before((request) => {
+			setContextNamespace(request, "other", {});
+		})
+		.use(
+			rdsMiddleware({
+				client,
+				config: { host: validHost },
+				cacheExpiry: 0,
+				disablePrefetch: true,
+			}),
+		);
+	const logged = [];
+	const originalError = console.error;
+	console.error = (...args) => logged.push(args);
+	try {
+		await rejects(() => handler(defaultEvent, newContext()), /connect refused/);
+	} finally {
+		console.error = originalError;
+	}
+	deepStrictEqual(logged, []);
 });

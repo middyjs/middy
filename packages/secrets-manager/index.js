@@ -120,17 +120,17 @@ const secretsManagerMiddleware = (opts = {}) => {
 	// soonest rotation across the rotation-enabled keys, or after `cacheExpiry`
 	// when that is shorter. A rotation date that has already passed means the
 	// rotation has not run yet: keep the cache for a minute before describing
-	// the secret again rather than on every invocation.
+	// the secret again rather than on every invocation. One still ahead,
+	// however close, expires the entry on time.
 	const learnRotationDate = (resp) => {
 		if (resp.NextRotationDate) {
 			// The SDK unmarshals NextRotationDate to a Date, but a custom client
 			// may hand back the ISO string; `new Date()` yields epoch ms for both.
+			const nextRotation = Number(new Date(resp.NextRotationDate));
+			const now = Date.now();
 			setCacheKeyExpiry(
 				options,
-				Math.max(
-					Number(new Date(resp.NextRotationDate)),
-					Date.now() + rotationRetryMs,
-				),
+				nextRotation > now ? nextRotation : now + rotationRetryMs,
 			);
 		}
 	};
@@ -153,7 +153,7 @@ const secretsManagerMiddleware = (opts = {}) => {
 						.then(fetchSecret)
 				: fetchSecret();
 			values[internalKey] = fetched.catch(
-				evictCacheOnFailure(options.cacheKey, internalKey),
+				evictCacheOnFailure(options.cacheKey, internalKey, values),
 			);
 		}
 		return values;
@@ -174,7 +174,12 @@ const secretsManagerMiddleware = (opts = {}) => {
 
 	const clientInit = createClientInit(options);
 	const secretsManagerMiddlewareBefore = (request) => {
-		if (client) return secretsManagerMiddlewareFetch(request);
+		// With `awsClientAssumeRole` the client is rebuilt when sts refetches the
+		// credentials, so it is resolved on every invocation (util memoises on
+		// the credential promise identity, so a hit costs one microtask).
+		if (client && !options.awsClientAssumeRole) {
+			return secretsManagerMiddlewareFetch(request);
+		}
 		return clientInit(request).then((resolvedClient) => {
 			client = resolvedClient;
 			return secretsManagerMiddlewareFetch(request);

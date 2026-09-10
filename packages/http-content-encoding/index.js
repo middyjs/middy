@@ -60,6 +60,7 @@ const defaults = {
 	deflate: undefined,
 	gzip: undefined,
 	zstd: undefined,
+	// Stryker disable next-line ArrayDeclaration: a non-empty default only adds a sentinel that the override loop skips because it is never in the negotiated list, which http-content-negotiation restricts to br/deflate/gzip/zstd/identity; no observable behavior changes.
 	overridePreferredEncoding: [],
 	// Where @middy/http-content-negotiation published its results; must match
 	// that middleware's `contextKey` when it has been overridden.
@@ -89,14 +90,13 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 		const { response } = request;
 		let { preferredEncoding, preferredEncodings } =
 			request.context.middyContext?.[contextKeyHttpContentNegotiation] ?? {};
-		// Stryker disable next-line ConditionalExpression: equivalent. With nothing disabled the filter keeps every entry and isEnabledContentEncoding is always true, so forcing the block on only copies the list; the size check is a fast path.
-		if (disabledContentEncodings.size) {
-			// Drop disabled encodings from the negotiated list so the client's next
-			// acceptable encoding (or identity) is used instead.
-			preferredEncodings = preferredEncodings?.filter(isEnabledContentEncoding);
-			if (!isEnabledContentEncoding(preferredEncoding)) {
-				preferredEncoding = preferredEncodings?.[0];
-			}
+		// Drop disabled encodings from the negotiated list so the client's next
+		// acceptable encoding (or identity) is used instead. Unconditional: the
+		// list holds at most four entries, and a fast path for "nothing disabled"
+		// only added a branch that no test could tell apart from its absence.
+		preferredEncodings = preferredEncodings?.filter(isEnabledContentEncoding);
+		if (!isEnabledContentEncoding(preferredEncoding)) {
+			preferredEncoding = preferredEncodings?.[0];
 		}
 
 		// Encoding not supported, already encoded, or doesn't need to
@@ -156,7 +156,7 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 			addHeaderPart(response, "Vary", "Accept-Encoding");
 			return;
 		}
-		// isString/isBuffer — use sync compression (avoids stream overhead)
+		// isString/isBuffer, use sync compression (avoids stream overhead)
 		const inputBuffer = Buffer.isBuffer(response.body)
 			? response.body
 			: Buffer.from(response.body);

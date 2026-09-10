@@ -325,7 +325,7 @@ test("Should treat missing response entries as rejected", async (t) => {
 	});
 	const logger = t.mock.fn();
 
-	// Handler returns fewer entries than Records — second index is undefined
+	// Handler returns fewer entries than Records, second index is undefined
 	const handler = middy(async () => [{ status: "fulfilled", value: "ok" }]).use(
 		sqsPartialBatchFailure({ logger }),
 	);

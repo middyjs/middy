@@ -38,14 +38,27 @@ const httpPartialResponseMiddleware = (opts = {}) => {
 	const badSelector = (reason) =>
 		new HttpError(400, { cause: { package: pkg, data: { reason } } });
 
-	const httpPartialResponseMiddlewareAfter = (request) => {
-		const fields = request.event?.queryStringParameters?.[filteringKeyName];
-		if (!fields) return;
-
-		// VPC Lattice V2 delivers query string values as arrays.
+	// The selector as a string, or undefined when the request carries none.
+	// VPC Lattice V2 delivers every query string value as an array, one entry
+	// per occurrence; the last occurrence wins, as it does for a repeated
+	// parameter on the other event formats.
+	const resolveSelector = (event) => {
+		let fields = event?.queryStringParameters?.[filteringKeyName];
+		if (Array.isArray(fields)) fields = fields[fields.length - 1];
+		if (!fields) return undefined;
 		if (typeof fields !== "string") {
 			throw badSelector("Selector must be a string");
 		}
+		return fields;
+	};
+
+	// Checked before the handler runs: a selector this refuses gets its 400
+	// whatever the handler would have returned, and the handler is spared the
+	// work of building a response that cannot be sent.
+	const httpPartialResponseMiddlewareBefore = (request) => {
+		const fields = resolveSelector(request.event);
+		if (fields === undefined) return;
+
 		// Reject abusive selectors before they reach json-mask.
 		if (fields.length > maxFieldsLength) {
 			throw badSelector(`Selector exceeds ${maxFieldsLength} characters`);
@@ -60,6 +73,11 @@ const httpPartialResponseMiddleware = (opts = {}) => {
 		if (depth > maxFieldsDepth) {
 			throw badSelector(`Selector exceeds a depth of ${maxFieldsDepth}`);
 		}
+	};
+
+	const httpPartialResponseMiddlewareAfter = (request) => {
+		const fields = resolveSelector(request.event);
+		if (fields === undefined) return;
 
 		const body = request.response?.body;
 		const bodyIsString = typeof body === "string";
@@ -81,6 +99,7 @@ const httpPartialResponseMiddleware = (opts = {}) => {
 	};
 
 	return {
+		before: httpPartialResponseMiddlewareBefore,
 		after: httpPartialResponseMiddlewareAfter,
 	};
 };

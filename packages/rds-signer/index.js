@@ -125,7 +125,7 @@ const rdsSignerMiddleware = (opts = {}) => {
 					setCacheKeyExpiry(options, Date.now() + tokenLifetimeMs);
 					return token;
 				})
-				.catch(evictCacheOnFailure(options.cacheKey, internalKey));
+				.catch(evictCacheOnFailure(options.cacheKey, internalKey, values));
 		}
 
 		return values;

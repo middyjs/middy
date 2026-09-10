@@ -26,6 +26,7 @@ NOTES:
 
 - Lambda is required to have IAM permission for `execute-api:ManageConnections`
 - If `awsClientOptions.endpoint` is not set it will be set using `event.requestContext.{domainName,stage}`. One client is kept per endpoint (the 8 most recent), so a function served through several stages or custom domains posts to the endpoint each request arrived on; an evicted client is `destroy()`ed so its keep-alive sockets are released
+- With `awsClientAssumeRole`, an endpoint's client is rebuilt whenever `@middy/sts` refetches the credentials, so it never keeps an expired session
 - If response does not contain `ConnectionId`, it will be set from `event.requestContext.connectionId`
 - If the connection has already closed (`GoneException`), the response is `{ statusCode: 410 }` instead of an error
 

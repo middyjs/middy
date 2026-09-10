@@ -9,8 +9,9 @@ cd certificates
 
 updateExport () {
 	key="./certificates/${1}"
+	types="./certificates/${1}.d.ts"
 	value="./certificates/${1}.js"
-	jq --indent 1 --tab --arg k "$key" --arg v "$value" '.exports[$k] = {"import": { "default": $v } }' ../package.json > ../_package.json
+	jq --indent 1 --tab --arg k "$key" --arg t "$types" --arg v "$value" '.exports[$k] = {"import": { "types": $t, "default": $v } }' ../package.json > ../_package.json
 	mv ../_package.json ../package.json
 }
 
@@ -25,6 +26,8 @@ generate () {
 	grep -q "BEGIN CERTIFICATE" "${region}-bundle.pem" \
 		|| { echo "certificates: ${region} bundle is not a valid PEM" >&2; exit 1; }
 	echo "export default \`$(cat "${region}-bundle.pem")\`" > "${region}.js"
+	# Every bundle is a string default export; the declaration types the subpath.
+	printf 'declare const ca: string;\nexport default ca;\n' > "${region}.d.ts"
 	updateExport "${region}"
 }
 
@@ -82,3 +85,6 @@ expected=$(( ${#regions[@]} + ${#govRegions[@]} ))
 actual=$(find . -maxdepth 1 -name '*.js' | wc -l | tr -d ' ')
 [ "${actual}" -eq "${expected}" ] \
 	|| { echo "certificates: expected ${expected} modules, generated ${actual}" >&2; exit 1; }
+declarations=$(find . -maxdepth 1 -name '*.d.ts' | wc -l | tr -d ' ')
+[ "${declarations}" -eq "${expected}" ] \
+	|| { echo "certificates: expected ${expected} declarations, generated ${declarations}" >&2; exit 1; }

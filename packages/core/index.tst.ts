@@ -1,4 +1,8 @@
-import { executionModeDurableContext } from "@middy/core/executionModeDurableContext";
+import type { DurableContext } from "@aws/durable-execution-sdk-js";
+import {
+	executionModeDurableContext,
+	type DurableContext as SubpathDurableContext,
+} from "@middy/core/executionModeDurableContext";
 import { executionModeStandard } from "@middy/core/executionModeStandard";
 import { executionModeStreamifyResponse } from "@middy/core/executionModeStreamifyResponse";
 import type {
@@ -10,12 +14,53 @@ import type {
 } from "aws-lambda";
 import { expect, test } from "tstyche";
 import middy, {
+	type DurableContextLike,
 	type MiddyfiedHandler,
 	type PluginExecutionMode,
 	type PluginExecutionModeCore,
 	type PluginExecutionModeLambdaHandler,
 	type PluginExecutionModePlugin,
 } from "./index.js";
+
+// The root types describe the durable context structurally so they check
+// without the optional SDK installed; the SDK's own type satisfies the shape
+// and the durable subpath, the one place that imports it, re-exports it.
+test("TContext accepts the durable SDK context structurally", () => {
+	expect<DurableContext>().type.toBeAssignableTo<DurableContextLike>();
+	expect<SubpathDurableContext>().type.toBe<DurableContext>();
+	expect(
+		middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, DurableContext>,
+	).type.not.toRaiseError();
+	expect(
+		middy<
+			APIGatewayProxyEvent,
+			APIGatewayProxyResult,
+			Error,
+			DurableContextLike
+		>,
+	).type.not.toRaiseError();
+	expect(
+		middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, number>,
+	).type.toRaiseError("does not satisfy the constraint");
+	const durableHandler = middy<
+		APIGatewayProxyEvent,
+		APIGatewayProxyResult,
+		Error,
+		DurableContext
+	>().handler(async (event, context) => {
+		expect(context.executionContext.durableExecutionArn).type.toBe<string>();
+		expect(context.lambdaContext).type.toBe<Context>();
+		return { statusCode: 200, body: event.path };
+	});
+	expect(durableHandler).type.toBe<
+		middy.MiddyfiedHandler<
+			APIGatewayProxyEvent,
+			APIGatewayProxyResult,
+			Error,
+			DurableContext
+		>
+	>();
+});
 
 test("execution modes are not exported from the package root", () => {
 	expect<typeof import("@middy/core")>().type.not.toHaveProperty(

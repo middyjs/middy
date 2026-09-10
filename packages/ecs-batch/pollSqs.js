@@ -27,30 +27,43 @@ const optionSchema = {
 export const pollSqsValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
-const queueArnFromUrl = (queueUrl) => {
-	// https://sqs.{region}.amazonaws.com/{accountId}/{queueName}
-	try {
-		const u = new URL(queueUrl);
-		const region = u.host.split(".")[1];
-		const [, accountId, queueName] = u.pathname.split("/");
-		if (!region || !accountId || !queueName) return undefined;
-		// Stryker disable BlockStatement: equivalent; an empty catch falls off the end of the function, which returns undefined just like the explicit return.
-		return `arn:aws:sqs:${region}:${accountId}:${queueName}`;
-	} catch {
-		return undefined;
-	}
-};
-// Stryker restore BlockStatement
+// Endpoint hostnames carry the region as the label after "sqs" or
+// "sqs-fips": sqs.<region>.amazonaws.com, sqs.<region>.api.aws,
+// sqs-fips.<region>.amazonaws.com, sqs.<region>.amazonaws.com.cn and the
+// interface VPC endpoint form vpce-<id>.sqs.<region>.vpce.amazonaws.com. The
+// legacy endpoints are <region>.queue.amazonaws.com; the bare us-east-1 one,
+// queue.amazonaws.com, carries no region at all.
+// https://docs.aws.amazon.com/general/latest/gr/sqs-service.html
+const sqsHostRegion = /(?:^|\.)sqs(?:-fips)?\.([a-z0-9-]+)\./;
+const legacyHostRegion = /^([a-z0-9-]+)\.queue\.amazonaws\.com/;
 
-const regionFromUrl = (queueUrl) => {
-	try {
-		// Stryker disable BlockStatement: equivalent; an empty catch falls off the end of the function, which returns undefined just like the explicit return.
-		return new URL(queueUrl).host.split(".")[1];
-	} catch {
-		return undefined;
-	}
+// https://sqs.{region}.amazonaws.com/{accountId}/{queueName}
+const parseQueueUrl = (queueUrl) => {
+	const url = URL.parse(queueUrl);
+	if (!url) return {};
+	const [, accountId, queueName] = url.pathname.split("/");
+	return {
+		region:
+			url.hostname.match(sqsHostRegion)?.[1] ??
+			url.hostname.match(legacyHostRegion)?.[1],
+		accountId,
+		queueName,
+	};
 };
-// Stryker restore BlockStatement
+
+// The ARN partition follows the region: aws-cn for China, aws-us-gov for
+// GovCloud, aws otherwise.
+// https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html
+const partitionFor = (region) => {
+	if (region.startsWith("cn-")) return "aws-cn";
+	if (region.startsWith("us-gov-")) return "aws-us-gov";
+	return "aws";
+};
+
+const composeQueueArn = (region, accountId, queueName) => {
+	if (!region || !accountId || !queueName) return undefined;
+	return `arn:${partitionFor(region)}:sqs:${region}:${accountId}:${queueName}`;
+};
 
 // Lambda camel-cases message attributes and base64-encodes binaryValue. The
 // SQS API marks stringListValues/binaryListValues "Not implemented. Reserved
@@ -92,6 +105,29 @@ const toLambdaRecord = (message, eventSourceARN, awsRegion) => {
 	return record;
 };
 
+// A batchItemFailures entry whose itemIdentifier is null, empty or names no
+// record in the batch invalidates the whole response: Lambda then retries
+// every record. `ids` is the failed set to act on (every record when the
+// response is invalid) and `error` the reason to raise through onError.
+// https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html
+// https://docs.aws.amazon.com/lambda/latest/dg/kafka-retry-configurations.html
+const batchFailures = (response, knownIds) => {
+	const ids = new Set();
+	for (const entry of response?.batchItemFailures ?? []) {
+		const itemIdentifier = entry?.itemIdentifier;
+		if (!knownIds.has(itemIdentifier)) {
+			return {
+				ids: knownIds,
+				error: new Error("Invalid batchItemFailures entry", {
+					cause: { package: pkg, data: { itemIdentifier } },
+				}),
+			};
+		}
+		ids.add(itemIdentifier);
+	}
+	return { ids };
+};
+
 const chunk = (arr, size) => {
 	const out = [];
 	for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
@@ -101,8 +137,9 @@ const chunk = (arr, size) => {
 export const pollSqs = (opts) => {
 	pollSqsValidateOptions(opts);
 	const client = opts.client ?? new SQSClient({});
-	const eventSourceArn = opts.eventSourceArn ?? queueArnFromUrl(opts.queueUrl);
-	const awsRegion = opts.awsRegion ?? regionFromUrl(opts.queueUrl);
+	const url = parseQueueUrl(opts.queueUrl);
+	let awsRegion = opts.awsRegion ?? url.region;
+	let eventSourceArn = opts.eventSourceArn;
 	const maxNumberOfMessages = opts.maxNumberOfMessages ?? 10;
 	const waitTimeSeconds = opts.waitTimeSeconds ?? 20;
 
@@ -121,6 +158,15 @@ export const pollSqs = (opts) => {
 		source: "aws:sqs",
 		client,
 		async *poll(signal) {
+			// A hostname without a region (the bare legacy us-east-1 endpoint, a
+			// custom endpoint) takes the client's region, which the SDK resolves
+			// asynchronously.
+			awsRegion ??= await client.config?.region?.();
+			eventSourceArn ??= composeQueueArn(
+				awsRegion,
+				url.accountId,
+				url.queueName,
+			);
 			while (!signal.aborted) {
 				let res;
 				try {
@@ -141,13 +187,15 @@ export const pollSqs = (opts) => {
 			}
 		},
 		async acknowledge(event, response) {
-			const failedIds = new Set(
-				// Stryker disable next-line ArrayDeclaration: equivalent; the placeholder entry has no itemIdentifier, and no SQS record carries an undefined messageId, so the filter below behaves as with an empty list.
-				(response?.batchItemFailures ?? []).map((f) => f.itemIdentifier),
+			const records = event.Records ?? [];
+			const failed = batchFailures(
+				response,
+				new Set(records.map((r) => r.messageId)),
 			);
-			const toDelete = (event.Records ?? []).filter(
-				(r) => !failedIds.has(r.messageId),
-			);
+			// Nothing is deleted: every message redelivers after its visibility
+			// timeout, as it would from Lambda.
+			if (failed.error) throw failed.error;
+			const toDelete = records.filter((r) => !failed.ids.has(r.messageId));
 			// Stryker disable next-line ConditionalExpression: equivalent; an empty toDelete produces no chunks, so the loop below sends nothing and raises nothing.
 			if (!toDelete.length) return;
 			// DeleteMessageBatch reports each entry as Successful or Failed. A
@@ -155,7 +203,7 @@ export const pollSqs = (opts) => {
 			// timeout, so it must not count as acknowledged: every chunk is still
 			// sent, then the failures are raised so the runner's onError sees them.
 			// https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_DeleteMessageBatch.html
-			const failed = [];
+			const deleteFailures = [];
 			for (const group of chunk(toDelete, 10)) {
 				const res = await client.send(
 					new DeleteMessageBatchCommand({
@@ -168,7 +216,7 @@ export const pollSqs = (opts) => {
 				);
 				for (const entry of res.Failed ?? []) {
 					const record = group[Number(entry.Id)];
-					failed.push({
+					deleteFailures.push({
 						messageId: record.messageId,
 						receiptHandle: record.receiptHandle,
 						code: entry.Code,
@@ -177,9 +225,9 @@ export const pollSqs = (opts) => {
 					});
 				}
 			}
-			if (failed.length) {
+			if (deleteFailures.length) {
 				throw new Error("DeleteMessageBatch reported failed entries", {
-					cause: { package: pkg, data: { failed } },
+					cause: { package: pkg, data: { failed: deleteFailures } },
 				});
 			}
 		},

@@ -1721,3 +1721,121 @@ test("It should fall back to cacheExpiry when NextRotationDate is null (rotation
 	// Cached indefinitely: only 1 Describe + 1 GetSecretValue
 	strictEqual(sendStub.callCount, 2);
 });
+
+test("It should rebuild the client when the assumed-role credentials are refetched", async (t) => {
+	const constructions = [];
+	class FakeClient {
+		constructor(awsClientOptions) {
+			constructions.push(awsClientOptions);
+		}
+		send() {
+			return Promise.resolve({ SecretString: "v" });
+		}
+	}
+	let credentials = Promise.resolve({ accessKeyId: "a" });
+	const handler = middy(() => {})
+		.before((request) => {
+			request.internal.role = credentials;
+		})
+		.use(
+			secretsManager({
+				AwsClient: FakeClient,
+				awsClientAssumeRole: "role",
+				cacheExpiry: 0,
+				fetchData: { key: "secret" },
+			}),
+		);
+
+	await handler(defaultEvent, defaultContext);
+	// A later invocation carrying the same cached credential promise keeps
+	// the client.
+	await handler(defaultEvent, defaultContext);
+	strictEqual(constructions.length, 1);
+	deepStrictEqual(constructions[0].credentials, { accessKeyId: "a" });
+
+	// sts refetched: request.internal now holds a new promise object, so the
+	// client is rebuilt with the new session instead of keeping the expired one.
+	credentials = Promise.resolve({ accessKeyId: "b" });
+	await handler(defaultEvent, defaultContext);
+	strictEqual(constructions.length, 2);
+	deepStrictEqual(constructions[1].credentials, { accessKeyId: "b" });
+	await handler(defaultEvent, defaultContext);
+	strictEqual(constructions.length, 2);
+});
+
+test("It should construct the client once without awsClientAssumeRole", async (t) => {
+	let constructed = 0;
+	class FakeClient {
+		constructor() {
+			constructed += 1;
+		}
+		send() {
+			return Promise.resolve({ SecretString: "v" });
+		}
+	}
+	const handler = middy(() => {}).use(
+		secretsManager({
+			AwsClient: FakeClient,
+			disablePrefetch: true,
+			cacheExpiry: 0,
+			fetchData: { key: "secret" },
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(constructed, 1);
+});
+
+test("It should re-describe at a NextRotationDate less than a minute away", async (t) => {
+	t.mock.timers.setTime(1_700_000_000_000);
+	const mockService = mockClient(SecretsManagerClient)
+		.on(DescribeSecretCommand, { SecretId: "api_key_SoonRotation" })
+		.resolves({ NextRotationDate: new Date(Date.now() + 30 * 1000) })
+		.on(GetSecretValueCommand, { SecretId: "api_key_SoonRotation" })
+		.resolves({ SecretString: "token" });
+	const handler = middy(() => {}).use(
+		secretsManager({
+			AwsClient: SecretsManagerClient,
+			cacheExpiry: -1,
+			fetchData: { token: "api_key_SoonRotation" },
+			fetchRotationDate: true,
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	t.mock.timers.tick(29 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
+	// The rotation is due in 30 s; the 60 s retry floor is only for a date
+	// that has already passed, so the secret is described again at 31 s.
+	t.mock.timers.tick(2 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
+});
+
+test("It should keep the cache for a minute when NextRotationDate is exactly now", async (t) => {
+	t.mock.timers.setTime(1_700_000_000_000);
+	const mockService = mockClient(SecretsManagerClient)
+		.on(DescribeSecretCommand, { SecretId: "api_key_DueRotation" })
+		.resolves({ NextRotationDate: new Date(Date.now()) })
+		.on(GetSecretValueCommand, { SecretId: "api_key_DueRotation" })
+		.resolves({ SecretString: "token" });
+	const handler = middy(() => {}).use(
+		secretsManager({
+			AwsClient: SecretsManagerClient,
+			cacheExpiry: -1,
+			fetchData: { token: "api_key_DueRotation" },
+			fetchRotationDate: true,
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
+	t.mock.timers.tick(60 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
+});

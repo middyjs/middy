@@ -90,7 +90,7 @@ const composeInvokedFunctionArn = (ecs) => {
 	return `arn:aws:ecs:${ecs.region}:${ecs.accountId}:service/${ecs.family}`;
 };
 
-// Stryker disable Regex: making the `([a-z0-9.+-]+\+)?` suffix prefix mandatory is equivalent; the bare `json|xml` alternatives earlier in the same group already accept every subtype the optional form would, and only match/no-match is observed. (The anchor and character-class variants are killed by the content-type table test.)
+// Stryker disable Regex: this block disable silences every Regex mutant of the pattern below, because Stryker cannot scope a Regex disable to one mutant. The mutant that is equivalent makes the `([a-z0-9.+-]+\+)?` group mandatory: the bare `json|xml` alternatives earlier in the same group already accept every subtype the optional form would, and only match/no-match is observed. The content-type table test exercises the anchor (`multipart/related; type=text/html`) and the `.` and `+` class members (`application/vnd.api+json`), but with the disable in place those kills are not observed by Stryker.
 const textContentTypePattern =
 	/^(text\/|application\/(json|xml|x-www-form-urlencoded|javascript|graphql|ld\+json|vnd\.api\+json|([a-z0-9.+-]+\+)?(json|xml)))/i;
 // Stryker restore Regex
@@ -171,7 +171,7 @@ const parseCookies = (cookieHeader) => {
 };
 
 // Cheap path/query split. node:http has already validated the request line by
-// the time req.url reaches us — any URL we receive is guaranteed parsable, so
+// the time req.url reaches us, any URL we receive is guaranteed parsable, so
 // we skip the (~150 ns) `new URL(...)` validation step entirely.
 const splitUrl = (rawUrl) => {
 	const qIdx = rawUrl.indexOf("?");

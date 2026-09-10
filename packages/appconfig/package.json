@@ -63,11 +63,6 @@
 	"peerDependencies": {
 		"@aws-sdk/client-appconfigdata": "^3.0.0"
 	},
-	"peerDependenciesMeta": {
-		"@aws-sdk/client-appconfigdata": {
-			"optional": true
-		}
-	},
 	"dependencies": {
 		"@middy/util": "8.0.0-alpha.0"
 	},

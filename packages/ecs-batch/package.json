@@ -1,7 +1,7 @@
 {
 	"name": "@middy/ecs-batch",
 	"version": "8.0.0-alpha.0",
-	"description": "ECS/Fargate batch event runtime for the middy framework — polls SQS, Kinesis, DynamoDB Streams, Kafka, ActiveMQ, RabbitMQ and dispatches to a Lambda-shaped handler",
+	"description": "ECS/Fargate batch event runtime for the middy framework, polls SQS, Kinesis, DynamoDB Streams, Kafka, ActiveMQ, RabbitMQ and dispatches to a Lambda-shaped handler",
 	"type": "module",
 	"engines": {
 		"node": ">=24"

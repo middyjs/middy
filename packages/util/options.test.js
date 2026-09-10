@@ -1,4 +1,4 @@
-import { ok, strictEqual } from "node:assert/strict";
+import { ok, strictEqual, throws } from "node:assert/strict";
 import { describe, test } from "node:test";
 import { validateOptions } from "./index.js";
 
@@ -702,6 +702,26 @@ describe("validateOptions invalid rule fallthrough", () => {
 			strictEqual(e.message, "Option 'name' must be string");
 		}
 	});
+
+	test("an error thrown by a predicate propagates unchanged", () => {
+		// A predicate that throws is a bug in the caller's schema, not a
+		// validation mismatch or a malformed schema; re-wrapping it would hide
+		// the error's type and stack.
+		const boom = new RangeError("predicate exploded");
+		throws(
+			() =>
+				validateOptions(
+					"@middy/pkgname",
+					{
+						x: () => {
+							throw boom;
+						},
+					},
+					{ x: 1 },
+				),
+			(e) => e === boom,
+		);
+	});
 });
 
 describe("validateOptions maximum", () => {
@@ -773,6 +793,24 @@ describe("validateOptions pattern", () => {
 			ok(e.message.includes("path"));
 		}
 	});
+
+	// A pattern that does not compile is a malformed schema, so it surfaces as
+	// the documented packaged TypeError rather than the RegExp SyntaxError.
+	test("an invalid pattern yields the packaged TypeError, not a SyntaxError", () => {
+		try {
+			validateOptions(
+				"@middy/pkgname",
+				{ path: { type: "string", pattern: "[" } },
+				{ path: "/foo" },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(!(e instanceof SyntaxError));
+			strictEqual(e.cause.package, "@middy/pkgname");
+			strictEqual(e.message, "Invalid pattern for option 'path'");
+		}
+	});
 });
 
 describe("validateOptions minLength/maxLength", () => {
@@ -814,7 +852,9 @@ describe("validateOptions string-only constraints on non-string value", () => {
 			ok(false, "expected throw");
 		} catch (e) {
 			ok(e instanceof TypeError);
-			ok(e.message.includes("n"));
+			// The string check comes first: the number never reaches `.match`, so
+			// the failure is a value mismatch, not an "Invalid pattern" schema error.
+			strictEqual(e.message, "Option 'n' must be string");
 			strictEqual(e.cause.package, "@middy/test");
 		}
 	});
@@ -829,7 +869,7 @@ describe("validateOptions string-only constraints on non-string value", () => {
 			ok(false, "expected throw");
 		} catch (e) {
 			ok(e instanceof TypeError);
-			ok(e.message.includes("n"));
+			strictEqual(e.message, "Option 'n' must be string");
 			strictEqual(e.cause.package, "@middy/test");
 		}
 	});
@@ -844,7 +884,7 @@ describe("validateOptions string-only constraints on non-string value", () => {
 			ok(false, "expected throw");
 		} catch (e) {
 			ok(e instanceof TypeError);
-			ok(e.message.includes("n"));
+			strictEqual(e.message, "Option 'n' must be string");
 			strictEqual(e.cause.package, "@middy/test");
 		}
 	});
@@ -1044,6 +1084,46 @@ describe("validateOptions uniqueItems", () => {
 				{ method: "POST", path: "/a", handler: () => {} },
 			],
 		});
+	});
+
+	// Items are compared through their stable JSON form, so distinct values
+	// whose pieces would run together without the separator must stay apart.
+	test("accepts two distinct objects", () => {
+		const schema = { rows: { type: "array", uniqueItems: true } };
+		validateOptions("@middy/test", schema, {
+			rows: [
+				{ a: 1, b: 2 },
+				{ a: 12, c: [1, 2] },
+			],
+		});
+	});
+
+	test("accepts two distinct arrays whose elements would run together", () => {
+		const schema = { rows: { type: "array", uniqueItems: true } };
+		validateOptions("@middy/test", schema, { rows: [[1, 2], [12]] });
+	});
+
+	test("keeps an empty object and an empty array distinct", () => {
+		const schema = { rows: { type: "array", uniqueItems: true } };
+		validateOptions("@middy/test", schema, { rows: [{}, []] });
+	});
+
+	// An array serializes positionally, so a function element and an undefined
+	// element hold the same slot, as they do under JSON.stringify; only an
+	// object skips its function-typed members.
+	test("treats a function element and an undefined element alike inside arrays", () => {
+		const schema = { rows: { type: "array", uniqueItems: true } };
+		try {
+			validateOptions("@middy/test", schema, {
+				rows: [
+					[() => {}, 1],
+					[undefined, 1],
+				],
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("rows[1]"));
+		}
 	});
 
 	test("does not stack overflow on a circular item", () => {

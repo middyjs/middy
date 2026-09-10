@@ -1,11 +1,23 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 
-import type { DurableContext as LambdaContextDurable } from "@aws/durable-execution-sdk-js";
 import type {
 	Context as LambdaContext,
 	Handler as LambdaHandler,
 } from "aws-lambda";
+
+/**
+ * The context the durable execution mode receives, described structurally so
+ * these types check without the optional `@aws/durable-execution-sdk-js` peer
+ * installed: the SDK's `DurableContext` keeps the Lambda context under
+ * `lambdaContext` (which the mode copies onto the request context) and the
+ * execution ARN under `executionContext`. The SDK's own type satisfies it and
+ * is re-exported from `@middy/core/executionModeDurableContext`.
+ */
+export interface DurableContextLike {
+	lambdaContext: LambdaContext;
+	executionContext: { readonly durableExecutionArn: string };
+}
 
 declare type PluginHook = () => void;
 declare type PluginHookWithMiddlewareName = (middlewareName: string) => void;
@@ -42,7 +54,7 @@ export interface PluginExecutionModeHandler {
 export interface PluginExecutionModeCore {
 	middyRequest: (
 		event: unknown,
-		context: LambdaContext | LambdaContextDurable,
+		context: LambdaContext | DurableContextLike,
 	) => Request<any, any, any, any, any>;
 	runRequest: (
 		request: Request<any, any, any, any, any>,
@@ -111,7 +123,7 @@ export interface Request<
 	TEvent = unknown,
 	TResult = any,
 	TErr = Error,
-	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+	TContext extends LambdaContext | DurableContextLike = LambdaContext,
 	TInternal extends Record<string, unknown> = {},
 > {
 	event: TEvent;
@@ -126,7 +138,7 @@ declare type MiddlewareFn<
 	TEvent = unknown,
 	TResult = any,
 	TErr = Error,
-	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+	TContext extends LambdaContext | DurableContextLike = LambdaContext,
 	TInternal extends Record<string, unknown> = {},
 > = (request: Request<TEvent, TResult, TErr, TContext, TInternal>) => any;
 
@@ -134,7 +146,7 @@ export interface MiddlewareObj<
 	TEvent = unknown,
 	TResult = any,
 	TErr = Error,
-	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+	TContext extends LambdaContext | DurableContextLike = LambdaContext,
 	TInternal extends Record<string, unknown> = {},
 > {
 	before?: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>;
@@ -155,7 +167,7 @@ export interface MiddyHandlerObject {
 type MiddyInputHandler<
 	TEvent,
 	TResult,
-	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+	TContext extends LambdaContext | DurableContextLike = LambdaContext,
 > = (
 	event: TEvent,
 	context: TContext,
@@ -164,14 +176,14 @@ type MiddyInputHandler<
 type MiddyInputPromiseHandler<
 	TEvent,
 	TResult,
-	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+	TContext extends LambdaContext | DurableContextLike = LambdaContext,
 > = (event: TEvent, context: TContext) => Promise<TResult>;
 
 export interface MiddyfiedHandler<
 	TEvent = unknown,
 	TResult = any,
 	TErr = Error,
-	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+	TContext extends LambdaContext | DurableContextLike = LambdaContext,
 	TInternal extends Record<string, unknown> = {},
 > extends MiddyInputHandler<TEvent, TResult, TContext>,
 		MiddyInputPromiseHandler<TEvent, TResult, TContext> {
@@ -202,7 +214,7 @@ declare type AttachMiddlewareFn<
 	TEvent = unknown,
 	TResult = any,
 	TErr = Error,
-	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+	TContext extends LambdaContext | DurableContextLike = LambdaContext,
 	TInternal extends Record<string, unknown> = {},
 > = (
 	middleware: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>,
@@ -212,7 +224,7 @@ declare type AttachMiddlewareObj<
 	TEvent = unknown,
 	TResult = any,
 	TErr = Error,
-	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+	TContext extends LambdaContext | DurableContextLike = LambdaContext,
 	TInternal extends Record<string, unknown> = {},
 > = (
 	middleware: MiddlewareObj<TEvent, TResult, TErr, TContext, TInternal>,
@@ -222,7 +234,7 @@ declare type UseFn<
 	TEvent = unknown,
 	TResult = any,
 	TErr = Error,
-	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+	TContext extends LambdaContext | DurableContextLike = LambdaContext,
 	TInternal extends Record<string, unknown> = {},
 > = <
 	TMiddlewares extends
@@ -262,7 +274,7 @@ declare type UseFn<
 
 declare type MiddlewareHandler<
 	THandler extends LambdaHandler<any, any>,
-	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+	TContext extends LambdaContext | DurableContextLike = LambdaContext,
 	TResult = any,
 	TEvent = unknown,
 > =
@@ -281,7 +293,7 @@ declare function middy<
 	TEvent = unknown,
 	TResult = any,
 	TErr = Error,
-	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+	TContext extends LambdaContext | DurableContextLike = LambdaContext,
 	TInternal extends Record<string, unknown> = {},
 >(
 	handler?:
@@ -298,6 +310,7 @@ declare function middy<
 
 declare namespace middy {
 	export type {
+		DurableContextLike,
 		MiddlewareFn,
 		MiddlewareObj,
 		MiddyContext,

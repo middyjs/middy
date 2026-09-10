@@ -1526,6 +1526,48 @@ test("verifyDpopProof caps the RSA public exponent at 64 bits", () => {
 	);
 });
 
+test("It should throw a 500 when the event has no requestContext and no origin is configured", async () => {
+	// An ALB event has no `requestContext` at all. With no `origin` to fall
+	// back on, the origin reader has to report the missing domain as a 500
+	// rather than trip over the absent object.
+	const key = keyFor();
+	const handler = makeHandler(boundPayload(key));
+
+	const result = await handler(
+		{
+			path: PATH,
+			httpMethod: "GET",
+			headers: {
+				authorization: `DPoP ${TOKEN}`,
+				dpop: proofFor(key),
+			},
+		},
+		{ ...defaultContext },
+	).catch((e) => e);
+
+	strictEqual(result.statusCode, 500);
+	ok(result.cause.data.reason.includes("'origin' option"));
+});
+
+test("verifyDpopProof rejects a proof whose header has no jwk with a plain Error", () => {
+	// The jwk check is the first place the header's key is touched. A header
+	// with the member absent, or set to null, has to fail on the jwk guard's
+	// own message, not on a TypeError from reading `kty` off nothing.
+	const key = keyFor();
+	const [, payload, signature] = proofFor(key).split(".");
+	const withoutJwk = `${b64({ typ: "dpop+jwt", alg: "ES256" })}.${payload}.${signature}`;
+	for (const proof of [withoutJwk, proofFor(key, { jwk: null })]) {
+		throws(
+			() => verifyDpopProof(proof, VERIFY_OPTS),
+			(e) => {
+				ok(!(e instanceof TypeError));
+				strictEqual(e.message, "Proof 'jwk' does not match 'ES256'");
+				return true;
+			},
+		);
+	}
+});
+
 test("It should apply the RSA exponent cap to RSA keys only", async () => {
 	// An EC jwk carrying a stray `e` member is not an RSA key. The member is
 	// ignored by the import and by the thumbprint, so the proof still verifies.

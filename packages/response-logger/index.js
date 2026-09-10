@@ -117,10 +117,8 @@ const makeNodeTee = (source, onBody) => {
 	});
 	// A consumer that destroys the tee early (client gone, pipeline error)
 	// would otherwise leave the source unpiped, paused and never destroyed.
-	transform.once("close", () => {
-		// Stryker disable next-line ConditionalExpression: equivalent; Readable.destroy() returns early on an already-destroyed stream, so the guard only skips a no-op call.
-		if (!source.destroyed) source.destroy();
-	});
+	// `destroy()` is a no-op on a stream that is already destroyed.
+	transform.once("close", () => source.destroy());
 	return source.on("error", (e) => transform.destroy(e)).pipe(transform);
 };
 

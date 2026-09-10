@@ -1,6 +1,6 @@
 ---
 title: secrets-manager-extension
-description: "Fetch Secrets Manager secrets via the AWS Parameters and Secrets Lambda Extension — no SDK, lower latency, automatic caching."
+description: "Fetch Secrets Manager secrets via the AWS Parameters and Secrets Lambda Extension, no SDK, lower latency, automatic caching."
 status: alpha
 ---
 

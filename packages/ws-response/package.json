@@ -68,11 +68,6 @@
 	"peerDependencies": {
 		"@aws-sdk/client-apigatewaymanagementapi": "^3.0.0"
 	},
-	"peerDependenciesMeta": {
-		"@aws-sdk/client-apigatewaymanagementapi": {
-			"optional": true
-		}
-	},
 	"devDependencies": {
 		"@aws-sdk/client-apigatewaymanagementapi": "^3.0.0",
 		"@middy/core": "8.0.0-alpha.0",

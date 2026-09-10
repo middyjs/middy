@@ -66,9 +66,6 @@
 		"type": "github",
 		"url": "https://github.com/sponsors/willfarrell"
 	},
-	"dependencies": {
-		"@middy/util": "8.0.0-alpha.0"
-	},
 	"devDependencies": {
 		"@middy/core": "8.0.0-alpha.0",
 		"@serverless/event-mocks": "^1.0.0",

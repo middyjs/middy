@@ -944,7 +944,7 @@ test("It should not apply override when overridePreferredEncoding default is emp
 	const response = await handler(event, {
 		...defaultContext,
 		preferredEncoding: "gzip",
-		preferredEncodings: ["Stryker was here"],
+		preferredEncodings: ["not-an-encoding"],
 	});
 
 	deepStrictEqual(response, {

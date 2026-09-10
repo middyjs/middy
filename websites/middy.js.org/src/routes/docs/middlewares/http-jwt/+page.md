@@ -30,7 +30,7 @@ npm install --save jose
 - `tokenCookieName` (string) (optional): Cookie name to read the token from. Looked up in the `Cookie` header first, then in `event.cookies` (HTTP API payload 2.0 delivers cookies there instead of in a header).
 - `tokenHeaderName` (string) (optional): Custom header to read the token from. When the name is `Authorization` (case-insensitive), the `Bearer ` scheme is stripped; any other scheme causes the source to fall through. Other header names return the raw value.
 - `tokenQueryStringName` (string) (optional): Query-string parameter to read the token from.
-- `audience` (string | string[]) (optional, ignored when `issuers` is used — per-entry audience is authoritative): Expected `aud` claim.
+- `audience` (string | string[]) (optional, ignored when `issuers` is used, per-entry audience is authoritative): Expected `aud` claim.
 - `issuer` (string | string[]) (optional, ignored when `issuers` is used): Expected `iss` claim.
 - `clockTolerance` (number) (default `0`): Clock skew tolerance in seconds applied to `exp`/`nbf` checks.
 - `requireExp` (boolean) (default `false`): Reject tokens that carry no `exp` claim. Forwarded to jose's `requiredClaims`. Tokens without an expiry are otherwise accepted, so enable this when your issuer always sets one.
@@ -46,7 +46,7 @@ npm install --save jose
 NOTES:
 
 - A missing or malformed token, an invalid signature, or a failed claim check throws `401 Unauthorized`. Pair with [`http-error-handler`](/docs/middlewares/http-error-handler) to convert it into a proper HTTP response.
-- A JWKS endpoint that cannot be reached, answers with a non-2xx status, sends no body, serves a document over 1 MiB, or serves one that is not a JSON object with a `keys` array throws `502 Bad Gateway`; one that exceeds `jwksTimeoutMs` throws `504 Gateway Timeout`. Either way `cause.data.reason` starts with `JWKS fetch failed: `. The token was not refused; it could not be checked, and a 401 would send the client off for a new token that the same outage would reject again. The failure is remembered for `cooldownDuration`: requests inside it get the same `502` or `504` immediately instead of each paying a fetch against the failing endpoint.
+- A JWKS endpoint that cannot be reached, answers with a non-2xx status, sends no body, serves a document over 1 MiB, or serves one that is not a JSON object with a `keys` array throws `502 Bad Gateway`; one that exceeds `jwksTimeoutMs` throws `504 Gateway Timeout`. Either way `cause.data.reason` carries the underlying failure (`JWKS fetch failed: HTTP 503`, `JWKS response has no body`, the timeout message, and so on), and the error is thrown with `expose: true` so [http-error-handler](/docs/middlewares/http-error-handler) sends the gateway status rather than its generic `500`. The token was not refused; it could not be checked, and a 401 would send the client off for a new token that the same outage would reject again. The failure is remembered for `cooldownDuration`: requests inside it get the same `502` or `504` immediately instead of each paying a fetch against the failing endpoint.
 - A JWKS key whose `use` is not `sig`, or whose `key_ops` leaves out `verify`, is never selected, so an encryption key published under a matching `kid` cannot verify a token.
 - HMAC secrets (HS256/HS384/HS512) work via `internalKey`. There is no top-level `secretKey` option; see [the HS256 example](#with-an-hmac-shared-secret-hs256) for the recommended shape. Asymmetric crypto (RS256/ES256) is strongly preferred for cross-service auth; HMAC is fine for webhook signatures and contained internal trust boundaries where you control both signer and verifier.
 
@@ -188,7 +188,7 @@ export const handler = middy()
 
 There is no top-level `secretKey` option. Symmetric secrets flow through the same `internalKey` contract as every other key shape: a small middleware that places the secret on `request.internal` before `http-jwt` runs.
 
-This shape works well for webhook signature verification (e.g., a third-party webhook that signs payloads with a shared secret), or for a contained internal trust boundary where you control both signer and verifier. For cross-service auth, prefer JWKS (`issuers` mode) or KMS — see the security note below.
+This shape works well for webhook signature verification (e.g., a third-party webhook that signs payloads with a shared secret), or for a contained internal trust boundary where you control both signer and verifier. For cross-service auth, prefer JWKS (`issuers` mode) or KMS, see the security note below.
 
 ```javascript
 import middy from '@middy/core'
@@ -255,13 +255,13 @@ httpJwt({
 The patterns above are safe against the two classic JWT verification mistakes:
 
 - **`alg` substitution.** Attackers can place `alg: none` or `alg: HS256` in the protected header to try to bypass signature checks or use an RSA public key as an HMAC secret. The defenses are: (1) the `algorithm` allowlist is pinned by configuration, never read from the token; (2) in the JWKS path the lookup is also filtered by that allowlist, so a token claiming an unconfigured `alg` cannot find a key at all; (3) `algorithm: 'none'` is rejected at factory time.
-- **Untrusted JWKS source.** Each `jwksUri` is configured once at factory time. The built-in resolver ignores any `jku` claim in the token header, so an attacker cannot redirect key fetching to a server they control. The `kid` from the token header is a *selector* into a trusted JWKS, not a source of trust on its own — an unknown `kid` fails the lookup, and the attacker cannot forge a signature without the IdP's private key.
+- **Untrusted JWKS source.** Each `jwksUri` is configured once at factory time. The built-in resolver ignores any `jku` claim in the token header, so an attacker cannot redirect key fetching to a server they control. The `kid` from the token header is a *selector* into a trusted JWKS, not a source of trust on its own, an unknown `kid` fails the lookup, and the attacker cannot forge a signature without the IdP's private key.
 
 ### When to use which mode
 
 - **JWKS (`issuers`)**: any OIDC/OAuth2-style cross-service auth where the IdP publishes a public keyset endpoint. Cognito, Auth0, Okta, Google, Azure AD, custom OIDC. Strongly recommended for production.
 - **KMS via `internalKey`**: tokens signed in-house by an AWS KMS asymmetric key. Good when you control both signer and verifier and want the signing key in KMS for audit/rotation.
-- **HMAC via `internalKey`**: webhook signatures (Stripe, GitHub, etc.), short-lived internal tokens inside a trust boundary you fully control. Avoid for cross-service auth — rotation is harder than asymmetric, and a leak from any verifier compromises every signer.
+- **HMAC via `internalKey`**: webhook signatures (Stripe, GitHub, etc.), short-lived internal tokens inside a trust boundary you fully control. Avoid for cross-service auth, rotation is harder than asymmetric, and a leak from any verifier compromises every signer.
 
 ### Other notes for Cognito users
 

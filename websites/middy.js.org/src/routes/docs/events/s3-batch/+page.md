@@ -37,7 +37,7 @@ export const handler = middy()
 
 ### With Durable Functions
 
-S3 Batch tasks often involve expensive multi-step work (download, transform, upload). When the Lambda hits the 15-minute timeout or transient failures, durable replay lets each task — and each step within a task — resume from its last checkpoint instead of redoing completed S3 reads/writes.
+S3 Batch tasks often involve expensive multi-step work (download, transform, upload). When the Lambda hits the 15-minute timeout or transient failures, durable replay lets each task, and each step within a task, resume from its last checkpoint instead of redoing completed S3 reads/writes.
 
 ```javascript
 import { withDurableExecution } from '@aws/durable-execution-sdk-js'

@@ -68,11 +68,6 @@
 	"peerDependencies": {
 		"@aws-sdk/client-sts": "^3.0.0"
 	},
-	"peerDependenciesMeta": {
-		"@aws-sdk/client-sts": {
-			"optional": true
-		}
-	},
 	"devDependencies": {
 		"@aws-sdk/client-sts": "^3.0.0",
 		"@middy/core": "8.0.0-alpha.0",

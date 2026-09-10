@@ -16,7 +16,7 @@ const pkg = `@middy/${name}`;
 // AWS KMS asymmetric keySpecs and the JWS algorithms each can produce.
 // Used to validate the user's `algorithm` option against the keySpec carried
 // alongside the public key on `request.internal` (typically populated by
-// `@middy/kms`). A mismatch points to a misconfiguration — the configured
+// `@middy/kms`). A mismatch points to a misconfiguration, the configured
 // algorithm cannot actually sign or verify with this key shape.
 const KMS_COMPATIBLE_ALGS = {
 	RSA_2048: ["RS256", "RS384", "RS512", "PS256", "PS384", "PS512"],
@@ -231,7 +231,6 @@ const findJwk = (doc, kid) =>
 // Minimal JWKS resolver. Owns its own cache so we can read the raw JWK
 // (including `alg`) before converting to a key.
 const createJwksResolver = (uri, options = {}) => {
-	// Stryker disable next-line LogicalOperator: `?? 600_000` -> `&& 600_000` only differs when cacheMaxAge is undefined (default), yielding `undefined` so the staleness check (`> undefined` -> always false) never expires the cache. The sole observable difference is whether a cached doc is refetched AFTER 600s of cache life, which no bounded test can reach without process-global time mocking (unsafe under node:test concurrency).
 	const cacheMaxAge = options.cacheMaxAge ?? 600_000;
 	const cooldownDuration = options.cooldownDuration ?? 30_000;
 	// `{ ...defaults, ...opts }` lets an explicit `jwksTimeoutMs: undefined`
@@ -246,7 +245,6 @@ const createJwksResolver = (uri, options = {}) => {
 	const fetchJwks = () => {
 		if (inflight) return inflight;
 		const now = Date.now();
-		// Stryker disable next-line EqualityOperator: equivalent. `<` and `<=` differ only at the exact millisecond the cooldown elapses, and reaching that instant deterministically is not something a test can arrange; either way the next call refetches.
 		if (now - lastFetchTime < cooldownDuration) {
 			// The last fetch has settled (inflight is null), so exactly one of
 			// these is set. With nothing cached, every request inside the cooldown
@@ -290,7 +288,6 @@ const createJwksResolver = (uri, options = {}) => {
 		getJwk: async (kid) => {
 			const now = Date.now();
 			let doc = cache;
-			// Stryker disable next-line EqualityOperator: `>` -> `>=` only differs at the exact instant `now - cacheTime === cacheMaxAge` (a sub-millisecond boundary). Reaching it deterministically requires process-global time mocking, which is unsafe under node:test's concurrent execution of this file's tests.
 			if (!doc || now - cacheTime > cacheMaxAge) {
 				doc = await fetchJwks();
 			}
@@ -464,12 +461,12 @@ const httpJwtMiddleware = (opts = {}) => {
 				// 504 past the `jwksTimeoutMs` deadline (`AbortSignal.timeout`
 				// rejects with a TimeoutError), 502 for everything else the
 				// endpoint did wrong. The negative cache re-throws the recorded
-				// error, so a remembered failure keeps its status.
+				// error, so a remembered failure keeps its status. Exposed on purpose:
+				// util defaults `expose` to false for a 5xx, and http-error-handler
+				// would then swap the gateway status for its generic 500.
 				throw new HttpError(e.name === "TimeoutError" ? 504 : 502, {
-					cause: {
-						package: pkg,
-						data: { reason: `JWKS fetch failed: ${e.message}` },
-					},
+					expose: true,
+					cause: { package: pkg, data: { reason: e.message } },
 				});
 			}
 			if (!jwk) {

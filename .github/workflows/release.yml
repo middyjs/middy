@@ -3,7 +3,8 @@ name: Release
 on:
   pull_request:
     types: [closed]
-    branches: [main]
+    # Maintenance branches (`7.x`) release the same way, see docs/RELEASE.md.
+    branches: [main, '[0-9]+.x']
     paths:
       - 'package.json'
 
@@ -68,10 +69,27 @@ jobs:
       # allowed-endpoints: >
       #   registry.npmjs.org:443
       - name: Set env
+        # `latest` only moves forward: a stable version at or above the
+        # registry's current one. A maintenance release (7.x after 8.0.0) is
+        # staged under its major-line dist-tag, a pre-release under `next`.
         run: |
           tag=$(npm pkg get version | xargs)
-          echo "tag=${tag}" >> "$GITHUB_ENV"
-          echo "prerelease=$([ "${tag##*-*}" ] && echo false || echo true)" >> "$GITHUB_ENV"
+          prerelease=$([ "${tag##*-*}" ] && echo false || echo true)
+          dist_tag=next
+          if [ "$prerelease" = "false" ]; then
+            current=$(npm view @middy/core version)
+            if [ "$(printf '%s\n' "$current" "$tag" | sort -V | tail -n 1)" = "$tag" ]; then
+              dist_tag=latest
+            else
+              dist_tag="${tag%%.*}.x"
+            fi
+          fi
+          {
+            echo "tag=${tag}"
+            echo "prerelease=${prerelease}"
+            echo "dist_tag=${dist_tag}"
+          } >> "$GITHUB_ENV"
+          echo "${tag}: prerelease=${prerelease} dist-tag=${dist_tag}"
       # allowed-endpoints: >
       #   registry.npmjs.org:443
       - name: Install dependencies
@@ -87,8 +105,13 @@ jobs:
       #   truststore.pki.rds.amazonaws.com:443
       #   truststore.pki.us-gov-west-1.rds.amazonaws.com:443
       - name: Build
+        # Per published workspace rather than `--workspaces`: the root has no
+        # build script and the website workspace has one that must not run
+        # here. Today only rds builds (its certificates/ modules), which
+        # `npm ci --ignore-scripts` above skipped.
         run: |
-          npm run build --if-present
+          mapfile -t args < <(npm query '.workspace:not([private])' | jq -r '.[] | "--workspace", .location')
+          npm run build "${args[@]}" --if-present
       # allowed-endpoints: >
       #   registry.npmjs.org:443
       - name: Verify workspace versions
@@ -106,6 +129,22 @@ jobs:
             exit 1
           fi
           echo "all $(jq length <<< "$workspaces") workspaces at ${version}"
+      - name: Verify rds certificates
+        # packages/rds/certificates is a gitignored build output that backs 35
+        # `./certificates/<region>` export subpaths. A pack from a checkout
+        # whose build was skipped would ship every one of them dangling.
+        run: |
+          count=0
+          types=0
+          if [ -d packages/rds/certificates ]; then
+            count=$(find packages/rds/certificates -name '*.js' | wc -l | tr -d ' ')
+            types=$(find packages/rds/certificates -name '*.d.ts' | wc -l | tr -d ' ')
+          fi
+          if [ "$count" -lt 35 ] || [ "$types" -ne "$count" ]; then
+            echo "::error::packages/rds/certificates has ${count} modules and ${types} declarations, expected at least 35 of each (run npm run build --workspace packages/rds)"
+            exit 1
+          fi
+          echo "packages/rds/certificates: ${count} modules, ${types} declarations"
       # allowed-endpoints: >
       #   registry.npmjs.org:443
       - name: Pack
@@ -138,6 +177,7 @@ jobs:
     outputs:
       tag: ${{ env.tag }}
       prerelease: ${{ env.prerelease }}
+      dist_tag: ${{ env.dist_tag }}
 
   release:
     name: Release
@@ -177,7 +217,7 @@ jobs:
           #  **/*.tgz
     outputs:
       tag: ${{ needs.build.outputs.tag }}
-      prerelease: ${{ needs.build.outputs.prerelease }}
+      dist_tag: ${{ needs.build.outputs.dist_tag }}
 
   publish:
     name: Publish
@@ -246,12 +286,11 @@ jobs:
       #   tuf-repo-cdn.sigstore.dev:443
       - name: npm stage publish
         env:
-          PRERELEASE: ${{ needs.release.outputs.prerelease }}
+          DIST_TAG: ${{ needs.release.outputs.dist_tag }} # latest, next or the major line (7.x), chosen in Build
         run: |
-          tag=latest
-          if [ "$PRERELEASE" = "true" ]; then tag=next; fi
+          [ -n "$DIST_TAG" ] || { echo "::error::dist_tag not set by the Build job"; exit 1; }
           mkdir -p staged
           for f in ./*.tgz; do
-            npm stage publish --tag "$tag" --provenance --access public --ignore-scripts --json "$f" > "staged/$(basename "$f" .tgz).json" || exit 1
+            npm stage publish --tag "$DIST_TAG" --provenance --access public --ignore-scripts --json "$f" > "staged/$(basename "$f" .tgz).json" || exit 1
           done
           jq -s -r 'map(to_entries[].value) | .[] | "\(.name)@\(.version) staged with id \(.stageId)"' staged/*.json

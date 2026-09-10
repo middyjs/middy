@@ -216,7 +216,7 @@ const httpPasetoMiddleware = (opts = {}) => {
 	// Per-middleware-instance cache of imported keys, keyed by the keyData
 	// reference. crypto.subtle.importKey reparses the DER on every call;
 	// since the resolved key is stable across warm invocations, cache it.
-	// WeakMap keys must be objects — string keyData (rare) falls through to
+	// WeakMap keys must be objects, string keyData (rare) falls through to
 	// the slow path each time.
 	const keyCache = new WeakMap();
 
@@ -249,7 +249,7 @@ const httpPasetoMiddleware = (opts = {}) => {
 		// WeakMap.get on a primitive returns `undefined` (only `set` throws),
 		// so a single lookup works for all keyData shapes; cache writes happen
 		// only for object-shaped keys. `crypto.subtle.importKey` accepts
-		// Uint8Array / Buffer directly — no copy needed.
+		// Uint8Array / Buffer directly, no copy needed.
 		let keys = keyCache.get(keyData);
 		// Stryker disable next-line ConditionalExpression: forcing this `true` only bypasses the warm-cache reuse (re-importing an identical key); the verified claims are byte-identical, so the optimization is unobservable through the public interface.
 		if (keys === undefined) {

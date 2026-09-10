@@ -163,16 +163,47 @@ const parseMultipartData = (event, options) => {
 		const tooLarge = (data) =>
 			reject(new HttpError(413, { cause: { package: pkg, data } }));
 
+		// busboy hands a part whose Content-Disposition has no `name` over with
+		// `fieldname === undefined`. It has nothing to be stored under, so it is
+		// the client's malformed form, not a limit it exceeded.
+		const nameless = () =>
+			reject(
+				new HttpError(422, {
+					cause: {
+						package: pkg,
+						data: { reason: "Multipart part is missing a field name" },
+					},
+				}),
+			);
+
+		// @fastify/busboy does not enforce fieldNameSize for multipart, so guard
+		// here to bound attacker-controlled field-name length. Returns false once
+		// the promise has been rejected so the listener stops there.
+		const checkFieldName = (fieldname) => {
+			if (typeof fieldname !== "string") {
+				nameless();
+				// Stryker disable next-line BooleanLiteral: equivalent mutant - nameless() has already rejected the promise, so whether the listener carries on only decides work whose outcome can no longer be observed.
+				return false;
+			}
+			if (fieldname.length > fieldNameSize) {
+				tooLarge({ limit: "fieldNameSize" });
+				// Stryker disable next-line BooleanLiteral: equivalent mutant - tooLarge() has already rejected the promise, so whether the listener carries on only decides work whose outcome can no longer be observed.
+				return false;
+			}
+			return true;
+		};
+
 		busboy
 			.on(
 				"file",
 				guard((fieldname, file, filename, encoding, mimetype) => {
-					// @fastify/busboy does not enforce fieldNameSize for multipart, so
-					// guard here to bound attacker-controlled field-name length.
-					if (fieldname.length > fieldNameSize) {
-						reject(new Error("Field name size limit exceeded"));
-						return;
-					}
+					// A body that ends inside this part makes busboy emit `error` on
+					// the part stream on a later tick, after the parser's own error
+					// has already rejected. Without a listener that second emit is an
+					// uncaughtException, so it goes on before the field-name guard
+					// can return early.
+					file.on("error", reject);
+					if (!checkFieldName(fieldname)) return;
 					const attachment = {
 						filename,
 						mimetype,
@@ -182,11 +213,6 @@ const parseMultipartData = (event, options) => {
 					const chunks = [];
 					let totalLength = 0;
 
-					// A body that ends inside this part makes busboy emit `error` on
-					// the part stream on a later tick, after the parser's own error
-					// has already rejected. Without a listener that second emit is an
-					// uncaughtException.
-					file.on("error", reject);
 					file.on("data", (data) => {
 						chunks.push(data);
 						totalLength += data.length;
@@ -217,12 +243,7 @@ const parseMultipartData = (event, options) => {
 			.on(
 				"field",
 				guard((fieldname, value, _nameTruncated, valTruncated) => {
-					// @fastify/busboy does not enforce fieldNameSize for multipart, so
-					// guard here to bound attacker-controlled field-name length.
-					if (fieldname.length > fieldNameSize) {
-						reject(new Error("Field name size limit exceeded"));
-						return;
-					}
+					if (!checkFieldName(fieldname)) return;
 					// Busboy clips the value at `fieldSize` and carries on; a clipped
 					// value must fail loudly rather than reach the handler looking whole.
 					if (valTruncated) {

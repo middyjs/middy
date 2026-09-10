@@ -1,10 +1,12 @@
 import cloudformationRouterHandler, {
 	type Route,
+	type RouteHandler,
 } from "@middy/cloudformation-router";
-import type middy from "@middy/core";
+import middy from "@middy/core";
 import type {
 	CloudFormationCustomResourceEvent,
 	CloudFormationCustomResourceHandler,
+	Context,
 } from "aws-lambda";
 import { expect, test } from "tstyche";
 
@@ -84,4 +86,54 @@ test("Route requestType rejects unknown strings", () => {
 	expect<"Invalid">().type.not.toBeAssignableTo<Route["requestType"]>();
 	expect<"create">().type.not.toBeAssignableTo<Route["requestType"]>();
 	expect<string>().type.not.toBeAssignableTo<Route["requestType"]>();
+});
+
+// `Route.handler` has one call signature, so an inline arrow gets `event` and
+// `context` from context, and a synchronous handler type checks.
+test("inline handler: event and context are contextually typed", () => {
+	const router = cloudformationRouterHandler([
+		{
+			requestType: "Create",
+			handler: async (event, context) => {
+				expect(event).type.toBe<CloudFormationCustomResourceEvent>();
+				expect(context).type.toBe<Context>();
+			},
+		},
+		{
+			requestType: "Delete",
+			handler: (event) => {
+				expect(event.RequestType).type.toBe<"Create" | "Update" | "Delete">();
+			},
+		},
+	]);
+	expect(router).type.toBe<
+		middy.MiddyfiedHandler<CloudFormationCustomResourceEvent, void>
+	>();
+});
+
+test("middyfied handler as a route handler", () => {
+	const createHandler = middy<
+		CloudFormationCustomResourceEvent,
+		void
+	>().handler(async () => {});
+	const router = cloudformationRouterHandler([
+		{
+			requestType: "Create",
+			handler: createHandler,
+		},
+	]);
+	expect(router).type.toBe<
+		middy.MiddyfiedHandler<CloudFormationCustomResourceEvent, void>
+	>();
+});
+
+test("RouteHandler type", () => {
+	expect(createLambdaHandler).type.toBeAssignableTo<
+		RouteHandler<CloudFormationCustomResourceEvent, void>
+	>();
+	expect(
+		middy<CloudFormationCustomResourceEvent, void>(),
+	).type.toBeAssignableTo<
+		RouteHandler<CloudFormationCustomResourceEvent, void>
+	>();
 });

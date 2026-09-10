@@ -1,6 +1,8 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { setTimeout as delay } from "node:timers/promises";
+// The module object rather than a named import so a test's mock timers can
+// intercept setTimeout; a named import binds the real function at load time.
+import timers from "node:timers/promises";
 import { validateOptions } from "@middy/util";
 import amqplib from "amqplib";
 
@@ -86,6 +88,29 @@ const buildRmqRecord = (msg) => ({
 
 const identifierFor = (msg) => String(msg.fields.deliveryTag);
 
+// A batchItemFailures entry whose itemIdentifier is null, empty or names no
+// record in the batch invalidates the whole response: Lambda then retries
+// every record. `ids` is the failed set to act on (every record when the
+// response is invalid) and `error` the reason to raise through onError.
+// https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html
+// https://docs.aws.amazon.com/lambda/latest/dg/kafka-retry-configurations.html
+const batchFailures = (response, knownIds) => {
+	const ids = new Set();
+	for (const entry of response?.batchItemFailures ?? []) {
+		const itemIdentifier = entry?.itemIdentifier;
+		if (!knownIds.has(itemIdentifier)) {
+			return {
+				ids: knownIds,
+				error: new Error("Invalid batchItemFailures entry", {
+					cause: { package: pkg, data: { itemIdentifier } },
+				}),
+			};
+		}
+		ids.add(itemIdentifier);
+	}
+	return { ids };
+};
+
 export const pollRmq = (opts) => {
 	pollRmqValidateOptions(opts);
 	const queueKey = `${opts.queue}::${opts.vhost ?? "/"}`;
@@ -149,7 +174,7 @@ export const pollRmq = (opts) => {
 					Date.now() < deadline &&
 					!signal.aborted
 				) {
-					await delay(Math.min(50, deadline - Date.now()));
+					await timers.setTimeout(Math.min(50, deadline - Date.now()));
 				}
 				if (signal.aborted) return;
 				const taken = pending.splice(0, batchSize);
@@ -165,14 +190,13 @@ export const pollRmq = (opts) => {
 			}
 		},
 		async acknowledge(event, response) {
-			const failed = new Set(
-				// Stryker disable next-line ArrayDeclaration: equivalent; the placeholder entry has no itemIdentifier, and every delivery tag stringifies to a real identifier, so the lookup behaves as with an empty list.
-				(response?.batchItemFailures ?? []).map((f) => f.itemIdentifier),
-			);
 			const taken = inflight.get(event) ?? [];
 			inflight.delete(event);
+			// An unknown or already settled batch has nothing left to validate.
+			if (taken.length === 0) return;
+			const failed = batchFailures(response, new Set(taken.map(identifierFor)));
 			for (const msg of taken) {
-				if (failed.has(identifierFor(msg))) {
+				if (failed.ids.has(identifierFor(msg))) {
 					// Stryker disable next-line OptionalChaining: equivalent; every event in `inflight` came out of poll(), which assigns channel before it yields.
 					channel?.nack(msg, false, true);
 				} else {
@@ -180,6 +204,9 @@ export const pollRmq = (opts) => {
 					channel?.ack(msg);
 				}
 			}
+			// An invalid response requeues every delivery (the whole batch is
+			// retried, as from Lambda) and then raises the reason.
+			if (failed.error) throw failed.error;
 		},
 	};
 };

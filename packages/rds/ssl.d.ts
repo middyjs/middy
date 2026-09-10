@@ -1,5 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import type { PeerCertificate } from "node:tls";
 
 export interface SslOptions {
 	/**
@@ -14,6 +15,14 @@ export interface SslConfig {
 		rejectUnauthorized: true;
 		ca: string;
 		servername?: string;
+		/**
+		 * Present when `servername` is set: verifies the peer certificate
+		 * against `servername` regardless of the host the driver connected to.
+		 */
+		checkServerIdentity?: (
+			hostname: string,
+			cert: PeerCertificate,
+		) => Error | undefined;
 	};
 }
 

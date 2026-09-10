@@ -104,10 +104,12 @@ const parseEvent = (event, options) => {
 // A source handler reads the fields its event contract promises
 // (`record.dynamodb`, `record.s3`, `event.records`, ...). When one is missing
 // the resulting TypeError is opaque, so it is reported as a 422 naming the
-// source. Everything else (the BigInt and unsupported-type errors, the gunzip
-// cap, the JSON prototype guard) is already descriptive and passes through.
+// source; so is the URIError from an S3 key that is not valid
+// percent-encoding. Everything else (the BigInt and unsupported-type errors,
+// the gunzip cap, the JSON prototype guard) is already descriptive and passes
+// through.
 const malformedRecord = (err, eventSource) => {
-	if (!(err instanceof TypeError)) return err;
+	if (!(err instanceof TypeError || err instanceof URIError)) return err;
 	return new HttpError(422, {
 		cause: {
 			package: pkg,

@@ -1,6 +1,5 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import type middy from "@middy/core";
 import type { Context as LambdaContext } from "aws-lambda";
 import type {
 	ArrayValues,
@@ -11,8 +10,34 @@ import type {
 	SanitizeKeys,
 } from "./type-utils.d.ts";
 
+/**
+ * The request the helpers receive, described structurally rather than
+ * imported from `@middy/core`, which `@middy/util` declares no dependency on.
+ * A `Request` satisfies it.
+ */
+export interface Request<
+	TEvent = unknown,
+	TResult = any,
+	TErr = Error,
+	TContext extends LambdaContext = LambdaContext,
+	TInternal extends Record<string, unknown> = {},
+> {
+	event: TEvent;
+	context: TContext & { middyContext: Record<string, unknown> };
+	response: TResult | null | undefined;
+	earlyResponse?: TResult | null | undefined;
+	error: TErr | null | undefined;
+	internal: TInternal;
+}
+
 export interface Options<Client, ClientOptions> {
-	AwsClient?: new (config: ClientOptions) => Client;
+	/**
+	 * `NonNullable` so an SDK client, whose constructor takes an optional
+	 * config, infers `ClientOptions` as the config type itself.
+	 */
+	AwsClient?: new (
+		config: NonNullable<ClientOptions>,
+	) => Client;
 	awsClientOptions?: Partial<ClientOptions>;
 	awsClientAssumeRole?: string;
 	awsClientCapture?: (service: Client) => Client;
@@ -71,7 +96,7 @@ declare function createPrefetchClient<Client, ClientOptions>(
 
 declare function createClient<Client, ClientOptions>(
 	options: Options<Client, ClientOptions>,
-	request: middy.Request,
+	request: Request,
 ): Promise<Client>;
 
 /**
@@ -80,7 +105,7 @@ declare function createClient<Client, ClientOptions>(
  */
 declare function createClientInit<Client, ClientOptions>(
 	options: Options<Client, ClientOptions>,
-): (request: middy.Request) => Promise<Client>;
+): (request: Request) => Promise<Client>;
 
 declare function canPrefetch<Client, ClientOptions>(
 	options: Options<Client, ClientOptions>,
@@ -92,7 +117,7 @@ declare function getInternal<
 	TInternal extends Record<string, unknown>,
 >(
 	variables: false,
-	request: middy.Request<unknown, unknown, unknown, TContext, TInternal>,
+	request: Request<unknown, unknown, unknown, TContext, TInternal>,
 ): Promise<{}>;
 
 // get all internal values if true is passed (with promises resolved)
@@ -101,7 +126,7 @@ declare function getInternal<
 	TInternal extends Record<string, unknown>,
 >(
 	variables: true,
-	request: middy.Request<unknown, unknown, unknown, TContext, TInternal>,
+	request: Request<unknown, unknown, unknown, TContext, TInternal>,
 ): Promise<DeepAwaited<TInternal>>;
 
 // get a single value
@@ -111,7 +136,7 @@ declare function getInternal<
 	TVars extends keyof TInternal | string,
 >(
 	variables: TVars,
-	request: middy.Request<unknown, unknown, unknown, TContext, TInternal>,
+	request: Request<unknown, unknown, unknown, TContext, TInternal>,
 ): TVars extends keyof TInternal
 	? Promise<DeepAwaited<{ [_ in SanitizeKey<TVars>]: TInternal[TVars] }>>
 	: TVars extends string
@@ -129,7 +154,7 @@ declare function getInternal<
 	TVars extends Array<keyof TInternal | string>,
 >(
 	variables: TVars,
-	request: middy.Request<unknown, unknown, unknown, TContext, TInternal>,
+	request: Request<unknown, unknown, unknown, TContext, TInternal>,
 ): Promise<
 	SanitizeKeys<{
 		[TVar in ArrayValues<TVars>]: TVar extends keyof TInternal
@@ -147,7 +172,7 @@ declare function getInternal<
 	TMap extends Record<string, keyof TInternal | string>,
 >(
 	variables: TMap,
-	request: middy.Request<unknown, unknown, unknown, TContext, TInternal>,
+	request: Request<unknown, unknown, unknown, TContext, TInternal>,
 ): Promise<{
 	[P in keyof TMap]: TMap[P] extends keyof TInternal
 		? DeepAwaited<TInternal[TMap[P]]>
@@ -157,12 +182,12 @@ declare function getInternal<
 }>;
 
 declare function contextNamespace(
-	request: middy.Request,
+	request: Request,
 	contextKey: string,
 ): Record<string, unknown>;
 
 declare function setContextNamespace(
-	request: middy.Request,
+	request: Request,
 	contextKey: string,
 	value: unknown,
 ): void;
@@ -195,15 +220,15 @@ declare function buildSetToContextSpec(options: {
 declare function assignSetToContext(
 	spec: SetToContextSpec,
 	value: Record<string, unknown>,
-	request: middy.Request,
+	request: Request,
 ): Promise<void> | undefined;
 
 declare function sanitizeKey<T extends string>(key: T): SanitizeKey<T>;
 
 declare function processCache<Client, ClientOptions>(
 	options: Options<Client, ClientOptions>,
-	fetch: (request: middy.Request, cachedValues: unknown) => unknown,
-	request?: middy.Request,
+	fetch: (request: Request, cachedValues: unknown) => unknown,
+	request?: Request,
 ): { value: unknown; expiry: number };
 
 declare function getCache(keys: string): unknown;
@@ -222,7 +247,7 @@ declare function jsonParseProtectProto(
 ): unknown;
 
 declare function normalizeHttpResponse(
-	request: middy.Request,
+	request: Request,
 	fallbackResponse?: Record<string, unknown>,
 ): Record<string, unknown>;
 
@@ -253,11 +278,15 @@ declare function modifyCache(cacheKey: string, value: unknown): void;
 /**
  * `.catch` handler for a per-key fetch: drops the failed key from the cached
  * value, flags the entry modified so only that key is refetched next time,
- * and rethrows.
+ * and rethrows. Pass the object the fetch returns as `values` so the key is
+ * only dropped while the entry still holds that fetch's promise: a late
+ * failure from a cycle a newer fetch has replaced then leaves the fresh value
+ * intact.
  */
 declare function evictCacheOnFailure(
 	cacheKey: string,
 	internalKey: string,
+	values?: Record<string, unknown>,
 ): (e: unknown) => never;
 
 /**

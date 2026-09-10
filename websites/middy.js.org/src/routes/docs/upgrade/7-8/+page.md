@@ -24,6 +24,7 @@ Version 8.x of Middy no longer supports Node.js versions 22.x. You are highly en
 - All error cause now follow a consistent shape `{cause: {package, data:{...}}}` **Breaking Change**
 - Deprecation of `callbackWaitsForEmptyEventLoop`
 - `@middy/core` no longer declares `executionModeStandard`, `executionModeDurableContext` and `executionModeStreamifyResponse` types on the package root (the runtime never exported them there). Import them from the subpaths, e.g. `@middy/core/StreamifyResponse` **Breaking Change**
+- `@middy/core` types no longer import `DurableContext` from the optional `@aws/durable-execution-sdk-js` peer, so they check without it installed (previously a strict project without the SDK failed with TS2307, and `skipLibCheck` collapsed the constraint to `any`). `TContext` is constrained to `LambdaContext | DurableContextLike`, a structural type (`lambdaContext` plus `executionContext.durableExecutionArn`) the SDK's `DurableContext` satisfies; that type is re-exported from `@middy/core/executionModeDurableContext` (types only)
 - `executionModeDurableContext` copies `tenantId` from the Lambda context (`context.lambdaContext`, where the durable SDK reads it) instead of `context.executionContext`
 - `PluginExecutionMode` is now the signature a custom execution mode implements, `(core, beforeMiddlewares, lambdaHandler, afterMiddlewares, onErrorMiddlewares, plugin) => handler`, instead of `() => void`. `core` is `{ middyRequest, runRequest }`, and the pieces are exported as `PluginExecutionModeCore`, `PluginExecutionModePlugin`, `PluginExecutionModeLambdaHandler` and `PluginExecutionModeHandler` **Breaking Change** (types only)
 - `executionModeStreamifyResponse` now runs `plugin.requestEnd` when a middleware or the handler throws; previously the hook only ran when the failure happened while writing the response stream
@@ -61,12 +62,18 @@ ssm({ fetchData: { ... }, setToContext: true, contextKey: 'ssmAdmin' })
 - removed `executionContextKeys`; `tenantId` is now part of `lambdaContextKeys` **Breaking Change**
 - `getInternal` and `buildSetToContextSpec` throw a `TypeError` when two keys sanitize to the same name (`a.b`, `a_b` and `a-b` all become `a_b`) instead of silently keeping only the last value **Breaking Change**
 - `buildSetToContextSpec` runs that collision check whether or not `setToContext` is on, so a middleware with colliding `fetchData` keys fails at construction rather than on every invocation in `getInternal` **Breaking Change**
-- `setCacheKeyExpiry` records the learned expiry in `options.cacheLearnedExpiry` instead of writing into the user-facing `cacheKeyExpiry`. A per-key `cacheKeyExpiry` of `0`, `-1` or a duration is now honoured as configured, a learned expiry only ever shortens the configured lifetime, and once it passes the refetched entry keeps its configured lifetime and background refresh instead of being pinned to the past **Breaking Change**
-- `createClientInit` rebuilds the client when the `awsClientAssumeRole` credentials in `request.internal` are refetched by `sts`, instead of keeping the first invocation's session for the life of the container
 - `omit` walks a class instance through a copy of its own properties when a path reaches into it, so `context.middyContext.*` is redactable under the durable execution SDK, where `context` is a class instance. Built-ins (`Date`, `Map`, `Set`, `Buffer`, streams) are still left closed
 - `jsonParseProtectProto` throws an `HttpError` whose message is `Unprocessable Entity` instead of `Forbidden key in JSON body`; `cause.data` is `{ reason, key }` instead of the bare key **Breaking Change**
-- added `createClientInit(options)`, the memoized client initialiser the AWS middlewares use on the warm path. A rejected attempt is forgotten so the next invocation retries instead of replaying the failure for the life of the container
-- added `evictCacheOnFailure(cacheKey, internalKey)`, the `.catch` handler that drops a failed key from the cached value and rethrows, and `setCacheKeyExpiry(options, expiryMs)`, which clamps a cache entry to an absolute expiry learned from the fetched value (credential `Expiration`, token lifetime, rotation date) and never extends `cacheExpiry`
+- added `createClientInit(options)`, the memoized client initialiser the AWS middlewares use on the warm path. A rejected attempt is forgotten so the next invocation retries instead of replaying the failure for the life of the container, and the client is rebuilt when the `awsClientAssumeRole` credentials in `request.internal` are refetched by `sts` instead of keeping the first invocation's session for the life of the container
+- added `evictCacheOnFailure(cacheKey, internalKey, values)`, the `.catch` handler that drops a failed key from the cached value and rethrows (given `values`, the object the fetch returns, only while the entry still holds that fetch's promise, so a fetch that fails after a newer cycle replaced the entry leaves the fresh value intact), and `setCacheKeyExpiry(options, expiryMs)`, which clamps a cache entry to an absolute expiry learned from the fetched value (credential `Expiration`, token lifetime, rotation date). The learned expiry is recorded in `options.cacheLearnedExpiry` rather than written into the user-facing `cacheKeyExpiry`, so a per-key `cacheKeyExpiry` of `0`, `-1` or a duration is honoured as configured, a learned expiry only ever shortens the configured lifetime, and once it passes the refetched entry keeps its configured lifetime and background refresh instead of being pinned to the past **Breaking Change**
+- an expiry learned after the entry was stored (inside the fetch's `.then`, which is how `sts`, `secrets-manager`, `rds-signer` and `dsql-signer` learn it) now reschedules the entry's background refresh to that expiry, so the rotation is fetched in the background even with the default `cacheExpiry: -1`; previously the entry only expired on the next read and that invocation paid for the refetch
+- `processCache` drops the previous cycle's learned expiry before refetching, so a value learned by an earlier cycle and still ahead of the clock no longer caps what the new fetch learns
+- `createClientInit` with `awsClientAssumeRole` returns a rejected promise carrying the packaged error (`Request required when assuming role`) when the request has no `internal`, instead of throwing synchronously, and an attempt superseded by refetched credentials that fails afterwards no longer forgets the newer one. `createClient` rejects the same way for a request without `internal` instead of building the client on the function's own role
+- `omit` keeps a Proxy whose `get` trap throws (a framework's request wrapper) as a leaf instead of throwing
+- `validateOptions` throws the packaged `TypeError` (`Invalid pattern for option '<path>'`) for a `pattern` that does not compile, instead of a `SyntaxError`
+- TypeScript: `Options.AwsClient` is `new (config: NonNullable<ClientOptions>) => Client`, so `createClientInit({ AwsClient: SSMClient, awsClientOptions })` infers `ClientOptions` from the SDK client, and `@middy/util` no longer imports `@middy/core` types: the helpers take a structural `Request` that a `middy.Request` satisfies (types only)
+- `processCache` no longer schedules a background refresh when the remaining lifetime exceeds the `setTimeout` ceiling of 2^31-1 ms (about 24.8 days; this also covers `cacheExpiry: -1`). Node.js sets such a timer to 1 ms, so a `cacheExpiry` above the ceiling refetched immediately and kept refetching. The entry still expires on time and is refetched on the first request after expiry
+- `jsonParseProtectProto` calls the `reviver` with the `this` that `JSON.parse` binds (the object holding the key) instead of as a bare function, so a reviver that reads `this[key]` behaves as under plain `JSON.parse`
 - `HttpError` no longer takes a `message`; it is always the reason phrase registered for the status code in `node:http`. Put the specific reason in `cause.data.reason` **Breaking Change**
 
 ```javascript
@@ -154,10 +161,15 @@ one `console.error` away from CloudWatch.
 - `Reason` is trimmed (suffixed ` [truncated]`) so the body fits CloudFormation's 4096-byte cap; a body that still does not fit is reported as `FAILED` with a reason naming the cap
 - A handler returning a string, number or array is reported as `FAILED` with a package reason instead of throwing `Cannot create property 'Status'`
 - `after` and `onError` are now async
+- `Reason` is truncated by whole characters (code points measured in JSON bytes), so multi-byte text keeps as much as fits and a surrogate pair is never split
+- `Reason` defaults to `See CloudWatch logs` on a `FAILED` response that has none, as CloudFormation requires one
+- `PhysicalResourceId` falls back to `context.awsRequestId` after `context.logStreamName`; when nothing provides one the invocation fails with a package error naming the field instead of sending a response CloudFormation rejects
+- `event.ResponseURL` must be an `https:` URL (the presigned S3 URL always is); any other value fails with a package error before anything is sent **Breaking Change**
+- The `PUT` to `event.ResponseURL` is bounded by `AbortSignal.timeout` derived from `context.getRemainingTimeInMillis()` (500 ms kept back, never under 1 s, 30 s outside Lambda), so a hung request is logged instead of cut off by the runtime
 
 ### [cloudformation-router](/docs/routers/cloudformation-router)
 
-No change
+- TypeScript: `Route.handler` is now `RouteHandler<CloudFormationCustomResourceEvent, TResult>`, one call signature `(event, context) => void | TResult | Promise<TResult>` that a plain Lambda handler, a `middy()` handler and a synchronous inline handler all satisfy; previously `Route<TResult = never>` forwarded `never` into `CloudFormationCustomResourceHandler`'s resource-properties slot, so an inline handler saw `event.ResourceProperties` as `never`
 
 ### [cloudwatch-metrics](/docs/middlewares/cloudwatch-metrics)
 
@@ -178,7 +190,11 @@ No change
 - The `pg` adapters (`clientPg`, `clientPgPool`) now map `config.username` to `user`; previously `pg` ignored `username` and fell back to `PGUSER`. `clientPostgres` keeps `username`.
 - The `pg` adapters now attach an `error` listener. An unexpected disconnect is logged and the client is reconnected on the next invocation instead of crashing the process.
 - Concurrent invocations that both find the cached client flagged broken now share one reconnect. Previously the second reconnect could close the client the cache kept, so every later invocation received a closed client
-- Under `executionModeDurableContext` a connection held by an invocation that threw (durable execution skips `onError`) is now released, and with `cacheExpiry: 0` closed, at the start of the next invocation
+- Under `executionModeDurableContext` a connection held by an invocation that threw (durable execution skips `onError`) is now released, and with `cacheExpiry: 0` closed, at the next durable invocation on the same execution environment
+- `cacheKeyExpiry[cacheKey]` now overrides `cacheExpiry` everywhere: previously only the cache lookup honoured it, so `cacheExpiry: 0` with a per-key `-1` still closed the shared connection after every invocation, and the reverse never closed it
+- With `internalKey` and a positive `cacheExpiry` the connection is no longer refreshed in the background, which replayed the first invocation's token forever; the entry expires and the next invocation reconnects with its own token
+- A reconnect that fails after a refresh already replaced its cache entry no longer drops the refresh's entry, so the next invocation reuses the refreshed connection instead of reconnecting
+- With `cacheExpiry: 0` a failed connect no longer logs a `cleanup error` from `onError` when another middleware has already populated `context.middyContext`
 
 ### [dsql-signer](/docs/middlewares/dsql-signer)
 
@@ -201,23 +217,26 @@ No change
 - Poller type files declare local `ActiveMQEvent`, `RabbitMQEvent`, `MQBatchResponse` and `KafkaBatchResponse` types (`@types/aws-lambda` has none); `MSKBatchResponse` is renamed `KafkaBatchResponse`.
 - The built `context` no longer sets `callbackWaitsForEmptyEventLoop` **Breaking Change**
 - `pollKafka` now commits the offsets the handler acknowledged: it runs with `eachBatchAutoResolve: false` and hands the resolved offsets to `commitOffsetsIfNecessary(uncommittedOffsets())`. The previous bare `commitOffsetsIfNecessary()` never committed under `autoCommit: false`, so every restart or rebalance reprocessed from the last committed offset. On `SIGTERM` the in-flight batch commits before the consumer disconnects.
-- A worker whose poller throws now calls `onError(err)` (with `event` undefined) and exits `1` instead of dying on an unhandled rejection. `onError`'s `event` parameter is typed optional.
-- The primary replaces exited workers with exponential backoff (1 s, doubling to 30 s, reset after 60 s without an exit) instead of immediately, and on `SIGTERM` stops replacing them and exits once the last worker is gone instead of re-forking each drained worker until ECS sends `SIGKILL`.
+- A worker whose poller throws now calls `onError(err)` (with `event` undefined) and exits `1` instead of dying on an unhandled rejection, and still exits `1` when that `onError` itself throws (previously the throw skipped the exit and left the worker alive with a dead loop). `onError`'s `event` parameter is typed optional.
+- `onError` is now accepted by the option schema; previously `ecsBatchValidateOptions` rejected it as an unknown option.
+- The primary replaces exited workers with exponential backoff (1 s, doubling to 30 s, reset after 60 s without an exit) instead of immediately. On `SIGTERM` it stops replacing them and exits once the last worker is gone instead of re-forking each drained worker until ECS sends `SIGKILL`, with the highest exit code any worker reported during the drain instead of always `0`, so a drain that hit `gracefulShutdownMs` or a poller failure is visible to ECS; a worker killed by a signal counts as `1`. Worker crashes before `SIGTERM` are re-forked and do not affect the exit code.
 - `pollAmq` messages carry `correlationID` (was `correlationId`), the name the AWS-maintained event types (`aws-lambda-go`, `aws-lambda-java-events`, Powertools) read **Breaking Change**
 - `pollKafka` releases a batch whose handler threw with nothing committed so kafkajs fetches the next batch; previously `eachBatch` never returned, so the consumer stopped fetching and heartbeating.
 - `pollKafka` heartbeats while the handler holds a batch; added `heartbeatIntervalMs` option, defaults to `3000`.
-- `pollKinesis` and `pollDynamoDBStreams` derive `awsRegion` from the stream ARN when the option is omitted (was `undefined`).
-- The primary exits with the highest exit code any worker reported during the `SIGTERM` drain instead of always `0`, so a drain that hit `gracefulShutdownMs` or a poller failure is visible to ECS; a worker killed by a signal counts as `1`. Worker crashes before `SIGTERM` are re-forked and do not affect the exit code.
-- A worker whose `onError` throws while reporting a poller failure still exits `1` (previously the throw skipped the exit and left the worker alive with a dead loop).
+- `pollKinesis` and `pollDynamoDBStreams` derive `awsRegion` from the stream ARN when the option is omitted (was `undefined`); `pollKinesis` takes the client's region when `streamArn` is omitted as well.
+- A throw from `onError` while reporting a handler or `acknowledge` failure no longer rejects the poll loop (which exited the worker); the loop keeps polling.
+- A `batchItemFailures` entry whose `itemIdentifier` is `null`, empty or not in the batch now fails the whole batch in every poller, as on Lambda: nothing is deleted, committed or acked, every record redelivers, and `onError` receives `Invalid batchItemFailures entry` with `cause.data.itemIdentifier`. Previously such an entry was ignored and every other record was acknowledged **Breaking Change**
+- `pollKafka` throws a consumer crash kafkajs does not restart (`consumer.events.CRASH` with `restart: false`: SASL authentication, authorization) from `poll()`, so the worker reports it through `onError` and exits `1` for the primary to re-fork with backoff; previously the loop parked forever on a stopped consumer. Retriable crashes are restarted by kafkajs and do not exit.
+- `pollSqs` derives `awsRegion` and `eventSourceArn` from FIPS, `api.aws`, interface VPC endpoint and legacy `<region>.queue.amazonaws.com` queue URLs, with the `aws-cn` and `aws-us-gov` partition for China and GovCloud regions, and takes the client's region when the hostname carries none (the bare `queue.amazonaws.com`, a custom endpoint); previously only `sqs.<region>.amazonaws.com` was parsed.
+- TypeScript: `RunnerOptions.handler` is now `RunnerHandler<TEvent, TResult>`, one call signature `(event, context) => void | TResult | Promise<TResult>` that a plain Lambda handler, a `middy()` handler and a synchronous inline handler all satisfy; an inline `handler: (event, context) => ...` gets `event` and `context` typed from the poller instead of an implicit `any`
 
 ### [ecs-http](/docs/runners/ecs-http)
 
 - `sourceIp` is now taken from the last `X-Forwarded-For` hop (the one ALB appends) instead of the first, which the client controls. Set the new `trustedProxies` option (default `1`) to the number of proxies in front of the task, or `0` to use the socket address **Breaking Change**
 - The built `context` no longer sets `callbackWaitsForEmptyEventLoop` **Breaking Change**
-- The primary replaces exited workers with exponential backoff (1 s, doubling to 30 s, reset after 60 s without an exit) instead of immediately, and on `SIGTERM` stops replacing them and exits once the last worker is gone instead of re-forking each drained worker until ECS sends `SIGKILL`.
+- The primary replaces exited workers with exponential backoff (1 s, doubling to 30 s, reset after 60 s without an exit) instead of immediately. On `SIGTERM` it stops replacing them and exits once the last worker is gone instead of re-forking each drained worker until ECS sends `SIGKILL`, with the highest exit code any worker reported during the drain instead of always `0`; a worker killed by a signal counts as `1`. Worker crashes before `SIGTERM` are re-forked and do not affect the exit code.
 - `sourceIp` strips the client port ALB appends when `routing.http.xff_client_port.enabled` is on (`ip:port`, `[ipv6]:port`), so it is always the bare address.
 - ALB events (`eventVersion: "alb"`) no longer carry `requestContext.identity`; Lambda's ALB event has only `requestContext.elb`. Read `X-Forwarded-For` from `event.headers` instead **Breaking Change**
-- The primary exits with the highest exit code any worker reported during the `SIGTERM` drain instead of always `0`; a worker killed by a signal counts as `1`. Worker crashes before `SIGTERM` are re-forked and do not affect the exit code.
 
 ### [ecs-task](/docs/runners/ecs-task)
 
@@ -228,6 +247,7 @@ No change
 
 - added `omitPaths` and `mask` options. See [Logging and PII](#logging-and-pii)
 - `logger: false` is no longer accepted; the option must be a function, omit the middleware to disable logging **Breaking Change**
+- docs: register it after `httpErrorHandler` (`onError` hooks run in reverse registration order) to log the original error. Registered first, as the page previously advised, it logs the generic `Error` that `httpErrorHandler` puts in `request.error` for a non-http or `expose: false` error, with the original under `cause`
 
 ### [event-batch-handler](/docs/handlers/event-batch-handler)
 
@@ -300,13 +320,14 @@ prints only `{event}`; a custom one should stay narrow or add the matching
 
 ### [event-batch-response](/docs/middlewares/event-batch-response)
 
-No change
+- `onError` no longer rethrows under `executionModeDurableContext`; core skips the `onError` stack in durable mode, so the check was unreachable. `@middy/util` is no longer a dependency
 
 ### [event-normalizer](/docs/middlewares/event-normalizer)
 
 - The BigInt conversion error now carries the offending value at `cause.data.value` instead of `cause.value` **Breaking Change**
 - A record missing the fields its source promises (`record.dynamodb`, `record.s3`, `record.Sns`, `event.records`, ...) fails with a 422 `HttpError` (`cause.data.reason` `Malformed event record`, plus `eventSource` and `message`) instead of a raw `TypeError` **Breaking Change**
 - An SNS-to-SQS notification without a `Message` no longer throws; the parsed body is left as is
+- An S3 `object.key` or S3 Batch `s3Key` that is not valid percent-encoding fails with the same 422 `HttpError` (`Malformed event record`) instead of a raw `URIError` **Breaking Change**
 
 ### [glue-schema-registry](/docs/middlewares/glue-schema-registry)
 
@@ -333,6 +354,9 @@ No change
 - `Origin` is no longer appended to a `Vary` header that already lists it (case-insensitive), so a handler setting `Vary: Origin` no longer produces `Vary: Origin, Origin`
 - A handler-set `Vary` header now always wins over the `vary` option, in either casing; previously a lowercase `vary` header got the option appended to it. The option applies only when the handler set neither `Vary` nor `vary` **Breaking Change**
 - VPC Lattice V2 events (`version: "2.0"` with top-level `method` and array header values) are now handled; previously a preflight threw on the missing `requestContext.http` and the after hook threw on the array `Origin`
+- VPC Lattice V1 events (top-level `method`, no `version`) now get preflight responses and the OPTIONS `cacheControl` header; previously the method reader fell through to `httpMethod` and found nothing
+- On VPC Lattice V2 an array `Access-Control-Request-Headers` is joined and every entry is checked against `requestHeaders`; previously only the first entry was checked, so a disallowed second header passed
+- `Origin` is no longer appended to a handler-set `Vary: *`, which already varies on everything
 
 ### [http-dpop](/docs/middlewares/http-dpop)
 
@@ -346,7 +370,7 @@ No change
 - TypeScript: `logger` is `((request: middy.Request) => void) | false`; `true` is no longer part of the type, matching the runtime, which only ever accepted a function or `false` **Breaking Change** (types only)
 - added `omitPaths` and `mask` options. See [Logging and PII](#logging-and-pii)
 - the generic 500 fallback that replaces non-http (or `expose: false`) errors is now an `Error` instance with the original error as `cause`, instead of a plain object. `onError` middlewares registered before this one can read `request.error.cause`
-- that fallback has a `toJSON()` returning `{ statusCode, message, expose, cause }` (`cause` reduced to its message), so `JSON.stringify(request.error)` in a downstream logger no longer drops the message
+- that fallback has a `toJSON()` returning `{ statusCode, message, expose, cause }`; an `Error` cause is serialised as `{ name, message, cause? }` recursively (stack omitted, a cycle stops at `"[Circular]"`) and any other thrown value is kept as is, so `JSON.stringify(request.error)` in a downstream logger keeps the whole cause chain
 
 ### [http-event-normalizer](/docs/middlewares/http-event-normalizer)
 
@@ -370,6 +394,7 @@ No change
 - JWKS keys with a `use` other than `sig`, or a `key_ops` without `verify`, are no longer selected for verification
 - A failed JWKS fetch is remembered for `cooldownDuration` (default 30s): requests inside it get the same `502` or `504` immediately instead of each paying a fetch against the failing endpoint
 - A 2xx JWKS response with no body now reports `JWKS response has no body` in the `502` reason instead of a TypeError message
+- The `502` and `504` thrown for a JWKS failure are `expose: true`, so `http-error-handler` sends the gateway status instead of its generic `500`; `cause.data.reason` carries the underlying message without a doubled `JWKS fetch failed: ` prefix
 - TypeScript: `requireExp` and `maxTokenAge`, accepted by the runtime since 7.x, are now declared in `Options` alongside the new `jwksTimeoutMs`
 
 ### [http-multipart-body-parser](/docs/middlewares/http-multipart-body-parser)
@@ -378,10 +403,13 @@ No change
 - A scalar and a bracketed field of the same name in either order (`a` then `a[]`, or `a[]` then `a`) now parse to one array instead of hanging the request or dropping the earlier values
 - A body that ends inside a file part now rejects with a `422` instead of crashing the process with an unhandled stream error
 - The 422 message is now `Unprocessable Entity` instead of `Invalid or malformed multipart/form-data was provided`, and the 413 message is `Payload Too Large` instead of `Request Entity Too Large`; the detail is in `cause.data` **Breaking Change**
+- A field name longer than `busboy.limits.fieldNameSize` now throws a `413` with `limit: "fieldNameSize"` in `cause.data`, like the other limits, instead of a `422`; a part with no `name` in its `Content-Disposition` throws a `422` with `reason: "Multipart part is missing a field name"` instead of a TypeError message **Breaking Change**
 
 ### [http-partial-response](/docs/middlewares/http-partial-response)
 
 - A selector over 2048 characters or deeper than 100 levels, a non-string selector, or one `json-mask` cannot apply now throws a `400` with the reason in `cause.data.reason`, instead of returning the full body (or a TypeError) **Breaking Change**
+- The selector length, depth and type checks run in the `before` phase, so a refused selector answers `400` without running the handler; only a selector `json-mask` cannot apply is refused in `after`
+- On VPC Lattice V2, where every query string value is an array, the last `fields` entry is the selector (an empty array is no selector) instead of a `400`; a non-string entry still throws `400`
 
 ### [http-paseto](/docs/middlewares/http-paseto)
 
@@ -399,10 +427,10 @@ No change
 ### [http-router](/docs/routers/http-router)
 
 - VPC Lattice V2 events (`version: "2.0"` with top-level `method` and `path`) are now routed; previously they threw `Unknown HTTP event format`
-- a method-specific dynamic route now wins over an `ANY` route on the same path regardless of registration order; previously the first registered won. Static duplicates, including through `ANY`, throw instead of the last one silently winning **Breaking Change**
-- The duplicate check runs when the router is built and throws `Error('Duplicate route')` with `{ method, path }` in `cause.data`; an `ANY` route registers every method, so it collides with a concrete method already registered for the same path (and vice versa)
+- Duplicate routes now throw `Error('Duplicate route')` with `{ method, path }` in `cause.data` when the router is built, instead of the last static or the first dynamic registration silently winning: a path registered twice for the same method, or twice through `ANY`, throws, static or dynamic. A method-specific route and an `ANY` route on the same path are allowed, static or dynamic; the method-specific one wins regardless of registration order and `ANY` serves the other methods **Breaking Change**
+- Two dynamic paths that differ only in parameter name (`/user/{id}` then `/user/{userId}`) now throw `Duplicate route`; previously the second silently never matched **Breaking Change**
 - The 404 message is now `Not Found` instead of `Route does not exist`; `cause.data` keeps `method` and `path` and gains `reason` **Breaking Change**
-- Registering a dynamic path twice for the same method, or twice through `ANY`, now throws `Duplicate route` like a static path; previously the first registration silently won. A method-specific and an `ANY` route on the same dynamic path are still allowed **Breaking Change**
+- TypeScript: `Route.handler` is now `RouteHandler<TEvent, TResult>`, one call signature `(event, context) => void | TResult | Promise<TResult>` that a plain Lambda handler, a `middy()` handler and a synchronous inline handler all satisfy; an inline `handler: (event, context) => ...` gets `event` typed from the router's generics instead of an implicit `any`. `middy().handler(httpRouterHandler(routes))` needs `middy<Event, Result>()` generics, or wrap the router directly with `middy(httpRouterHandler(routes)).use(...)`
 
 ### [http-security-headers](/docs/middlewares/http-security-headers)
 
@@ -442,8 +470,14 @@ No change
 - The `pg` adapters (`clientPg`, `clientPgPool`) now map `config.username` to `user`; previously `pg` ignored `username` and fell back to `PGUSER`. `clientPostgres` keeps `username`.
 - The `pg` adapters now attach an `error` listener. An unexpected disconnect is logged and the client is reconnected on the next invocation instead of crashing the process.
 - `ssl()` no longer relaxes hostname verification; pass `servername` when connecting through a CNAME, `ssl(ca, { servername: 'db.cluster-id.us-east-1.rds.amazonaws.com' })` **Breaking Change**
+- Every `@middy/rds/certificates/<region>` subpath now ships a `.d.ts` (the export is a `string`), so the import type-checks without a module declaration
+- `ssl(ca, { servername })` now also sets `checkServerIdentity` bound to `servername`, because `pg` overwrites `servername` with the connection host after merging the ssl object. Previously a `pg` connection through a CNAME still failed hostname verification
 - Concurrent invocations that both find the cached client flagged broken now share one reconnect. Previously the second reconnect could close the client the cache kept, so every later invocation received a closed client
-- Under `executionModeDurableContext` a connection held by an invocation that threw (durable execution skips `onError`) is now released, and with `cacheExpiry: 0` closed, at the start of the next invocation
+- Under `executionModeDurableContext` a connection held by an invocation that threw (durable execution skips `onError`) is now released, and with `cacheExpiry: 0` closed, at the next durable invocation on the same execution environment
+- `cacheKeyExpiry[cacheKey]` now overrides `cacheExpiry` everywhere: previously only the cache lookup honoured it, so `cacheExpiry: 0` with a per-key `-1` still closed the shared connection after every invocation, and the reverse never closed it
+- With `internalKey` and a positive `cacheExpiry` the connection is no longer refreshed in the background, which replayed the first invocation's token forever; the entry expires and the next invocation reconnects with its own token
+- A reconnect that fails after a refresh already replaced its cache entry no longer drops the refresh's entry, so the next invocation reuses the refreshed connection instead of reconnecting
+- With `cacheExpiry: 0` a failed connect no longer logs a `cleanup error` from `onError` when another middleware has already populated `context.middyContext`
 
 ### [rds-signer](/docs/middlewares/rds-signer)
 
@@ -473,6 +507,7 @@ receives a copy of the `request` with the reconstructed body grafted onto
 - added `contextKey` option, defaults to `"s3"`
 - added `cacheMaxSize` to the option schema; `s3ValidateOptions` rejected it in 7.x although the cache already honoured it
 - A failed client init (for example an `awsClientAssumeRole` that cannot be assumed) is no longer memoized for the life of the container: the next invocation retries.
+- With `awsClientAssumeRole` the client is now rebuilt when `sts` refetches the credentials, instead of keeping the first invocation's, by then expired, session for the life of the container
 - `fetchData` entries are typed as the SDK's `GetObjectCommandInput`, so `ChecksumMode: 'ENABLED'` type-checks as the option schema already allowed; the `GetObjectCommandInputNoChecksumMode` type is removed **Breaking Change** (types only)
 
 ### [s3-object-response](/docs/middlewares/s3-object-response)
@@ -480,7 +515,8 @@ receives a copy of the `request` with the reconstructed body grafted onto
 - The pending `fetch` promise moved from `context.s3ObjectFetch` to `context.middyContext["s3-object-response"]` **Breaking Change**
 - added `contextKey` option, defaults to `"s3-object-response"`
 - A failed client init (for example an `awsClientAssumeRole` that cannot be assumed) is no longer memoized for the life of the container: the next invocation retries.
-- added `allowedHosts` option, defaulting to the supporting access point host shapes `*.s3-accesspoint[-fips][.dualstack].*.amazonaws.com[.cn]` (`*` is one DNS label). `getObjectContext.inputS3Url` must be an `https:` URL without an explicit port on a listed host, otherwise the invocation fails with a 400 `HttpError` before anything is fetched. Entries are compared case-insensitively as punycode and must be bare hostnames **Breaking Change**
+- With `awsClientAssumeRole` the client is now rebuilt when `sts` refetches the credentials, instead of keeping the first invocation's, by then expired, session for the life of the container
+- added `allowedHosts` option, defaulting to the six supporting access point host shapes `*.s3-accesspoint.*.amazonaws.com`, `*.s3-accesspoint-fips.*.amazonaws.com`, `*.s3-accesspoint.dualstack.*.amazonaws.com`, `*.s3-accesspoint-fips.dualstack.*.amazonaws.com`, `*.s3-accesspoint.*.amazonaws.com.cn` and `*.s3-accesspoint.dualstack.*.amazonaws.com.cn` (`*` is exactly one non-empty DNS label). `getObjectContext.inputS3Url` must be an `https:` URL without an explicit port on a listed host, otherwise the invocation fails with a 400 `HttpError` before anything is fetched. Entries are compared case-insensitively as punycode and must be bare hostnames **Breaking Change**
 - A handler response that is not a plain object (string, Buffer, stream) is sent as the `Body` instead of being spread into `WriteGetObjectResponse` fields
 - Every `WriteGetObjectResponse` field on the handler response (`StatusCode`, `ContentType`, `Metadata`, `ErrorCode`, ...) is now forwarded; previously only `Body` was sent. `RequestRoute` and `RequestToken` still come from the event
 
@@ -491,9 +527,10 @@ receives a copy of the `request` with the reconstructed body grafted onto
 - With `fetchRotationDate`, the cache now expires at `NextRotationDate` or after `cacheExpiry`, whichever is sooner. It no longer adds `cacheExpiry` to `LastRotationDate`/`LastChangedDate`, which refetched on every invocation once a secret's last change was older than `cacheExpiry` **Breaking Change**
 - Secrets stored as `SecretBinary` now resolve to a `Buffer`; previously they resolved to `undefined`
 - With `fetchRotationDate`, `DescribeSecret` now runs as part of each fetch, before `GetSecretValue`, and the entry expires on the first invocation after `NextRotationDate`; previously it ran as a separate step and a background refresh re-fetched the value at the rotation date
-- A `NextRotationDate` that has already passed now keeps the cache for 60 seconds before the secret is described again; previously every invocation re-described and re-fetched it
+- A `NextRotationDate` that has already passed now keeps the cache for 60 seconds before the secret is described again; previously every invocation re-described and re-fetched it. A rotation still ahead, however close, expires the entry on time
 - A `NextRotationDate` returned as a string by a custom `AwsClient` now expires the cache; previously it was read as `NaN` and the secret was cached forever
 - A failed client init (for example an `awsClientAssumeRole` that cannot be assumed) is no longer memoized for the life of the container: the next invocation retries.
+- With `awsClientAssumeRole` the client is now rebuilt when `sts` refetches the credentials, instead of keeping the first invocation's, by then expired, session for the life of the container
 - added `cacheMaxSize` to the option schema; `secretsManagerValidateOptions` rejected it in 7.x although the cache already honoured it
 
 ### [secrets-manager-extension](/docs/middlewares/secrets-manager-extension)
@@ -507,10 +544,12 @@ receives a copy of the `request` with the reconstructed body grafted onto
 - Discovered instances moved from the context root to `context.middyContext["service-discovery"]` **Breaking Change**
 - added `contextKey` option, defaults to `"service-discovery"`
 - A failed client init (for example an `awsClientAssumeRole` that cannot be assumed) is no longer memoized for the life of the container: the next invocation retries.
+- With `awsClientAssumeRole` the client is now rebuilt when `sts` refetches the credentials, instead of keeping the first invocation's, by then expired, session for the life of the container
 
 ### [sqs-partial-batch-failure](/docs/middlewares/sqs-partial-batch-failure)
 
 - logger now takes `(request, {reason, record})` instead of `(reason, record)` **Breaking Change**
+- the default `logger` now prints only the reason, `console.error(reason)`; in 7.x it was `console.error` itself, called with `(reason, record)`, so the whole record was logged too **Breaking Change**
 - added `omitPaths` and `mask` options. See [Logging and PII](#logging-and-pii)
 
 ```javascript
@@ -534,6 +573,7 @@ change which records get reported as failed.
 - Fetched parameters moved from the context root to `context.middyContext.ssm` **Breaking Change**
 - added `contextKey` option, defaults to `"ssm"`
 - A failed client init (for example an `awsClientAssumeRole` that cannot be assumed) is no longer memoized for the life of the container: the next invocation retries.
+- With `awsClientAssumeRole` the client is now rebuilt when `sts` refetches the credentials, instead of keeping the first invocation's, by then expired, session for the life of the container
 - `awsRequestLimit: 1` now sends one name per `GetParameters` call; previously the first batch carried two names
 - added `cacheMaxSize` to the option schema; `ssmValidateOptions` rejected it in 7.x although the cache already honoured it
 
@@ -547,9 +587,11 @@ change which records get reported as failed.
 - Assumed role credentials moved from the context root to `context.middyContext.sts` **Breaking Change**
 - added `contextKey` option, defaults to `"sts"`
 - `RoleSessionName` is now `@middy-sts-{randomUUID}` to prevent collisions **Breaking Change**
+- With `awsClientAssumeRole` the client is now rebuilt when `sts` refetches the credentials, instead of keeping the first invocation's, by then expired, session for the life of the container
 - Cached credentials now expire 60 seconds before the `Expiration` returned by AssumeRole, even with the default `cacheExpiry: -1`. Previously they were cached forever and served after they had expired
 - An `Expiration` returned as a string by a custom `AwsClient` now expires the cache; previously it was read as `NaN` and the credentials were cached forever
 - A failed client init is no longer memoized for the life of the container: the next invocation retries.
+- TypeScript: `STSOptions` now declares `awsClientAssumeRole`, which the option schema already accepted in 7.x, and the new `contextKey`
 
 ### [validator](/docs/middlewares/validator)
 
@@ -560,6 +602,7 @@ change which records get reported as failed.
 - `transpileSchema` now honours `ajvOptions.keywords`: each definition is added after the bundled `ajv-keywords`, `ajv-formats` and `ajv-errors` sets and replaces a bundled keyword of the same name. Previously the list was reset to `[]` and silently dropped
 - added `nestedSchema(pointer, schema)` to `@middy/validator/transpile`, which wraps a schema so it validates at a JSON Pointer inside the event. Register `validator` twice, once against the envelope before a parser runs and once against the payload after, without either schema repeating the other. The same wrapping is available in a build step as `ajv transpile schema.body.json --nested /body`
 - TypeScript: `eventSchema`, `contextSchema` and `responseSchema` are typed as ajv `ValidateFunction | AsyncValidateFunction` (what `transpileSchema` returns) instead of `Ajv` **Breaking Change** (types only)
+- TypeScript: `transpileLocale` is removed from `@middy/validator/transpile`; it was only ever declared, the runtime never exported it. `transpileFTL` is typed as returning the localizer module's source text (`string`, what it always returned, to write to a file in a build step) instead of `LocalizeFunction` **Breaking Change** (types only)
 
 ### [warmup](/docs/middlewares/warmup)
 
@@ -572,12 +615,14 @@ No change
 ### [ws-response](/docs/middlewares/ws-response)
 
 - Clients derived from `event.requestContext` are cached per `domainName/stage` endpoint (the 8 most recent), so a function served through several stages or custom domains posts to the endpoint each request arrived on; previously the first invocation's endpoint was reused for the life of the container
+- With `awsClientAssumeRole` a derived client is now rebuilt when `sts` refetches the credentials, instead of keeping the first invocation's, by then expired, session for the life of the container
 - A `GoneException` (the client already disconnected) now resolves with `{ statusCode: 410 }` instead of failing the invocation
 - A derived client evicted from the per-endpoint cache is now `destroy()`ed so its keep-alive sockets are released; previously it was dropped and the sockets stayed open
 
 ### [ws-router](/docs/routers/ws-router)
 
 - The 404 message is now `Not Found` instead of `Route does not exist`, and the 400 for an event without `requestContext.routeKey` is `Bad Request`; the old text is in `cause.data.reason` **Breaking Change**
+- TypeScript: `Route.handler` is now `RouteHandler<APIGatewayProxyWebsocketEventV2, APIGatewayProxyResultV2<TResult>>`, one call signature `(event, context) => void | TResult | Promise<TResult>` that a plain Lambda handler, a `middy()` handler and a synchronous inline handler all satisfy; previously a synchronous handler returning its result did not type check against `APIGatewayProxyWebsocketHandlerV2`
 
 ## Notes
 

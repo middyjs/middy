@@ -264,7 +264,7 @@ test("It shouldn't process the body and throw error if no header is passed", asy
 test("It should reject a field name larger than the default fieldNameSize cap", async (t) => {
 	// @fastify/busboy does not enforce limits.fieldNameSize for multipart, so a
 	// conservative default cap (100) is enforced by the middleware and an
-	// over-cap field name is normalized to a 422.
+	// over-cap field name is a 413 like every other exceeded limit.
 	const handler = middy((event, context) => {
 		return event.body;
 	});
@@ -284,11 +284,9 @@ test("It should reject a field name larger than the default fieldNameSize cap", 
 		await handler(event, defaultContext);
 		ok(false, "expected throw");
 	} catch (e) {
-		strictEqual(e.statusCode, 422);
-		strictEqual(
-			e.cause.data.reason,
-			"Invalid or malformed multipart/form-data was provided",
-		);
+		strictEqual(e.statusCode, 413);
+		strictEqual(e.message, "Payload Too Large");
+		deepStrictEqual(e.cause.data, { limit: "fieldNameSize" });
 		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
 	}
 });
@@ -315,7 +313,8 @@ test("It should reject a file field name larger than the configured fieldNameSiz
 		await handler(event, defaultContext);
 		ok(false, "expected throw");
 	} catch (e) {
-		strictEqual(e.statusCode, 422);
+		strictEqual(e.statusCode, 413);
+		deepStrictEqual(e.cause.data, { limit: "fieldNameSize" });
 		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
 	}
 });
@@ -969,8 +968,8 @@ test("It should reject a file field name exceeding the cap and pass at the bound
 		await overHandler(overEvent, defaultContext);
 		ok(false, "expected throw");
 	} catch (e) {
-		strictEqual(e.statusCode, 422);
-		strictEqual(e.cause.data.message, "Field name size limit exceeded");
+		strictEqual(e.statusCode, 413);
+		deepStrictEqual(e.cause.data, { limit: "fieldNameSize" });
 	}
 
 	const atHandler = middy((event) => event.body);
@@ -1007,8 +1006,8 @@ test("It should reject a non-file field name exceeding the cap and pass at the b
 		await overHandler(overEvent, defaultContext);
 		ok(false, "expected throw");
 	} catch (e) {
-		strictEqual(e.statusCode, 422);
-		strictEqual(e.cause.data.message, "Field name size limit exceeded");
+		strictEqual(e.statusCode, 413);
+		deepStrictEqual(e.cause.data, { limit: "fieldNameSize" });
 	}
 
 	const atHandler = middy((event) => event.body);
@@ -1346,4 +1345,95 @@ test("It should keep folding in both directions across a mixed scalar and bracke
 		response,
 		Object.assign(Object.create(null), { a: ["1", "2", "3"] }),
 	);
+});
+
+// busboy hands a part whose Content-Disposition carries no `name` to the
+// `field` and `file` listeners with `fieldname === undefined`. The length guard
+// then threw a TypeError that surfaced as a 422 with a message about reading
+// `length` of undefined, which said nothing about the form.
+test("It should reject a field part with no name with a 422 that says so", async (t) => {
+	const handler = middy((event) => event.body);
+	handler.use(httpMultipartBodyParser());
+	const event = {
+		headers: { "content-type": "multipart/form-data; boundary=TEST" },
+		body: "--TEST\r\nContent-Disposition: form-data\r\n\r\nval\r\n--TEST--",
+		isBase64Encoded: false,
+	};
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 422);
+		strictEqual(e.message, "Unprocessable Entity");
+		deepStrictEqual(e.cause.data, {
+			reason: "Multipart part is missing a field name",
+		});
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+	}
+});
+
+test("It should reject a file part with no name with a 422 that says so", async (t) => {
+	const handler = middy((event) => event.body);
+	handler.use(httpMultipartBodyParser());
+	const event = {
+		headers: { "content-type": "multipart/form-data; boundary=TEST" },
+		body: '--TEST\r\nContent-Disposition: form-data; filename="f.txt"\r\nContent-Type: text/plain\r\n\r\nhello\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 422);
+		deepStrictEqual(e.cause.data, {
+			reason: "Multipart part is missing a field name",
+		});
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+	}
+});
+
+// A file part rejected for its field name still gets busboy's later `error`
+// emit when the body ends inside it. The part stream's error listener used to
+// be attached only after the field-name guard, so that second emit escaped as
+// an uncaughtException on top of the 422 already sent.
+test("It should reject a nameless file part whose body ends early without crashing the process", async (t) => {
+	const handler = middy((event) => event.body);
+	handler.use(httpMultipartBodyParser());
+	const event = {
+		headers: { "content-type": "multipart/form-data; boundary=TEST" },
+		body: '--TEST\r\nContent-Disposition: form-data; filename="f.txt"\r\nContent-Type: text/plain\r\n\r\nhel',
+		isBase64Encoded: false,
+	};
+
+	const { settled, escaped } = await withUncaughtGuard(() =>
+		handler(event, defaultContext),
+	);
+
+	deepStrictEqual(escaped, []);
+	notStrictEqual(settled, "pending");
+	strictEqual(settled.error.statusCode, 422);
+	deepStrictEqual(settled.error.cause.data, {
+		reason: "Multipart part is missing a field name",
+	});
+});
+
+test("It should reject an over-long file field name whose body ends early without crashing the process", async (t) => {
+	const handler = middy((event) => event.body);
+	handler.use(
+		httpMultipartBodyParser({ busboy: { limits: { fieldNameSize: 5 } } }),
+	);
+	const event = {
+		headers: { "content-type": "multipart/form-data; boundary=TEST" },
+		body: '--TEST\r\nContent-Disposition: form-data; name="attachment"; filename="f.txt"\r\nContent-Type: text/plain\r\n\r\nhel',
+		isBase64Encoded: false,
+	};
+
+	const { settled, escaped } = await withUncaughtGuard(() =>
+		handler(event, defaultContext),
+	);
+
+	deepStrictEqual(escaped, []);
+	notStrictEqual(settled, "pending");
+	strictEqual(settled.error.statusCode, 413);
+	deepStrictEqual(settled.error.cause.data, { limit: "fieldNameSize" });
 });
