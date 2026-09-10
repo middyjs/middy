@@ -5512,6 +5512,29 @@ test("pollSqs treats only a hostname whose first label is the region as a legacy
 	);
 });
 
+test("pollSqs ignores a region in a hostname that only ends in an AWS-looking label", async () => {
+	// Both endpoint patterns have to match to the end of the hostname:
+	// otherwise an unrelated domain that prefixes an AWS one dictates the
+	// region, and with it the partition the ARN is built in.
+	for (const queueUrl of [
+		"https://sqs.us-east-1.amazonaws.com.example.org/123456789012/orders",
+		"https://us-east-1.queue.amazonaws.com.example.org/123456789012/orders",
+		"https://sqs.cn-north-1.example.org/123456789012/orders",
+	]) {
+		const ac = new AbortController();
+		const client = receiveOneSqs(ac, { region: async () => "eu-central-1" });
+		const { value } = await pollSqs({ queueUrl, client })
+			.poll(ac.signal)
+			.next();
+		strictEqual(value.Records[0].awsRegion, "eu-central-1", queueUrl);
+		strictEqual(
+			value.Records[0].eventSourceARN,
+			"arn:aws:sqs:eu-central-1:123456789012:orders",
+			queueUrl,
+		);
+	}
+});
+
 test("pollSqs leaves the region and ARN unset when neither the queue URL nor the client carries one", async () => {
 	// A custom client may expose a config without the SDK's region resolver;
 	// that must not throw, and no ARN can be composed without a region.

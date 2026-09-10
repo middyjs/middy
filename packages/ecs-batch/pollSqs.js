@@ -32,10 +32,13 @@ export const pollSqsValidateOptions = (options) =>
 // sqs-fips.<region>.amazonaws.com, sqs.<region>.amazonaws.com.cn and the
 // interface VPC endpoint form vpce-<id>.sqs.<region>.vpce.amazonaws.com. The
 // legacy endpoints are <region>.queue.amazonaws.com; the bare us-east-1 one,
-// queue.amazonaws.com, carries no region at all.
+// queue.amazonaws.com, carries no region at all. Both patterns are anchored to
+// the end of the hostname so an unrelated domain prefixing an AWS one cannot
+// dictate the region, and with it the ARN's partition.
 // https://docs.aws.amazon.com/general/latest/gr/sqs-service.html
-const sqsHostRegion = /(?:^|\.)sqs(?:-fips)?\.([a-z0-9-]+)\./;
-const legacyHostRegion = /^([a-z0-9-]+)\.queue\.amazonaws\.com/;
+const sqsHostRegion =
+	/(?:^|\.)sqs(?:-fips)?\.([a-z0-9-]+)\.(?:vpce\.)?(?:amazonaws\.com(?:\.cn)?|api\.aws)$/;
+const legacyHostRegion = /^([a-z0-9-]+)\.queue\.amazonaws\.com$/;
 
 // https://sqs.{region}.amazonaws.com/{accountId}/{queueName}
 const parseQueueUrl = (queueUrl) => {
