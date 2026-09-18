@@ -57,7 +57,7 @@
 		"url": "https://github.com/middyjs/middy/issues"
 	},
 	"devDependencies": {
-		"@aws-sdk/client-ssm": "^3.0.0",
+		"@aws-sdk/client-ssm": "^3.1126.0",
 		"@middy/core": "7.9.2",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0"
