@@ -1,6 +1,6 @@
 {
 	"name": "@middy/sqs-partial-batch-failure",
-	"version": "8.0.0-alpha.0",
+	"version": "8.0.0-alpha.1",
 	"description": "SQS partial batch failure middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -63,11 +63,11 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "8.0.0-alpha.0"
+		"@middy/util": "8.0.0-alpha.1"
 	},
 	"devDependencies": {
 		"@aws-sdk/client-sqs": "^3.0.0",
-		"@middy/core": "8.0.0-alpha.0",
+		"@middy/core": "8.0.0-alpha.1",
 		"@serverless/event-mocks": "^1.0.0",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^24.0.0"

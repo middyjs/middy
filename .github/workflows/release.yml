@@ -290,7 +290,23 @@ jobs:
         run: |
           [ -n "$DIST_TAG" ] || { echo "::error::dist_tag not set by the Build job"; exit 1; }
           mkdir -p staged
+          count=0
           for f in ./*.tgz; do
-            npm stage publish --tag "$DIST_TAG" --provenance --access public --ignore-scripts --json "$f" > "staged/$(basename "$f" .tgz).json" || exit 1
+            out="staged/$(basename "$f" .tgz).json"
+            # --json writes the stage record to stdout, notices and errors to stderr
+            if err=$(npm stage publish --tag "$DIST_TAG" --provenance --access public --ignore-scripts --json "$f" 2>&1 >"$out"); then
+              echo "$err" >&2
+              count=$((count + 1))
+              continue
+            fi
+            rm -f "$out"
+            # E409 is this version already staged (or published). A run that dies
+            # part way through leaves its earlier stages standing, so re-running
+            # must step over them rather than start again from nothing.
+            case "$err" in
+              *E409*) echo "::notice::$(basename "$f" .tgz) already staged" ;;
+              *) echo "$err" >&2; exit 1 ;;
+            esac
           done
-          jq -s -r 'map(to_entries[].value) | .[] | "\(.name)@\(.version) staged with id \(.stageId)"' staged/*.json
+          echo "${count} newly staged"
+          [ "$count" -eq 0 ] || jq -s -r 'map(to_entries[].value) | .[] | "\(.name)@\(.version) staged with id \(.stageId)"' staged/*.json
