@@ -33,7 +33,8 @@ npm install --save @middy/appconfig-extension
 - `cacheKey` (string) (default `@middy/appconfig-extension`): Cache key for the fetched data. Must be unique across middleware.
 - `cacheKeyExpiry` (object) (default `{}`): Per-`fetchData`-key cache expiry overrides (ms; `-1` = forever, `0` = no cache).
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
-- `setToContext` (boolean) (default `false`): Copy fetched values onto `request.context`.
+- `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext['appconfig-extension']`.
+- `contextKey` (string) (default `appconfig-extension`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.
 
 ## Notes
 
@@ -95,7 +96,7 @@ export const handler = middy()
     })
   )
   .handler(async (event, context) => {
-    const { featureA } = context.flags
+    const { featureA } = context.middyContext['appconfig-extension'].flags
     return {
       statusCode: 200,
       body: JSON.stringify({ featureEnabled: featureA.enabled })

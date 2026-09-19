@@ -1,7 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import {
-	createError,
+	HttpError,
 	resolveHttpEventVersion,
 	validateOptions,
 } from "@middy/util";
@@ -12,8 +12,11 @@ const pkg = `@middy/${name}`;
 const defaults = {
 	routes: [],
 	notFoundResponse: ({ method, path }) => {
-		const err = createError(404, "Route does not exist", {
-			cause: { package: pkg, data: { method, path } },
+		const err = new HttpError(404, {
+			cause: {
+				package: pkg,
+				data: { reason: "Route does not exist", method, path },
+			},
 		});
 		throw err;
 	},
@@ -38,8 +41,6 @@ const optionSchema = {
 							{ type: "string", pattern: "^/" },
 							{ type: "string", pattern: "^(/|.*[^/])$" },
 						],
-						// Stryker disable next-line ArrayDeclaration,StringLiteral: examples are documentation-only metadata; validateOptions never reads them, so mutating their content cannot change validation behavior.
-						examples: ["/", "/users", "/users/{id}"],
 					},
 					handler: { instanceof: "Function" },
 				},
@@ -62,12 +63,19 @@ const httpRouteHandler = (opts = {}) => {
 	options ??= opts;
 	const { routes, notFoundResponse } = { ...defaults, ...options };
 
+	// ANY routes, static and dynamic, are staged in tables of their own that
+	// dispatch consults after the method-specific ones, so a method-specific
+	// match wins over ANY regardless of registration order and ANY serves the
+	// remaining methods. Static tables are keyed by path and dynamic ones by
+	// the compiled pattern; a duplicate key within one table throws.
 	const routesStatic = Object.create(null);
+	const routesStaticAny = new Map();
 	const routesDynamic = Object.create(null);
+	const routesDynamicAny = new Map();
 	for (const route of routes) {
 		let { method, path, handler } = route;
 
-		// Prevents `routesType[method][path] = handler` from flagging: This assignment may alter Object.prototype if a malicious '__proto__' string is injected from library input.
+		// Prevents `tables[method] ??= new Map()` in tableFor from flagging: This assignment may alter Object.prototype if a malicious '__proto__' string is injected from library input.
 		if (!allMethods.includes(method)) {
 			throw new Error("Method not allowed", {
 				cause: { package: pkg, data: { method } },
@@ -80,15 +88,30 @@ const httpRouteHandler = (opts = {}) => {
 		}
 
 		// Static
-		// Stryker disable next-line EqualityOperator: `< 0` vs `<= 0` differ only when "{" is at index 0; a dynamic capture's brace is always preceded by "/" (index >= 1), and a brace at index 0 yields a literal regex with the same match set as a static entry, so the branch choice is unobservable.
-		if (path.indexOf("{") < 0) {
-			attachStaticRoute(method, path, handler, routesStatic);
+		if (!path.includes("{")) {
+			attachStaticRoute(
+				method,
+				path,
+				handler,
+				tableFor(method, routesStatic, routesStaticAny),
+			);
 			continue;
 		}
 
 		// Dynamic
-		attachDynamicRoute(method, path, handler, routesDynamic);
+		attachDynamicRoute(
+			method,
+			path,
+			compileDynamicRoute(path, handler),
+			tableFor(method, routesDynamic, routesDynamicAny),
+		);
 	}
+	// Dispatch walks the dynamic routes as plain arrays; the maps only had to
+	// catch a duplicate pattern.
+	for (const method of Object.keys(routesDynamic)) {
+		routesDynamic[method] = Array.from(routesDynamic[method].values());
+	}
+	const routesDynamicAnyList = Array.from(routesDynamicAny.values());
 
 	const handler = (event, context, abort) => {
 		const route = getVersionRoute[resolveHttpEventVersion(event)];
@@ -112,29 +135,20 @@ const httpRouteHandler = (opts = {}) => {
 		}
 
 		// Static
-		const staticHandler = routesStatic[method]?.[path];
+		const staticHandler =
+			routesStatic[method]?.get(path) ?? routesStaticAny.get(path);
 		if (staticHandler) {
 			return staticHandler(event, context, abort);
 		}
 
-		// Dynamic
-		const dynamicRoutes = routesDynamic[method];
-		if (dynamicRoutes) {
-			// Count slashes in request path, ignoring a single trailing slash so
-			// `/user/1` and `/user/1/` produce the same count and match the same
-			// fixed-depth route. Wildcard routes carry segmentCount=-1 and match
-			// regardless.
-			let reqSegments = 0;
-			const pathLen = path.length;
-			// Stryker disable LogicalOperator,ConditionalExpression,EqualityOperator: equivalent; the trailing-slash trim only changes reqSegments for path "/", which no fixed-depth dynamic route can match (a [^/]+ param needs a non-slash char). For any other path the trimmed final char is a non-slash, so the slash count is unchanged. The segmentCount filter below is a pure performance pre-filter; the regex is the authoritative gate.
-			const stop =
-				pathLen > 1 && path.charCodeAt(pathLen - 1) === 47
-					? pathLen - 1
-					: pathLen;
-			// Stryker restore LogicalOperator,ConditionalExpression,EqualityOperator
-			for (let i = 0; i < stop; i++) {
-				if (path.charCodeAt(i) === 47) reqSegments++;
-			}
+		// Dynamic. Slash count of the request path, less a trailing slash, so
+		// `/user/1` and `/user/1/` reach the same fixed-depth route. Wildcard
+		// routes carry segmentCount=-1 and match regardless.
+		let reqSegments = countSlashes(path);
+		if (path.charCodeAt(path.length - 1) === 47) reqSegments -= 1;
+		// Method-specific routes first, then ANY, each in registration order.
+		for (const dynamicRoutes of [routesDynamic[method], routesDynamicAnyList]) {
+			if (!dynamicRoutes) continue;
 			for (const route of dynamicRoutes) {
 				// Stryker disable next-line ConditionalExpression,BlockStatement: pure performance pre-filter. A non-proxy dynamic route's regex matches exactly its slash depth, so skipping (or not skipping) by segmentCount can never change which route the authoritative `path.match` selects.
 				if (route.segmentCount !== -1 && route.segmentCount !== reqSegments) {
@@ -167,29 +181,39 @@ const httpRouteHandler = (opts = {}) => {
 const regExpEscapeChars = /[.+?^${}()|[\]\\]/g;
 const regExpDynamicWildcards = /\/\\\{(proxy)\\\+\\\}$/;
 const regExpDynamicParameters = /\/\\\{([^/]+)\\\}/g;
+const regExpGroupNames = /\(\?<[^>]+>/g;
 
-const attachStaticRoute = (method, path, handler, routesType) => {
-	if (method === "ANY") {
-		for (const method of methods) {
-			attachStaticRoute(method, path, handler, routesType);
-		}
-		return;
-	}
-	routesType[method] ??= Object.create(null);
-	// TODO v8 when duplicates throw error
-	routesType[method][path] = handler;
-	routesType[method][`${path}/`] = handler; // Optional `/`
+// The table for `method`, created on first use, or the shared ANY table.
+const tableFor = (method, tables, tableAny) => {
+	if (method === "ANY") return tableAny;
+	tables[method] ??= new Map();
+	return tables[method];
 };
 
-const attachDynamicRoute = (method, path, handler, routesType) => {
-	if (method === "ANY") {
-		for (const method of methods) {
-			attachDynamicRoute(method, path, handler, routesType);
-		}
-		return;
+const attachStaticRoute = (method, path, handler, table) => {
+	if (table.has(path)) {
+		throw new Error("Duplicate route", {
+			cause: { package: pkg, data: { method, path } },
+		});
 	}
-	// Stryker disable next-line ArrayDeclaration: a sentinel seed element has segmentCount===undefined, which the loop's `segmentCount !== reqSegments` filter always skips before any `.match`, so it cannot change routing.
-	routesType[method] ??= [];
+	table.set(path, handler);
+	table.set(`${path}/`, handler); // Optional `/`
+};
+
+// Same method and same compiled pattern (`/a/{id}` twice, once more with a
+// trailing slash, or as `/a/{other}`) is a duplicate, as it is for a static
+// path. A method-specific route and an ANY route on one pattern are not:
+// `table` here is one method's map or the ANY map, never both.
+const attachDynamicRoute = (method, path, route, table) => {
+	if (table.has(route.signature)) {
+		throw new Error("Duplicate route", {
+			cause: { package: pkg, data: { method, path } },
+		});
+	}
+	table.set(route.signature, route);
+};
+
+const compileDynamicRoute = (path, handler) => {
 	const pathPartialRegExp = path
 		.replace(regExpEscapeChars, "\\$&")
 		.replace(regExpDynamicWildcards, "(?:/(?<$1>.*))?")
@@ -202,20 +226,29 @@ const attachDynamicRoute = (method, path, handler, routesType) => {
 	// SAST Skipped: Not accessible by users
 	// nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
 	const pathRegExp = new RegExp(`^${pathPartialRegExp}/?$`); // Adds in optional `/`
+	// What the pattern matches, with the capture names taken out: `/a/{x}` and
+	// `/a/{y}` accept exactly the same requests, so they compare as duplicates.
+	const signature = JSON.stringify(pathPartialRegExp.split(regExpGroupNames));
 	// `{proxy+}` matches across slashes so its depth is unconstrained; mark -1.
 	// All other dynamic params capture a single segment, so depth == slash count.
 	// Stryker disable next-line StringLiteral: forcing segmentCount to -1 only disables the performance pre-filter; the authoritative `path.match` regex still gates every route, so routing results are unchanged.
 	const segmentCount = path.includes("{proxy+}") ? -1 : countSlashes(path);
-	routesType[method].push({ path: pathRegExp, handler, segmentCount });
+	return { path: pathRegExp, handler, segmentCount, signature };
 };
 
 const countSlashes = (s) => {
 	let n = 0;
-	// Stryker disable next-line EqualityOperator: `<=` over-reads one index past the string; charCodeAt returns NaN there, which never equals 47, so the slash count is identical.
-	for (let i = 0; i < s.length; i++) {
+	let i = s.length;
+	while (i--) {
 		if (s.charCodeAt(i) === 47) n++;
 	}
 	return n;
+};
+
+// Both VPC Lattice event structures put the query string on the path.
+const stripQueryString = (rawPath) => {
+	const q = rawPath?.indexOf("?") ?? -1;
+	return q < 0 ? rawPath : rawPath.substring(0, q);
 };
 
 const getVersionRoute = Object.assign(Object.create(null), {
@@ -223,18 +256,24 @@ const getVersionRoute = Object.assign(Object.create(null), {
 		method: event.httpMethod,
 		path: event.path,
 	}),
-	"2.0": (event) => ({
-		method: event.requestContext?.http?.method,
-		path: event.requestContext?.http?.path,
-	}),
-	vpc: (event) => {
-		const rawPath = event.raw_path;
-		const q = rawPath?.indexOf("?") ?? -1;
-		return {
-			method: event.method,
-			path: q < 0 ? rawPath : rawPath.substring(0, q),
-		};
+	"2.0": (event) => {
+		const http = event.requestContext?.http;
+		if (http) {
+			return { method: http.method, path: http.path };
+		}
+		// VPC Lattice V2 events also carry `version: "2.0"`, but put `method` and
+		// `path` at the top level (no `requestContext.http`; `requestContext`
+		// holds the service/target-group ARNs), and `path` includes the query
+		// string.
+		// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html#event-structure-v2
+		return { method: event.method, path: stripQueryString(event.path) };
 	},
+	// VPC Lattice V1: `method` + `raw_path` (query string included), no `version`.
+	// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html#event-structure-v1
+	vpc: (event) => ({
+		method: event.method,
+		path: stripQueryString(event.raw_path),
+	}),
 });
 
 export default httpRouteHandler;

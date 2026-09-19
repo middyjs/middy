@@ -9,9 +9,9 @@ const pkg = `@middy/${name}`;
 const defaults = {
 	FacilitatorClient: HTTPFacilitatorClient,
 	facilitatorUrl: "https://x402.org/facilitator",
-	// TODO remove in v8: drop 1 from the default versions so v1 acceptance
-	// becomes opt-in (smaller attack surface, no legacy facilitator path).
-	versions: [1, 2],
+	// v1 acceptance is opt-in (smaller attack surface, no legacy facilitator
+	// path): pass `versions: [1, 2]` to also accept the X-PAYMENT v1 flow.
+	versions: [2],
 	price: undefined,
 	amount: undefined,
 	decimals: 6,
@@ -31,7 +31,14 @@ const optionSchema = {
 		facilitatorUrl: { type: "string" },
 		versions: { type: "array", items: { enum: [1, 2] } },
 		price: {
-			oneOf: [{ type: "number", exclusiveMinimum: 0 }, { type: "string" }],
+			oneOf: [
+				{
+					type: "number",
+					exclusiveMinimum: 0,
+					maximum: Number.MAX_SAFE_INTEGER,
+				},
+				{ type: "string" },
+			],
 		},
 		amount: { type: "string" },
 		decimals: { type: "integer" },
@@ -181,11 +188,9 @@ const httpX402Middleware = (opts = {}) => {
 	};
 
 	const httpX402V2Before = async (request, paymentHeader) => {
-		let payload;
-		try {
-			payload = decodeHeader(paymentHeader);
-		} catch {
-			// An undecodable header is treated the same as no payment at all.
+		// An undecodable header is treated the same as no payment at all.
+		const payload = decodeHeader(paymentHeader);
+		if (payload === undefined) {
 			return respondPaymentRequired(request, "Payment required");
 		}
 
@@ -213,10 +218,8 @@ const httpX402Middleware = (opts = {}) => {
 	};
 
 	const httpX402V1Before = async (request, paymentHeader) => {
-		let payload;
-		try {
-			payload = decodeHeader(paymentHeader);
-		} catch {
+		const payload = decodeHeader(paymentHeader);
+		if (payload === undefined) {
 			return respondPaymentRequiredV1(request, "Payment required");
 		}
 
@@ -250,7 +253,7 @@ const httpX402Middleware = (opts = {}) => {
 		request.internal.x402 = { payload, requirements: requirementsV1 };
 	};
 
-	const httpX402MiddlewareBefore = async (request) => {
+	const httpX402MiddlewareBefore = (request) => {
 		if (human?.(request)) return;
 
 		// A disabled version's payment header is not a payment header for this
@@ -448,18 +451,23 @@ const buildResource = (event) => {
 const encodeHeader = (obj) =>
 	Buffer.from(JSON.stringify(obj)).toString("base64");
 
+// Undefined for anything that is not a JSON object: bad base64, bad JSON, or a
+// well-formed payload of the wrong shape. The callers cannot tell those apart,
+// so the reason is not worth building.
 const decodeHeader = (header) => {
-	const payload = JSON.parse(Buffer.from(header, "base64").toString());
+	let payload;
+	try {
+		payload = JSON.parse(Buffer.from(header, "base64").toString());
+	} catch {
+		// Bad base64 or bad JSON leaves `payload` undefined, which the shape
+		// check below rejects like any other non-object.
+	}
 	if (
 		payload === null ||
 		typeof payload !== "object" ||
 		Array.isArray(payload)
 	) {
-		// Stryker disable next-line StringLiteral,ObjectLiteral: the before-hook catch block discards this error entirely (only a generic "Payment required" 402 is returned), so the message and cause are never observable.
-		throw new Error(`${pkg} payment payload must be an object`, {
-			// Stryker disable next-line ObjectLiteral: see above; cause is unobservable because the thrown error is swallowed.
-			cause: { package: pkg },
-		});
+		return undefined;
 	}
 	return payload;
 };

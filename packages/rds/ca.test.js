@@ -2,31 +2,40 @@ import { strictEqual, throws } from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { describe, test } from "node:test";
 import getCa from "./ca.js";
 
 const pemContent =
 	"-----BEGIN CERTIFICATE-----\nMIIBIjANBgkq\n-----END CERTIFICATE-----\n";
 
-test("ca() throws when NODE_EXTRA_CA_CERTS is not set", () => {
-	const saved = process.env.NODE_EXTRA_CA_CERTS;
-	delete process.env.NODE_EXTRA_CA_CERTS;
-	try {
-		throws(() => getCa(), /NODE_EXTRA_CA_CERTS/);
-	} finally {
-		if (saved !== undefined) process.env.NODE_EXTRA_CA_CERTS = saved;
-	}
-});
-
-test("ca() reads PEM content when NODE_EXTRA_CA_CERTS is set", () => {
-	const dir = mkdtempSync(join(tmpdir(), "middy-rds-ca-test-"));
-	const file = join(dir, "ca.pem");
-	writeFileSync(file, pemContent);
-	process.env.NODE_EXTRA_CA_CERTS = file;
-	try {
-		strictEqual(getCa(), pemContent);
-	} finally {
+describe("@middy/rds/ca", () => {
+	test("ca() throws when NODE_EXTRA_CA_CERTS is not set", () => {
+		const saved = process.env.NODE_EXTRA_CA_CERTS;
 		delete process.env.NODE_EXTRA_CA_CERTS;
-		rmSync(dir, { recursive: true, force: true });
-	}
+		try {
+			throws(() => getCa(), /NODE_EXTRA_CA_CERTS/);
+			// The message alone does not pin the cause; assert the package and the
+			// env var it names, which is the actionable part for the caller.
+			throws(getCa, (e) => {
+				strictEqual(e.cause.package, "@middy/rds");
+				strictEqual(e.cause.data.env, "NODE_EXTRA_CA_CERTS");
+				return true;
+			});
+		} finally {
+			if (saved !== undefined) process.env.NODE_EXTRA_CA_CERTS = saved;
+		}
+	});
+
+	test("ca() reads PEM content when NODE_EXTRA_CA_CERTS is set", () => {
+		const dir = mkdtempSync(join(tmpdir(), "middy-rds-ca-test-"));
+		const file = join(dir, "ca.pem");
+		writeFileSync(file, pemContent);
+		process.env.NODE_EXTRA_CA_CERTS = file;
+		try {
+			strictEqual(getCa(), pemContent);
+		} finally {
+			delete process.env.NODE_EXTRA_CA_CERTS;
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
 });

@@ -1,6 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
+import type { ContextNamespace } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
 export type SecretId<T> = string & { __returnType?: T };
@@ -16,17 +17,22 @@ export interface SecretsManagerExtensionOptions {
 	cacheKeyExpiry?: { [key: string]: number };
 	cacheExpiry?: number;
 	setToContext?: boolean;
+	contextKey?: string;
 }
 
 export type Context<
 	TOptions extends SecretsManagerExtensionOptions | undefined,
 > = TOptions extends { setToContext: true }
 	? TOptions extends { fetchData: infer TFetchData }
-		? LambdaContext & {
-				[Key in keyof TFetchData]: TFetchData[Key] extends SecretId<infer T>
-					? T
-					: unknown;
-			}
+		? ContextNamespace<
+				TOptions,
+				"secrets-manager-extension",
+				{
+					[Key in keyof TFetchData]: TFetchData[Key] extends SecretId<infer T>
+						? T
+						: unknown;
+				}
+			>
 		: never
 	: LambdaContext;
 
@@ -44,8 +50,11 @@ export type Internal<
 
 declare function secretsManagerExtension<
 	TOptions extends SecretsManagerExtensionOptions,
+	TKey extends string = string,
 >(
-	options?: TOptions,
+	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
+	// key narrows `middyContext` without `as const`.
+	options?: TOptions & { contextKey?: TKey },
 ): middy.MiddlewareObj<
 	unknown,
 	any,

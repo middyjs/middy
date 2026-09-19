@@ -49,7 +49,8 @@ test("fuzz `event` w/ `record`", async () => {
 
 test("fuzz context has preferredMediaType after negotiation", async () => {
 	const negHandler = middy((event, context) => ({
-		preferredMediaType: context.preferredMediaType,
+		preferredMediaType:
+			context.middyContext["http-content-negotiation"]?.preferredMediaType,
 	})).use(
 		middleware({
 			availableMediaTypes: ["application/json"],

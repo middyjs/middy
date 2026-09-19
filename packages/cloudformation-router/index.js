@@ -6,7 +6,6 @@ const name = "cloudformation-router";
 const pkg = `@middy/${name}`;
 
 const defaults = {
-	// Stryker disable next-line ArrayDeclaration: a stray default route is destructured to {requestType:undefined,handler:undefined} and keyed under `undefined`, which is unreachable since the runtime guard restricts requestType to Create/Update/Delete; no observable behavior changes.
 	routes: [],
 	notFoundResponse: ({ requestType }) => {
 		const err = new Error("Route does not exist", {
@@ -56,6 +55,11 @@ const cloudformationCustomResourceRouteHandler = (opts = {}) => {
 	const routesStatic = Object.create(null);
 	for (const route of routes) {
 		const { requestType, handler } = route;
+		if (!requestTypesSet.has(requestType)) {
+			throw new Error("Invalid route", {
+				cause: { package: pkg, data: { requestType } },
+			});
+		}
 
 		// Static
 		routesStatic[requestType] = handler;

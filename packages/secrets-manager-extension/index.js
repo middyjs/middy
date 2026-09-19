@@ -21,6 +21,7 @@ const defaults = {
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -31,16 +32,39 @@ const optionSchema = {
 		cacheKey: { type: "string" },
 		cacheKeyExpiry: {
 			type: "object",
-			additionalProperties: { type: "number", minimum: -1 },
+			additionalProperties: {
+				type: "number",
+				minimum: -1,
+				maximum: Number.MAX_SAFE_INTEGER,
+			},
 		},
-		cacheExpiry: { type: "number", minimum: -1 },
+		cacheExpiry: {
+			type: "number",
+			minimum: -1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 	},
 	additionalProperties: false,
 };
 
 export const secretsManagerExtensionValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
+
+// The extension returns the GetSecretValue JSON, which carries the secret in
+// exactly one of two fields: SecretBinary "if the secret value was originally
+// provided as binary data" (Base64-encoded over the HTTP API), otherwise
+// "this field is omitted. The secret value appears in SecretString instead."
+// Binary secrets are handed back as a Buffer.
+// https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+// https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html
+const parseSecretValue = (res) => {
+	if (typeof res.SecretBinary !== "undefined") {
+		return Buffer.from(res.SecretBinary, "base64");
+	}
+	return jsonSafeParse(res.SecretString);
+};
 
 const secretsManagerExtensionMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
@@ -72,7 +96,7 @@ const secretsManagerExtensionMiddleware = (opts = {}) => {
 					}
 					return res.json();
 				})
-				.then((res) => jsonSafeParse(res.SecretString))
+				.then(parseSecretValue)
 				.catch((e) => {
 					const value = getCache(options.cacheKey).value ?? {};
 					value[internalKey] = undefined;
@@ -87,13 +111,11 @@ const secretsManagerExtensionMiddleware = (opts = {}) => {
 		processCache(options, fetchRequest);
 	}
 
-	const secretsManagerExtensionMiddlewareBefore = async (request) => {
+	const secretsManagerExtensionMiddlewareBefore = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: equivalent. assignSetToContext returns either undefined (sync path) or a Promise; `await undefined` is a no-op, so guarding with `if (pending)` vs always awaiting is observationally identical.
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
 	};
 

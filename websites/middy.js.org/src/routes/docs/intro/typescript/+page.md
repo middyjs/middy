@@ -34,7 +34,7 @@ export const handler = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
   .handler(async (req, context) => {
     // The context type gets augmented here by the secretsManager middleware.
     // This is just an example, obviously don't ever log your secret in real life!
-    console.log(context.apiToken)
+    console.log(context.middyContext['secrets-manager'].apiToken)
     return {
       statusCode: 200,
       body: JSON.stringify({

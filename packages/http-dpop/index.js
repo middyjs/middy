@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: MIT
 import { constants, createHash, createPublicKey, verify } from "node:crypto";
 import {
-	createError,
 	getInternal,
+	HttpError,
 	sanitizeKey,
+	setContextNamespace,
 	validateOptions,
 } from "@middy/util";
 
@@ -35,8 +36,12 @@ const optionSchema = {
 		confirmationClaim: { type: "string" },
 		origin: { type: "string" },
 		algorithm: stringOrStringArraySchema,
-		maxAge: { type: "number", minimum: 0 },
-		maxProofLength: { type: "number", minimum: 1 },
+		maxAge: { type: "number", minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
+		maxProofLength: {
+			type: "number",
+			minimum: 1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		required: { type: "boolean" },
 		setToContext: { type: "boolean" },
 	},
@@ -96,12 +101,16 @@ export const jwkThumbprint = (jwk) => {
 	// `hasOwn`, not a truthiness check: `kty: "constructor"` otherwise resolves
 	// to a member of Object.prototype and this reads as a supported key type.
 	if (!Object.hasOwn(THUMBPRINT_MEMBERS, jwk?.kty)) {
-		throw new Error(`Unsupported JWK key type '${jwk?.kty}'`);
+		throw new Error(`Unsupported JWK key type '${jwk?.kty}'`, {
+			cause: { package: pkg, data: { kty: jwk?.kty } },
+		});
 	}
 	const canonical = {};
 	for (const member of THUMBPRINT_MEMBERS[jwk.kty]) {
 		if (typeof jwk[member] !== "string") {
-			throw new Error(`JWK is missing required member '${member}'`);
+			throw new Error(`JWK is missing required member '${member}'`, {
+				cause: { package: pkg, data: { member } },
+			});
 		}
 		canonical[member] = jwk[member];
 	}
@@ -152,7 +161,7 @@ const normalizeOrigin = (origin) => {
 	if (origin === undefined) return undefined;
 	let uri;
 	try {
-		uri = httpUri(origin, "Option 'origin'");
+		uri = httpUri(origin);
 	} catch {
 		throw new TypeError(`Option 'origin' is not a URL: '${origin}'`, {
 			cause: { package: pkg },
@@ -180,21 +189,29 @@ const normalizeAlgorithms = (algorithm) => {
 
 // Every reader below returns a string or undefined. The event is Lambda's, but
 // its shape is not guaranteed, so nothing here assumes a type it did not check.
+// The event itself is never nullish here: every reader runs only after the
+// authorization and proof headers have been read off it, which a null event
+// cannot have supplied.
 const asString = (value) => (typeof value === "string" ? value : undefined);
 
 // Covers API Gateway HTTP (v2), API Gateway REST (v1) and ALB.
-const readMethod = (event) =>
-	asString(event?.requestContext?.http?.method) ?? asString(event?.httpMethod);
+const readMethod = (event) => {
+	const requestContext = event.requestContext;
+	const httpMethod = asString(event.httpMethod);
+	return asString(requestContext?.http?.method) ?? httpMethod;
+};
 
 // `htu` names the URI the client requested, so the path has to be the one that
 // arrived rather than the one the router matched. API Gateway REST strips the
 // stage from `event.path` and keeps it on `requestContext.path`, so preferring
 // the latter is what makes a stage other than `$default` work at all. HTTP
 // (v2) has no `requestContext.path`; ALB has neither, and only `path`.
-const readPath = (event) =>
-	asString(event?.rawPath) ??
-	asString(event?.requestContext?.path) ??
-	asString(event?.path);
+const readPath = (event) => {
+	const rawPath = asString(event.rawPath);
+	const requestContext = event.requestContext;
+	const path = asString(event.path);
+	return rawPath ?? asString(requestContext?.path) ?? path;
+};
 
 // Never the Host header: a client controls it, so trusting it would let a proof
 // be minted for any origin the attacker chose. `requestContext.domainName` is
@@ -202,15 +219,17 @@ const readPath = (event) =>
 // why it is a safe fallback. Behind a CDN or any other proxy, set `origin`.
 const readOrigin = (event, configured) => {
 	if (configured) return configured;
-	const domainName = asString(event?.requestContext?.domainName);
+	const requestContext = event.requestContext;
+	const domainName = asString(requestContext?.domainName);
 	return domainName ? `https://${domainName}` : undefined;
 };
 
 // Exactly one DPoP header, per RFC 9449 §4.3 step 1. Proxies can deliver a
 // repeated header as an array, and two proofs is ambiguous rather than merely
-// redundant, so it is refused instead of resolved.
+// redundant, so it is refused instead of resolved. readAuthorization runs first
+// and rejects when `headers` is absent, so `headers` is always an object here.
 const readProof = (headers) => {
-	const raw = headers?.dpop ?? headers?.DPoP ?? headers?.Dpop;
+	const raw = headers.dpop ?? headers.DPoP ?? headers.Dpop;
 	if (Array.isArray(raw)) {
 		return raw.length === 1 ? asString(raw[0]) : undefined;
 	}
@@ -250,7 +269,7 @@ export const verifyDpopProof = (
 	const algorithm = ALGORITHMS[header.alg];
 
 	const jwk = header.jwk;
-	if (jwk?.kty !== algorithm.kty || jwk?.crv !== algorithm.crv) {
+	if (jwk?.kty !== algorithm.kty || jwk.crv !== algorithm.crv) {
 		throw new Error(`Proof 'jwk' does not match '${header.alg}'`);
 	}
 	for (const member of PRIVATE_MEMBERS) {
@@ -292,7 +311,10 @@ export const verifyDpopProof = (
 	}
 
 	const claims = decodeJson(payloadSegment, "payload");
-	if (claims.htm !== method) {
+	// RFC 9449 §4.2: `htm` is REQUIRED. Checked as a string in its own right, so
+	// a proof that omits it fails even when the caller had no method to hold it
+	// against; a bare `!==` would let two undefineds pass as a match.
+	if (typeof claims.htm !== "string" || claims.htm !== method) {
 		throw new Error(`Proof 'htm' is '${claims.htm}', expected '${method}'`);
 	}
 	if (
@@ -336,9 +358,9 @@ const httpDpopMiddleware = (opts = {}) => {
 		"WWW-Authenticate": `DPoP algs="${algorithms.join(" ")}"`,
 	};
 
-	const unauthorized = (data) => {
-		const error = createError(401, "Unauthorized", {
-			cause: { package: pkg, data },
+	const unauthorized = (reason) => {
+		const error = new HttpError(401, {
+			cause: { package: pkg, data: { reason } },
 		});
 		error.headers = wwwAuthenticate;
 		return error;
@@ -375,8 +397,9 @@ const httpDpopMiddleware = (opts = {}) => {
 		}
 		const accessToken = authorization.slice("dpop ".length);
 
+		// readProof returns a string or undefined, so `!proof` is the whole check.
 		const proof = readProof(headers);
-		if (typeof proof !== "string" || !proof) {
+		if (!proof) {
 			throw unauthorized("Missing DPoP header");
 		}
 		// Bounded before anything parses it, so a hostile proof cannot hand
@@ -388,27 +411,45 @@ const httpDpopMiddleware = (opts = {}) => {
 		}
 
 		// Resolved and parsed here rather than inside the proof check, so an
-		// undeterminable request URI — an ALB, or anything else with no
-		// `requestContext.domainName`, and no `origin` configured — is a 500 the
+		// undeterminable request URI, an ALB, or anything else with no
+		// `requestContext.domainName`, and no `origin` configured, is a 500 the
 		// operator can act on and never a 401 the caller is left to guess at. A
 		// malformed `origin` never reaches this point; it fails at construction.
+		// An undefined origin makes the template below unparseable, so it is
+		// caught by the `url` check; an undefined path is not (the origin alone
+		// parses), hence its own arm.
 		const requestOrigin = readOrigin(request.event, origin);
 		const path = readPath(request.event);
 		let url;
 		try {
-			url = httpUri(`${requestOrigin}${path}`, "The request URI");
+			url = httpUri(`${requestOrigin}${path}`);
 		} catch {
-			url = undefined;
+			// `url` was declared without an initialiser, so it is already
+			// undefined here; the check below is what reports it.
 		}
-		if (
-			requestOrigin === undefined ||
-			path === undefined ||
-			url === undefined
-		) {
-			throw createError(500, "Internal Server Error", {
+		if (path === undefined || url === undefined) {
+			throw new HttpError(500, {
 				cause: {
 					package: pkg,
-					data: "Cannot determine the request URI: set the 'origin' option",
+					data: {
+						reason: "Cannot determine the request URI: set the 'origin' option",
+					},
+				},
+			});
+		}
+
+		// Same reasoning as the URI: an event with no method (nothing under
+		// `requestContext.http.method` or `httpMethod`) is a shape the operator
+		// has to act on, not a proof the caller got wrong.
+		const method = readMethod(request.event);
+		if (method === undefined) {
+			throw new HttpError(500, {
+				cause: {
+					package: pkg,
+					data: {
+						reason:
+							"Cannot determine the request method: the event carries neither 'requestContext.http.method' nor 'httpMethod'",
+					},
 				},
 			});
 		}
@@ -416,7 +457,7 @@ const httpDpopMiddleware = (opts = {}) => {
 		let verified;
 		try {
 			verified = verifyDpopProof(proof, {
-				method: readMethod(request.event),
+				method,
 				url,
 				accessToken,
 				algorithms,
@@ -436,7 +477,7 @@ const httpDpopMiddleware = (opts = {}) => {
 		// see the note on `jti` in the docs.
 		request.internal[options.proofKey] = verified.claims;
 		if (options.setToContext) {
-			request.context[options.proofKey] = verified.claims;
+			setContextNamespace(request, options.proofKey, verified.claims);
 		}
 	};
 

@@ -65,7 +65,7 @@ Middy's CI/CD pipeline is designed against the [OWASP Top 10 CI/CD Security Risk
 - No static publish tokens. `npm publish` uses GitHub OIDC (`id-token: write`) to obtain a short-lived registry token per release run.
 - The only credential in the default workflow context is `GITHUB_TOKEN`, which GitHub auto-rotates per job and scopes via per-job `permissions:` declarations.
 - Long-lived secrets required by specific workflows (`GITLEAKS_LICENSE`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`) are stored as GitHub Secrets and only injected as environment variables into the steps that need them. They are never written to logs (GitHub Actions auto-redacts registered secrets).
-- No credentials are committed to the repository. Every PR is scanned by both TruffleHog (`--only-verified --results=verified,unknown`) and gitleaks; either tool failing blocks merge.
+- No credentials are committed to the repository. Every PR is scanned by both TruffleHog (`--only-verified`) and gitleaks; either tool failing blocks merge.
 - Maintainer accounts require WebAuthn MFA (see [docs/GOVERNANCE.md](docs/GOVERNANCE.md)).
 - A credential believed to be compromised follows the rotation procedure in [docs/INCIDENT-RESPONSE.md](docs/INCIDENT-RESPONSE.md).
 
@@ -87,15 +87,24 @@ seriously. Thank you for improving the security of our open source
 software. We appreciate your efforts and responsible disclosure and will
 make every effort to acknowledge your contributions.
 
-Report security vulnerabilities by emailing the lead maintainer at:
+Report security vulnerabilities privately through GitHub Security Advisories:
+```
+https://github.com/middyjs/middy/security/advisories/new
+```
+The advisory stays private between you and the maintainers, tracks the fix in
+one place, and becomes the published advisory (with a CVE where one applies)
+when the fix is released.
+
+If you cannot use GitHub, email the lead maintainer instead at:
 ```
 willfarrell@proton.me
 ```
-The lead maintainer will acknowledge your email within 24 hours, and will
-send a more detailed response within 48 hours indicating the next steps in
-handling your report. After the initial reply to your report, the security
-team will endeavour to keep you informed of the progress towards a fix and
-full announcement, and may ask for additional information or guidance.
+The lead maintainer will acknowledge your report within 3 business days and
+indicate the next steps in handling it. After the initial reply to your
+report, the security team will endeavour to keep you informed of the progress
+towards a fix and full announcement, and may ask for additional information
+or guidance. The target is a fix within 90 days of the report; critical
+issues are prioritised and released sooner.
 
 Report security vulnerabilities in third-party modules to the person or
 team maintaining the module.
@@ -109,7 +118,13 @@ process, involving the following steps:
   * Confirm the problem and determine the affected versions.
   * Audit code to find any potential similar problems.
   * Prepare fixes for all releases still under maintenance. These fixes
-    will be released as fast as possible to NPM.
+    will be released as fast as possible to NPM, within the 90 day target
+    above and sooner for critical issues.
+  * Publish the GitHub Security Advisory together with the fix release,
+    request a CVE through it where one applies, and credit the reporter
+    unless they ask not to be named.
+
+Please keep the report private until the advisory is published.
 
 ## Pipeline Incident Response
 

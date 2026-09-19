@@ -1,8 +1,8 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import {
-	createError,
 	decodeBody,
+	HttpError,
 	jsonContentTypePattern,
 	jsonParseProtectProto,
 	validateOptions,
@@ -10,13 +10,6 @@ import {
 
 const name = "http-json-body-parser";
 const pkg = `@middy/${name}`;
-
-// Stryker disable next-line ObjectLiteral: replacing the defaults with `{}` is equivalent: reviver/disableContentTypeCheck/disableContentTypeError are only ever read via truthiness, and absent keys are also falsy/undefined.
-const defaults = {
-	reviver: undefined,
-	disableContentTypeCheck: false,
-	disableContentTypeError: false,
-};
 
 const optionSchema = {
 	type: "object",
@@ -32,28 +25,27 @@ export const httpJsonBodyParserValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
 const httpJsonBodyParserMiddleware = (opts = {}) => {
-	const options = { ...defaults, ...opts };
-	const { reviver } = options;
+	const { reviver, disableContentTypeCheck, disableContentTypeError } = opts;
 	const httpJsonBodyParserMiddlewareBefore = (request) => {
 		const event = request.event;
 		const { headers, body, isBase64Encoded } = event;
 		const contentType = headers?.["content-type"] ?? headers?.["Content-Type"];
 
-		if (
-			!options.disableContentTypeCheck &&
-			!jsonContentTypePattern.test(contentType)
-		) {
-			if (options.disableContentTypeError) {
+		if (!disableContentTypeCheck && !jsonContentTypePattern.test(contentType)) {
+			if (disableContentTypeError) {
 				return;
 			}
-			throw createError(415, "Unsupported Media Type", {
-				cause: { package: pkg, data: contentType },
+			throw new HttpError(415, {
+				cause: { package: pkg, data: { contentType } },
 			});
 		}
 
 		if (typeof body === "undefined") {
-			throw createError(422, "Invalid or malformed JSON was provided", {
-				cause: { package: pkg, data: body },
+			throw new HttpError(422, {
+				cause: {
+					package: pkg,
+					data: { reason: "Invalid or malformed JSON was provided", body },
+				},
 			});
 		}
 
@@ -68,11 +60,14 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
 			if (err.statusCode) {
 				throw err;
 			}
-			throw createError(422, "Invalid or malformed JSON was provided", {
+			throw new HttpError(422, {
 				cause: {
 					package: pkg,
-					data: body,
-					message: err.message,
+					data: {
+						reason: "Invalid or malformed JSON was provided",
+						body,
+						message: err.message,
+					},
 				},
 			});
 		}

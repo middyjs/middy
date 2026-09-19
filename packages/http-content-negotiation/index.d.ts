@@ -1,7 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
-import type { Context as LambdaContext } from "aws-lambda";
+import type { ContextNamespace } from "@middy/util";
 
 export interface Options {
 	parseCharsets?: boolean;
@@ -17,9 +17,10 @@ export interface Options {
 	availableMediaTypes?: string[];
 	defaultToFirstMediaType?: boolean;
 	failOnMismatch?: boolean;
+	contextKey?: string;
 }
 
-export type Context = LambdaContext & {
+export interface NegotiationResults {
 	preferredCharsets: string[];
 	preferredCharset: string;
 	preferredEncodings: string[];
@@ -28,11 +29,19 @@ export type Context = LambdaContext & {
 	preferredLanguage: string;
 	preferredMediaTypes: string[];
 	preferredMediaType: string;
-};
+}
 
-declare function httpContentNegotiation(
-	options?: Options,
-): middy.MiddlewareObj<unknown, unknown, Error>;
+export type Context<TOptions extends Options | undefined = undefined> =
+	ContextNamespace<TOptions, "http-content-negotiation", NegotiationResults>;
+
+declare function httpContentNegotiation<
+	TOptions extends Options | undefined,
+	TKey extends string = string,
+>(
+	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
+	// key narrows `middyContext` without `as const`.
+	options?: TOptions & { contextKey?: TKey },
+): middy.MiddlewareObj<unknown, unknown, Error, Context<TOptions>>;
 
 export declare function httpContentNegotiationValidateOptions(
 	options?: Record<string, unknown>,

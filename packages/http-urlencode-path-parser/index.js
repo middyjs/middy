@@ -1,6 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createError, validateOptions } from "@middy/util";
+import { HttpError, validateOptions } from "@middy/util";
 
 const name = "http-urlencode-path-parser";
 const pkg = `@middy/${name}`;
@@ -19,16 +19,15 @@ const httpUrlencodePathParserMiddlewareBefore = (request) => {
 	if (!params) return;
 	for (const key of Object.keys(params)) {
 		const value = params[key];
-		// Fast-path: most API Gateway path params are plain ASCII (UUIDs,
-		// numeric IDs, slugs). Skip the native decodeURIComponent + property
-		// write entirely when there's no `%` to decode.
-		// Stryker disable next-line ConditionalExpression,StringLiteral: the no-'%' branch is a perf-only fast-path; decodeURIComponent leaves any string without '%' unchanged and never throws, so skipping vs decoding it is behaviorally indistinguishable in the output.
-		if (typeof value !== "string" || value.indexOf("%") === -1) continue;
+		if (typeof value !== "string") continue;
 		try {
 			params[key] = decodeURIComponent(value);
 		} catch (_e) {
-			throw createError(400, "Invalid path parameter encoding", {
-				cause: { package: pkg, data: key },
+			throw new HttpError(400, {
+				cause: {
+					package: pkg,
+					data: { reason: "Invalid path parameter encoding", key },
+				},
 			});
 		}
 	}

@@ -26,15 +26,16 @@ npm install --save paseto
 ## Options
 
 - `internalKey` (string) (required): Key on `request.internal` holding the verification key. Typically the key populated by `@middy/kms` (`{ publicKey, keySpec }` where `keySpec` is `ECC_NIST_ED25519`), but a `Uint8Array` of DER SPKI bytes and an already-resolved `KeyObject` are both accepted too. It may also hold an **array** of any of those; see [Key rotation](#key-rotation).
-- `tokenCookieName` (string) (optional): Cookie name to read the token from.
+- `tokenCookieName` (string) (optional): Cookie name to read the token from. Looked up in the `Cookie` header first, then in `event.cookies` (HTTP API payload 2.0 delivers cookies there instead of in a header).
 - `tokenHeaderName` (string) (optional): Custom header to read the token from. When the name is `Authorization` (case-insensitive), the `Bearer ` scheme is stripped; any other scheme causes the source to fall through. Other header names return the raw value.
 - `tokenQueryStringName` (string) (optional): Query-string parameter to read the token from.
 - `audience` (string) (optional): Expected `aud` claim.
 - `issuer` (string) (optional): Expected `iss` claim.
 - `clockTolerance` (string) (optional): Clock skew tolerance forwarded to `paseto`'s `V4.verify` (e.g. `"5 seconds"`). See the [paseto docs](https://github.com/panva/paseto) for accepted formats.
+- `maxTokenAge` (string) (optional): Maximum age of the token measured from its `iat` claim, forwarded to `paseto`'s `V4.verify`. Uses the same time-span format as `clockTolerance` (e.g. `"1 hour"`). Setting it also makes `iat` required, so tokens without one are rejected.
 - `expectedClaims` (object) (optional): Claims the payload must carry, compared with strict equality, e.g. `{ typ: 'access' }`. A claim that is absent fails the same way a claim with the wrong value does. Checked after the signature and before the payload is published, so nothing downstream can read a payload this rejected. Values must be a string, number, or boolean: an array or object could only match itself by reference, so it is refused at construction.
 - `payloadKey` (string) (default `paseto`): Key under which the decoded payload is stored.
-- `setToContext` (boolean) (default `false`): When `true`, the verified payload is also written to `request.context[payloadKey]`. By default it is written only to `request.internal[payloadKey]` (matches `@middy/ssm` and `@middy/secrets-manager`).
+- `setToContext` (boolean) (default `false`): When `true`, the verified payload is also published to `request.context.middyContext[payloadKey]`. By default it is written only to `request.internal[payloadKey]` (matches `@middy/ssm` and `@middy/secrets-manager`). There is no separate `contextKey`: `payloadKey` names both.
 
 NOTES:
 
@@ -53,7 +54,7 @@ import httpErrorHandler from '@middy/http-error-handler'
 
 const lambdaHandler = async (event) => {
   // The verified payload is on request.internal.paseto by default.
-  // To use context.paseto as below, pass setToContext: true to httpPaseto.
+  // To use context.middyContext.paseto as below, pass setToContext: true to httpPaseto.
   return { statusCode: 200, body: JSON.stringify({ ok: true }) }
 }
 
@@ -149,7 +150,7 @@ import middy from '@middy/core'
 import kms from '@middy/kms'
 import httpPaseto from '@middy/http-paseto'
 import httpErrorHandler from '@middy/http-error-handler'
-import { createError } from '@middy/util'
+import { HttpError } from '@middy/util'
 
 const requireRole = (requiredRole, { payloadKey = 'paseto', claim = 'roles' } = {}) => ({
   before: (request) => {
@@ -159,8 +160,11 @@ const requireRole = (requiredRole, { payloadKey = 'paseto', claim = 'roles' } = 
       ? roles.includes(requiredRole)
       : roles === requiredRole
     if (!has) {
-      throw createError(403, 'Forbidden', {
-        cause: { package: 'custom/require-role', data: `Missing role: ${requiredRole}` },
+      throw new HttpError(403, {
+        cause: {
+          package: 'custom/require-role',
+          data: { reason: 'Missing role', requiredRole },
+        },
       })
     }
   },

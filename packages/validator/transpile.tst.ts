@@ -1,14 +1,38 @@
-import type { Ajv } from "ajv";
+import type { AsyncValidateFunction, ValidateFunction } from "ajv";
 import { expect, test } from "tstyche";
 import type { LocalizeFunction } from "./transpile.js";
-import { transpileLocale, transpileSchema } from "./transpile.js";
+import { nestedSchema, transpileFTL, transpileSchema } from "./transpile.js";
 
-test("transpileSchema returns Ajv instance", () => {
-	const schema = transpileSchema({ type: "object" }, {});
-	expect(schema).type.toBe<Ajv>();
+test("transpileSchema returns a compiled validate function", () => {
+	const validate = transpileSchema({ type: "object" }, {});
+	expect(validate).type.toBe<ValidateFunction | AsyncValidateFunction>();
 });
 
-test("transpileLocale returns LocalizeFunction", () => {
-	const locale = transpileLocale("", {});
-	expect(locale).type.toBe<LocalizeFunction>();
+test("transpileSchema accepts ajv options including keywords", () => {
+	const validate = transpileSchema(
+		{ type: "object" },
+		{ keywords: [{ keyword: "myKw" }] },
+	);
+	expect(validate).type.toBe<ValidateFunction | AsyncValidateFunction>();
+});
+
+test("nestedSchema returns a schema object", () => {
+	expect(nestedSchema("/body", { type: "object" })).type.toBe<object>();
+});
+
+test("nestedSchema output is accepted by transpileSchema", () => {
+	const validate = transpileSchema(nestedSchema("/body", { type: "object" }));
+	expect(validate).type.toBe<ValidateFunction | AsyncValidateFunction>();
+});
+
+test("transpileFTL returns the transpiled module source", () => {
+	const source = transpileFTL("", { locale: "en" });
+	expect(source).type.toBe<string>();
+});
+
+test("LocalizeFunction is the localizer shape passed to languages", () => {
+	const localize: LocalizeFunction = (errors) => {
+		expect(errors).type.toBeAssignableTo<unknown[] | null | undefined>();
+	};
+	expect(localize).type.toBe<LocalizeFunction>();
 });

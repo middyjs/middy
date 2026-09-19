@@ -1,6 +1,6 @@
 {
 	"name": "@middy/github-workflows",
-	"version": "7.9.2",
+	"version": "8.0.0-alpha.0",
 	"private": true,
 	"engines": {
 		"node": ">=24.0"

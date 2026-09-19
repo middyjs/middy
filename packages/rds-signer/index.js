@@ -5,14 +5,18 @@ import {
 	assignSetToContext,
 	buildSetToContextSpec,
 	canPrefetch,
-	getCache,
-	modifyCache,
+	evictCacheOnFailure,
 	processCache,
+	setCacheKeyExpiry,
 	validateOptions,
 } from "@middy/util";
 
 const name = "rds-signer";
 const pkg = `@middy/${name}`;
+
+// The SDK signer issues tokens with `expiresIn: 900` (15 min). Refresh one
+// minute early so a warm container never presents an expired token.
+const tokenLifetimeMs = 14 * 60 * 1000;
 
 const defaults = {
 	AwsClient: Signer,
@@ -23,6 +27,7 @@ const defaults = {
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -47,10 +52,19 @@ const optionSchema = {
 		cacheKey: { type: "string" },
 		cacheKeyExpiry: {
 			type: "object",
-			additionalProperties: { type: "number", minimum: -1 },
+			additionalProperties: {
+				type: "number",
+				minimum: -1,
+				maximum: Number.MAX_SAFE_INTEGER,
+			},
 		},
-		cacheExpiry: { type: "number", minimum: -1 },
+		cacheExpiry: {
+			type: "number",
+			minimum: -1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -59,7 +73,11 @@ export const rdsSignerValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
 const rdsSignerMiddleware = (opts = {}) => {
-	const options = { ...defaults, ...opts };
+	const options = {
+		...defaults,
+		...opts,
+		cacheKeyExpiry: { ...defaults.cacheKeyExpiry, ...opts.cacheKeyExpiry },
+	};
 
 	const defaultFetchData = {
 		hostname: process.env.PGHOST ?? process.env.DBHOST,
@@ -101,17 +119,13 @@ const rdsSignerMiddleware = (opts = {}) => {
 					// A missing token usually indicates a credential or signing problem.
 					if (!token.includes("X-Amz-Security-Token=")) {
 						throw new Error("X-Amz-Security-Token Missing", {
-							cause: { package: pkg, method },
+							cause: { package: pkg, data: { method } },
 						});
 					}
+					setCacheKeyExpiry(options, Date.now() + tokenLifetimeMs);
 					return token;
 				})
-				.catch((e) => {
-					const value = getCache(options.cacheKey).value ?? {};
-					value[internalKey] = undefined;
-					modifyCache(options.cacheKey, value);
-					throw e;
-				});
+				.catch(evictCacheOnFailure(options.cacheKey, internalKey, values));
 		}
 
 		return values;
@@ -121,15 +135,13 @@ const rdsSignerMiddleware = (opts = {}) => {
 		processCache(options, fetchRequest);
 	}
 
-	const rdsSignerMiddlewareBefore = async (request) => {
+	const rdsSignerMiddlewareBefore = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
 
 		Object.assign(request.internal, value);
 
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: equivalent. assignSetToContext returns undefined on the sync path (context already assigned) or a Promise otherwise; `await undefined` is a no-op, so forcing the guard to true changes only an unobservable microtask hop, not behavior.
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
 	};
 

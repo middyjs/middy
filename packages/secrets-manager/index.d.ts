@@ -5,7 +5,7 @@ import type {
 	SecretsManagerClientConfig,
 } from "@aws-sdk/client-secrets-manager";
 import type middy from "@middy/core";
-import type { Options as MiddyOptions } from "@middy/util";
+import type { ContextNamespace, Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
 export type SecretType<T> = string & { __returnType?: T };
@@ -24,11 +24,17 @@ export interface SecretsManagerOptions<
 export type Context<TOptions extends SecretsManagerOptions | undefined> =
 	TOptions extends { setToContext: true }
 		? TOptions extends { fetchData: infer TFetchData }
-			? LambdaContext & {
-					[Key in keyof TFetchData]: TFetchData[Key] extends SecretType<infer T>
-						? T
-						: unknown;
-				}
+			? ContextNamespace<
+					TOptions,
+					"secrets-manager",
+					{
+						[Key in keyof TFetchData]: TFetchData[Key] extends SecretType<
+							infer T
+						>
+							? T
+							: unknown;
+					}
+				>
 			: never
 		: LambdaContext;
 
@@ -45,8 +51,11 @@ export type Internal<TOptions extends SecretsManagerOptions | undefined> =
 
 declare function secretsManager<
 	TOptions extends SecretsManagerOptions | undefined,
+	TKey extends string = string,
 >(
-	options?: TOptions,
+	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
+	// key narrows `middyContext` without `as const`.
+	options?: TOptions & { contextKey?: TKey },
 ): middy.MiddlewareObj<
 	unknown,
 	unknown,

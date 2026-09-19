@@ -43,11 +43,9 @@ const event = {
   body: 'frappucino=muffin&goat%5B%5D=scone&pond=moose'
 }
 
-handler(event, {}, (_, body) => {
-  deepStrictEqual(body, {
-    frappucino: 'muffin',
-    'goat[]': 'scone',
-    pond: 'moose'
-  })
-})
+const response = await handler(event, {})
+// the parsed body is a null-prototype object, so compare its fields
+strictEqual(response.frappucino, 'muffin')
+strictEqual(response['goat[]'], 'scone')
+strictEqual(response.pond, 'moose')
 ```

@@ -1,47 +1,342 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
-import { test } from "node:test";
+import {
+	rejects as assertRejects,
+	deepStrictEqual,
+	match,
+	ok,
+	strictEqual,
+} from "node:assert/strict";
+import { describe, test } from "node:test";
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
 import { clearCache, getInternal } from "@middy/util";
 import { mockClient } from "aws-sdk-client-mock";
 import middy from "../core/index.js";
 import sts, { stsValidateOptions } from "./index.js";
 
-test.afterEach((t) => {
-	t.mock.reset();
-	clearCache();
-});
+describe("@middy/sts", () => {
+	test.afterEach((t) => {
+		t.mock.reset();
+		clearCache();
+	});
 
-const defaultEvent = {};
-const defaultContext = {
-	getRemainingTimeInMillis: () => 1000,
-};
-
-test("It should set credential to internal storage", async (t) => {
-	mockClient(STSClient)
-		.on(AssumeRoleCommand)
-		.resolvesOnce({
-			Credentials: {
-				AccessKeyId: "accessKeyId",
-				SecretAccessKey: "secretAccessKey",
-				SessionToken: "sessionToken",
-			},
-		});
-
-	const handler = middy(() => {});
-
-	const middleware = async (request) => {
-		const values = await getInternal(true, request);
-		deepStrictEqual(values.role, {
-			accessKeyId: "accessKeyId",
-			secretAccessKey: "secretAccessKey",
-			sessionToken: "sessionToken",
-		});
+	const defaultEvent = {};
+	const defaultContext = {
+		getRemainingTimeInMillis: () => 1000,
 	};
 
-	handler
-		.use(
+	test("It should set credential to internal storage", async (t) => {
+		mockClient(STSClient)
+			.on(AssumeRoleCommand)
+			.resolvesOnce({
+				Credentials: {
+					AccessKeyId: "accessKeyId",
+					SecretAccessKey: "secretAccessKey",
+					SessionToken: "sessionToken",
+				},
+			});
+
+		const handler = middy(() => {});
+
+		const middleware = async (request) => {
+			const values = await getInternal(true, request);
+			deepStrictEqual(values.role, {
+				accessKeyId: "accessKeyId",
+				secretAccessKey: "secretAccessKey",
+				sessionToken: "sessionToken",
+			});
+		};
+
+		handler
+			.use(
+				sts({
+					AwsClient: STSClient,
+					cacheExpiry: 0,
+					fetchData: {
+						role: {
+							RoleArn: ".../role",
+						},
+					},
+					disablePrefetch: true,
+				}),
+			)
+			.before(middleware);
+
+		await handler(defaultEvent, defaultContext);
+	});
+
+	test("It should set STS secret to internal storage without prefetch", async (t) => {
+		mockClient(STSClient)
+			.on(AssumeRoleCommand)
+			.resolvesOnce({
+				Credentials: {
+					AccessKeyId: "accessKeyId",
+					SecretAccessKey: "secretAccessKey",
+					SessionToken: "sessionToken",
+				},
+			});
+
+		const handler = middy(() => {});
+
+		const middleware = async (request) => {
+			const values = await getInternal(true, request);
+			deepStrictEqual(values.role, {
+				accessKeyId: "accessKeyId",
+				secretAccessKey: "secretAccessKey",
+				sessionToken: "sessionToken",
+			});
+		};
+
+		handler
+			.use(
+				sts({
+					AwsClient: STSClient,
+					cacheExpiry: 0,
+					fetchData: {
+						role: {
+							RoleArn: ".../role",
+						},
+					},
+					disablePrefetch: true,
+				}),
+			)
+			.before(middleware);
+
+		await handler(defaultEvent, defaultContext);
+	});
+
+	test("It should set STS secret to context", async (t) => {
+		mockClient(STSClient)
+			.on(AssumeRoleCommand)
+			.resolvesOnce({
+				Credentials: {
+					AccessKeyId: "accessKeyId",
+					SecretAccessKey: "secretAccessKey",
+					SessionToken: "sessionToken",
+				},
+			});
+
+		const handler = middy(() => {});
+
+		const middleware = async (request) => {
+			deepStrictEqual(
+				{ ...request.context.middyContext.sts.role },
+				{
+					accessKeyId: "accessKeyId",
+					secretAccessKey: "secretAccessKey",
+					sessionToken: "sessionToken",
+				},
+			);
+		};
+
+		handler
+			.use(
+				sts({
+					AwsClient: STSClient,
+					cacheExpiry: 0,
+					fetchData: {
+						role: {
+							RoleArn: ".../role",
+						},
+					},
+					setToContext: true,
+					disablePrefetch: true,
+				}),
+			)
+			.before(middleware);
+
+		await handler(defaultEvent, defaultContext);
+	});
+
+	test("It should not call aws-sdk again if parameter is cached", async (t) => {
+		const mockService = mockClient(STSClient)
+			.on(AssumeRoleCommand)
+			.resolvesOnce({
+				Credentials: {
+					AccessKeyId: "accessKeyId",
+					SecretAccessKey: "secretAccessKey",
+					SessionToken: "sessionToken",
+				},
+			});
+		const sendStub = mockService.send;
+
+		const handler = middy(() => {});
+
+		const middleware = async (request) => {
+			const values = await getInternal(true, request);
+			deepStrictEqual(values.role, {
+				accessKeyId: "accessKeyId",
+				secretAccessKey: "secretAccessKey",
+				sessionToken: "sessionToken",
+			});
+		};
+
+		handler
+			.use(
+				sts({
+					AwsClient: STSClient,
+					cacheExpiry: -1,
+					fetchData: {
+						role: {
+							RoleArn: ".../role",
+						},
+					},
+				}),
+			)
+			.before(middleware);
+
+		await handler(defaultEvent, defaultContext);
+		await handler(defaultEvent, defaultContext);
+
+		strictEqual(sendStub.callCount, 1);
+	});
+
+	test("It should call aws-sdk if cache enabled but cached param has expired", async (t) => {
+		const mockService = mockClient(STSClient)
+			.on(AssumeRoleCommand)
+			.resolves({
+				Credentials: {
+					AccessKeyId: "accessKeyId",
+					SecretAccessKey: "secretAccessKey",
+					SessionToken: "sessionToken",
+				},
+			});
+		const sendStub = mockService.send;
+
+		const handler = middy(() => {});
+
+		const middleware = async (request) => {
+			const values = await getInternal(true, request);
+			deepStrictEqual(values.role, {
+				accessKeyId: "accessKeyId",
+				secretAccessKey: "secretAccessKey",
+				sessionToken: "sessionToken",
+			});
+		};
+
+		handler
+			.use(
+				sts({
+					AwsClient: STSClient,
+					cacheExpiry: 0,
+					fetchData: {
+						role: {
+							RoleArn: ".../role",
+						},
+					},
+					disablePrefetch: true,
+				}),
+			)
+			.before(middleware);
+
+		await handler(defaultEvent, defaultContext);
+		await handler(defaultEvent, defaultContext);
+
+		strictEqual(sendStub.callCount, 2);
+	});
+
+	test("It should expire cached credentials 60 s before the AssumeRole Expiration", async (t) => {
+		t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+		t.mock.timers.setTime(1_700_000_000_000);
+		const mockService = mockClient(STSClient)
+			.on(AssumeRoleCommand)
+			.resolves({
+				Credentials: {
+					AccessKeyId: "accessKeyId",
+					SecretAccessKey: "secretAccessKey",
+					SessionToken: "sessionToken",
+					Expiration: new Date(Date.now() + 60 * 60 * 1000),
+				},
+			});
+		const sendStub = mockService.send;
+
+		const handler = middy(() => {}).use(
 			sts({
 				AwsClient: STSClient,
+				cacheKey: "sts-expiration-clamp",
+				cacheExpiry: -1,
+				fetchData: {
+					role: {
+						RoleArn: ".../role",
+					},
+				},
+				disablePrefetch: true,
+			}),
+		);
+
+		await handler(defaultEvent, defaultContext);
+		// 58 min later the credentials are still inside the 60 s margin, so the
+		// cache is served.
+		t.mock.timers.tick(58 * 60 * 1000);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(sendStub.callCount, 1);
+		// 61 min later the credentials have expired, so AssumeRole runs again even
+		// though cacheExpiry is -1.
+		t.mock.timers.tick(3 * 60 * 1000);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(sendStub.callCount, 2);
+	});
+
+	test("It should keep a shorter cacheExpiry over a later AssumeRole Expiration", async (t) => {
+		t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+		t.mock.timers.setTime(1_700_000_000_000);
+		const mockService = mockClient(STSClient)
+			.on(AssumeRoleCommand)
+			.resolves({
+				Credentials: {
+					AccessKeyId: "accessKeyId",
+					SecretAccessKey: "secretAccessKey",
+					SessionToken: "sessionToken",
+					Expiration: new Date(Date.now() + 60 * 60 * 1000),
+				},
+			});
+		const sendStub = mockService.send;
+
+		const handler = middy(() => {}).use(
+			sts({
+				AwsClient: STSClient,
+				cacheKey: "sts-expiration-shorter-cacheExpiry",
+				cacheExpiry: 10 * 60 * 1000,
+				fetchData: {
+					role: {
+						RoleArn: ".../role",
+					},
+				},
+				disablePrefetch: true,
+			}),
+		);
+
+		await handler(defaultEvent, defaultContext);
+		t.mock.timers.tick(9 * 60 * 1000);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(sendStub.callCount, 1);
+		// The configured 10 min wins over the 1 h credential lifetime.
+		t.mock.timers.tick(2 * 60 * 1000);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(sendStub.callCount, 2);
+	});
+
+	test("It should retry client creation on the next invocation after a rejected init", async (t) => {
+		let constructed = 0;
+		class FlakyClient extends STSClient {
+			constructor(...args) {
+				constructed++;
+				if (constructed === 1) throw new Error("init failed");
+				super(...args);
+			}
+		}
+		mockClient(FlakyClient)
+			.on(AssumeRoleCommand)
+			.resolves({
+				Credentials: {
+					AccessKeyId: "accessKeyId",
+					SecretAccessKey: "secretAccessKey",
+					SessionToken: "sessionToken",
+				},
+			});
+
+		const handler = middy(() => {}).use(
+			sts({
+				AwsClient: FlakyClient,
+				cacheKey: "sts-client-init-retry",
 				cacheExpiry: 0,
 				fetchData: {
 					role: {
@@ -50,75 +345,20 @@ test("It should set credential to internal storage", async (t) => {
 				},
 				disablePrefetch: true,
 			}),
-		)
-		.before(middleware);
+		);
 
-	await handler(defaultEvent, defaultContext);
-});
+		await assertRejects(handler(defaultEvent, defaultContext), /init failed/);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(constructed, 2);
+	});
 
-test("It should set STS secret to internal storage without prefetch", async (t) => {
-	mockClient(STSClient)
-		.on(AssumeRoleCommand)
-		.resolvesOnce({
-			Credentials: {
-				AccessKeyId: "accessKeyId",
-				SecretAccessKey: "secretAccessKey",
-				SessionToken: "sessionToken",
-			},
-		});
+	test("It should catch if an error is returned from fetch", async (t) => {
+		const mockService = mockClient(STSClient)
+			.on(AssumeRoleCommand)
+			.rejects("timeout");
+		const sendStub = mockService.send;
 
-	const handler = middy(() => {});
-
-	const middleware = async (request) => {
-		const values = await getInternal(true, request);
-		deepStrictEqual(values.role, {
-			accessKeyId: "accessKeyId",
-			secretAccessKey: "secretAccessKey",
-			sessionToken: "sessionToken",
-		});
-	};
-
-	handler
-		.use(
-			sts({
-				AwsClient: STSClient,
-				cacheExpiry: 0,
-				fetchData: {
-					role: {
-						RoleArn: ".../role",
-					},
-				},
-				disablePrefetch: true,
-			}),
-		)
-		.before(middleware);
-
-	await handler(defaultEvent, defaultContext);
-});
-
-test("It should set STS secret to context", async (t) => {
-	mockClient(STSClient)
-		.on(AssumeRoleCommand)
-		.resolvesOnce({
-			Credentials: {
-				AccessKeyId: "accessKeyId",
-				SecretAccessKey: "secretAccessKey",
-				SessionToken: "sessionToken",
-			},
-		});
-
-	const handler = middy(() => {});
-
-	const middleware = async (request) => {
-		deepStrictEqual(request.context.role, {
-			accessKeyId: "accessKeyId",
-			secretAccessKey: "secretAccessKey",
-			sessionToken: "sessionToken",
-		});
-	};
-
-	handler
-		.use(
+		const handler = middy(() => {}).use(
 			sts({
 				AwsClient: STSClient,
 				cacheExpiry: 0,
@@ -130,324 +370,527 @@ test("It should set STS secret to context", async (t) => {
 				setToContext: true,
 				disablePrefetch: true,
 			}),
-		)
-		.before(middleware);
+		);
 
-	await handler(defaultEvent, defaultContext);
-});
+		try {
+			await handler(defaultEvent, defaultContext);
+		} catch (e) {
+			strictEqual(sendStub.callCount, 1);
+			strictEqual(e.message, "Failed to resolve internal values");
+			deepStrictEqual(e.errors, [new Error("timeout")]);
+		}
+	});
 
-test("It should not call aws-sdk again if parameter is cached", async (t) => {
-	const mockService = mockClient(STSClient)
-		.on(AssumeRoleCommand)
-		.resolvesOnce({
-			Credentials: {
-				AccessKeyId: "accessKeyId",
-				SecretAccessKey: "secretAccessKey",
-				SessionToken: "sessionToken",
-			},
-		});
-	const sendStub = mockService.send;
+	test("It should skip fetching already cached values when fetching multiple keys", async (t) => {
+		let callCount = 0;
+		const mockService = mockClient(STSClient)
+			.on(AssumeRoleCommand)
+			.callsFake(async () => {
+				callCount++;
+				// First call for role1 succeeds
+				if (callCount === 1) {
+					return {
+						Credentials: {
+							AccessKeyId: "accessKeyId1",
+							SecretAccessKey: "secretAccessKey",
+							SessionToken: "sessionToken",
+						},
+					};
+				}
+				// First call for role2 fails
+				if (callCount === 2) {
+					throw new Error("timeout");
+				}
+				// Second call only fetches role2 (role1 is cached)
+				if (callCount === 3) {
+					return {
+						Credentials: {
+							AccessKeyId: "accessKeyId2",
+							SecretAccessKey: "secretAccessKey",
+							SessionToken: "sessionToken",
+						},
+					};
+				}
+			});
+		const sendStub = mockService.send;
 
-	const handler = middy(() => {});
+		const middleware = async (request) => {
+			const values = await getInternal(true, request);
+			strictEqual(values.role1.accessKeyId, "accessKeyId1");
+			strictEqual(values.role2.accessKeyId, "accessKeyId2");
+		};
 
-	const middleware = async (request) => {
-		const values = await getInternal(true, request);
-		deepStrictEqual(values.role, {
-			accessKeyId: "accessKeyId",
-			secretAccessKey: "secretAccessKey",
-			sessionToken: "sessionToken",
-		});
-	};
+		const handler = middy(() => {})
+			.use(
+				sts({
+					AwsClient: STSClient,
+					cacheExpiry: 1000,
+					fetchData: {
+						role1: {
+							RoleArn: ".../role1",
+						},
+						role2: {
+							RoleArn: ".../role2",
+						},
+					},
+				}),
+			)
+			.before(middleware);
 
-	handler
-		.use(
+		// First call - role1 succeeds, role2 fails
+		try {
+			await handler(defaultEvent, defaultContext);
+		} catch (_e) {
+			// Expected to fail
+		}
+
+		// Second call - only role2 is fetched (role1 is already cached)
+		await handler(defaultEvent, defaultContext);
+
+		// Should have called send 3 times total (role1 once, role2 twice)
+		strictEqual(sendStub.callCount, 3);
+	});
+
+	test("It should export stsParam helper for TypeScript type inference", async (t) => {
+		const { stsParam } = await import("./index.js");
+		const paramName = "test-param";
+		const result = stsParam(paramName);
+		strictEqual(result, paramName);
+	});
+
+	test("stsValidateOptions accepts valid options and rejects typos", () => {
+		stsValidateOptions({ cacheKey: "x", cacheExpiry: 0 });
+		stsValidateOptions({});
+		try {
+			stsValidateOptions({ cachExpiry: 60 });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			strictEqual(e.cause.package, "@middy/sts");
+		}
+	});
+
+	test("stsValidateOptions rejects wrong type", () => {
+		try {
+			stsValidateOptions({ setToContext: 1 });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("setToContext"));
+		}
+	});
+
+	test("It should prefetch credentials at init by default (no disablePrefetch)", async (t) => {
+		const mockService = mockClient(STSClient)
+			.on(AssumeRoleCommand)
+			.resolves({
+				Credentials: {
+					AccessKeyId: "accessKeyId",
+					SecretAccessKey: "secretAccessKey",
+					SessionToken: "sessionToken",
+				},
+			});
+		const sendStub = mockService.send;
+
+		const handler = middy(() => {});
+		handler.use(
 			sts({
 				AwsClient: STSClient,
+				cacheKey: "sts-prefetch-default",
+				fetchData: {
+					role: {
+						RoleArn: ".../role",
+					},
+				},
+			}),
+		);
+
+		// Prefetch should have triggered a send before any invocation.
+		strictEqual(sendStub.callCount, 1);
+
+		await handler(defaultEvent, defaultContext);
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		await handler(defaultEvent, defaultContext);
+
+		// Default cacheExpiry is -1 (cache forever): the prefetched value is reused,
+		// so no further sends happen even after a delay longer than a 1ms expiry.
+		strictEqual(sendStub.callCount, 1);
+	});
+
+	test("It should reuse the prefetched client without recreating it", async (t) => {
+		let constructed = 0;
+		class CountingSTSClient extends STSClient {
+			constructor(...args) {
+				super(...args);
+				constructed++;
+			}
+		}
+		mockClient(CountingSTSClient)
+			.on(AssumeRoleCommand)
+			.resolves({
+				Credentials: {
+					AccessKeyId: "accessKeyId",
+					SecretAccessKey: "secretAccessKey",
+					SessionToken: "sessionToken",
+				},
+			});
+
+		const handler = middy(() => {});
+		handler.use(
+			sts({
+				AwsClient: CountingSTSClient,
+				cacheKey: "sts-prefetch-reuse",
+				fetchData: {
+					role: {
+						RoleArn: ".../role",
+					},
+				},
+			}),
+		);
+
+		// Prefetch constructs the client once at init.
+		strictEqual(constructed, 1);
+
+		await handler(defaultEvent, defaultContext);
+		await handler(defaultEvent, defaultContext);
+
+		// Client is reused, never reconstructed in the before hook.
+		strictEqual(constructed, 1);
+	});
+
+	test("It should NOT set credentials to context by default", async (t) => {
+		mockClient(STSClient)
+			.on(AssumeRoleCommand)
+			.resolves({
+				Credentials: {
+					AccessKeyId: "accessKeyId",
+					SecretAccessKey: "secretAccessKey",
+					SessionToken: "sessionToken",
+				},
+			});
+
+		const handler = middy(() => {});
+		const middleware = async (request) => {
+			strictEqual(request.context.middyContext.sts, undefined);
+		};
+		handler
+			.use(
+				sts({
+					AwsClient: STSClient,
+					cacheExpiry: 0,
+					fetchData: {
+						role: {
+							RoleArn: ".../role",
+						},
+					},
+					disablePrefetch: true,
+				}),
+			)
+			.before(middleware);
+
+		// Fresh context (defaultContext is shared and mutated by setToContext tests).
+		await handler(defaultEvent, { getRemainingTimeInMillis: () => 1000 });
+	});
+
+	test("It should generate a default RoleSessionName when none provided", async (t) => {
+		let captured;
+		mockClient(STSClient)
+			.on(AssumeRoleCommand)
+			.callsFake(async (input) => {
+				captured = input;
+				return {
+					Credentials: {
+						AccessKeyId: "accessKeyId",
+						SecretAccessKey: "secretAccessKey",
+						SessionToken: "sessionToken",
+					},
+				};
+			});
+
+		const handler = middy(() => {}).use(
+			sts({
+				AwsClient: STSClient,
+				cacheExpiry: 0,
+				fetchData: {
+					role: {
+						RoleArn: ".../role",
+					},
+				},
+				disablePrefetch: true,
+			}),
+		);
+
+		await handler(defaultEvent, defaultContext);
+
+		match(
+			captured.RoleSessionName,
+			/^@middy-sts-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+		);
+	});
+
+	test("It should preserve a provided RoleSessionName", async (t) => {
+		let captured;
+		mockClient(STSClient)
+			.on(AssumeRoleCommand)
+			.callsFake(async (input) => {
+				captured = input;
+				return {
+					Credentials: {
+						AccessKeyId: "accessKeyId",
+						SecretAccessKey: "secretAccessKey",
+						SessionToken: "sessionToken",
+					},
+				};
+			});
+
+		const handler = middy(() => {}).use(
+			sts({
+				AwsClient: STSClient,
+				cacheExpiry: 0,
+				fetchData: {
+					role: {
+						RoleArn: ".../role",
+						RoleSessionName: "my-session",
+					},
+				},
+				disablePrefetch: true,
+			}),
+		);
+
+		await handler(defaultEvent, defaultContext);
+
+		strictEqual(captured.RoleSessionName, "my-session");
+	});
+
+	const accepts = (options) => {
+		stsValidateOptions(options);
+	};
+	const rejects = (options, messagePart) => {
+		try {
+			stsValidateOptions(options);
+			ok(false, `expected throw for ${JSON.stringify(messagePart)}`);
+		} catch (e) {
+			ok(e instanceof TypeError, "expected TypeError");
+			strictEqual(e.cause.package, "@middy/sts");
+			ok(
+				e.message.includes(messagePart),
+				`expected message to include '${messagePart}', got: ${e.message}`,
+			);
+		}
+	};
+
+	test("stsValidateOptions validates AwsClient is a function", () => {
+		accepts({ AwsClient: STSClient });
+		rejects({ AwsClient: {} }, "AwsClient");
+		rejects({ AwsClient: "STSClient" }, "AwsClient");
+	});
+
+	test("stsValidateOptions validates awsClientOptions is an object", () => {
+		accepts({ awsClientOptions: { region: "us-east-1" } });
+		rejects({ awsClientOptions: "us-east-1" }, "awsClientOptions");
+		rejects({ awsClientOptions: 1 }, "awsClientOptions");
+	});
+
+	test("stsValidateOptions validates awsClientAssumeRole is a string", () => {
+		accepts({ awsClientAssumeRole: "credentials" });
+		rejects({ awsClientAssumeRole: 1 }, "awsClientAssumeRole");
+		rejects({ awsClientAssumeRole: {} }, "awsClientAssumeRole");
+	});
+
+	test("stsValidateOptions validates awsClientCapture is a function", () => {
+		accepts({ awsClientCapture: () => {} });
+		rejects({ awsClientCapture: {} }, "awsClientCapture");
+		rejects({ awsClientCapture: "capture" }, "awsClientCapture");
+	});
+
+	test("stsValidateOptions validates disablePrefetch is a boolean", () => {
+		accepts({ disablePrefetch: true });
+		rejects({ disablePrefetch: "true" }, "disablePrefetch");
+		rejects({ disablePrefetch: 1 }, "disablePrefetch");
+	});
+
+	test("stsValidateOptions validates cacheKeyExpiry shape", () => {
+		accepts({ cacheKeyExpiry: { role: 1000 } });
+		accepts({ cacheKeyExpiry: { role: -1 } });
+		rejects({ cacheKeyExpiry: "role" }, "cacheKeyExpiry");
+		rejects({ cacheKeyExpiry: { role: "1000" } }, "cacheKeyExpiry.role");
+		rejects({ cacheKeyExpiry: { role: -2 } }, "cacheKeyExpiry.role");
+	});
+
+	test("stsValidateOptions validates setToContext is a boolean", () => {
+		accepts({ setToContext: true });
+		rejects({ setToContext: "true" }, "setToContext");
+	});
+
+	test("stsValidateOptions validates fetchData is an object of role entries", () => {
+		accepts({ fetchData: { role: { RoleArn: ".../role" } } });
+		rejects({ fetchData: "role" }, "fetchData");
+		rejects({ fetchData: { role: "string" } }, "fetchData.role");
+	});
+
+	test("stsValidateOptions requires RoleArn on each fetchData entry", () => {
+		accepts({ fetchData: { role: { RoleArn: ".../role" } } });
+		rejects({ fetchData: { role: {} } }, "RoleArn");
+	});
+
+	test("stsValidateOptions validates fetchData entry property types", () => {
+		accepts({
+			fetchData: {
+				role: {
+					RoleArn: ".../role",
+					RoleSessionName: "session",
+					DurationSeconds: 3600,
+					ExternalId: "ext",
+					Policy: "policy",
+					SerialNumber: "serial",
+					TokenCode: "token",
+					TransitiveTagKeys: ["a", "b"],
+				},
+			},
+		});
+		rejects({ fetchData: { role: { RoleArn: 1 } } }, "fetchData.role.RoleArn");
+		rejects(
+			{ fetchData: { role: { RoleArn: ".../role", RoleSessionName: 1 } } },
+			"fetchData.role.RoleSessionName",
+		);
+		rejects(
+			{ fetchData: { role: { RoleArn: ".../role", DurationSeconds: "3600" } } },
+			"fetchData.role.DurationSeconds",
+		);
+		rejects(
+			{ fetchData: { role: { RoleArn: ".../role", DurationSeconds: 800 } } },
+			"fetchData.role.DurationSeconds",
+		);
+		rejects(
+			{ fetchData: { role: { RoleArn: ".../role", DurationSeconds: 50000 } } },
+			"fetchData.role.DurationSeconds",
+		);
+		rejects(
+			{ fetchData: { role: { RoleArn: ".../role", ExternalId: 1 } } },
+			"fetchData.role.ExternalId",
+		);
+		rejects(
+			{ fetchData: { role: { RoleArn: ".../role", Policy: 1 } } },
+			"fetchData.role.Policy",
+		);
+		rejects(
+			{ fetchData: { role: { RoleArn: ".../role", SerialNumber: 1 } } },
+			"fetchData.role.SerialNumber",
+		);
+		rejects(
+			{ fetchData: { role: { RoleArn: ".../role", TokenCode: 1 } } },
+			"fetchData.role.TokenCode",
+		);
+		rejects(
+			{ fetchData: { role: { RoleArn: ".../role", TransitiveTagKeys: "a" } } },
+			"fetchData.role.TransitiveTagKeys",
+		);
+		rejects(
+			{ fetchData: { role: { RoleArn: ".../role", TransitiveTagKeys: [1] } } },
+			"fetchData.role.TransitiveTagKeys[0]",
+		);
+	});
+
+	test("stsValidateOptions allows extra passthrough properties on a role entry", () => {
+		accepts({
+			fetchData: { role: { RoleArn: ".../role", Tags: [{ Key: "k" }] } },
+		});
+	});
+
+	test("It should throw a clear, package-tagged error for non-cloneable fetchData", () => {
+		try {
+			sts({
+				fetchData: {
+					role: {
+						RoleArn: ".../role",
+						bad: () => {},
+					},
+				},
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(!(e instanceof DOMException), "should not be a raw DOMException");
+			ok(e instanceof Error);
+			ok(
+				e.message.includes("fetchData"),
+				`message should mention fetchData, got: ${e.message}`,
+			);
+			strictEqual(e.cause.package, "@middy/sts");
+		}
+	});
+
+	test("stsValidateOptions validates contextKey as a string", () => {
+		// Pins the rule itself: an empty `{}` rule would accept the number below,
+		// and a blank `type` would reject the valid string above.
+		stsValidateOptions({ contextKey: "custom" });
+		try {
+			stsValidateOptions({ contextKey: 123 });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("contextKey"));
+		}
+	});
+
+	test("It should honour an Expiration returned as an ISO string", async (t) => {
+		// A custom AwsClient can hand back the timestamp as a string rather than
+		// the Date the SDK unmarshals; it must still clamp the cache instead of
+		// dissolving into NaN and caching the credentials forever.
+		t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+		t.mock.timers.setTime(1_700_000_000_000);
+		const mockService = mockClient(STSClient)
+			.on(AssumeRoleCommand)
+			.resolves({
+				Credentials: {
+					AccessKeyId: "accessKeyId",
+					SecretAccessKey: "secretAccessKey",
+					SessionToken: "sessionToken",
+					Expiration: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+				},
+			});
+		const sendStub = mockService.send;
+
+		const handler = middy(() => {}).use(
+			sts({
+				AwsClient: STSClient,
+				cacheKey: "sts-expiration-iso",
 				cacheExpiry: -1,
 				fetchData: {
 					role: {
 						RoleArn: ".../role",
 					},
 				},
-			}),
-		)
-		.before(middleware);
-
-	await handler(defaultEvent, defaultContext);
-	await handler(defaultEvent, defaultContext);
-
-	strictEqual(sendStub.callCount, 1);
-});
-
-test("It should call aws-sdk if cache enabled but cached param has expired", async (t) => {
-	const mockService = mockClient(STSClient)
-		.on(AssumeRoleCommand)
-		.resolves({
-			Credentials: {
-				AccessKeyId: "accessKeyId",
-				SecretAccessKey: "secretAccessKey",
-				SessionToken: "sessionToken",
-			},
-		});
-	const sendStub = mockService.send;
-
-	const handler = middy(() => {});
-
-	const middleware = async (request) => {
-		const values = await getInternal(true, request);
-		deepStrictEqual(values.role, {
-			accessKeyId: "accessKeyId",
-			secretAccessKey: "secretAccessKey",
-			sessionToken: "sessionToken",
-		});
-	};
-
-	handler
-		.use(
-			sts({
-				AwsClient: STSClient,
-				cacheExpiry: 0,
-				fetchData: {
-					role: {
-						RoleArn: ".../role",
-					},
-				},
 				disablePrefetch: true,
 			}),
-		)
-		.before(middleware);
+		);
 
-	await handler(defaultEvent, defaultContext);
-	await handler(defaultEvent, defaultContext);
-
-	strictEqual(sendStub.callCount, 2);
-});
-
-test("It should catch if an error is returned from fetch", async (t) => {
-	const mockService = mockClient(STSClient)
-		.on(AssumeRoleCommand)
-		.rejects("timeout");
-	const sendStub = mockService.send;
-
-	const handler = middy(() => {}).use(
-		sts({
-			AwsClient: STSClient,
-			cacheExpiry: 0,
-			fetchData: {
-				role: {
-					RoleArn: ".../role",
-				},
-			},
-			setToContext: true,
-			disablePrefetch: true,
-		}),
-	);
-
-	try {
 		await handler(defaultEvent, defaultContext);
-	} catch (e) {
+		t.mock.timers.tick(58 * 60 * 1000);
+		await handler(defaultEvent, defaultContext);
 		strictEqual(sendStub.callCount, 1);
-		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [new Error("timeout")]);
-	}
-});
-
-test("It should skip fetching already cached values when fetching multiple keys", async (t) => {
-	let callCount = 0;
-	const mockService = mockClient(STSClient)
-		.on(AssumeRoleCommand)
-		.callsFake(async () => {
-			callCount++;
-			// First call for role1 succeeds
-			if (callCount === 1) {
-				return {
-					Credentials: {
-						AccessKeyId: "accessKeyId1",
-						SecretAccessKey: "secretAccessKey",
-						SessionToken: "sessionToken",
-					},
-				};
-			}
-			// First call for role2 fails
-			if (callCount === 2) {
-				throw new Error("timeout");
-			}
-			// Second call only fetches role2 (role1 is cached)
-			if (callCount === 3) {
-				return {
-					Credentials: {
-						AccessKeyId: "accessKeyId2",
-						SecretAccessKey: "secretAccessKey",
-						SessionToken: "sessionToken",
-					},
-				};
-			}
-		});
-	const sendStub = mockService.send;
-
-	const middleware = async (request) => {
-		const values = await getInternal(true, request);
-		strictEqual(values.role1.accessKeyId, "accessKeyId1");
-		strictEqual(values.role2.accessKeyId, "accessKeyId2");
-	};
-
-	const handler = middy(() => {})
-		.use(
-			sts({
-				AwsClient: STSClient,
-				cacheExpiry: 1000,
-				fetchData: {
-					role1: {
-						RoleArn: ".../role1",
-					},
-					role2: {
-						RoleArn: ".../role2",
-					},
-				},
-			}),
-		)
-		.before(middleware);
-
-	// First call - role1 succeeds, role2 fails
-	try {
+		t.mock.timers.tick(3 * 60 * 1000);
 		await handler(defaultEvent, defaultContext);
-	} catch (_e) {
-		// Expected to fail
-	}
+		strictEqual(sendStub.callCount, 2);
+	});
 
-	// Second call - only role2 is fetched (role1 is already cached)
-	await handler(defaultEvent, defaultContext);
-
-	// Should have called send 3 times total (role1 once, role2 twice)
-	strictEqual(sendStub.callCount, 3);
-});
-
-test("It should export stsParam helper for TypeScript type inference", async (t) => {
-	const { stsParam } = await import("./index.js");
-	const paramName = "test-param";
-	const result = stsParam(paramName);
-	strictEqual(result, paramName);
-});
-
-test("stsValidateOptions accepts valid options and rejects typos", () => {
-	stsValidateOptions({ cacheKey: "x", cacheExpiry: 0 });
-	stsValidateOptions({});
-	try {
-		stsValidateOptions({ cachExpiry: 60 });
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-		strictEqual(e.cause.package, "@middy/sts");
-	}
-});
-
-test("stsValidateOptions rejects wrong type", () => {
-	try {
-		stsValidateOptions({ setToContext: 1 });
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e.message.includes("setToContext"));
-	}
-});
-
-test("It should prefetch credentials at init by default (no disablePrefetch)", async (t) => {
-	const mockService = mockClient(STSClient)
-		.on(AssumeRoleCommand)
-		.resolves({
-			Credentials: {
-				AccessKeyId: "accessKeyId",
-				SecretAccessKey: "secretAccessKey",
-				SessionToken: "sessionToken",
-			},
-		});
-	const sendStub = mockService.send;
-
-	const handler = middy(() => {});
-	handler.use(
-		sts({
-			AwsClient: STSClient,
-			cacheKey: "sts-prefetch-default",
-			fetchData: {
-				role: {
-					RoleArn: ".../role",
+	test("It should honour a per-cacheKey expiry override from cacheKeyExpiry", async (t) => {
+		const mockService = mockClient(STSClient)
+			.on(AssumeRoleCommand)
+			.resolves({
+				Credentials: {
+					AccessKeyId: "accessKeyId",
+					SecretAccessKey: "secretAccessKey",
+					SessionToken: "sessionToken",
 				},
-			},
-		}),
-	);
+			});
+		const sendStub = mockService.send;
 
-	// Prefetch should have triggered a send before any invocation.
-	strictEqual(sendStub.callCount, 1);
-
-	await handler(defaultEvent, defaultContext);
-	await new Promise((resolve) => setTimeout(resolve, 10));
-	await handler(defaultEvent, defaultContext);
-
-	// Default cacheExpiry is -1 (cache forever): the prefetched value is reused,
-	// so no further sends happen even after a delay longer than a 1ms expiry.
-	strictEqual(sendStub.callCount, 1);
-});
-
-test("It should reuse the prefetched client without recreating it", async (t) => {
-	let constructed = 0;
-	class CountingSTSClient extends STSClient {
-		constructor(...args) {
-			super(...args);
-			constructed++;
-		}
-	}
-	mockClient(CountingSTSClient)
-		.on(AssumeRoleCommand)
-		.resolves({
-			Credentials: {
-				AccessKeyId: "accessKeyId",
-				SecretAccessKey: "secretAccessKey",
-				SessionToken: "sessionToken",
-			},
-		});
-
-	const handler = middy(() => {});
-	handler.use(
-		sts({
-			AwsClient: CountingSTSClient,
-			cacheKey: "sts-prefetch-reuse",
-			fetchData: {
-				role: {
-					RoleArn: ".../role",
-				},
-			},
-		}),
-	);
-
-	// Prefetch constructs the client once at init.
-	strictEqual(constructed, 1);
-
-	await handler(defaultEvent, defaultContext);
-	await handler(defaultEvent, defaultContext);
-
-	// Client is reused, never reconstructed in the before hook.
-	strictEqual(constructed, 1);
-});
-
-test("It should NOT set credentials to context by default", async (t) => {
-	mockClient(STSClient)
-		.on(AssumeRoleCommand)
-		.resolves({
-			Credentials: {
-				AccessKeyId: "accessKeyId",
-				SecretAccessKey: "secretAccessKey",
-				SessionToken: "sessionToken",
-			},
-		});
-
-	const handler = middy(() => {});
-	const middleware = async (request) => {
-		strictEqual(request.context.role, undefined);
-	};
-	handler
-		.use(
+		const handler = middy(() => {}).use(
 			sts({
 				AwsClient: STSClient,
-				cacheExpiry: 0,
+				cacheKey: "sts-keyexpiry-cache",
+				// Infinite default, but the per-key override disables caching for this
+				// cacheKey, forcing a fresh AssumeRole on every invocation.
+				cacheExpiry: -1,
+				cacheKeyExpiry: { "sts-keyexpiry-cache": 0 },
 				fetchData: {
 					role: {
 						RoleArn: ".../role",
@@ -455,238 +898,129 @@ test("It should NOT set credentials to context by default", async (t) => {
 				},
 				disablePrefetch: true,
 			}),
-		)
-		.before(middleware);
+		);
 
-	// Fresh context (defaultContext is shared and mutated by setToContext tests).
-	await handler(defaultEvent, { getRemainingTimeInMillis: () => 1000 });
-});
+		await handler(defaultEvent, defaultContext);
+		await handler(defaultEvent, defaultContext);
 
-test("It should generate a default RoleSessionName when none provided", async (t) => {
-	// Fix Math.random so the generated suffix is deterministic: with 0.5 the
-	// real `Math.ceil(0.5 * 99999)` is 50000, whereas a `/` mutant would yield
-	// `Math.ceil(0.5 / 99999)` === 1.
-	t.mock.method(Math, "random", () => 0.5);
+		strictEqual(sendStub.callCount, 2);
+	});
 
-	let captured;
-	mockClient(STSClient)
-		.on(AssumeRoleCommand)
-		.callsFake(async (input) => {
-			captured = input;
-			return {
+	test("It should refetch inside the 60 s margin before the AssumeRole Expiration", async (t) => {
+		t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+		t.mock.timers.setTime(1_700_000_000_000);
+		const mockService = mockClient(STSClient)
+			.on(AssumeRoleCommand)
+			.resolves({
 				Credentials: {
 					AccessKeyId: "accessKeyId",
 					SecretAccessKey: "secretAccessKey",
 					SessionToken: "sessionToken",
+					Expiration: new Date(Date.now() + 60 * 60 * 1000),
 				},
-			};
-		});
+			});
+		const sendStub = mockService.send;
 
-	const handler = middy(() => {}).use(
-		sts({
-			AwsClient: STSClient,
-			cacheExpiry: 0,
-			fetchData: {
-				role: {
-					RoleArn: ".../role",
+		const handler = middy(() => {}).use(
+			sts({
+				AwsClient: STSClient,
+				cacheKey: "sts-expiration-margin",
+				cacheExpiry: -1,
+				fetchData: {
+					role: {
+						RoleArn: ".../role",
+					},
 				},
-			},
-			disablePrefetch: true,
-		}),
-	);
-
-	await handler(defaultEvent, defaultContext);
-
-	strictEqual(captured.RoleSessionName, "middy-sts-session-50000");
-});
-
-test("It should preserve a provided RoleSessionName", async (t) => {
-	let captured;
-	mockClient(STSClient)
-		.on(AssumeRoleCommand)
-		.callsFake(async (input) => {
-			captured = input;
-			return {
-				Credentials: {
-					AccessKeyId: "accessKeyId",
-					SecretAccessKey: "secretAccessKey",
-					SessionToken: "sessionToken",
-				},
-			};
-		});
-
-	const handler = middy(() => {}).use(
-		sts({
-			AwsClient: STSClient,
-			cacheExpiry: 0,
-			fetchData: {
-				role: {
-					RoleArn: ".../role",
-					RoleSessionName: "my-session",
-				},
-			},
-			disablePrefetch: true,
-		}),
-	);
-
-	await handler(defaultEvent, defaultContext);
-
-	strictEqual(captured.RoleSessionName, "my-session");
-});
-
-const accepts = (options) => {
-	stsValidateOptions(options);
-};
-const rejects = (options, messagePart) => {
-	try {
-		stsValidateOptions(options);
-		ok(false, `expected throw for ${JSON.stringify(messagePart)}`);
-	} catch (e) {
-		ok(e instanceof TypeError, "expected TypeError");
-		strictEqual(e.cause.package, "@middy/sts");
-		ok(
-			e.message.includes(messagePart),
-			`expected message to include '${messagePart}', got: ${e.message}`,
+				disablePrefetch: true,
+			}),
 		);
-	}
-};
 
-test("stsValidateOptions validates AwsClient is a function", () => {
-	accepts({ AwsClient: STSClient });
-	rejects({ AwsClient: {} }, "AwsClient");
-	rejects({ AwsClient: "STSClient" }, "AwsClient");
-});
-
-test("stsValidateOptions validates awsClientOptions is an object", () => {
-	accepts({ awsClientOptions: { region: "us-east-1" } });
-	rejects({ awsClientOptions: "us-east-1" }, "awsClientOptions");
-	rejects({ awsClientOptions: 1 }, "awsClientOptions");
-});
-
-test("stsValidateOptions validates awsClientAssumeRole is a string", () => {
-	accepts({ awsClientAssumeRole: "credentials" });
-	rejects({ awsClientAssumeRole: 1 }, "awsClientAssumeRole");
-	rejects({ awsClientAssumeRole: {} }, "awsClientAssumeRole");
-});
-
-test("stsValidateOptions validates awsClientCapture is a function", () => {
-	accepts({ awsClientCapture: () => {} });
-	rejects({ awsClientCapture: {} }, "awsClientCapture");
-	rejects({ awsClientCapture: "capture" }, "awsClientCapture");
-});
-
-test("stsValidateOptions validates disablePrefetch is a boolean", () => {
-	accepts({ disablePrefetch: true });
-	rejects({ disablePrefetch: "true" }, "disablePrefetch");
-	rejects({ disablePrefetch: 1 }, "disablePrefetch");
-});
-
-test("stsValidateOptions validates cacheKeyExpiry shape", () => {
-	accepts({ cacheKeyExpiry: { role: 1000 } });
-	accepts({ cacheKeyExpiry: { role: -1 } });
-	rejects({ cacheKeyExpiry: "role" }, "cacheKeyExpiry");
-	rejects({ cacheKeyExpiry: { role: "1000" } }, "cacheKeyExpiry.role");
-	rejects({ cacheKeyExpiry: { role: -2 } }, "cacheKeyExpiry.role");
-});
-
-test("stsValidateOptions validates setToContext is a boolean", () => {
-	accepts({ setToContext: true });
-	rejects({ setToContext: "true" }, "setToContext");
-});
-
-test("stsValidateOptions validates fetchData is an object of role entries", () => {
-	accepts({ fetchData: { role: { RoleArn: ".../role" } } });
-	rejects({ fetchData: "role" }, "fetchData");
-	rejects({ fetchData: { role: "string" } }, "fetchData.role");
-});
-
-test("stsValidateOptions requires RoleArn on each fetchData entry", () => {
-	accepts({ fetchData: { role: { RoleArn: ".../role" } } });
-	rejects({ fetchData: { role: {} } }, "RoleArn");
-});
-
-test("stsValidateOptions validates fetchData entry property types", () => {
-	accepts({
-		fetchData: {
-			role: {
-				RoleArn: ".../role",
-				RoleSessionName: "session",
-				DurationSeconds: 3600,
-				ExternalId: "ext",
-				Policy: "policy",
-				SerialNumber: "serial",
-				TokenCode: "token",
-				TransitiveTagKeys: ["a", "b"],
-			},
-		},
+		await handler(defaultEvent, defaultContext);
+		t.mock.timers.tick(58 * 60 * 1000);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(sendStub.callCount, 1);
+		// 59 min 30 s after issue the credentials are still valid for 30 s, but
+		// that is inside the 60 s margin, so AssumeRole runs again rather than
+		// handing out credentials about to expire.
+		t.mock.timers.tick(90 * 1000);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(sendStub.callCount, 2);
 	});
-	rejects({ fetchData: { role: { RoleArn: 1 } } }, "fetchData.role.RoleArn");
-	rejects(
-		{ fetchData: { role: { RoleArn: ".../role", RoleSessionName: 1 } } },
-		"fetchData.role.RoleSessionName",
-	);
-	rejects(
-		{ fetchData: { role: { RoleArn: ".../role", DurationSeconds: "3600" } } },
-		"fetchData.role.DurationSeconds",
-	);
-	rejects(
-		{ fetchData: { role: { RoleArn: ".../role", DurationSeconds: 800 } } },
-		"fetchData.role.DurationSeconds",
-	);
-	rejects(
-		{ fetchData: { role: { RoleArn: ".../role", DurationSeconds: 50000 } } },
-		"fetchData.role.DurationSeconds",
-	);
-	rejects(
-		{ fetchData: { role: { RoleArn: ".../role", ExternalId: 1 } } },
-		"fetchData.role.ExternalId",
-	);
-	rejects(
-		{ fetchData: { role: { RoleArn: ".../role", Policy: 1 } } },
-		"fetchData.role.Policy",
-	);
-	rejects(
-		{ fetchData: { role: { RoleArn: ".../role", SerialNumber: 1 } } },
-		"fetchData.role.SerialNumber",
-	);
-	rejects(
-		{ fetchData: { role: { RoleArn: ".../role", TokenCode: 1 } } },
-		"fetchData.role.TokenCode",
-	);
-	rejects(
-		{ fetchData: { role: { RoleArn: ".../role", TransitiveTagKeys: "a" } } },
-		"fetchData.role.TransitiveTagKeys",
-	);
-	rejects(
-		{ fetchData: { role: { RoleArn: ".../role", TransitiveTagKeys: [1] } } },
-		"fetchData.role.TransitiveTagKeys[0]",
-	);
-});
 
-test("stsValidateOptions allows extra passthrough properties on a role entry", () => {
-	accepts({
-		fetchData: { role: { RoleArn: ".../role", Tags: [{ Key: "k" }] } },
+	test("It should rebuild the client when the assumed-role credentials are refetched", async (t) => {
+		const constructions = [];
+		class FakeClient {
+			constructor(awsClientOptions) {
+				constructions.push(awsClientOptions);
+			}
+			send() {
+				return Promise.resolve({
+					Credentials: {
+						AccessKeyId: "id",
+						SecretAccessKey: "secret",
+						SessionToken: "token",
+					},
+				});
+			}
+		}
+		let credentials = Promise.resolve({ accessKeyId: "a" });
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.role = credentials;
+			})
+			.use(
+				sts({
+					AwsClient: FakeClient,
+					awsClientAssumeRole: "role",
+					cacheExpiry: 0,
+					fetchData: { key: { RoleArn: "arn:aws:iam::0:role/r" } },
+				}),
+			);
+
+		await handler(defaultEvent, defaultContext);
+		// A later invocation carrying the same cached credential promise keeps
+		// the client.
+		await handler(defaultEvent, defaultContext);
+		strictEqual(constructions.length, 1);
+		deepStrictEqual(constructions[0].credentials, { accessKeyId: "a" });
+
+		// sts refetched: request.internal now holds a new promise object, so the
+		// client is rebuilt with the new session instead of keeping the expired one.
+		credentials = Promise.resolve({ accessKeyId: "b" });
+		await handler(defaultEvent, defaultContext);
+		strictEqual(constructions.length, 2);
+		deepStrictEqual(constructions[1].credentials, { accessKeyId: "b" });
+		await handler(defaultEvent, defaultContext);
+		strictEqual(constructions.length, 2);
 	});
-});
 
-test("It should throw a clear, package-tagged error for non-cloneable fetchData", () => {
-	try {
-		sts({
-			fetchData: {
-				role: {
-					RoleArn: ".../role",
-					bad: () => {},
-				},
-			},
-		});
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(!(e instanceof DOMException), "should not be a raw DOMException");
-		ok(e instanceof Error);
-		ok(
-			e.message.includes("fetchData"),
-			`message should mention fetchData, got: ${e.message}`,
+	test("It should construct the client once without awsClientAssumeRole", async (t) => {
+		let constructed = 0;
+		class FakeClient {
+			constructor() {
+				constructed += 1;
+			}
+			send() {
+				return Promise.resolve({
+					Credentials: {
+						AccessKeyId: "id",
+						SecretAccessKey: "secret",
+						SessionToken: "token",
+					},
+				});
+			}
+		}
+		const handler = middy(() => {}).use(
+			sts({
+				AwsClient: FakeClient,
+				disablePrefetch: true,
+				cacheExpiry: 0,
+				fetchData: { key: { RoleArn: "arn:aws:iam::0:role/r" } },
+			}),
 		);
-		strictEqual(e.cause.package, "@middy/sts");
-	}
+
+		await handler(defaultEvent, defaultContext);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(constructed, 1);
+	});
 });

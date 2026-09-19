@@ -1,4 +1,4 @@
-import { getDocsRoutes } from "$lib/docs-content.js";
+import { getDocsRoutes, getLastUpdated } from "$lib/docs-content.js";
 
 export const prerender = true;
 
@@ -16,18 +16,23 @@ function escapeXml(value) {
 }
 
 export const GET = () => {
-	const docs = getDocsRoutes().map((r) => r.href);
-	const urls = [...new Set([...STATIC_ROUTES, ...docs])].sort();
-
-	const lastmod = new Date().toISOString().slice(0, 10);
+	const buildDate = new Date().toISOString();
+	const lastmodByPath = new Map();
+	for (const path of STATIC_ROUTES) {
+		lastmodByPath.set(path, getLastUpdated(path));
+	}
+	for (const route of getDocsRoutes()) {
+		lastmodByPath.set(route.href, route.lastUpdated);
+	}
+	const urls = [...lastmodByPath.keys()].sort();
 
 	const body = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls
-	.map(
-		(path) =>
-			`\t<url>\n\t\t<loc>${escapeXml(SITE + path)}</loc>\n\t\t<lastmod>${lastmod}</lastmod>\n\t\t<changefreq>weekly</changefreq>\n\t\t<priority>${path === "/" ? "1.0" : "0.8"}</priority>\n\t</url>`,
-	)
+	.map((path) => {
+		const lastmod = (lastmodByPath.get(path) ?? buildDate).slice(0, 10);
+		return `\t<url>\n\t\t<loc>${escapeXml(SITE + path)}</loc>\n\t\t<lastmod>${lastmod}</lastmod>\n\t\t<changefreq>weekly</changefreq>\n\t\t<priority>${path === "/" ? "1.0" : "0.8"}</priority>\n\t</url>`;
+	})
 	.join("\n")}
 </urlset>
 `;

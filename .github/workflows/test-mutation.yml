@@ -14,14 +14,73 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  mutation:
-    name: Tests (mutation)
+  packages:
+    name: List packages
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 5
+    outputs:
+      packages: ${{ steps.list.outputs.packages }}
+      skip: ${{ steps.list.outputs.skip }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: block
+          disable-sudo: true
+          disable-telemetry: true
+          allowed-endpoints: >
+            github.com:443
+      # allowed-endpoints: >
+      #   github.com:443
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The merge commit and both parents, enough to diff the PR against
+          # its base without a second fetch.
+          fetch-depth: 2
+      - name: List packages
+        id: list
+        # A mutation score only moves when package sources or tests, the
+        # Stryker config, the lockfile or this workflow change. Otherwise the
+        # matrix is skipped with `skip=true` and the gate below still passes,
+        # so the required check reports on every PR. A checkout that is not
+        # the merge commit runs everything rather than guessing.
+        # One matrix leg per package directory that has an index.js; stale
+        # directories left behind by removed packages are skipped.
+        run: |
+          relevant=true
+          if git rev-parse -q --verify HEAD^2 > /dev/null; then
+            changed=$(git diff --name-only HEAD^1 HEAD)
+            grep -q -E '^(packages/|stryker\.config\.mjs$|package-lock\.json$|\.github/workflows/test-mutation\.yml$)' <<< "$changed" || relevant=false
+          fi
+          if [ "$relevant" = "true" ]; then
+            packages=$(for d in packages/*/; do [ -f "${d}index.js" ] && basename "$d"; done | jq -R . | jq -c -s .)
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "$packages" | jq -r '"\(length) packages: \(join(" "))"'
+          else
+            packages='[]'
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "no package, Stryker config, lockfile or workflow change; matrix skipped"
+          fi
+          echo "packages=${packages}" >> "$GITHUB_OUTPUT"
+
+  package:
+    name: Tests (mutation) (${{ matrix.package }})
+    needs: packages
+    if: needs.packages.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        package: ${{ fromJSON(needs.packages.outputs.packages) }}
 
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: block
           disable-sudo: true
@@ -33,21 +92,69 @@ jobs:
             objects.githubusercontent.com:443
             registry.npmjs.org:443
             release-assets.githubusercontent.com:443
+      # allowed-endpoints: >
+      #   github.com:443
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # allowed-endpoints: >
+      #   api.github.com:443
+      #   nodejs.org:443
+      #   objects.githubusercontent.com:443
+      #   registry.npmjs.org:443
+      #   release-assets.githubusercontent.com:443
       - name: Setup Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           registry-url: https://registry.npmjs.org
+      # allowed-endpoints: >
+      #   registry.npmjs.org:443
       - name: Install dependencies
         run: |
           npm ci --ignore-scripts
+      # allowed-endpoints: >
+      #   registry.npmjs.org:443
       - name: Build
         run: |
           npm run build --if-present
+      # allowed-endpoints: >
+      #   registry.npmjs.org:443
       - name: Mutation tests
+        env:
+          MUTATE_PACKAGE: ${{ matrix.package }}
         run: |
           npm run test:mutation
+
+  # Single required status check; fails when any matrix leg failed, was
+  # cancelled, or was skipped because the package list could not be built.
+  # A matrix skipped because the PR changes nothing mutation-relevant
+  # (`skip == 'true'`) passes.
+  mutation:
+    name: Tests (mutation)
+    needs: [packages, package]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: block
+          disable-sudo: true
+          disable-telemetry: true
+          allowed-endpoints: >
+            api.github.com:443
+      - name: Check matrix result
+        env:
+          RESULT: ${{ needs.package.result }}
+          SKIP: ${{ needs.packages.outputs.skip }}
+        run: |
+          echo "matrix result: ${RESULT} (skip=${SKIP})"
+          if [ "$RESULT" = "success" ]; then exit 0; fi
+          if [ "$RESULT" = "skipped" ] && [ "$SKIP" = "true" ]; then
+            echo "no package, Stryker config, lockfile or workflow change; nothing to mutate"
+            exit 0
+          fi
+          exit 1

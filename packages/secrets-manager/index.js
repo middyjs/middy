@@ -10,18 +10,21 @@ import {
 	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
-	clearCache,
-	createClient,
+	createClientInit,
 	createPrefetchClient,
-	getCache,
+	evictCacheOnFailure,
 	jsonSafeParse,
-	modifyCache,
 	processCache,
+	setCacheKeyExpiry,
 	validateOptions,
 } from "@middy/util";
 
 const name = "secrets-manager";
 const pkg = `@middy/${name}`;
+
+// How long an overdue rotation (NextRotationDate already passed) keeps the
+// cache before the secret is described again.
+const rotationRetryMs = 60 * 1000;
 
 const defaults = {
 	AwsClient: SecretsManagerClient,
@@ -33,8 +36,9 @@ const defaults = {
 	disablePrefetch: false,
 	cacheKey: pkg,
 	cacheKeyExpiry: {},
-	cacheExpiry: -1, // with fetchRotationDate: -1 expires at NextRotationDate; >=0 adds to the last change date, capped at NextRotationDate
+	cacheExpiry: -1, // with fetchRotationDate: expires at NextRotationDate or after cacheExpiry, whichever is sooner
 	setToContext: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -58,16 +62,43 @@ const optionSchema = {
 		cacheKey: { type: "string" },
 		cacheKeyExpiry: {
 			type: "object",
-			additionalProperties: { type: "number", minimum: -1 },
+			additionalProperties: {
+				type: "number",
+				minimum: -1,
+				maximum: Number.MAX_SAFE_INTEGER,
+			},
 		},
-		cacheExpiry: { type: "number", minimum: -1 },
+		cacheExpiry: {
+			type: "number",
+			minimum: -1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
+		cacheMaxSize: {
+			type: "integer",
+			minimum: 1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 	},
 	additionalProperties: false,
 };
 
 export const secretsManagerValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
+
+// GetSecretValue carries the secret in exactly one of two fields: SecretBinary
+// "if the secret value was originally provided as binary data" (a Uint8Array
+// once the SDK has decoded it), otherwise "this field is omitted. The secret
+// value appears in SecretString instead." Binary secrets are handed back as a
+// Buffer.
+// https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+const parseSecretValue = (resp) => {
+	if (typeof resp.SecretBinary !== "undefined") {
+		return Buffer.from(resp.SecretBinary);
+	}
+	return jsonSafeParse(resp.SecretString);
+};
 
 const secretsManagerMiddleware = (opts = {}) => {
 	const options = {
@@ -79,59 +110,28 @@ const secretsManagerMiddleware = (opts = {}) => {
 	const fetchDataKeys = Object.keys(options.fetchData);
 	const contextSpec = buildSetToContextSpec(options);
 
-	// AWS SDK v3 unmarshals DescribeSecret timestamps (NextRotationDate,
-	// LastRotationDate, LastChangedDate) to Date objects. `Number(date)` yields
-	// epoch milliseconds directly, so no per-second-to-ms conversion is needed.
-	const toMs = (date) => (date ? Number(date) : 0);
+	let client;
+	const send = (command) =>
+		client
+			.send(command)
+			.catch((e) => catchInvalidSignatureException(e, client, command));
 
-	// processCache resolves a per-key expiry override by `options.cacheKey`
-	// (not by the internal fetch key), so the rotation expiry must be written
-	// under `options.cacheKey` BEFORE the cache entry is stored. We pick the
-	// soonest expiry across all fetched secrets so the shared cache entry is
-	// refreshed as soon as any secret is due to rotate.
-	const fetchRotationDates = async () => {
-		const pending = [];
-		for (const internalKey of fetchDataKeys) {
-			const fetchRotation =
-				options.fetchRotationDate === true ||
-				options.fetchRotationDate?.[internalKey];
-			if (!fetchRotation) continue;
-
-			const command = new DescribeSecretCommand({
-				SecretId: options.fetchData[internalKey],
-			});
-			pending.push(
-				client
-					.send(command)
-					.catch((e) => catchInvalidSignatureException(e, client, command)),
+	// Learn the secret's NextRotationDate so the cache entry expires at the
+	// soonest rotation across the rotation-enabled keys, or after `cacheExpiry`
+	// when that is shorter. A rotation date that has already passed means the
+	// rotation has not run yet: keep the cache for a minute before describing
+	// the secret again rather than on every invocation. One still ahead,
+	// however close, expires the entry on time.
+	const learnRotationDate = (resp) => {
+		if (resp.NextRotationDate) {
+			// The SDK unmarshals NextRotationDate to a Date, but a custom client
+			// may hand back the ISO string; `new Date()` yields epoch ms for both.
+			const nextRotation = Number(new Date(resp.NextRotationDate));
+			const now = Date.now();
+			setCacheKeyExpiry(
+				options,
+				nextRotation > now ? nextRotation : now + rotationRetryMs,
 			);
-		}
-		// Stryker disable next-line ConditionalExpression: equivalent - when pending is empty the remaining loop is a no-op and expiry stays undefined, so skipping the early return produces the identical result
-		if (!pending.length) return;
-
-		let expiry;
-		for (const resp of await Promise.all(pending)) {
-			let keyExpiry;
-			if (options.cacheExpiry < 0) {
-				if (resp.NextRotationDate) {
-					keyExpiry = toMs(resp.NextRotationDate);
-				}
-			} else {
-				const lastChanged =
-					Math.max(toMs(resp.LastRotationDate), toMs(resp.LastChangedDate)) +
-					options.cacheExpiry;
-				keyExpiry = resp.NextRotationDate
-					? Math.min(lastChanged, toMs(resp.NextRotationDate))
-					: lastChanged;
-			}
-
-			if (keyExpiry !== undefined) {
-				expiry = expiry === undefined ? keyExpiry : Math.min(expiry, keyExpiry);
-			}
-		}
-		// Stryker disable next-line ConditionalExpression: equivalent - reaching here with expiry===undefined writes `undefined`, which is read back via `cacheKeyExpiry?.[cacheKey] ?? cacheExpiry`, identical to not writing at all
-		if (expiry !== undefined) {
-			options.cacheKeyExpiry[options.cacheKey] = expiry;
 		}
 	};
 
@@ -141,79 +141,49 @@ const secretsManagerMiddleware = (opts = {}) => {
 		for (const internalKey of fetchDataKeys) {
 			if (cachedValues[internalKey]) continue;
 
-			const fetchSecret = () => {
-				const command = new GetSecretValueCommand({
-					SecretId: options.fetchData[internalKey],
-				});
-				return client
-					.send(command)
-					.catch((e) => catchInvalidSignatureException(e, client, command))
-					.then((resp) => jsonSafeParse(resp.SecretString));
-			};
-
-			values[internalKey] = fetchSecret().catch((e) => {
-				const value = getCache(options.cacheKey).value ?? {};
-				value[internalKey] = undefined;
-				modifyCache(options.cacheKey, value);
-				throw e;
-			});
+			const SecretId = options.fetchData[internalKey];
+			const fetchSecret = () =>
+				send(new GetSecretValueCommand({ SecretId })).then(parseSecretValue);
+			const fetchRotation =
+				options.fetchRotationDate === true ||
+				options.fetchRotationDate?.[internalKey];
+			const fetched = fetchRotation
+				? send(new DescribeSecretCommand({ SecretId }))
+						.then(learnRotationDate)
+						.then(fetchSecret)
+				: fetchSecret();
+			values[internalKey] = fetched.catch(
+				evictCacheOnFailure(options.cacheKey, internalKey, values),
+			);
 		}
 		return values;
 	};
 
-	// Equivalent mutant: forcing rotationEnabled true still no-ops because
-	// cacheUnexpired() gates refreshRotationExpiry and fetchRotationDates does
-	// nothing without rotation keys; clearCache only ever touches an
-	// already-expired entry that processCache would refetch regardless.
-	// Stryker disable next-line ConditionalExpression
-	const rotationEnabled =
-		// Stryker disable next-line ConditionalExpression
-		options.fetchRotationDate === true ||
-		fetchDataKeys.some((key) => options.fetchRotationDate?.[key]);
-
-	// True when the stored cache entry is still within its expiry window, so the
-	// rotation DescribeSecret call can be skipped on a cache hit.
-	const cacheUnexpired = () => {
-		const cached = getCache(options.cacheKey);
-		return !!cached.expiry && cached.expiry > Date.now();
-	};
-
-	// Refresh the rotation-derived expiry before processCache so it governs the
-	// cache entry (processCache reads the override by `options.cacheKey`). The
-	// stale entry is evicted first so processCache stores a fresh value under the
-	// new expiry rather than reusing the old value masked by a future override.
-	const refreshRotationExpiry = async () => {
-		if (!rotationEnabled || cacheUnexpired()) return;
-		clearCache([options.cacheKey]);
-		await fetchRotationDates();
-	};
-
-	let client;
-	let clientInit;
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
-		fetchRotationDates()
-			.then(() => processCache(options, fetchRequest))
-			.catch(() => {});
+		processCache(options, fetchRequest);
 	}
 
-	const secretsManagerMiddlewareBefore = async (request) => {
-		if (!client) {
-			clientInit ??= createClient(options, request);
-			client = await clientInit;
-		}
-
-		await refreshRotationExpiry();
-
+	const secretsManagerMiddlewareFetch = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
-
 		Object.assign(request.internal, value);
-
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: equivalent - pending is either a Promise (awaited under both) or undefined, and `await undefined` resolves immediately with no observable effect
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
+	};
+
+	const clientInit = createClientInit(options);
+	const secretsManagerMiddlewareBefore = (request) => {
+		// With `awsClientAssumeRole` the client is rebuilt when sts refetches the
+		// credentials, so it is resolved on every invocation (util memoises on
+		// the credential promise identity, so a hit costs one microtask).
+		if (client && !options.awsClientAssumeRole) {
+			return secretsManagerMiddlewareFetch(request);
+		}
+		return clientInit(request).then((resolvedClient) => {
+			client = resolvedClient;
+			return secretsManagerMiddlewareFetch(request);
+		});
 	};
 
 	return {

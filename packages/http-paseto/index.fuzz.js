@@ -1,9 +1,9 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createPublicKey } from "node:crypto";
 import { test } from "node:test";
 import fc from "fast-check";
-import { V4 } from "paseto";
+import { PublicProtocol } from "paseto";
+import { SecretKeyFromCryptoKey, SignFactory } from "paseto/v4/public";
 import middy from "../core/index.js";
 import httpPaseto from "./index.js";
 
@@ -11,16 +11,22 @@ const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
-const privateKey = await V4.generateKey("public");
-const publicKey = createPublicKey(privateKey);
-const spkiDer = publicKey.export({ type: "spki", format: "der" });
-const validToken = await V4.sign({ sub: "fuzz" }, privateKey, {
-	expiresIn: "1h",
-});
+const pair = await crypto.subtle.generateKey("Ed25519", true, [
+	"sign",
+	"verify",
+]);
+const spkiDer = new Uint8Array(
+	await crypto.subtle.exportKey("spki", pair.publicKey),
+);
+const validToken = await new PublicProtocol(SignFactory).Sign(
+	await SecretKeyFromCryptoKey(pair.privateKey),
+	{ sub: "fuzz" },
+	{ expiresIn: 3600 },
+);
 
 const handler = middy((event) => event)
 	.before((request) => {
-		request.internal.pubKey = new Uint8Array(spkiDer);
+		request.internal.pubKey = spkiDer;
 	})
 	.use(httpPaseto({ internalKey: "pubKey" }));
 

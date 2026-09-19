@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: MIT
 import { createPublicKey, KeyObject } from "node:crypto";
 import {
-	createError,
 	getInternal,
+	HttpError,
 	sanitizeKey,
+	setContextNamespace,
 	validateOptions,
 } from "@middy/util";
 import { decodeJwt, decodeProtectedHeader, importJWK, jwtVerify } from "jose";
@@ -15,7 +16,7 @@ const pkg = `@middy/${name}`;
 // AWS KMS asymmetric keySpecs and the JWS algorithms each can produce.
 // Used to validate the user's `algorithm` option against the keySpec carried
 // alongside the public key on `request.internal` (typically populated by
-// `@middy/kms`). A mismatch points to a misconfiguration — the configured
+// `@middy/kms`). A mismatch points to a misconfiguration, the configured
 // algorithm cannot actually sign or verify with this key shape.
 const KMS_COMPATIBLE_ALGS = {
 	RSA_2048: ["RS256", "RS384", "RS512", "PS256", "PS384", "PS512"],
@@ -49,6 +50,7 @@ const defaults = {
 	setToContext: false,
 	cacheExpiry: undefined,
 	cooldownDuration: undefined,
+	jwksTimeoutMs: 5000,
 	disablePrefetch: false,
 };
 
@@ -79,7 +81,11 @@ const optionSchema = {
 		algorithm: stringOrStringArraySchema,
 		audience: stringOrStringArraySchema,
 		issuer: stringOrStringArraySchema,
-		clockTolerance: { type: "number", minimum: 0 },
+		clockTolerance: {
+			type: "number",
+			minimum: 0,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		requireExp: { type: "boolean" },
 		// Values are compared with strict equality, so an array or an object could
 		// only ever match itself by reference. Refuse them here rather than 401 every
@@ -93,8 +99,21 @@ const optionSchema = {
 		maxTokenAge: { oneOf: [{ type: "string" }, { type: "number" }] },
 		payloadKey: { type: "string" },
 		setToContext: { type: "boolean" },
-		cacheExpiry: { type: "number", minimum: 0 },
-		cooldownDuration: { type: "number", minimum: 0 },
+		cacheExpiry: {
+			type: "number",
+			minimum: 0,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
+		cooldownDuration: {
+			type: "number",
+			minimum: 0,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
+		jwksTimeoutMs: {
+			type: "integer",
+			minimum: 1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		disablePrefetch: { type: "boolean" },
 	},
 	additionalProperties: false,
@@ -103,14 +122,19 @@ const optionSchema = {
 export const httpJwtValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
+// HTTP API payload 2.0 strips the Cookie header and delivers each cookie as a
+// `name=value` entry of `event.cookies`. The header is searched first, so an
+// event that somehow carries both keeps its header semantics.
 const readCookieValue = (event, cookieName) => {
 	const headers = event?.headers;
 	const cookieHeader = headers?.cookie ?? headers?.Cookie;
-	if (!cookieHeader) return undefined;
-	const match = cookieHeader
-		.split(";")
-		.find((c) => c.trim().startsWith(`${cookieName}=`));
-	if (!match) return undefined;
+	const prefix = `${cookieName}=`;
+	const isMatch = (c) => typeof c === "string" && c.trim().startsWith(prefix);
+	let match = cookieHeader ? cookieHeader.split(";").find(isMatch) : undefined;
+	if (match === undefined && Array.isArray(event?.cookies)) {
+		match = event.cookies.find(isMatch);
+	}
+	if (match === undefined) return undefined;
 	let value = match.trim().slice(cookieName.length + 1);
 	// RFC 6265 quoted-string cookie value
 	if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
@@ -167,40 +191,90 @@ const assertValidAlgs = (algs, where) => {
 	}
 };
 
+// A JWKS is a handful of public keys. RFC 7517 puts no bound on the document,
+// but 1 MiB is far beyond any real keyset and small enough that a wrong URI
+// cannot buffer a download into an out-of-memory.
+const MAX_JWKS_BYTES = 1_048_576;
+
+// Counted as it streams so the cap holds without a Content-Length header, and
+// so an oversized body is dropped as soon as it crosses the line.
+const readJwksDocument = async (res) => {
+	// A 2xx with no body (a 204, say) is not a keyset.
+	if (!res.body) {
+		throw new Error("JWKS response has no body");
+	}
+	const chunks = [];
+	let total = 0;
+	for await (const chunk of res.body) {
+		total += chunk.byteLength;
+		if (total > MAX_JWKS_BYTES) {
+			throw new Error(`JWKS document exceeds ${MAX_JWKS_BYTES} bytes`);
+		}
+		chunks.push(chunk);
+	}
+	return JSON.parse(Buffer.concat(chunks, total).toString("utf8"));
+};
+
+// RFC 7517 §4.2 and §4.3: a key published for encryption, or whose permitted
+// operations leave out `verify`, must not verify a signature however well its
+// `kid` and `alg` line up.
+const canVerify = (jwk) =>
+	(jwk.use === undefined || jwk.use === "sig") &&
+	(jwk.key_ops === undefined ||
+		(Array.isArray(jwk.key_ops) && jwk.key_ops.includes("verify")));
+
+const findJwk = (doc, kid) =>
+	doc.keys.find((jwk) => jwk.kid === kid && canVerify(jwk));
+
 // Minimal JWKS resolver. Owns its own cache so we can read the raw JWK
 // (including `alg`) before converting to a key.
 const createJwksResolver = (uri, options = {}) => {
-	// Stryker disable next-line LogicalOperator: `?? 600_000` -> `&& 600_000` only differs when cacheMaxAge is undefined (default), yielding `undefined` so the staleness check (`> undefined` -> always false) never expires the cache. The sole observable difference is whether a cached doc is refetched AFTER 600s of cache life, which no bounded test can reach without process-global time mocking (unsafe under node:test concurrency).
 	const cacheMaxAge = options.cacheMaxAge ?? 600_000;
 	const cooldownDuration = options.cooldownDuration ?? 30_000;
+	// `{ ...defaults, ...opts }` lets an explicit `jwksTimeoutMs: undefined`
+	// through, and `AbortSignal.timeout(undefined)` throws on every fetch.
+	const timeoutMs = options.timeoutMs ?? defaults.jwksTimeoutMs;
 	let cache = null;
 	let cacheTime = 0;
 	let lastFetchTime = Number.NEGATIVE_INFINITY;
+	let lastError = null;
 	let inflight = null;
 
 	const fetchJwks = () => {
 		if (inflight) return inflight;
 		const now = Date.now();
-		if (cache && now - lastFetchTime < cooldownDuration) {
-			return Promise.resolve(cache);
+		if (now - lastFetchTime < cooldownDuration) {
+			// The last fetch has settled (inflight is null), so exactly one of
+			// these is set. With nothing cached, every request inside the cooldown
+			// would otherwise pay the full fetch (up to timeoutMs) against an IdP
+			// that just failed; it gets that failure at once instead.
+			return cache ? Promise.resolve(cache) : Promise.reject(lastError);
 		}
 		lastFetchTime = now;
 		inflight = (async () => {
+			let doc;
 			try {
-				const res = await fetch(uri);
+				// Without a deadline a stalled IdP would hold every request that
+				// misses the cache until Lambda itself times out.
+				const res = await fetch(uri, {
+					signal: AbortSignal.timeout(timeoutMs),
+				});
 				if (!res.ok) {
 					throw new Error(`JWKS fetch failed: HTTP ${res.status}`);
 				}
-				const doc = await res.json();
+				doc = await readJwksDocument(res);
 				if (!doc || !Array.isArray(doc.keys)) {
 					throw new Error("Invalid JWKS document: missing keys array");
 				}
 				cache = doc;
 				cacheTime = Date.now();
-				return doc;
+			} catch (e) {
+				lastError = e;
+				throw e;
 			} finally {
 				inflight = null;
 			}
+			return doc;
 		})();
 		return inflight;
 	};
@@ -212,15 +286,14 @@ const createJwksResolver = (uri, options = {}) => {
 		getJwk: async (kid) => {
 			const now = Date.now();
 			let doc = cache;
-			// Stryker disable next-line EqualityOperator: `>` -> `>=` only differs at the exact instant `now - cacheTime === cacheMaxAge` (a sub-millisecond boundary). Reaching it deterministically requires process-global time mocking, which is unsafe under node:test's concurrent execution of this file's tests.
 			if (!doc || now - cacheTime > cacheMaxAge) {
 				doc = await fetchJwks();
 			}
-			let jwk = doc.keys.find((k) => k.kid === kid);
+			let jwk = findJwk(doc, kid);
 			if (!jwk) {
 				// Possible key rotation. Refetch subject to cooldown.
 				doc = await fetchJwks();
-				jwk = doc.keys.find((k) => k.kid === kid);
+				jwk = findJwk(doc, kid);
 			}
 			return jwk;
 		},
@@ -271,6 +344,7 @@ const httpJwtMiddleware = (opts = {}) => {
 			const resolver = createJwksResolver(entry.jwksUri, {
 				cacheMaxAge: options.cacheExpiry,
 				cooldownDuration: options.cooldownDuration,
+				timeoutMs: options.jwksTimeoutMs,
 			});
 			issuersMap.set(iss, {
 				resolver,
@@ -305,8 +379,11 @@ const httpJwtMiddleware = (opts = {}) => {
 			const token = source(event);
 			if (token) return token;
 		}
-		throw createError(401, "Unauthorized", {
-			cause: { package: pkg, data: "No token found in configured sources" },
+		throw new HttpError(401, {
+			cause: {
+				package: pkg,
+				data: { reason: "No token found in configured sources" },
+			},
 		});
 	};
 
@@ -331,7 +408,6 @@ const httpJwtMiddleware = (opts = {}) => {
 	// SPKI DER bytes, either bare or under the `publicKey` of the `@middy/kms` shape.
 	const derToPublicKey = (entry) => {
 		let key = publicKeyCache.get(entry);
-		// Stryker disable next-line ConditionalExpression: forcing this true only rebuilds the same KeyObject from identical DER bytes (cache is a pure performance optimization, no observable behavior change).
 		if (!key) {
 			key = createPublicKey({
 				key: Buffer.from(entry.publicKey ?? entry),
@@ -358,29 +434,42 @@ const httpJwtMiddleware = (opts = {}) => {
 				header = decodeProtectedHeader(token);
 				payload = decodeJwt(token);
 			} catch (e) {
-				throw createError(401, "Unauthorized", {
-					cause: { package: pkg, data: `Malformed token: ${e.message}` },
+				throw new HttpError(401, {
+					cause: {
+						package: pkg,
+						data: { reason: `Malformed token: ${e.message}` },
+					},
 				});
 			}
 			const entry = issuersMap.get(payload.iss);
 			if (!entry) {
-				throw createError(401, "Unauthorized", {
-					cause: { package: pkg, data: "Unknown issuer" },
+				throw new HttpError(401, {
+					cause: { package: pkg, data: { reason: "Unknown issuer" } },
 				});
 			}
 			let jwk;
 			try {
 				jwk = await entry.resolver.getJwk(header.kid);
 			} catch (e) {
-				throw createError(401, "Unauthorized", {
-					cause: { package: pkg, data: `JWKS fetch failed: ${e.message}` },
+				// The token was not refused; it could not be checked. A 401 would
+				// send the client off for a new token that the same outage would
+				// reject again. The failure is upstream, so it is a gateway error:
+				// 504 past the `jwksTimeoutMs` deadline (`AbortSignal.timeout`
+				// rejects with a TimeoutError), 502 for everything else the
+				// endpoint did wrong. The negative cache re-throws the recorded
+				// error, so a remembered failure keeps its status. Exposed on purpose:
+				// util defaults `expose` to false for a 5xx, and http-error-handler
+				// would then swap the gateway status for its generic 500.
+				throw new HttpError(e.name === "TimeoutError" ? 504 : 502, {
+					expose: true,
+					cause: { package: pkg, data: { reason: e.message } },
 				});
 			}
 			if (!jwk) {
-				throw createError(401, "Unauthorized", {
+				throw new HttpError(401, {
 					cause: {
 						package: pkg,
-						data: `No key in JWKS with kid '${header.kid}'`,
+						data: { reason: `No key in JWKS with kid '${header.kid}'` },
 					},
 				});
 			}
@@ -395,10 +484,12 @@ const httpJwtMiddleware = (opts = {}) => {
 			let alg;
 			if (jwk.alg) {
 				if (!entry.algorithms.includes(jwk.alg)) {
-					throw createError(401, "Unauthorized", {
+					throw new HttpError(401, {
 						cause: {
 							package: pkg,
-							data: `JWK alg '${jwk.alg}' not in configured allowlist`,
+							data: {
+								reason: `JWK alg '${jwk.alg}' not in configured allowlist`,
+							},
 						},
 					});
 				}
@@ -406,24 +497,26 @@ const httpJwtMiddleware = (opts = {}) => {
 			} else if (entry.algorithms.length === 1) {
 				alg = entry.algorithms[0];
 			} else {
-				throw createError(401, "Unauthorized", {
+				throw new HttpError(401, {
 					cause: {
 						package: pkg,
-						data: "JWK omits 'alg' and multiple algorithms configured; cannot disambiguate",
+						data: {
+							reason:
+								"JWK omits 'alg' and multiple algorithms configured; cannot disambiguate",
+						},
 					},
 				});
 			}
 			const jwkCacheKey = `${header.kid}\0${alg}`;
 			key = jwkKeyCache.get(jwkCacheKey);
-			// Stryker disable next-line ConditionalExpression: forcing this true only re-imports the same JWK, producing an identical key (cache is a pure performance optimization, no observable behavior change).
 			if (!key) {
 				try {
 					key = await importJWK(jwk, alg);
 				} catch (e) {
-					throw createError(401, "Unauthorized", {
+					throw new HttpError(401, {
 						cause: {
 							package: pkg,
-							data: `JWK import failed: ${e.message}`,
+							data: { reason: `JWK import failed: ${e.message}` },
 						},
 					});
 				}
@@ -442,10 +535,12 @@ const httpJwtMiddleware = (opts = {}) => {
 			const result = await getInternal(options.internalKey, request);
 			const keyData = result[sanitizeKey(options.internalKey)];
 			if (keyData === undefined) {
-				throw createError(500, "Internal Server Error", {
+				throw new HttpError(500, {
 					cause: {
 						package: pkg,
-						data: `internalKey '${options.internalKey}' resolved to undefined`,
+						data: {
+							reason: `internalKey '${options.internalKey}' resolved to undefined`,
+						},
 					},
 				});
 			}
@@ -455,10 +550,12 @@ const httpJwtMiddleware = (opts = {}) => {
 			// the middleware as a whole.
 			const entries = Array.isArray(keyData) ? keyData : [keyData];
 			if (entries.length === 0) {
-				throw createError(500, "Internal Server Error", {
+				throw new HttpError(500, {
 					cause: {
 						package: pkg,
-						data: `internalKey '${options.internalKey}' resolved to no keys`,
+						data: {
+							reason: `internalKey '${options.internalKey}' resolved to no keys`,
+						},
 					},
 				});
 			}
@@ -485,10 +582,12 @@ const httpJwtMiddleware = (opts = {}) => {
 					if (compatible) {
 						usableAlgs = topLevelAlgs.filter((a) => compatible.includes(a));
 						if (usableAlgs.length === 0) {
-							throw createError(500, "Internal Server Error", {
+							throw new HttpError(500, {
 								cause: {
 									package: pkg,
-									data: `algorithm ${JSON.stringify(topLevelAlgs)} incompatible with KMS keySpec '${entry.keySpec}'`,
+									data: {
+										reason: `algorithm ${JSON.stringify(topLevelAlgs)} incompatible with KMS keySpec '${entry.keySpec}'`,
+									},
 								},
 							});
 						}
@@ -498,10 +597,12 @@ const httpJwtMiddleware = (opts = {}) => {
 					entryKey = derToPublicKey(entry);
 				} else if (typeof entry === "string") {
 					if (usableAlgs.some((a) => !a.startsWith("HS"))) {
-						throw createError(500, "Internal Server Error", {
+						throw new HttpError(500, {
 							cause: {
 								package: pkg,
-								data: `internalKey '${options.internalKey}' is a string secret but 'algorithm' includes a non-symmetric value ${JSON.stringify(usableAlgs)}; string keys may only be used with HS* algorithms`,
+								data: {
+									reason: `internalKey '${options.internalKey}' is a string secret but 'algorithm' includes a non-symmetric value ${JSON.stringify(usableAlgs)}; string keys may only be used with HS* algorithms`,
+								},
 							},
 						});
 					}
@@ -510,10 +611,12 @@ const httpJwtMiddleware = (opts = {}) => {
 					// Anything else has to say what it really is. Borrowing the string
 					// secret's message sent people looking at their `algorithm` option
 					// when the key was the problem.
-					throw createError(500, "Internal Server Error", {
+					throw new HttpError(500, {
 						cause: {
 							package: pkg,
-							data: `internalKey '${options.internalKey}' holds an unsupported key shape; expected a KeyObject, a CryptoKey, SPKI DER bytes, a { publicKey } object, or a string secret`,
+							data: {
+								reason: `internalKey '${options.internalKey}' holds an unsupported key shape; expected a KeyObject, a CryptoKey, SPKI DER bytes, a { publicKey } object, or a string secret`,
+							},
 						},
 					});
 				}
@@ -550,8 +653,8 @@ const httpJwtMiddleware = (opts = {}) => {
 			}
 		}
 		if (verified === undefined) {
-			throw createError(401, "Unauthorized", {
-				cause: { package: pkg, data: failure.message },
+			throw new HttpError(401, {
+				cause: { package: pkg, data: { reason: failure.message } },
 			});
 		}
 
@@ -560,10 +663,12 @@ const httpJwtMiddleware = (opts = {}) => {
 		// payload this rejected.
 		for (const [claim, expected] of expectedClaims) {
 			if (verified[claim] !== expected) {
-				throw createError(401, "Unauthorized", {
+				throw new HttpError(401, {
 					cause: {
 						package: pkg,
-						data: `Claim '${claim}' is '${verified[claim]}', expected '${expected}'`,
+						data: {
+							reason: `Claim '${claim}' is '${verified[claim]}', expected '${expected}'`,
+						},
 					},
 				});
 			}
@@ -571,7 +676,7 @@ const httpJwtMiddleware = (opts = {}) => {
 
 		request.internal[options.payloadKey] = verified;
 		if (options.setToContext) {
-			request.context[options.payloadKey] = verified;
+			setContextNamespace(request, options.payloadKey, verified);
 		}
 	};
 

@@ -1,3 +1,10 @@
+import type { DurableContext } from "@aws/durable-execution-sdk-js";
+import {
+	executionModeDurableContext,
+	type DurableContext as SubpathDurableContext,
+} from "@middy/core/executionModeDurableContext";
+import { executionModeStandard } from "@middy/core/executionModeStandard";
+import { executionModeStreamifyResponse } from "@middy/core/executionModeStreamifyResponse";
 import type {
 	APIGatewayProxyEvent,
 	APIGatewayProxyResult,
@@ -5,14 +12,119 @@ import type {
 	Context,
 	S3Event,
 } from "aws-lambda";
-import { expect } from "tstyche";
+import { expect, test } from "tstyche";
 import middy, {
+	type DurableContextLike,
 	type MiddyfiedHandler,
 	type PluginExecutionMode,
+	type PluginExecutionModeCore,
+	type PluginExecutionModeLambdaHandler,
+	type PluginExecutionModePlugin,
 } from "./index.js";
 
-const executionModeStreamifyResponse: PluginExecutionMode =
-	{} as PluginExecutionMode;
+// The root types describe the durable context structurally so they check
+// without the optional SDK installed; the SDK's own type satisfies the shape
+// and the durable subpath, the one place that imports it, re-exports it.
+test("TContext accepts the durable SDK context structurally", () => {
+	expect<DurableContext>().type.toBeAssignableTo<DurableContextLike>();
+	expect<SubpathDurableContext>().type.toBe<DurableContext>();
+	expect(
+		middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, DurableContext>,
+	).type.not.toRaiseError();
+	expect(
+		middy<
+			APIGatewayProxyEvent,
+			APIGatewayProxyResult,
+			Error,
+			DurableContextLike
+		>,
+	).type.not.toRaiseError();
+	expect(
+		middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, number>,
+	).type.toRaiseError("does not satisfy the constraint");
+	const durableHandler = middy<
+		APIGatewayProxyEvent,
+		APIGatewayProxyResult,
+		Error,
+		DurableContext
+	>().handler(async (event, context) => {
+		expect(context.executionContext.durableExecutionArn).type.toBe<string>();
+		expect(context.lambdaContext).type.toBe<Context>();
+		return { statusCode: 200, body: event.path };
+	});
+	expect(durableHandler).type.toBe<
+		middy.MiddyfiedHandler<
+			APIGatewayProxyEvent,
+			APIGatewayProxyResult,
+			Error,
+			DurableContext
+		>
+	>();
+});
+
+test("execution modes are not exported from the package root", () => {
+	expect<typeof import("@middy/core")>().type.not.toHaveProperty(
+		"executionModeStandard",
+	);
+	expect<typeof import("@middy/core")>().type.not.toHaveProperty(
+		"executionModeDurableContext",
+	);
+	expect<typeof import("@middy/core")>().type.not.toHaveProperty(
+		"executionModeStreamifyResponse",
+	);
+	expect(
+		import("@middy/core").then((core) => core.executionModeStreamifyResponse),
+	).type.toRaiseError(
+		"Property 'executionModeStreamifyResponse' does not exist",
+	);
+});
+
+test("execution modes are exported from their subpaths", () => {
+	expect(executionModeStandard).type.toBe<PluginExecutionMode>();
+	expect(executionModeDurableContext).type.toBe<PluginExecutionMode>();
+	expect(executionModeStreamifyResponse).type.toBe<PluginExecutionMode>();
+	expect(
+		middy(lambdaHandler, { executionMode: executionModeStreamifyResponse }),
+	).type.toBe<Handler>();
+});
+
+test("a six-argument custom mode is assignable to PluginExecutionMode", () => {
+	const customMode = (
+		{ middyRequest, runRequest }: PluginExecutionModeCore,
+		beforeMiddlewares: middy.MiddlewareFn<any, any, any, any, any>[],
+		lambdaHandler: PluginExecutionModeLambdaHandler,
+		afterMiddlewares: middy.MiddlewareFn<any, any, any, any, any>[],
+		onErrorMiddlewares: middy.MiddlewareFn<any, any, any, any, any>[],
+		plugin: PluginExecutionModePlugin,
+	) => {
+		const mode = async (event: unknown, context: Context) => {
+			const request = middyRequest(event, context);
+			plugin.requestStart(request);
+			return runRequest(
+				request,
+				beforeMiddlewares,
+				lambdaHandler,
+				afterMiddlewares,
+				onErrorMiddlewares,
+				plugin,
+			);
+		};
+		mode.handler = (replacement: PluginExecutionModeLambdaHandler) => {
+			lambdaHandler = replacement;
+			return mode;
+		};
+		return mode;
+	};
+	expect(customMode).type.toBeAssignableTo<PluginExecutionMode>();
+	expect(
+		middy(lambdaHandler, { executionMode: customMode }),
+	).type.toBe<Handler>();
+
+	// The returned handler must carry `.handler`; a bare function does not.
+	expect(
+		() => async () => "ok",
+	).type.not.toBeAssignableTo<PluginExecutionMode>();
+});
 
 // extends Handler type from aws-lambda
 type EnhanceHandlerType<T, NewReturn> = T extends (
@@ -579,6 +691,27 @@ const nullResponseMiddleware: middy.MiddlewareObj<
 };
 handler = handler.use(nullResponseMiddleware);
 
+// An onError middleware that throws a distinct error makes core replace
+// `request.error` with an AggregateError of [handlerError, thrownError],
+// so the default `TErr = Error` has to accept one.
+const aggregateErrorMiddleware: middy.MiddlewareObj<
+	APIGatewayProxyEvent,
+	APIGatewayProxyResult,
+	Error
+> = {
+	onError: (request) => {
+		request.error = new AggregateError([new Error("handler"), "primitive"]);
+	},
+};
+handler = handler.use(aggregateErrorMiddleware);
+// Same 3-arg shape core constructs, pinning that the TS lib baseline carries
+// the ErrorOptions overload.
+expect(
+	new AggregateError([], "Error thrown in onError middleware", {
+		cause: { package: "@middy/core" },
+	}),
+).type.toBeAssignableTo<Error>();
+
 // Issue #1594 Third-party middleware (e.g. Powertools) with own Request type using null (not undefined)
 // Simulates @aws-lambda-powertools/commons MiddlewareLikeObj
 type ThirdPartyRequest<
@@ -634,3 +767,23 @@ expect(handlerWithCombinedEvent).type.toBe<
 		APIGatewayProxyResult
 	>
 >();
+
+// `context.middyContext` is reachable from the handler and from middleware, and the
+// middyfied handler is still invocable with a plain AWS context.
+middy(
+	async (
+		event: APIGatewayProxyEvent,
+		context: middy.WithMiddyContext<Context>,
+	) => {
+		expect(context.middyContext).type.toBe<middy.MiddyContext>();
+		return {} as APIGatewayProxyResult;
+	},
+);
+expect<middy.Request>().type.toHaveProperty("context");
+expect({} as middy.Request["context"]).type.toBeAssignableTo<{
+	middyContext: middy.MiddyContext;
+}>();
+expect(middy(lambdaHandler)).type.toBeCallableWith(
+	{} as APIGatewayProxyEvent,
+	{} as Context,
+);

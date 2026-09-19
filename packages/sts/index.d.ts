@@ -6,7 +6,7 @@ import type {
 	STSClientConfig,
 } from "@aws-sdk/client-sts";
 import type middy from "@middy/core";
-import type { Options as MiddyOptions } from "@middy/util";
+import type { ContextNamespace, Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
 export type ParamType<T> = string & { __returnType?: T };
@@ -28,12 +28,14 @@ export interface STSOptions<AwsSTSClient = STSClient>
 		MiddyOptions<AwsSTSClient, STSClientConfig>,
 		| "AwsClient"
 		| "awsClientOptions"
+		| "awsClientAssumeRole"
 		| "awsClientCapture"
 		| "disablePrefetch"
 		| "cacheKey"
 		| "cacheExpiry"
 		| "cacheKeyExpiry"
 		| "setToContext"
+		| "contextKey"
 	> {
 	fetchData?: {
 		[key: string]: AssumeRoleCommandInputWithOptionalRoleSessionName;
@@ -43,9 +45,11 @@ export interface STSOptions<AwsSTSClient = STSClient>
 export type Context<TOptions extends STSOptions | undefined> =
 	TOptions extends { setToContext: true }
 		? TOptions extends { fetchData: infer TFetchData }
-			? LambdaContext & {
-					[Key in keyof TFetchData]: AssumedRoleCredentials;
-				}
+			? ContextNamespace<
+					TOptions,
+					"sts",
+					{ [Key in keyof TFetchData]: AssumedRoleCredentials }
+				>
 			: never
 		: LambdaContext;
 
@@ -58,8 +62,13 @@ export type Internal<TOptions extends STSOptions | undefined> =
 			: {}
 		: {};
 
-declare function sts<TOptions extends STSOptions | undefined>(
-	options?: TOptions,
+declare function sts<
+	TOptions extends STSOptions | undefined,
+	TKey extends string = string,
+>(
+	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
+	// key narrows `middyContext` without `as const`.
+	options?: TOptions & { contextKey?: TKey },
 ): middy.MiddlewareObj<
 	unknown,
 	unknown,

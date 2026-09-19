@@ -17,6 +17,7 @@ const fuzzOptions = {
 	price: 0.001,
 	payTo: "0xpayto",
 	asset: "0xasset",
+	versions: [1, 2],
 	FacilitatorClient: AlwaysInvalidFacilitatorClient,
 };
 const defaultContext = { getRemainingTimeInMillis: () => 1000 };

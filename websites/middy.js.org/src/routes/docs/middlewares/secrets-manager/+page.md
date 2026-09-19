@@ -29,15 +29,19 @@ npm install --save-dev @aws-sdk/client-secrets-manager
 - `awsClientAssumeRole` (string) (optional): Internal key where secrets are stored. See [@middy/sts](/docs/middlewares/sts) on to set this.
 - `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSv3Client` from `aws-xray-sdk` in.
 - `fetchData` (object) (required): Mapping of internal key name to API request parameter `SecretId`.
-- `fetchRotationDate` (boolean|object) (default `false`): Boolean to apply to all or mapping of internal key name to boolean. This indicates what secrets should fetch and cached based on `NextRotationDate`/`LastRotationDate`/`LastChangedDate`. `cacheExpiry` of `-1` will use `NextRotationDate`, while any other value will be added to the `LastRotationDate` or `LastChangedDate`, whichever is more recent. If secrets have different rotation schedules, use multiple instances of this middleware.
+- `fetchRotationDate` (boolean|object) (default `false`): Boolean to apply to all or mapping of internal key name to boolean. This indicates which secrets should also be described so the cache expires at their `NextRotationDate`. The cache expires at the soonest `NextRotationDate` or after `cacheExpiry`, whichever comes first; a secret without a rotation schedule falls back to `cacheExpiry`. A `NextRotationDate` that has already passed (the rotation is overdue) keeps the cache for 60 seconds before the secret is described again. If secrets have different rotation schedules, use multiple instances of this middleware.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `cacheKey` (string) (default `secrets-manager`): Cache key for the fetched data responses. Must be unique across all middleware.
+- `cacheKeyExpiry` (object) (default `{}`): Per-`cacheKey` expiry override, `{ [cacheKey]: cacheExpiry }`; a unix timestamp in ms above 86400000 is treated as an absolute expiry.
+- `cacheMaxSize` (number) (default `128`): Maximum number of entries kept in the shared middleware cache; the oldest expiring entry is evicted when exceeded.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
-- `setToContext` (boolean) (default `false`): Store secrets to `request.context`.
+- `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext['secrets-manager']`.
+- `contextKey` (string) (default `secrets-manager`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.
 
 NOTES:
 
 - Lambda is required to have IAM permission for `secretsmanager:GetSecretValue`. If using `fetchRotationDate` add `secretsmanager:DescribeSecret` in as well.
+- `SecretString` values containing JSON are parsed into objects. Secrets stored as `SecretBinary` are returned as a `Buffer`.
 
 ## Sample usage
 
@@ -64,11 +68,12 @@ export const handler = middy()
   .handler(lambdaHandler)
 
 // Before running the function handler, the middleware will fetch from Secrets Manager
-handler(event, context, (_, response) => {
-  // assuming the dev/api_token has two keys, 'Username' and 'Password'
-  strictEqual(context.apiToken.Username, 'username')
-  strictEqual(context.apiToken.Password, 'password')
-})
+const event = {}
+const context = {}
+await handler(event, context)
+// assuming the dev/api_token has two keys, 'Username' and 'Password'
+strictEqual(context.middyContext['secrets-manager'].apiToken.Username, 'username')
+strictEqual(context.middyContext['secrets-manager'].apiToken.Password, 'password')
 ```
 
 ## Bundling
@@ -116,8 +121,8 @@ export const handler = middy()
     // data.someSecret.User (string)
     // data.someSecret.Password (string)
     // or, since we have `setToContext: true`
-    // request.context.someSecret.User (string)
-    // request.context.someSecret.Password (string)
+    // request.context.middyContext['secrets-manager'].someSecret.User (string)
+    // request.context.middyContext['secrets-manager'].someSecret.Password (string)
   })
   .handler(lambdaHandler)
 ```

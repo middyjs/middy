@@ -24,6 +24,7 @@ export interface PollKinesisOptions {
 	timestamp?: number;
 	limit?: number;
 	pollingDelay?: number;
+	/** Defaults to the region in `streamArn`. */
 	awsRegion?: string;
 }
 

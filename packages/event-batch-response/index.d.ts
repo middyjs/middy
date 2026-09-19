@@ -17,7 +17,7 @@ declare function eventBatchResponse(): middy.MiddlewareObj<
  * self-managed Kafka, S3 Batch Operations, Kinesis Firehose transform.
  *
  * Returns `[]` for unrecognized event shapes or missing containers.
- * Coerces non-array containers to `[]` rather than throwing — malformed
+ * Coerces non-array containers to `[]` rather than throwing, malformed
  * events degrade silently.
  */
 export declare function flattenBatchRecords(event: unknown): unknown[];

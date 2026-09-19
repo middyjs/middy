@@ -1,7 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
-import type { MiddyfiedHandler } from "@middy/core";
 import type {
 	ALBEvent,
 	ALBResult,
@@ -9,7 +8,7 @@ import type {
 	APIGatewayProxyEventV2,
 	APIGatewayProxyResult,
 	APIGatewayProxyResultV2,
-	Handler as LambdaHandler,
+	Context,
 } from "aws-lambda";
 
 export type Method =
@@ -22,10 +21,22 @@ export type Method =
 	| "HEAD"
 	| "ANY";
 
+// One call signature that a plain Lambda handler, a middyfied handler and an
+// inline arrow all satisfy. A union of `Handler | MiddyfiedHandler` gave an
+// inline `handler: (event, context) => ...` no contextual type (their parameter
+// lists differ), so `event` was an implicit `any`. The rest parameter absorbs
+// Lambda's `callback` and middy's `opts`; the router itself passes neither.
+export type RouteHandler<TEvent, TResult> = (
+	event: TEvent,
+	context: Context,
+	...rest: any[]
+	// biome-ignore lint/suspicious/noConfusingVoidType: Lambda's `Handler` returns `void | Promise<TResult>`, and `undefined` would refuse it
+) => void | TResult | Promise<TResult>;
+
 export interface Route<TEvent, TResult> {
 	method: Method;
 	path: string;
-	handler: LambdaHandler<TEvent, TResult> | MiddyfiedHandler<TEvent, TResult>;
+	handler: RouteHandler<TEvent, TResult>;
 }
 
 export type RouteNotFoundResponseFn = (input: {

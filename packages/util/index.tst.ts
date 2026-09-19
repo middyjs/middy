@@ -88,6 +88,7 @@ const sampleRequest: middy.Request<
 		done: () => {},
 		fail: () => {},
 		succeed: () => {},
+		middyContext: {},
 	},
 	response: undefined,
 	error: undefined,
@@ -256,14 +257,15 @@ test("normalizeHttpResponse", () => {
 	expect(normalizedResponse).type.toBe<Record<string, unknown>>();
 });
 
-test("createError", () => {
-	const err = util.createError(500, "An unexpected error occurred");
+test("HttpError", () => {
+	const err = new util.HttpError(500, {
+		cause: { package: "@middy/util", data: { reason: "unexpected" } },
+	});
 	expect(err).type.toBe<util.HttpError>();
-	// err instanceof util.HttpError // would throw a type error if not a class
 });
 
 test("HttpError properties", () => {
-	const err = util.createError(404, "Not Found");
+	const err = new util.HttpError(404);
 	expect(err).type.toBe<util.HttpError>();
 	expect(err.status).type.toBe<number>();
 	expect(err.statusCode).type.toBe<number>();
@@ -274,6 +276,84 @@ test("HttpError properties", () => {
 
 test("modifyCache", () => {
 	expect(util.modifyCache("someKey", { key: "value" })).type.toBe<void>();
+});
+
+test("createClientInit", () => {
+	const initClient = util.createClientInit<SSMClient, {}>({
+		AwsClient: SSMClient,
+	});
+	expect(initClient({} as middy.Request)).type.toBe<Promise<SSMClient>>();
+});
+
+test("evictCacheOnFailure", () => {
+	const handler = util.evictCacheOnFailure("someKey", "internalKey");
+	expect(handler(new Error("boom"))).type.toBe<never>();
+	const values: Record<string, unknown> = {};
+	expect(util.evictCacheOnFailure("someKey", "internalKey", values)).type.toBe<
+		(e: unknown) => never
+	>();
+});
+
+test("createClientInit infers the client from an SDK client class", () => {
+	const initClient = util.createClientInit({
+		AwsClient: SSMClient,
+		awsClientOptions: { region: "ca-central-1" },
+	});
+	expect(initClient(sampleRequest)).type.toBe<Promise<SSMClient>>();
+	expect(
+		util.createPrefetchClient({ AwsClient: SSMClient, awsClientOptions: {} }),
+	).type.toBe<SSMClient>();
+});
+
+test("helpers accept a structural request without @middy/core types", () => {
+	const request = {
+		event: { path: "/foo" },
+		context: sampleRequest.context,
+		response: undefined,
+		error: undefined,
+		internal: { key: "value" as const },
+	};
+	expect(util.getInternal("key", request)).type.toBe<
+		Promise<{ key: "value" }>
+	>();
+	expect(util.contextNamespace(request, "ssm")).type.toBe<
+		Record<string, unknown>
+	>();
+	expect(util.normalizeHttpResponse(request)).type.toBe<
+		Record<string, unknown>
+	>();
+});
+
+test("setCacheKeyExpiry", () => {
+	expect(
+		util.setCacheKeyExpiry(
+			{ cacheKey: "someKey", cacheExpiry: -1, cacheKeyExpiry: {} },
+			Date.now(),
+		),
+	).type.toBe<void>();
+	expect(
+		util.setCacheKeyExpiry(
+			{ cacheKey: "someKey", cacheLearnedExpiry: { someKey: undefined } },
+			Date.now(),
+		),
+	).type.toBe<void>();
+});
+
+test("buildSetToContextSpec / assignSetToContext", () => {
+	const spec = util.buildSetToContextSpec({
+		fetchData: { "my-key": "x" },
+		setToContext: true,
+		contextKey: "ssm",
+	});
+	expect(spec).type.toBe<util.SetToContextSpec | null>();
+	expect(
+		util.buildSetToContextSpec({ fetchData: { "my-key": { region: "x" } } }),
+	).type.toBe<util.SetToContextSpec | null>();
+	if (spec) {
+		expect(
+			util.assignSetToContext(spec, { "my-key": "y" }, {} as middy.Request),
+		).type.toBe<Promise<void> | undefined>();
+	}
 });
 
 test("catchInvalidSignatureException", () => {
@@ -304,12 +384,22 @@ test("lambdaContextKeys", () => {
 	expect(util.lambdaContextKeys).type.toBe<string[]>();
 });
 
-test("executionContextKeys", () => {
-	expect(util.executionContextKeys).type.toBe<string[]>();
-});
-
 test("isExecutionModeDurable", () => {
 	expect(
 		util.isExecutionModeDurable(sampleRequest.context),
 	).type.toBe<boolean>();
+});
+
+test("buildPathTree", () => {
+	const tree = util.buildPathTree(["event.headers.authorization"]);
+	expect(tree).type.toBe<util.PathTree>();
+});
+
+test("omit preserves the value type", () => {
+	const tree = util.buildPathTree(["error.cause.data.body"]);
+	expect(util.omit(sampleRequest, tree)).type.toBe<typeof sampleRequest>();
+	expect(util.omit(sampleRequest, tree, "***")).type.toBe<
+		typeof sampleRequest
+	>();
+	expect(util.omit(sampleRequest)).type.toBe<typeof sampleRequest>();
 });

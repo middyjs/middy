@@ -1,6 +1,6 @@
 ---
 title: secrets-manager-extension
-description: "Fetch Secrets Manager secrets via the AWS Parameters and Secrets Lambda Extension — no SDK, lower latency, automatic caching."
+description: "Fetch Secrets Manager secrets via the AWS Parameters and Secrets Lambda Extension, no SDK, lower latency, automatic caching."
 status: alpha
 ---
 
@@ -29,13 +29,14 @@ npm install --save @middy/secrets-manager-extension
 - `cacheKey` (string) (default `@middy/secrets-manager-extension`): Cache key for the fetched data. Must be unique across middleware.
 - `cacheKeyExpiry` (object) (default `{}`): Per-`fetchData`-key cache expiry overrides (ms; `-1` = forever, `0` = no cache).
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached. `-1`: cache forever, `0`: never cache, `n`: cache for n ms. Set this to match `PARAMETERS_SECRETS_EXTENSION_CACHE_EXPIRATION` to avoid stale reads.
-- `setToContext` (boolean) (default `false`): Copy fetched values onto `request.context`.
+- `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext['secrets-manager-extension']`.
+- `contextKey` (string) (default `secrets-manager-extension`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.
 
 ## Notes
 
 - Lambda is required to have IAM permission for `secretsmanager:GetSecretValue`.
 - The extension listens on port `2773` by default. Override with the `PARAMETERS_SECRETS_EXTENSION_HTTP_PORT` environment variable.
-- Secret string values containing JSON are automatically parsed into objects.
+- Secret string values containing JSON are automatically parsed into objects. Secrets stored as `SecretBinary` are base64 decoded and returned as a `Buffer`.
 - Both simple names (`my-secret`), path-style IDs (`prod/service/token`), and full ARNs (`arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/db`) are supported as secret IDs.
 
 ## Troubleshooting

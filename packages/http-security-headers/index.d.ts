@@ -42,9 +42,12 @@ export interface Options {
 	permittedCrossDomainPolicies?: {
 		policy?: string;
 	};
+	/** @deprecated Use `reportingEndpoints`. Removed in v9. */
 	reportTo?: {
 		maxAge?: number;
 		default?: string;
+		includeSubDomains?: boolean;
+		/** @deprecated Legacy casing, use `includeSubDomains`. Removed in v9. */
 		includeSubdomains?: boolean;
 		csp?: string;
 		staple?: string;

@@ -1,6 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createError, validateOptions } from "@middy/util";
+import { HttpError, validateOptions } from "@middy/util";
 
 const name = "validator";
 const pkg = `@middy/${name}`;
@@ -11,6 +11,9 @@ const defaults = {
 	responseSchema: undefined,
 	defaultLanguage: "en",
 	languages: {},
+	// Where @middy/http-content-negotiation published its results; must match
+	// that middleware's `contextKey` when it has been overridden.
+	contextKeyHttpContentNegotiation: "http-content-negotiation",
 };
 
 const optionSchema = {
@@ -24,6 +27,7 @@ const optionSchema = {
 			type: "object",
 			additionalProperties: { instanceof: "Function" },
 		},
+		contextKeyHttpContentNegotiation: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -38,6 +42,7 @@ const validatorMiddleware = (opts = {}) => {
 		responseSchema,
 		defaultLanguage,
 		languages,
+		contextKeyHttpContentNegotiation,
 	} = { ...defaults, ...opts };
 
 	// AJV `$async` validators return a promise (and throw on invalid) instead of
@@ -78,7 +83,9 @@ const validatorMiddleware = (opts = {}) => {
 			assertSyncResult("eventSchema", validEvent);
 
 			if (!validEvent) {
-				const lang = request.context.preferredLanguage;
+				const lang =
+					request.context.middyContext?.[contextKeyHttpContentNegotiation]
+						?.preferredLanguage;
 				const localize =
 					(Object.hasOwn(languages, lang) ? languages[lang] : undefined) ??
 					languages[defaultLanguage];
@@ -87,10 +94,13 @@ const validatorMiddleware = (opts = {}) => {
 				}
 
 				// Bad Request
-				throw createError(400, "Event object failed validation", {
+				throw new HttpError(400, {
 					cause: {
 						package: pkg,
-						data: eventSchema.errors,
+						data: {
+							reason: "Event object failed validation",
+							errors: eventSchema.errors,
+						},
 					},
 				});
 			}
@@ -102,10 +112,13 @@ const validatorMiddleware = (opts = {}) => {
 
 			if (!validContext) {
 				// Internal Server Error
-				throw createError(500, "Context object failed validation", {
+				throw new HttpError(500, {
 					cause: {
 						package: pkg,
-						data: contextSchema.errors,
+						data: {
+							reason: "Context object failed validation",
+							errors: contextSchema.errors,
+						},
 					},
 				});
 			}
@@ -118,10 +131,13 @@ const validatorMiddleware = (opts = {}) => {
 
 		if (!validResponse) {
 			// Internal Server Error
-			throw createError(500, "Response object failed validation", {
+			throw new HttpError(500, {
 				cause: {
 					package: pkg,
-					data: responseSchema.errors,
+					data: {
+						reason: "Response object failed validation",
+						errors: responseSchema.errors,
+					},
 				},
 			});
 		}

@@ -21,6 +21,7 @@ const defaults = {
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -49,10 +50,19 @@ const optionSchema = {
 		cacheKey: { type: "string" },
 		cacheKeyExpiry: {
 			type: "object",
-			additionalProperties: { type: "number", minimum: -1 },
+			additionalProperties: {
+				type: "number",
+				minimum: -1,
+				maximum: Number.MAX_SAFE_INTEGER,
+			},
 		},
-		cacheExpiry: { type: "number", minimum: -1 },
+		cacheExpiry: {
+			type: "number",
+			minimum: -1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -88,14 +98,14 @@ const appConfigExtensionMiddleware = (opts = {}) => {
 							cause: { package: pkg },
 						});
 					}
-					// Stryker disable next-line StringLiteral: equivalent mutant. The fallback only applies when the Content-Type header is absent, and its sole use is `jsonContentTypePattern.test(contentType)`. Any non-`application/...json` string (including "" or any other literal) yields the same `false`, so the value is unobservable.
-					const contentType = res.headers.get("Content-Type") ?? "";
-					return jsonContentTypePattern.test(contentType)
+					// `get` yields null for an absent header, which `test` reads as the
+					// string "null": not a JSON media type, so the body is read as text.
+					return jsonContentTypePattern.test(res.headers.get("Content-Type"))
 						? res.json()
 						: res.text();
 				})
 				.catch((e) => {
-					const value = getCache(options.cacheKey).value ?? {};
+					const value = { ...getCache(options.cacheKey).value };
 					value[internalKey] = undefined;
 					modifyCache(options.cacheKey, value);
 					throw e;
@@ -108,13 +118,11 @@ const appConfigExtensionMiddleware = (opts = {}) => {
 		processCache(options, fetchRequest);
 	}
 
-	const appConfigExtensionMiddlewareBefore = async (request) => {
+	const appConfigExtensionMiddlewareBefore = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: equivalent mutant. assignSetToContext returns either a Promise (cold path) or undefined (sync path). Replacing the guard with `true` only adds `await undefined` on the sync path, which resolves immediately with no observable difference.
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
 	};
 

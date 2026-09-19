@@ -5,7 +5,7 @@ description: "Answers to common questions about Middy, AWS Lambda middleware, co
 
 ## My Lambda keeps timing out without responding. What do I do?
 
-Likely the event loop is not empty. This happens when an open database connection, an unresolved `Promise`, or an interval keeps the runtime alive past your handler's `return`. Add [`@middy/do-not-wait-for-empty-event-loop`](/docs/middlewares/do-not-wait-for-empty-event-loop) which sets `context.callbackWaitsForEmptyEventLoop = false`. For DB pools, prefer connection reuse outside the handler scope; see [Connection reuse](/docs/best-practices/connection-reuse).
+Likely the event loop is not empty. This happens when an open database connection, an unresolved `Promise`, or an interval keeps the runtime alive past your handler's `return`. Lambda only waits for an empty event loop with callback-based handlers, which it supports on Node.js 22 and earlier runtimes only; on Node.js 24 an async handler returns as soon as its promise settles. On an older runtime, [`@middy/do-not-wait-for-empty-event-loop`](/docs/middlewares/do-not-wait-for-empty-event-loop) (deprecated in v8, 7.x remains on npm) sets `context.callbackWaitsForEmptyEventLoop = false`. For DB pools, prefer connection reuse outside the handler scope; see [Connection reuse](/docs/best-practices/connection-reuse).
 
 ## Does Middy add cold-start overhead?
 

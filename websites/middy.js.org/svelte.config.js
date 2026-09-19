@@ -3,12 +3,12 @@ import adapter from "@sveltejs/adapter-cloudflare";
 import { mdsvex } from "mdsvex";
 import tardisec from "./.tardisec.sveltekit.json" with { type: "json" };
 import { rehypeAddHeadingIds } from "./src/lib/rehype-add-heading-ids.js";
+import { rehypeCopyPre } from "./src/lib/rehype-copy-pre.js";
 import { remarkExtractHeadings } from "./src/lib/remark-extract-headings.js";
 
-// import preprocess from 'svelte-preprocess'
-
 const domain = process.env.ORIGIN ?? "middy.js.org";
-const origin = domain;
+const origin = `https://${domain}`;
+
 const config = {
 	kit: {
 		adapter: adapter({}),
@@ -22,7 +22,18 @@ const config = {
 		appDir: "_",
 		csp: tardisec.kit.csp,
 		csrf: {
+			// Kit compares the full Origin header value, so this must be an origin,
+			// not a bare hostname.
 			trustedOrigins: [origin],
+		},
+		prerender: {
+			concurrency: 5,
+			crawl: false,
+			entries: ["/sitemap.xml", "/llms.txt", "/llms-full.txt", "/search.json"],
+			handleHttpError: "warn", // 'fail'
+			handleMissingId: "warn", // 'fail'
+			handleEntryGeneratorMismatch: "warn", // 'fail'
+			origin,
 		},
 	},
 	preprocess: [
@@ -33,19 +44,10 @@ const config = {
 				_: resolve("./src/components/docs/mdsvex-layout.svelte"),
 			},
 			remarkPlugins: [remarkExtractHeadings],
-			rehypePlugins: [rehypeAddHeadingIds],
+			rehypePlugins: [rehypeAddHeadingIds, rehypeCopyPre],
 		}),
 	],
 	extensions: [".svelte", ".md"],
-	prerender: {
-		concurrency: 5,
-		crawl: false,
-		entries: ["/", "/sitemap.xml", "/llms.txt", "/llms-full.txt"],
-		handleHttpError: "warn", // 'fail'
-		handleMissingId: "warn", // 'fail'
-		handleEntryGeneratorMismatch: "warn", // 'fail'
-		origin: `https://${origin}`,
-	},
 	onwarn(warning, defaultHandler) {
 		// polyfill for `is` included, allow
 		if (warning.code === "attribute_avoid_is") return;

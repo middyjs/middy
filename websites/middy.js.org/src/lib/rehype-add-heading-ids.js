@@ -1,5 +1,5 @@
 import { toString as nodetoString } from "hast-util-to-string";
-import visit from "unist-util-visit";
+import { visit } from "unist-util-visit";
 
 /**
  * Rehype plugin to add IDs to H2 headings

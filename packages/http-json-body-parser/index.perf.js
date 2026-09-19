@@ -78,6 +78,12 @@ await bench
 			} catch (_e) {}
 		},
 	)
+	// Baseline, not a middleware case. "parse medium JSON" should sit close to
+	// this; a large gap means the parse has left JSON.parse's native path (a
+	// reviver on every key costs ~8x), which is otherwise invisible here.
+	.add("baseline: bare JSON.parse (medium)", () => {
+		JSON.parse(mediumBody);
+	})
 
 	.run();
 

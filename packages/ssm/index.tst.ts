@@ -87,9 +87,27 @@ test("chain of multiple ssm middleware", () => {
 			expect(data.defaults).type.toBe<string>();
 
 			// make sure data is set to context as well (only for the second instantiation of the middleware)
-			expect(request.context).type.toBeAssignableTo<{
+			expect(request.context.middyContext.ssm).type.toBeAssignableTo<{
 				accessToken: string;
 				dbParams: { user: string; pass: string };
 			}>();
+		});
+});
+
+test("contextKey literal narrows middyContext without as const", () => {
+	handler
+		.use(
+			ssm({
+				fetchData: {
+					accessToken: ssmParam<string>("/dev/service_name/access_token"),
+				},
+				setToContext: true,
+				contextKey: "custom",
+			}),
+		)
+		.before(async (request) => {
+			expect(
+				request.context.middyContext.custom.accessToken,
+			).type.toBe<string>();
 		});
 });

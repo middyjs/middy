@@ -78,7 +78,9 @@ test("use with setToContext: true", () => {
 			unknown,
 			unknown,
 			Error,
-			LambdaContext & Record<"config", unknown>,
+			LambdaContext & {
+				middyContext: Record<"appconfig", Record<"config", unknown>>;
+			},
 			Record<"config", unknown>
 		>
 	>();
@@ -129,7 +131,7 @@ handler
 		}),
 	)
 	.before(async (request) => {
-		expect(request.context.config).type.toBe<{
+		expect(request.context.middyContext.appconfig.config).type.toBe<{
 			config1: string;
 			config2: string;
 			config3: number;
@@ -164,3 +166,25 @@ handler
 			config3: number;
 		}>();
 	});
+
+test("contextKey literal narrows middyContext without as const", () => {
+	handler
+		.use(
+			appConfig({
+				fetchData: {
+					config: appConfigParam<{ config1: string }>({
+						ApplicationIdentifier: "app",
+						ConfigurationProfileIdentifier: "configId",
+						EnvironmentIdentifier: "development",
+					}),
+				},
+				setToContext: true,
+				contextKey: "custom",
+			}),
+		)
+		.before(async (request) => {
+			expect(request.context.middyContext.custom.config).type.toBe<{
+				config1: string;
+			}>();
+		});
+});

@@ -4,7 +4,7 @@ import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expect, test } from "tstyche";
-import s3, { type Context, s3Param } from "./index.js";
+import s3, { type Context, type ParamType, s3Param } from "./index.js";
 
 const options = {
 	AwsClient: S3Client,
@@ -58,7 +58,9 @@ test("use with setToContext: true", () => {
 			unknown,
 			unknown,
 			Error,
-			Context<typeof options> & { someS3Object: unknown },
+			Context<typeof options> & {
+				middyContext: { s3: { someS3Object: unknown } };
+			},
 			{ someS3Object: unknown }
 		>
 	>();
@@ -85,9 +87,29 @@ expect(s3).type.not.toBeCallableWith({
 		someS3Object: {
 			Bucket: "bucket",
 			Key: "path/to/key.ext",
-			ChecksumMode: "none", // ChecksumMode is not a valid parameter
+			ChecksumMode: "none", // "ENABLED" is the only ChecksumMode GetObject accepts
 		},
 	},
+});
+
+test("ChecksumMode: ENABLED is accepted, matching GetObject and the option schema", () => {
+	expect(s3).type.toBeCallableWith({
+		...options,
+		fetchData: {
+			someS3Object: {
+				Bucket: "bucket",
+				Key: "path/to/key.ext",
+				ChecksumMode: "ENABLED",
+			},
+		},
+	});
+	expect(
+		s3Param<{ field: string }>({
+			Bucket: "bucket",
+			Key: "path/to/key.ext",
+			ChecksumMode: "ENABLED",
+		}),
+	).type.toBeAssignableTo<ParamType<{ field: string }>>();
 });
 
 const handler = middy(async (event: {}, context: LambdaContext) => {
@@ -103,7 +125,7 @@ test("setToContext: true", () => {
 			}),
 		)
 		.before(async (request) => {
-			expect(request.context.someS3Object).type.toBe<unknown>();
+			expect(request.context.middyContext.s3.someS3Object).type.toBe<unknown>();
 
 			const data = await getInternal("someS3Object", request);
 			expect(data.someS3Object).type.toBe<unknown>();
@@ -143,7 +165,7 @@ test("s3Param with setToContext: true", () => {
 			}),
 		)
 		.before(async (request) => {
-			expect(request.context.someS3Object).type.toBe<{
+			expect(request.context.middyContext.s3.someS3Object).type.toBe<{
 				param1: string;
 				param2: string;
 				param3: number;
@@ -182,6 +204,28 @@ test("s3Param with setToContext: false", () => {
 				param1: string;
 				param2: string;
 				param3: number;
+			}>();
+		});
+});
+
+test("contextKey literal narrows middyContext without as const", () => {
+	handler
+		.use(
+			s3({
+				...options,
+				fetchData: {
+					someS3Object: s3Param<{ param1: string }>({
+						Bucket: "bucket",
+						Key: "path/to/key.json",
+					}),
+				},
+				setToContext: true,
+				contextKey: "custom",
+			}),
+		)
+		.before(async (request) => {
+			expect(request.context.middyContext.custom.someS3Object).type.toBe<{
+				param1: string;
 			}>();
 		});
 });

@@ -15,15 +15,17 @@ npm install --save @middy/http-content-encoding
 
 ## Options
 
-- `br` (object) (default `{}`): `zlib.createBrotliCompress` [brotliOptions](https://nodejs.org/api/zlib.html#zlib_class_brotlioptions)
-- `gzip` (object) (default `{}`): `zlib.createGzip` [gzipOptions](https://nodejs.org/api/zlib.html#zlib_class_options)
-- `deflate` (object) (default `{}`): `zlib.createDeflate` [deflateOptions](https://nodejs.org/api/zlib.html#zlib_class_options)
-- `zstd` (object) (default `{}`): `zlib.createZstdCompress` [zstdOptions](https://nodejs.org/api/zlib.html#zlib_class_options)
+- `br` (object|boolean) (default `{}`): `zlib.createBrotliCompress` [brotliOptions](https://nodejs.org/api/zlib.html#zlib_class_brotlioptions). Pass `false` to disable this encoding.
+- `gzip` (object|boolean) (default `{}`): `zlib.createGzip` [gzipOptions](https://nodejs.org/api/zlib.html#zlib_class_options). Pass `false` to disable this encoding.
+- `deflate` (object|boolean) (default `{}`): `zlib.createDeflate` [deflateOptions](https://nodejs.org/api/zlib.html#zlib_class_options). Pass `false` to disable this encoding.
+- `zstd` (object|boolean) (default `{}`): `zlib.createZstdCompress` [zstdOptions](https://nodejs.org/api/zlib.html#zlib_class_options). Pass `false` to disable this encoding.
 - `overridePreferredEncoding` (array[string]) (optional): Override the preferred encoding order, most browsers prefer `gzip` over `br`, even though `br` has higher compression. Default: `[]`
+- `contextKeyHttpContentNegotiation` (string) (default `'http-content-negotiation'`): The key under `context.middyContext` where [`@middy/http-content-negotiation`](/docs/middlewares/http-content-negotiation) published `preferredEncoding` and `preferredEncodings`. Set it to match that middleware's `contextKey` when you have overridden it.
 
 NOTES:
 
 - **Important** For `br` encoding NodeJS defaults to `11`. Levels `10` & `11` have been shown to have lower performance for the level of compression they apply. Testing is recommended to ensure the right balance of compression & performance.
+- When the client's preferred encoding is disabled with `false`, the next acceptable encoding from `Accept-Encoding` is used. If none remain, the body is sent unencoded.
 
 ## Sample usage
 

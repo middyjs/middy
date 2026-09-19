@@ -17,7 +17,11 @@ npm install --save-dev @aws-sdk/client-sqs
 
 ## Options
 
-- `logger` (function) (optional): A function that will be called when a record fails to be processed. Default: `console.error`
+- `logger` function (default logs `reason` via `console.error`): called once per failed record as `logger(request, { reason, record })`, where `reason` is the rejection reason and `record` the failed SQS record. Set to `false` to disable.
+- `omitPaths` string[] (default `[]`): paths to remove from the copy handed to `logger`. Paths are dot-delimited and relative to the `request`, with `[]` to descend into arrays. This is the simple way to keep sensitive data out of your logs. Examples: `event.Records.[].body`, `response.[].reason`, `internal.DB_PASSWORD`
+- `mask` string: string to replace omitted values with, instead of removing the key. Example: `***omitted***`
+
+`omitPaths` never mutates the real `request`. Only the copy handed to `logger` is redacted; which records are reported as failed is always decided from the raw response.
 
 ## Sample usage
 
@@ -63,9 +67,9 @@ FIFO queue example (preserves processing order):
 import middy from '@middy/core'
 import sqsBatch from '@middy/sqs-partial-batch-failure'
 
-const lambdaHandler = (event, context) => {
+const lambdaHandler = async (event, context) => {
   const statusPromises = [];
-  for (const [idx, record] of Object.entries(Records)) {
+  for (const [idx, record] of Object.entries(event.Records)) {
     try {
       await processMessageAsync(record)
       statusPromises.push(Promise.resolve());

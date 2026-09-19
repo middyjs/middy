@@ -5,9 +5,9 @@ description: "Run a Middy handler as a long-running batch consumer on AWS ECS/Fa
 
 `@middy/ecs-batch` is a runtime wrapper, not a middleware. It lets you take a Middy handler that targets a Lambda batch event source mapping (SQS, Kinesis, DynamoDB Streams, MSK / SelfManagedKafka, Amazon MQ for ActiveMQ, Amazon MQ for RabbitMQ) and run it as a long-running consumer on AWS ECS/Fargate.
 
-The runner pulls records from the event source, builds the same batch event shape Lambda would deliver, invokes your handler with `(event, context)`, then uses the response (`{ batchItemFailures: [...] }`) to acknowledge successful records natively (`DeleteMessageBatch` for SQS, `commitOffsetsIfNecessary` for Kafka, `channel.ack` for RabbitMQ, etc.). Stream sources (Kinesis, DynamoDB Streams) advance their iterator implicitly — checkpointing is your handler's responsibility.
+The runner pulls records from the event source, builds the same batch event shape Lambda would deliver, invokes your handler with `(event, context)`, then uses the response (`{ batchItemFailures: [...] }`) to acknowledge successful records natively (`DeleteMessageBatch` for SQS, `commitOffsetsIfNecessary` for Kafka, `channel.ack` for RabbitMQ, etc.). Stream sources (Kinesis, DynamoDB Streams) advance their iterator implicitly, checkpointing is your handler's responsibility.
 
-By default the runner forks one `node:cluster` worker per CPU core (`availableParallelism()`), restarts crashed workers, and on `SIGTERM` aborts in-flight polls, lets the in-flight handler invocation finish, then exits within `gracefulShutdownMs`. This makes Fargate Spot reclamation (2-minute SIGTERM warning) safe by default.
+By default the runner forks one `node:cluster` worker per CPU core (`availableParallelism()`) and replaces a worker that exits. Replacements are delayed with exponential backoff (1 s, doubling to a 30 s cap, reset after 60 s without a worker exit) so a worker that dies on startup cannot crash-loop. On `SIGTERM` the primary forwards the signal to every worker, stops replacing them, and exits once the last one is gone with the highest exit code any worker reported during that drain (a worker that crashed and was replaced earlier does not count); each worker aborts in-flight polls, lets the in-flight handler invocation finish, then exits within `gracefulShutdownMs`. This makes Fargate Spot reclamation (2-minute SIGTERM warning) safe by default.
 
 ## Install
 
@@ -28,18 +28,20 @@ npm install --save amqplib                             # for pollRmq
 
 ## Options
 
-- `handler` (function) (required): Your Middy handler, e.g. `middy(lambdaHandler).use(eventBatchResponse())`.
-- `poller` (object) (required): A poller created by one of the source modules (see below). Exactly one poller per runner — to consume from multiple sources, run multiple ECS tasks.
+- `handler` (function) (required): Your Middy handler, e.g. `middy(lambdaHandler).use(eventBatchResponse())`. Typed as `(event, context) => void | TResult | Promise<TResult>`, so an inline handler gets `event` and `context` from the poller.
+- `poller` (object) (required): A poller created by one of the source modules (see below). Exactly one poller per runner, to consume from multiple sources, run multiple ECS tasks.
 - `workers` (integer): Number of forked worker processes. Defaults to `availableParallelism()`. **Set to `1` for shard-based sources** (Kinesis, DynamoDB Streams) where one consumer per shard is required; scale by running one ECS task per shard.
 - `timeout` (integer, ms): Wall-clock budget per batch exposed via `context.getRemainingTimeInMillis`. Defaults to `60000`.
 - `gracefulShutdownMs` (integer, ms): On `SIGTERM`, the runner aborts polls and waits up to this many ms for the in-flight handler + acknowledge to drain before forcing `process.exit(1)`. Defaults to `110000` (just under Fargate Spot's 120 s reclamation budget).
-- `onError(err, event)` (function, optional): Called when the handler throws or `acknowledge` throws. Use it to surface failures to your logger or APM.
+- `onError(err, event)` (function, optional): Called when the handler throws or `acknowledge` throws (`event` is the batch), and when the poller itself fails (`event` is `undefined`; the worker then exits with code `1` even if `onError` throws, and the primary replaces it with backoff). Use it to surface failures to your logger or APM. A throw from `onError` itself is swallowed so the loop keeps polling.
+- `contextOverride` (object, optional): Escape hatch for tests and hosts that need fixed context values. Accepts `{ awsRequestId: () => string }`; the function is called once per batch to mint `context.awsRequestId`, which is otherwise an empty string.
 
 NOTES:
 
-- The runner is silent. Wire batch logging via Middy middleware (`input-output-logger`, `error-logger`).
-- When the handler **throws**, the runner skips `acknowledge` and lets the source's native retry path take over (SQS visibility timeout requeues, Kafka offset stays uncommitted, RabbitMQ leaves the message unacked).
+- The runner is silent. Wire batch logging via Middy middleware (`event-logger`, `response-logger`, `error-logger`).
+- When the handler **throws**, the runner skips `acknowledge` and lets the source's native retry path take over (SQS visibility timeout requeues, Kafka releases the batch with nothing committed so kafkajs fetches it again, RabbitMQ leaves the message unacked).
 - When the handler **returns** `{ batchItemFailures: [...] }`, the runner acknowledges the successful records only. Failed records are left for native redelivery.
+- A `batchItemFailures` entry whose `itemIdentifier` is `null`, empty or does not name a record in the batch fails the whole batch, as it does on Lambda ([SQS](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html), [Kafka](https://docs.aws.amazon.com/lambda/latest/dg/kafka-retry-configurations.html)): nothing is deleted, committed or acked, every record redelivers, and `onError` receives an error whose `cause.data.itemIdentifier` is the offending value.
 - For Kafka, offsets are committed sequentially per partition; on the first failed offset the runner stops committing further offsets in that batch so the failed message and everything after it redeliver in order.
 - The ECS task metadata endpoint (`$ECS_CONTAINER_METADATA_URI_V4`) is fetched once in the primary process; values are propagated to workers via env vars and made available on `context.invokedFunctionArn`.
 
@@ -47,15 +49,15 @@ NOTES:
 
 `workers = availableParallelism()` is the right default for **queue-style** sources where competing consumers add throughput:
 
-- **SQS** — the queue is concurrent-safe.
-- **Kafka** with a consumer group — kafkajs auto-balances partitions across worker processes.
+- **SQS**: the queue is concurrent-safe.
+- **Kafka** with a consumer group, kafkajs auto-balances partitions across worker processes.
 - **RabbitMQ** classic queues with competing consumers (work queue pattern).
 - **ActiveMQ** queues with `client-individual` ack.
 
 It is **wrong** for **shard-based** sources where exactly-one consumer per shard is required:
 
-- **Kinesis Data Streams** — set `workers: 1` and run one ECS task per shard.
-- **DynamoDB Streams** — same.
+- **Kinesis Data Streams**: set `workers: 1` and run one ECS task per shard.
+- **DynamoDB Streams**: same.
 
 ## Sample usage: SQS
 
@@ -155,22 +157,23 @@ Each poller is a factory that returns `{ source, poll, acknowledge }` and is exp
 
 ### `pollSqs(options)`
 
-Long-polls SQS via `ReceiveMessageCommand`. Acknowledges by `DeleteMessageBatch` on records not in `batchItemFailures`, chunked to 10 per request.
+Long-polls SQS via `ReceiveMessageCommand`. Acknowledges by `DeleteMessageBatch` on records not in `batchItemFailures`, chunked to 10 per request. Entries SQS reports as `Failed` are not treated as acknowledged: those messages stay in the queue and redeliver after the visibility timeout, and `onError` receives an error whose `cause.data.failed` lists `{ messageId, receiptHandle, code, message, senderFault }` per entry.
 
 - `queueUrl` (string) (required)
 - `client` (`SQSClient`): Inject your own client (e.g. with custom region/credentials).
 - `maxNumberOfMessages` (1–10): Defaults to `10`.
 - `waitTimeSeconds` (0–20): Long-poll wait. Defaults to `20`.
 - `visibilityTimeout` (integer, seconds): Override per-batch.
-- `eventSourceArn`, `awsRegion`: Defaults are derived from `queueUrl`.
+- `eventSourceArn`, `awsRegion`: Derived from `queueUrl` when omitted. The region is read from the hostname, which covers the [documented endpoint forms](https://docs.aws.amazon.com/general/latest/gr/sqs-service.html) (`sqs.<region>.amazonaws.com`, `sqs.<region>.api.aws`, `sqs-fips.<region>.…`, `sqs.<region>.amazonaws.com.cn`, the legacy `<region>.queue.amazonaws.com`) and interface VPC endpoints (`vpce-….sqs.<region>.vpce.amazonaws.com`); the ARN is composed from that region, the account id and queue name in the path, with the `aws-cn` or `aws-us-gov` partition for China and GovCloud regions. A hostname without a region (the bare legacy `queue.amazonaws.com`, a custom endpoint such as LocalStack) takes the client's configured region.
 
 ### `pollKinesis(options)`
 
 `GetShardIterator` once, then loop `GetRecordsCommand` advancing `NextShardIterator`. Acknowledge is a no-op; the iterator advances implicitly.
 
 - `streamName` (string) (required)
-- `shardId` (string) (required) — pass via env var, run one task per shard.
-- `streamArn`, `awsRegion`: For event ARN/region fields.
+- `shardId` (string) (required), pass via env var, run one task per shard.
+- `streamArn`: Emitted as each record's `eventSourceARN`. Lambda always populates it, so pass it.
+- `awsRegion`: Defaults to the region in `streamArn`, then to the client's configured region.
 - `client` (`KinesisClient`)
 - `shardIteratorType`: `"LATEST"` (default), `"TRIM_HORIZON"`, `"AT_SEQUENCE_NUMBER"`, `"AFTER_SEQUENCE_NUMBER"`, `"AT_TIMESTAMP"`.
 - `startingSequenceNumber`, `timestamp`: For checkpoint resumption.
@@ -181,13 +184,14 @@ Long-polls SQS via `ReceiveMessageCommand`. Acknowledges by `DeleteMessageBatch`
 
 Same shard-iterator pattern as Kinesis, against `DynamoDBStreamsClient`.
 
-- `streamArn` (string) (required)
+- `streamArn` (string) (required): Emitted as each record's `eventSourceARN`.
 - `shardId` (string) (required)
-- `client`, `shardIteratorType`, `sequenceNumber`, `limit`, `pollingDelay`, `awsRegion`.
+- `awsRegion`: Defaults to the region in `streamArn`.
+- `client`, `shardIteratorType`, `sequenceNumber`, `limit`, `pollingDelay`.
 
 ### `pollKafka(options)`
 
-Connects a kafkajs consumer, subscribes to topics, runs `eachBatch` with `partitionsConsumedConcurrently: 1` and `autoCommit: false`. Bridges kafkajs's push-mode callback to the runner's pull loop. On acknowledge, commits offsets up to (but not including) the first failed offset per partition.
+Connects a kafkajs consumer, subscribes to topics, runs `eachBatch` with `partitionsConsumedConcurrently: 1`, `autoCommit: false` and `eachBatchAutoResolve: false`. Bridges kafkajs's push-mode callback to the runner's pull loop. On acknowledge, resolves offsets up to (but not including) the first failed offset per partition and commits them with `commitOffsetsIfNecessary(uncommittedOffsets())`. A batch whose first record failed, or whose handler threw, commits nothing, so kafkajs fetches it again from the same offset. While the handler holds a batch the poller calls `heartbeat()` every `heartbeatIntervalMs` so a long handler does not outlive the group's session timeout (kafkajs throttles the call to its own `heartbeatInterval`). A crash kafkajs does not restart (`consumer.events.CRASH` with `restart: false`, such as a SASL authentication or authorization failure) is thrown from `poll()`: the worker reports it through `onError`, exits `1` and the primary replaces it with backoff. Retriable crashes are restarted by kafkajs itself and do not exit.
 
 - `brokers` (string[]) (required)
 - `groupId` (string) (required)
@@ -198,13 +202,14 @@ Connects a kafkajs consumer, subscribes to topics, runs `eachBatch` with `partit
 - `ssl` (boolean)
 - `eventSourceArn` (string)
 - `selfManaged` (boolean): When `true`, emits `eventSource: "SelfManagedKafka"` instead of `"aws:kafka"`.
+- `heartbeatIntervalMs` (integer, ms): How often to heartbeat while the handler holds a batch. Defaults to `3000`.
 
 ### `pollAmq(options)`
 
 Subscribes to an ActiveMQ queue over STOMP via `stompit`, with `client-individual` ack mode. Buffers up to `batchSize` messages within a `batchWindowMs` window before yielding a batch. `ack`s successful messages and `nack`s failed ones based on the response.
 
-- `connectOptions` (object) (required) — passed through to `stompit.connect`.
-- `destination` (string) (required) — e.g. `"/queue/orders"`.
+- `connectOptions` (object) (required), passed through to `stompit.connect`.
+- `destination` (string) (required), e.g. `"/queue/orders"`.
 - `ackMode`: `"client-individual"` (default) or `"client"`.
 - `batchSize` (integer): Defaults to `10`.
 - `batchWindowMs` (integer): Defaults to `1000`.
@@ -235,14 +240,25 @@ Each poller produces the exact shape that `@middy/event-batch-parser` and `@midd
 | `pollAmq` | `"aws:amq"` | `messages[]` |
 | `pollRmq` | `"aws:rmq"` | `rmqMessagesByQueue["queue::vhost"][]` |
 
+Record fields follow the Lambda developer guide for each source. The unit tests compare every poller against the documented fixtures in `packages/ecs-batch/fixtures/` (test data, not published). Where the raw SDK or broker payload differs from what Lambda delivers, the poller converts it:
+
+- `pollSqs`: `messageAttributes` are camel-cased (`stringValue`, `binaryValue` as base64, `dataType`, plus the empty `stringListValues` and `binaryListValues` arrays Lambda emits). `md5OfMessageAttributes` is copied when present.
+- `pollKinesis`: `approximateArrivalTimestamp` is decimal epoch seconds. `invokeIdentityArn` is not emitted; it names the IAM role Lambda's own poller assumes.
+- `pollDynamoDBStreams`: `dynamodb.ApproximateCreationDateTime` is epoch seconds (the SDK returns a `Date`). `userIdentity` (`{ type, principalId }`) is copied for Time to Live deletes.
+- `pollKafka`: `headers` is an array of `{ [key]: [byte, ...] }`, one entry per header value. `batchItemFailures` identifiers are `{ partition: "topic-partition", offset }` objects, the shape Lambda and `@middy/event-batch-response` use; the flat `"topic-partition-offset"` string is still accepted. `eventSourceArn` is omitted when not configured, matching `SelfManagedKafka` events.
+- `pollAmq`: `destination` is `{ physicalName }` with the STOMP `/queue/`, `/topic/` or temp prefix stripped. Custom STOMP headers (JMS user properties) land in `properties`. `replyTo`, `type`, `expiration` and `correlationID` map from the `reply-to`, `type`, `expires` and `correlation-id` headers and are `null` when absent. The field is `correlationID`, the spelling every AWS-maintained event type reads, not the developer guide's `correlationId`. `brokerInTime` and `brokerOutTime` are not emitted because STOMP frames do not carry them. `eventSource` is `"aws:amq"`, the value `@middy/event-normalizer` and `@middy/event-batch-parser` match on; the developer guide prints `"aws:mq"` and which one Lambda delivers is unverified until captured.
+- `pollRmq`: `basicProperties.headers` string and `Buffer` values become `{ bytes: [...] }`; numbers pass through. `bodySize` is the body length in bytes. `timestamp` is rendered as Lambda does, an en-US date-time string in UTC such as `"Jan 1, 1970, 12:33:41 AM"`.
+
 This means your handler is portable: pair it with a Lambda event source mapping today, lift it onto ECS tomorrow, no code changes.
 
 ## Fargate Spot
 
-Spot tasks receive `SIGTERM` ~2 minutes before reclamation. The runner installs a single `AbortController` per worker and on `SIGTERM`:
+Spot tasks receive `SIGTERM` ~2 minutes before reclamation. The primary forwards the signal to every worker, stops replacing workers that exit, and once the last worker is gone exits with the highest exit code any worker reported during the drain (`0` when every worker drained cleanly; a worker killed by a signal counts as `1`). Only exits after `SIGTERM` count: a worker that crashed earlier was replaced with backoff and does not affect the task's exit code. Each worker holds a single `AbortController` and on `SIGTERM`:
 
 1. Aborts the in-flight `client.send`/`consume`/`subscribe` so the poll loop exits at its next iteration.
-2. Awaits the in-flight handler + `acknowledge` (still committing successful work).
+2. Awaits the in-flight handler + `acknowledge` (still committing successful work). For Kafka the commit for that batch completes before the consumer disconnects; if the handler throws instead, the batch is released uncommitted and redelivers after restart.
 3. Exits `0` if drained within `gracefulShutdownMs`, else `1`.
+
+A worker whose poller throws (network error, expired iterator, throttling) reports the error through `onError` and exits `1`; the primary replaces it after the backoff delay.
 
 For shard-based pollers (Kinesis, DynamoDB Streams) you should also persist your last-processed `SequenceNumber` from your handler so the next task instance resumes via `startingSequenceNumber` / `sequenceNumber`.

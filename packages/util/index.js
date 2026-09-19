@@ -1,6 +1,5 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { STATUS_CODES } from "node:http";
 
 // Option validation helper.
 // Schema values:
@@ -111,18 +110,16 @@ const stableStringify = (value, seen = new WeakSet()) => {
 	if (value === null || typeof value !== "object") return JSON.stringify(value);
 	if (seen.has(value)) return '"[Circular]"';
 	seen.add(value);
-	let result;
-	if (Array.isArray(value)) {
-		result = `[${value.map((v) => stableStringify(v, seen)).join(",")}]`;
-	} else {
-		const keys = Object.keys(value)
-			.filter((k) => typeof value[k] !== "function")
-			.sort();
-		// Stryker disable next-line StringLiteral: removing the key/value join "," is equivalent; JSON.stringify quotes every key, so no two distinct objects can ever serialize to the same string with or without the separator (and equal objects stay equal).
-		result = `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k], seen)}`).join(",")}}`;
-	}
+	const isArray = Array.isArray(value);
+	const parts = isArray
+		? value.map((v) => stableStringify(v, seen))
+		: Object.keys(value)
+				.filter((k) => typeof value[k] !== "function")
+				.sort()
+				.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k], seen)}`);
 	seen.delete(value);
-	return result;
+	const joined = parts.join(",");
+	return isArray ? `[${joined}]` : `{${joined}}`;
 };
 
 const resolveInstance = (name) => {
@@ -228,8 +225,17 @@ const checkRule = (rule, value, path, fail) => {
 		if (hasStringConstraint && typeof value !== "string") {
 			fail(`Option '${path}' must be string`);
 		}
-		if (pattern !== undefined && value.match(pattern) === null) {
-			fail(`Option '${path}' must match pattern ${pattern}`);
+		if (pattern !== undefined) {
+			let matched;
+			try {
+				matched = value.match(pattern) !== null;
+			} catch {
+				// A pattern that does not compile is a malformed schema, not a
+				// mismatch; the RegExp SyntaxError is surfaced as the packaged
+				// TypeError like every other schema error.
+				schemaFail(`Invalid pattern for option '${path}'`);
+			}
+			if (!matched) fail(`Option '${path}' must match pattern ${pattern}`);
 		}
 		if (value.length < minLength) {
 			fail(`Option '${path}' must have length >= ${minLength}`);
@@ -311,8 +317,8 @@ export const validateOptions = (packageName, schema, options = {}) => {
 	} catch (e) {
 		// Re-wrap an internal malformed-schema `SchemaError` so callers still see
 		// the documented `TypeError` + `cause.package`; mismatch errors already
-		// carry that shape and pass through untouched.
-		// Stryker disable next-line ConditionalExpression: forcing this true is equivalent; the only non-SchemaError reaching here is a `fail()` TypeError that already carries cause.package, so re-wrapping it via `fail(e.message)` produces an identical message + cause.
+		// carry that shape and pass through untouched, as does an error a
+		// predicate threw.
 		if (e instanceof SchemaError) {
 			fail(e.message);
 		}
@@ -341,7 +347,9 @@ export const createClient = async (options, request) => {
 
 	// Role Credentials
 	if (options.awsClientAssumeRole) {
-		if (!request) {
+		// The credentials live in `request.internal`; without it the client would
+		// silently be built on the function's own role.
+		if (!request?.internal) {
 			throw new Error("Request required when assuming role", {
 				cause: { package: pkg },
 			});
@@ -363,6 +371,39 @@ export const createClient = async (options, request) => {
 	});
 };
 
+// Memoized client initialisation for the warm path. A rejected attempt is
+// forgotten so the next invocation retries instead of replaying the same
+// failure for the life of the container. With `awsClientAssumeRole` the memo
+// is keyed on the credential value sts stored in `request.internal` (the same
+// promise object until sts refetches), so refreshed credentials rebuild the
+// client instead of it keeping the first invocation's, by then expired, session.
+export const createClientInit = (options) => {
+	const { awsClientAssumeRole } = options;
+	let pending;
+	let credentials;
+	return (request) => {
+		// A request without `internal` is left to createClient, which rejects
+		// with the packaged error rather than throwing here synchronously.
+		// Without awsClientAssumeRole the key is undefined, the read yields
+		// undefined on every request and the memo is never reset.
+		const current = request?.internal?.[awsClientAssumeRole];
+		if (current !== credentials) {
+			credentials = current;
+			pending = undefined;
+		}
+		if (pending === undefined) {
+			// Only the current attempt is forgotten on failure: one superseded by
+			// refetched credentials may still reject after its replacement began.
+			const attempt = createClient(options, request).catch((e) => {
+				if (pending === attempt) pending = undefined;
+				throw e;
+			});
+			pending = attempt;
+		}
+		return pending;
+	};
+};
+
 export const canPrefetch = (options = {}) => {
 	return (
 		!options.awsClientAssumeRole &&
@@ -374,12 +415,24 @@ export const canPrefetch = (options = {}) => {
 const safeGet = (obj, key) =>
 	obj != null && Object.hasOwn(obj, key) ? obj[key] : undefined;
 
+// `sanitizeKey` maps e.g. `a.b`, `a_b` and `a-b` all to `a_b`, so two
+// requested keys can land on the same output name and one value would
+// silently overwrite the other. Callers detect the collision on write (an
+// `in` check against the null-prototype output) and build the error here,
+// off the hot path, listing every requested key that collides.
+const duplicateSanitizedKeyError = (keys, sanitized) => {
+	const collisions = keys.filter((key) => sanitizeKey(key) === sanitized);
+	return new TypeError(
+		`Keys ${collisions.map((key) => `"${key}"`).join(", ")} sanitize to the same name "${sanitized}"`,
+		{ cause: { package: pkg, data: { keys: collisions } } },
+	);
+};
+
 // Internal Context
 export const getInternal = async (variables, request) => {
 	if (!variables || !request?.internal) return Object.create(null);
-	let keys = [];
-	// Stryker disable next-line ArrayDeclaration: equivalent; this initial value is only observable when no branch below matches (variables is a truthy non-true/string/array/object), and in that case `keys` stays [] so the output is always {} regardless of `values`.
-	let values = [];
+	let keys;
+	let values;
 	if (variables === true) {
 		keys = values = Object.keys(request.internal);
 	} else if (typeof variables === "string") {
@@ -389,23 +442,22 @@ export const getInternal = async (variables, request) => {
 	} else if (typeof variables === "object") {
 		keys = Object.keys(variables);
 		values = Object.values(variables);
+	} else {
+		return Object.create(null);
 	}
-	// Fast synchronous path: when all internal values are already resolved
-	// (warm/cached invocations), skip all Promise machinery entirely.
-	// The async fallback below produces byte-for-byte identical output, so the
-	// following sync-path mutants are equivalent: they only ever route execution
-	// to the async path (or vice versa), never change the resolved result.
-	// Stryker disable next-line BooleanLiteral: equivalent; starting allSync=false just forces the async path, which yields the same result.
+	// Fast synchronous path: when every internal value is already resolved
+	// (warm/cached invocations) the result is built without any Promise
+	// machinery, so the returned promise is already settled and an `await` on
+	// it costs no extra microtask hop. The first pending value hands over to
+	// the async fallback below, which produces the same output.
+	const obj = Object.create(null);
 	let allSync = true;
-	// Stryker disable next-line ArrayDeclaration: equivalent; new Array() vs new Array(n) both accept the same indexed assignments.
-	const syncResults = new Array(values.length);
 	for (let i = 0; i < values.length; i++) {
 		const internalKey = values[i];
 		const dotIndex = internalKey.indexOf(".");
 		const rootKey =
 			dotIndex === -1 ? internalKey : internalKey.substring(0, dotIndex);
 		let value = request.internal[rootKey];
-		// Stryker disable next-line ConditionalExpression: equivalent; forcing the async path for every value yields the same result.
 		if (isPromise(value)) {
 			allSync = false;
 			break;
@@ -419,16 +471,11 @@ export const getInternal = async (variables, request) => {
 				break;
 			}
 		}
-		syncResults[i] = value;
+		const sanitized = sanitizeKey(keys[i]);
+		if (sanitized in obj) throw duplicateSanitizedKeyError(keys, sanitized);
+		obj[sanitized] = value;
 	}
-	// Stryker disable next-line ConditionalExpression,BlockStatement: equivalent; skipping the sync fast-path defers to the async fallback, which returns the same object.
-	if (allSync) {
-		const obj = Object.create(null);
-		for (let i = 0; i < keys.length; i++) {
-			obj[sanitizeKey(keys[i])] = syncResults[i];
-		}
-		return obj;
-	}
+	if (allSync) return obj;
 
 	// Async fallback: for cold/first invocations with pending promises
 	const promises = [];
@@ -436,34 +483,37 @@ export const getInternal = async (variables, request) => {
 		// 'internal.key.sub_value' -> { [key]: internal.key.sub_value }
 		const pathOptionKey = internalKey.split(".");
 		const rootOptionKey = pathOptionKey.shift();
-		let valuePromise = request.internal[rootOptionKey];
-		// Stryker disable next-line ConditionalExpression: equivalent; Promise.resolve(p) returns p unchanged when p is already a promise, so always wrapping yields the same value.
-		if (!isPromise(valuePromise)) {
-			valuePromise = Promise.resolve(valuePromise);
-		}
+		// Promise.resolve hands a native promise back unchanged, so a resolved
+		// value and a pending one take the same path.
 		promises.push(
-			valuePromise.then((value) => pathOptionKey.reduce(safeGet, value)),
+			Promise.resolve(request.internal[rootOptionKey]).then((value) =>
+				pathOptionKey.reduce(safeGet, value),
+			),
 		);
 	}
 	// ensure promise has resolved by the time it's needed
 	// If one of the promises throws it will bubble up to @middy/core
 	values = await Promise.allSettled(promises);
-	const obj = Object.create(null);
+	const resolved = Object.create(null);
 	let errors;
 	for (let i = 0; i < keys.length; i++) {
 		if (values[i].status === "rejected") {
 			errors ??= [];
 			errors.push(values[i].reason);
 		} else {
-			obj[sanitizeKey(keys[i])] = values[i].value;
+			const sanitized = sanitizeKey(keys[i]);
+			if (sanitized in resolved) {
+				throw duplicateSanitizedKeyError(keys, sanitized);
+			}
+			resolved[sanitized] = values[i].value;
 		}
 	}
 	if (errors) {
-		throw new Error("Failed to resolve internal values", {
-			cause: { package: pkg, data: errors },
+		throw new AggregateError(errors, "Failed to resolve internal values", {
+			cause: { package: pkg },
 		});
 	}
-	return obj;
+	return resolved;
 };
 
 const isPromise = (promise) => typeof promise?.then === "function";
@@ -478,10 +528,13 @@ export const sanitizeKey = (key) => {
 		sanitized = key
 			.replace(sanitizeKeyPrefixLeadingNumber, "_$1")
 			.replace(sanitizeKeyRemoveDisallowedChar, "_");
-		// Stryker disable next-line ConditionalExpression,EqualityOperator: the always-cache and cap-boundary variants are equivalent - storing past (or one entry beyond) the cap only changes whether a deterministic value is later recomputed, never the returned value, and killing them would require a test coupled to the exact global fill state of the memo. (The never-cache variants are killed by the replace-spy memo test.)
-		if (sanitizeKeyCache.size < sanitizeKeyCacheMaxSize) {
-			sanitizeKeyCache.set(key, sanitized);
+		// Flushed when full rather than frozen, so a container that sees more
+		// distinct keys than the cap keeps memoizing the recent ones.
+		// ponytail: whole-cache flush, swap for LRU if the recompute bursts matter.
+		if (sanitizeKeyCache.size === sanitizeKeyCacheMaxSize) {
+			sanitizeKeyCache.clear();
 		}
+		sanitizeKeyCache.set(key, sanitized);
 	}
 	return sanitized;
 };
@@ -496,6 +549,29 @@ export const resolveHttpEventVersion = (event) => {
 	return event.version ?? (event.method ? "vpc" : "1.0");
 };
 
+// Handler-facing namespace on the Lambda context.
+//
+// Middleware publish to `context.middyContext[contextKey]` (contextKey defaults to
+// the package name without the `@middy/` scope) instead of the context root,
+// so a fetched value named `functionName` can't clobber the AWS context.
+// `@middy/core` seeds `context.middyContext` per invocation; the `??=` here keeps a
+// hand-rolled request that never passed through core working, and keeps the
+// null prototype, which matters because keys come from user config and on a
+// plain object a key of `__proto__` would set the prototype instead of an own
+// property.
+const contextRoot = (request) =>
+	(request.context.middyContext ??= Object.create(null));
+
+// Get-or-create the merge target for key/value data (`setToContext`), so two
+// middleware sharing one contextKey merge rather than clobber.
+export const contextNamespace = (request, contextKey) =>
+	(contextRoot(request)[contextKey] ??= Object.create(null));
+
+// Publish a single opaque value (a client, a pool, a verified payload).
+export const setContextNamespace = (request, contextKey, value) => {
+	contextRoot(request)[contextKey] = value;
+};
+
 // setToContext fast-path
 //
 // Many middlewares (kms/ssm/secrets-manager/dynamodb/s3/sts/…) follow the
@@ -507,35 +583,47 @@ export const resolveHttpEventVersion = (event) => {
 // is dead work.
 //
 // `buildSetToContextSpec(options)` is called once at factory time and
-// returns either `null` (when `setToContext` is false) or the precomputed
-// `[[originalKey, sanitizedKey], …]` pairs.
+// returns either `null` (when `setToContext` is false) or the target
+// `contextKey` plus the precomputed `[[originalKey, sanitizedKey], …]` pairs.
+// Either way it rejects two `fetchData` keys that sanitize to the same name up
+// front: with `setToContext` off they still collide in `request.internal`,
+// where `getInternal` would throw on every invocation instead of once here.
 //
 // `assignSetToContext(spec, value, request)` is called once per invocation.
 // Returns `undefined` synchronously when all entries are resolved (the
 // common warm path), or a Promise when at least one is still pending. The
 // caller should `if (p) await p` so the sync path keeps zero microtask hops.
-export const buildSetToContextSpec = (options) =>
-	options.setToContext
-		? Object.keys(options.fetchData).map((k) => [k, sanitizeKey(k)])
-		: null;
+export const buildSetToContextSpec = (options) => {
+	const keys = Object.keys(options.fetchData);
+	const pairs = [];
+	const seen = new Set();
+	for (const key of keys) {
+		const sanitized = sanitizeKey(key);
+		if (seen.has(sanitized)) throw duplicateSanitizedKeyError(keys, sanitized);
+		seen.add(sanitized);
+		pairs.push([key, sanitized]);
+	}
+	if (!options.setToContext) return null;
+	return { contextKey: options.contextKey, pairs };
+};
 
-export const assignSetToContext = (spec, value, request) => {
-	for (let i = 0; i < spec.length; i++) {
-		const v = value[spec[i][0]];
+export const assignSetToContext = ({ contextKey, pairs }, value, request) => {
+	for (let i = 0; i < pairs.length; i++) {
+		const v = value[pairs[i][0]];
 		if (typeof v?.then === "function") {
 			// Cold path: at least one value still pending; defer to
 			// `getInternal` for the standard await+sanitize+assign flow.
-			// Stryker disable next-line ArrayDeclaration: equivalent; new Array() vs new Array(n) both accept the same indexed assignments.
-			const keys = new Array(spec.length);
-			for (let j = 0; j < spec.length; j++) keys[j] = spec[j][0];
-			return getInternal(keys, request).then((data) => {
-				Object.assign(request.context, data);
+			return getInternal(
+				pairs.map((pair) => pair[0]),
+				request,
+			).then((data) => {
+				Object.assign(contextNamespace(request, contextKey), data);
 			});
 		}
 	}
-	const ctx = request.context;
-	for (let i = 0; i < spec.length; i++) {
-		ctx[spec[i][1]] = value[spec[i][0]];
+	const ctx = contextNamespace(request, contextKey);
+	for (let i = 0; i < pairs.length; i++) {
+		ctx[pairs[i][1]] = value[pairs[i][0]];
 	}
 };
 
@@ -570,6 +658,13 @@ const silenceFetchRejections = (value) => {
 	}
 };
 
+// setTimeout clamps delays above 2^31-1 ms (~24.8 days) to 1 ms and emits
+// TimeoutOverflowWarning, so a refresh that far out is not scheduled at all
+// (this also covers the Infinity duration of a `-1` cacheExpiry). The entry
+// still expires on time, because expiry is checked on every read; it is just
+// refetched on the first request after expiry instead of in the background.
+const maxTimeoutDuration = 2147483647;
+
 // Module-scope so the warm cache-hit path allocates no closure; only the
 // scheduling paths (modified entry, miss) create the timer callback.
 const scheduleRefresh = (
@@ -578,12 +673,17 @@ const scheduleRefresh = (
 	middlewareFetch,
 	middlewareFetchRequest,
 ) =>
-	duration > 0 && Number.isFinite(duration)
+	duration > 0 && duration <= maxTimeoutDuration
 		? setTimeout(
 				() => processCache(options, middlewareFetch, middlewareFetchRequest),
 				duration,
 			).unref()
 		: undefined;
+
+// Absolute expiry learned for `cacheKey` (see setCacheKeyExpiry), or Infinity
+// when there is none.
+const learnedExpiry = (options, cacheKey) =>
+	options.cacheLearnedExpiry?.[cacheKey] ?? Number.POSITIVE_INFINITY;
 
 export const processCache = (
 	options,
@@ -597,11 +697,15 @@ export const processCache = (
 	const now = Date.now();
 	if (cacheExpiry) {
 		const cached = getCache(cacheKey);
-		const effectiveExpiry =
-			cacheExpiry > 86400000 ? cacheExpiry : cached.expiry;
-		const unexpired =
-			// Stryker disable next-line ConditionalExpression,EqualityOperator: the `cacheExpiry < 0` branch is equivalent. cacheExpiry === 0 is unreachable (guarded by `if (cacheExpiry)`), and for the only negative value -1 the stored expiry is Infinity so `effectiveExpiry > now` is already always true. (-1 -> 0 boundary cannot be observed.)
-			cached.expiry && (cacheExpiry < 0 || effectiveExpiry > now);
+		// A unix-timestamp cacheExpiry is re-read on every call so a changed
+		// option takes effect; a duration or -1 relies on the expiry stored with
+		// the entry. Either is capped by the learned expiry, which a fetch may
+		// have set after the entry was stored (once its promise resolved).
+		const effectiveExpiry = Math.min(
+			cacheExpiry > 86400000 ? cacheExpiry : cached.expiry,
+			learnedExpiry(options, cacheKey),
+		);
+		const unexpired = cached.expiry && effectiveExpiry > now;
 
 		if (unexpired) {
 			if (cached.modified) {
@@ -609,12 +713,18 @@ export const processCache = (
 				silenceFetchRejections(value);
 				Object.assign(cached.value, value);
 				const refresh = scheduleRefresh(
-					cached.expiry - now,
+					effectiveExpiry - now,
 					options,
 					middlewareFetch,
 					middlewareFetchRequest,
 				);
-				const entry = { value: cached.value, expiry: cached.expiry, refresh };
+				const entry = {
+					value: cached.value,
+					expiry: effectiveExpiry,
+					refresh,
+					middlewareFetch,
+					middlewareFetchRequest,
+				};
 				cache.set(cacheKey, entry);
 				return entry;
 			}
@@ -622,6 +732,12 @@ export const processCache = (
 			return cached;
 		}
 	}
+	// The expiry learned by the previous cycle is dropped before the fetch: still
+	// ahead of the clock (the entry was cleared, evicted or capped by a shorter
+	// cacheExpiry), it would floor whatever this cycle learns and pin every
+	// later cycle to the first one's expiry.
+	if (options.cacheLearnedExpiry)
+		options.cacheLearnedExpiry[cacheKey] = undefined;
 	const value = middlewareFetch(middlewareFetchRequest);
 	silenceFetchRejections(value);
 	// cacheExpiry semantics:
@@ -629,23 +745,40 @@ export const processCache = (
 	//   >0 && <=86400000: treated as duration (ms) from now
 	//   -1: infinite cache (never expires)
 	//   0/undefined/null: no caching
-	const expiry =
+	let expiry =
 		cacheExpiry < 0
 			? Number.POSITIVE_INFINITY
 			: cacheExpiry > 86400000
 				? cacheExpiry
 				: now + cacheExpiry;
-	// Stryker disable next-line EqualityOperator: the `> 86400000` -> `>= 86400000` change is equivalent for the refresh duration. It only differs at cacheExpiry === 86400000, where it shifts the auto-refresh timer by `now` ms; the refresh callback re-validates the (separately-set) expiry, so the same number of fetches occur and no observable difference results.
-	const duration = cacheExpiry > 86400000 ? cacheExpiry - now : cacheExpiry;
 	if (cacheExpiry) {
+		// Read after the fetch, which may have learned the expiry synchronously,
+		// so the entry and its refresh fold it in from the start. One that has
+		// already passed (it is what expired the previous entry) is dropped:
+		// applied, it would pin the new entry to the past, so every caller in
+		// the same tick would refetch and no refresh could be scheduled.
+		const learned = learnedExpiry(options, cacheKey);
+		if (learned > now) {
+			expiry = Math.min(expiry, learned);
+		} else {
+			options.cacheLearnedExpiry[cacheKey] = undefined;
+		}
 		clearTimeout(cache.get(cacheKey)?.refresh);
 		const refresh = scheduleRefresh(
-			duration,
+			expiry - now,
 			options,
 			middlewareFetch,
 			middlewareFetchRequest,
 		);
-		cache.set(cacheKey, { value, expiry, refresh });
+		// The fetch and request are kept so an expiry learned once the fetch
+		// resolves (see setCacheKeyExpiry) can reschedule this refresh.
+		cache.set(cacheKey, {
+			value,
+			expiry,
+			refresh,
+			middlewareFetch,
+			middlewareFetchRequest,
+		});
 		evictCache(cacheMaxSize);
 	}
 	return { value, expiry };
@@ -671,22 +804,82 @@ export const modifyCache = (cacheKey, value) => {
 	entry.modified = true;
 };
 
+// `.catch` handler for a per-key fetch: drop the failed key from the cached
+// value and flag the entry modified so the next `processCache` call refetches
+// only that key, then rethrow so the current invocation still fails.
+// `values` is the object the fetch returned. Given, the key is only dropped
+// while the entry still holds that fetch's promise for it: a fetch that fails
+// after its entry expired and a newer cycle replaced it must not evict the
+// fresh value. The promise is compared rather than the object because the
+// modified path merges a refetch into the entry's existing value object.
+export const evictCacheOnFailure = (cacheKey, internalKey, values) => (e) => {
+	const value = getCache(cacheKey).value ?? {};
+	if (values === undefined || value[internalKey] === values[internalKey]) {
+		value[internalKey] = undefined;
+		modifyCache(cacheKey, value);
+	}
+	throw e;
+};
+
+// Record an absolute expiry (unix ms) learned from a fetched value (credential
+// `Expiration`, token lifetime, rotation date). It lives in
+// `options.cacheLearnedExpiry`, apart from the user-facing `cacheKeyExpiry`,
+// and `processCache` only ever uses it to shorten the configured lifetime: it
+// can neither enable caching that is disabled (0) nor extend a shorter
+// `cacheExpiry`. Several keys fetched in one cycle keep the earliest expiry,
+// while one left by an earlier cycle (already past) is ignored. A value that
+// is not a unix timestamp (Infinity for "no expiry", NaN, a duration, a
+// negative number) carries no information: it never displaces a fresh learned
+// expiry and clears a stale one.
+// A fetch usually learns inside its `.then`, after `processCache` stored the
+// entry with the configured lifetime and scheduled the refresh for it. When
+// the learned expiry shortens that entry, its refresh is moved up to match, so
+// the rotation is paid in the background rather than by the first request
+// after it. Nothing is scheduled when this caller has caching disabled: an
+// entry found under the key then belongs to another instance.
+export const setCacheKeyExpiry = (options, expiryMs) => {
+	const { cacheKey } = options;
+	const now = Date.now();
+	const existing = options.cacheLearnedExpiry?.[cacheKey];
+	const floor = existing > now ? existing : Number.POSITIVE_INFINITY;
+	const learned =
+		Number.isFinite(expiryMs) && expiryMs > 86400000
+			? Math.floor(expiryMs)
+			: Number.POSITIVE_INFINITY;
+	const clamp = Math.min(learned, floor);
+	options.cacheLearnedExpiry ??= {};
+	options.cacheLearnedExpiry[cacheKey] =
+		clamp === Number.POSITIVE_INFINITY ? undefined : clamp;
+	const entry = cache.get(cacheKey);
+	if (
+		entry &&
+		clamp < entry.expiry &&
+		(options.cacheKeyExpiry?.[cacheKey] ?? options.cacheExpiry)
+	) {
+		clearTimeout(entry.refresh);
+		entry.expiry = clamp;
+		entry.refresh = scheduleRefresh(
+			clamp - now,
+			options,
+			entry.middlewareFetch,
+			entry.middlewareFetchRequest,
+		);
+	}
+};
+
 const evictCache = (maxSize) => {
 	if (cache.size <= maxSize) return;
-	let oldestKey = null;
-	let oldestExpiry;
+	// Seeded from the first entry, so a cache of nothing but never-expiring
+	// entries still evicts the oldest inserted one.
+	let [oldestKey, oldest] = cache.entries().next().value;
 	for (const [key, entry] of cache) {
-		if (entry && (oldestKey === null || entry.expiry < oldestExpiry)) {
-			oldestExpiry = entry.expiry;
+		if (entry.expiry < oldest.expiry) {
 			oldestKey = key;
+			oldest = entry;
 		}
 	}
-	// Stryker disable next-line ConditionalExpression: equivalent; evictCache only runs when cache.size > maxSize (>0) and every cache entry is a truthy object, so the loop always sets oldestKey to a real key. Forcing this guard true would at worst delete the null key, a harmless no-op.
-	if (oldestKey !== null) {
-		// Stryker disable next-line OptionalChaining: equivalent; oldestKey was just read from the live cache in the loop above, so cache.get(oldestKey) is always defined and the optional chain never short-circuits.
-		clearTimeout(cache.get(oldestKey)?.refresh);
-		cache.delete(oldestKey);
-	}
+	clearTimeout(oldest.refresh);
+	cache.delete(oldestKey);
 };
 
 export const clearCache = (inputKeys = null) => {
@@ -703,6 +896,8 @@ export const clearCache = (inputKeys = null) => {
 
 // context
 // https://docs.aws.amazon.com/lambda/latest/dg/nodejs-context.html
+// `tenantId` is documented under tenant isolation:
+// https://docs.aws.amazon.com/lambda/latest/dg/tenant-isolation-context.html
 export const lambdaContextKeys = [
 	"functionName",
 	"functionVersion",
@@ -713,10 +908,8 @@ export const lambdaContextKeys = [
 	"logStreamName",
 	"identity",
 	"clientContext",
-	"callbackWaitsForEmptyEventLoop",
+	"tenantId",
 ];
-
-export const executionContextKeys = ["tenantId"];
 
 const durableContextBrand = Symbol.for(
 	"@aws/durable-execution-sdk-js/durable-context",
@@ -736,17 +929,33 @@ export const jsonSafeParse = (text, reviver) => {
 	}
 };
 
+// A forbidden key only reaches the guard reviver if it is spelled in the raw
+// source, so a body carrying neither spelling skips the per-key callback and
+// lets JSON.parse stay on its native path (~8x). Each character matches either
+// literally or as the \uXXXX escape JSON.parse decodes back to it, so no
+// spelling slips past; a false positive only costs the guarded parse.
+const suspectKeyRx =
+	/"(?:(?:_|\\u005[Ff]){2}(?:p|\\u0070)(?:r|\\u0072)(?:o|\\u006[Ff])(?:t|\\u0074)(?:o|\\u006[Ff])(?:_|\\u005[Ff]){2}|(?:c|\\u0063)(?:o|\\u006[Ff])(?:n|\\u006[Ee])(?:s|\\u0073)(?:t|\\u0074)(?:r|\\u0072)(?:u|\\u0075)(?:c|\\u0063)(?:t|\\u0074)(?:o|\\u006[Ff])(?:r|\\u0072))"\s*:/;
+
 export const jsonParseProtectProto = (text, reviver, packageName) => {
-	return JSON.parse(text, (key, value) => {
+	if (!suspectKeyRx.test(text)) {
+		return JSON.parse(text, reviver);
+	}
+	// `function`, not an arrow: the user reviver needs the `this` the fast path
+	// above binds.
+	return JSON.parse(text, function (key, value) {
 		if (
 			key === "__proto__" ||
 			(key === "constructor" && value && Object.hasOwn(value, "prototype"))
 		) {
-			throw createError(422, "Forbidden key in JSON body", {
-				cause: { package: packageName, data: key },
+			throw new HttpError(422, {
+				cause: {
+					package: packageName,
+					data: { reason: "Forbidden key in JSON body", key },
+				},
 			});
 		}
-		return reviver ? reviver(key, value) : value;
+		return reviver ? reviver.call(this, key, value) : value;
 	});
 };
 
@@ -794,20 +1003,249 @@ export const normalizeHttpResponse = (request) => {
 	return response;
 };
 
-const createErrorRegexp = /[^a-zA-Z]/g;
-export class HttpError extends Error {
-	constructor(code, optionalMessage, optionalOptions = {}) {
-		let message = optionalMessage;
-		let options = optionalOptions;
-		if (message && typeof message !== "string") {
-			options = message;
-			message = undefined;
+// Paths are dot-delimited and relative to the `request`, with `[]` for array
+// elements: `event.headers.authorization`, `error.cause.data.body`.
+// Nodes are Maps: a segment is caller data, and a Map key can never resolve to
+// an inherited member the way `node[segment]` would, so building the tree needs
+// no own-property guard. The segments are still filtered, because `omit` reads
+// and writes them as real property names on the payload.
+export const buildPathTree = (paths) => {
+	const tree = new Map();
+	// Copy before sorting so the caller-provided array is never mutated. Reverse
+	// so a leaf path (`a.b`) overrides a longer one (`a.b.c`) when both are set.
+	for (let path of [...paths].sort().reverse()) {
+		if (!Array.isArray(path)) path = path.split(".");
+		if (
+			path.includes("__proto__") ||
+			path.includes("constructor") ||
+			path.includes("prototype")
+		) {
+			continue;
 		}
-		message ??= STATUS_CODES[code];
-		super(message, options);
+		let node = tree;
+		for (let i = 0; i < path.length - 1; i++) {
+			const segment = path[i];
+			let child = node.get(segment);
+			if (child === undefined) {
+				child = new Map();
+				node.set(segment, child);
+			}
+			node = child;
+		}
+		node.set(path[path.length - 1], true);
+	}
+	return tree;
+};
+
+// Returns `obj` unchanged when no `pathTree` entry applies (zero allocations
+// on the cold subtree); otherwise returns a shallow clone with matched keys
+// masked or removed. Only branches present in `pathTree` are walked.
+export const omit = (obj, pathTree, mask) => {
+	if (!pathTree || typeof obj !== "object" || obj === null) return obj;
+	if (Array.isArray(obj)) return omitArray(obj, pathTree.get("[]"), mask);
+	// Errors are not plain objects, so without this branch `omitObject` would
+	// never run and the configured path would silently leak.
+	if (obj instanceof Error)
+		return omitObject(errorToObject(obj), pathTree, mask);
+	if (isRecord(obj)) return omitObject(obj, pathTree, mask);
+	if (isOpaque(obj)) return obj;
+	return omitInstance(obj, pathTree, mask);
+};
+
+// A class instance (the durable execution context, a request wrapper from a
+// framework) is walked through a copy of its own enumerable properties, so a
+// prototype getter is never read and the instance itself comes back when
+// nothing under it matched. What the logger gets for it is that plain copy.
+const omitInstance = (obj, pathTree, mask) => {
+	const copy = { ...obj };
+	const next = omitObject(copy, pathTree, mask);
+	return next === copy ? obj : next;
+};
+
+// Built-ins stay leaves: their own properties are not data to redact (a
+// Buffer's indices, a RegExp's lastIndex, a stream's internal state) and a
+// spread copy would strip the state that makes them what they are.
+const isOpaque = (value) => {
+	if (
+		value instanceof Date ||
+		value instanceof RegExp ||
+		value instanceof Map ||
+		value instanceof Set ||
+		value instanceof WeakMap ||
+		value instanceof WeakSet ||
+		value instanceof ArrayBuffer ||
+		ArrayBuffer.isView(value) ||
+		value instanceof ReadableStream ||
+		value instanceof WritableStream
+	) {
+		return true;
+	}
+	// The remaining probes read properties. A Proxy with a strict `get` trap (a
+	// framework's request wrapper) throws for one it does not carry; it is not
+	// data to walk either, so it stays a leaf.
+	try {
+		return (
+			typeof value.then === "function" ||
+			value._readableState !== undefined ||
+			value._writableState !== undefined
+		);
+	} catch {
+		return true;
+	}
+};
+
+// `cause`, `stack` and `AggregateError.errors` are own but non-enumerable, so a
+// spread drops them, and `cause.data` is where middy puts the payload that
+// triggered the error. `name` is usually inherited, hence the seed.
+const errorToObject = (error) => {
+	const out = { name: error.name };
+	for (const key of Object.getOwnPropertyNames(error)) {
+		out[key] = error[key];
+	}
+	return out;
+};
+
+// A falsy `childTree` needs no guard: every `omit` below then returns its
+// element unchanged, so the same array reference comes back.
+// Counting down: `.entries()` allocates a tuple per element, and a forward
+// `i < l` bound widened to `i <= l` is unobservable. `while (i--)` carries no
+// bound arithmetic to widen either, so every mutation of it is observable.
+const omitArray = (arr, childTree, mask) => {
+	let clone = arr;
+	let i = arr.length;
+	while (i--) {
+		const next = omit(arr[i], childTree, mask);
+		if (next !== arr[i]) {
+			if (clone === arr) clone = arr.slice();
+			clone[i] = next;
+		}
+	}
+	return clone;
+};
+
+const omitObject = (obj, pathTree, mask) => {
+	let clone = obj;
+	let dropped = false;
+	for (const [key, sub] of pathTree) {
+		if (sub === true) {
+			if (!Object.hasOwn(obj, key)) continue;
+			if (mask === undefined) {
+				dropped = true;
+				continue;
+			}
+			if (clone === obj) clone = { ...obj };
+			clone[key] = mask;
+			continue;
+		}
+		const next = omit(obj[key], sub, mask);
+		if (next !== obj[key]) {
+			if (clone === obj) clone = { ...obj };
+			clone[key] = next;
+		}
+	}
+	if (!dropped) return clone;
+	// Copying the survivors, not spread-then-delete: `delete` drops the object
+	// into dictionary mode, making the logger's later reads ~28x slower.
+	// `pathTree.get(key) === true` already identifies every dropped leaf, so no
+	// list of them is accumulated and the check stays a lookup, not a scan.
+	const survivors = {};
+	for (const key in clone) {
+		if (pathTree.get(key) !== true) survivors[key] = clone[key];
+	}
+	return survivors;
+};
+
+// Stricter than the schema validator's `isPlainObject`: only a plain object
+// is walked in place. Null-prototype maps (built by httpHeaderNormalizer and
+// event-normalizer) do count, or the keys they hold would leak into the logs
+// unredacted.
+// Decided by prototype rather than `value.constructor`: jsonParseProtectProto
+// lets a string `constructor` key through, and reading it would mark a plain
+// body as non-plain and leave everything under it unredacted.
+// `omit` has already ruled out primitives and `null`, on which
+// `Object.getPrototypeOf` throws or returns a wrapper prototype.
+const isRecord = (value) => {
+	const proto = Object.getPrototypeOf(value);
+	return proto === Object.prototype || proto === null;
+};
+
+// import { STATUS_CODES } from "node:http"; // cost ~14ms
+const STATUS_CODES = {
+	100: "Continue",
+	101: "Switching Protocols",
+	102: "Processing",
+	103: "Early Hints",
+	200: "OK",
+	201: "Created",
+	202: "Accepted",
+	203: "Non-Authoritative Information",
+	204: "No Content",
+	205: "Reset Content",
+	206: "Partial Content",
+	207: "Multi-Status",
+	208: "Already Reported",
+	226: "IM Used",
+	300: "Multiple Choices",
+	301: "Moved Permanently",
+	302: "Found",
+	303: "See Other",
+	304: "Not Modified",
+	305: "Use Proxy",
+	307: "Temporary Redirect",
+	308: "Permanent Redirect",
+	400: "Bad Request",
+	401: "Unauthorized",
+	402: "Payment Required",
+	403: "Forbidden",
+	404: "Not Found",
+	405: "Method Not Allowed",
+	406: "Not Acceptable",
+	407: "Proxy Authentication Required",
+	408: "Request Timeout",
+	409: "Conflict",
+	410: "Gone",
+	411: "Length Required",
+	412: "Precondition Failed",
+	413: "Payload Too Large",
+	414: "URI Too Long",
+	415: "Unsupported Media Type",
+	416: "Range Not Satisfiable",
+	417: "Expectation Failed",
+	418: "I'm a Teapot",
+	421: "Misdirected Request",
+	422: "Unprocessable Entity",
+	423: "Locked",
+	424: "Failed Dependency",
+	425: "Too Early",
+	426: "Upgrade Required",
+	428: "Precondition Required",
+	429: "Too Many Requests",
+	431: "Request Header Fields Too Large",
+	451: "Unavailable For Legal Reasons",
+	500: "Internal Server Error",
+	501: "Not Implemented",
+	502: "Bad Gateway",
+	503: "Service Unavailable",
+	504: "Gateway Timeout",
+	505: "HTTP Version Not Supported",
+	506: "Variant Also Negotiates",
+	507: "Insufficient Storage",
+	508: "Loop Detected",
+	509: "Bandwidth Limit Exceeded",
+	510: "Not Extended",
+	511: "Network Authentication Required",
+};
+
+const httpErrorNameRegexp = /[^a-zA-Z]/g;
+export class HttpError extends Error {
+	// The message is always the registered reason phrase for `code`. Anything
+	// specific to the failure belongs in `cause.data`, which stays server-side;
+	// http-error-handler only ever echoes the message to the client.
+	constructor(code, options = {}) {
+		super(STATUS_CODES[code], options);
 
 		const name = (STATUS_CODES[code] ?? "Unknown").replace(
-			createErrorRegexp,
+			httpErrorNameRegexp,
 			"",
 		);
 		this.name = !name.endsWith("Error") ? `${name}Error` : name;
@@ -816,7 +1254,3 @@ export class HttpError extends Error {
 		this.expose = options.expose ?? code < 500;
 	}
 }
-
-export const createError = (code, message, properties = {}) => {
-	return new HttpError(code, message, properties);
-};

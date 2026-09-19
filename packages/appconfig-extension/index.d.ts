@@ -1,6 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
+import type { ContextNamespace } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
 export interface AppConfigExtensionFetchParam<T = unknown> {
@@ -22,18 +23,23 @@ export interface AppConfigExtensionOptions {
 	cacheKeyExpiry?: { [key: string]: number };
 	cacheExpiry?: number;
 	setToContext?: boolean;
+	contextKey?: string;
 }
 
 export type Context<TOptions extends AppConfigExtensionOptions | undefined> =
 	TOptions extends { setToContext: true }
 		? TOptions extends { fetchData: infer TFetchData }
-			? LambdaContext & {
-					[Key in keyof TFetchData]: TFetchData[Key] extends AppConfigExtensionFetchParam<
-						infer T
-					>
-						? T
-						: unknown;
-				}
+			? ContextNamespace<
+					TOptions,
+					"appconfig-extension",
+					{
+						[Key in keyof TFetchData]: TFetchData[Key] extends AppConfigExtensionFetchParam<
+							infer T
+						>
+							? T
+							: unknown;
+					}
+				>
 			: never
 		: LambdaContext;
 
@@ -50,8 +56,13 @@ export type Internal<TOptions extends AppConfigExtensionOptions | undefined> =
 			: {}
 		: {};
 
-declare function appConfigExtension<TOptions extends AppConfigExtensionOptions>(
-	options?: TOptions,
+declare function appConfigExtension<
+	TOptions extends AppConfigExtensionOptions,
+	TKey extends string = string,
+>(
+	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
+	// key narrows `middyContext` without `as const`.
+	options?: TOptions & { contextKey?: TKey },
 ): middy.MiddlewareObj<
 	unknown,
 	any,

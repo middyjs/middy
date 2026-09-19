@@ -1,19 +1,14 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import {
-	createError,
 	decodeBody,
+	HttpError,
 	jsonParseProtectProto,
 	validateOptions,
 } from "@middy/util";
 
 const name = "ws-json-body-parser";
 const pkg = `@middy/${name}`;
-
-// Stryker disable next-line ObjectLiteral: `reviver: undefined` documents the only option; emptying the object yields an identical `options.reviver` after spread (no observable difference).
-const defaults = {
-	reviver: undefined,
-};
 
 const optionSchema = {
 	type: "object",
@@ -27,14 +22,16 @@ export const wsJsonBodyParserValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
 const wsJsonBodyParserMiddleware = (opts = {}) => {
-	const options = { ...defaults, ...opts };
-	const reviver = options.reviver;
+	const { reviver } = opts;
 	const wsJsonBodyParserMiddlewareBefore = (request) => {
 		const event = request.event;
 		const { body, isBase64Encoded } = event;
 		if (typeof body === "undefined") {
-			throw createError(422, "Invalid or malformed JSON was provided", {
-				cause: { package: pkg, data: body },
+			throw new HttpError(422, {
+				cause: {
+					package: pkg,
+					data: { reason: "Invalid or malformed JSON was provided", body },
+				},
 			});
 		}
 
@@ -48,11 +45,14 @@ const wsJsonBodyParserMiddleware = (opts = {}) => {
 				throw err;
 			}
 			// UnprocessableEntity
-			throw createError(422, "Invalid or malformed JSON was provided", {
+			throw new HttpError(422, {
 				cause: {
 					package: pkg,
-					data: body,
-					message: err.message,
+					data: {
+						reason: "Invalid or malformed JSON was provided",
+						body,
+						message: err.message,
+					},
 				},
 			});
 		}
