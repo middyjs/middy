@@ -128,15 +128,13 @@ export const httpJwtValidateOptions = (options) =>
 const readCookieValue = (event, cookieName) => {
 	const headers = event?.headers;
 	const cookieHeader = headers?.cookie ?? headers?.Cookie;
-	// Stryker disable next-line ArrayDeclaration: equivalent; the lookup below only selects an entry starting with `<cookieName>=`, and a seed string with no "=" can never match, so neither the found cookie nor the miss changes.
-	const candidates = cookieHeader ? cookieHeader.split(";") : [];
-	if (Array.isArray(event?.cookies)) {
-		for (const cookie of event.cookies) {
-			if (typeof cookie === "string") candidates.push(cookie);
-		}
+	const prefix = `${cookieName}=`;
+	const isMatch = (c) => typeof c === "string" && c.trim().startsWith(prefix);
+	let match = cookieHeader ? cookieHeader.split(";").find(isMatch) : undefined;
+	if (match === undefined && Array.isArray(event?.cookies)) {
+		match = event.cookies.find(isMatch);
 	}
-	const match = candidates.find((c) => c.trim().startsWith(`${cookieName}=`));
-	if (!match) return undefined;
+	if (match === undefined) return undefined;
 	let value = match.trim().slice(cookieName.length + 1);
 	// RFC 6265 quoted-string cookie value
 	if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
@@ -410,14 +408,12 @@ const httpJwtMiddleware = (opts = {}) => {
 	// SPKI DER bytes, either bare or under the `publicKey` of the `@middy/kms` shape.
 	const derToPublicKey = (entry) => {
 		let key = publicKeyCache.get(entry);
-		// Stryker disable next-line ConditionalExpression: forcing this true only rebuilds the same KeyObject from identical DER bytes (cache is a pure performance optimization, no observable behavior change).
 		if (!key) {
 			key = createPublicKey({
 				key: Buffer.from(entry.publicKey ?? entry),
 				format: "der",
 				type: "spki",
 			});
-			// Stryker disable next-line CallExpression: same pure-performance cache as the guard above. Dropping the write only means the next request rebuilds an identical KeyObject.
 			publicKeyCache.set(entry, key);
 		}
 		return key;
@@ -513,7 +509,6 @@ const httpJwtMiddleware = (opts = {}) => {
 			}
 			const jwkCacheKey = `${header.kid}\0${alg}`;
 			key = jwkKeyCache.get(jwkCacheKey);
-			// Stryker disable next-line ConditionalExpression: forcing this true only re-imports the same JWK, producing an identical key (cache is a pure performance optimization, no observable behavior change).
 			if (!key) {
 				try {
 					key = await importJWK(jwk, alg);
@@ -525,7 +520,6 @@ const httpJwtMiddleware = (opts = {}) => {
 						},
 					});
 				}
-				// Stryker disable next-line CallExpression: same pure-performance cache as the guard above. Dropping the write only means the next request re-imports an identical key.
 				jwkKeyCache.set(jwkCacheKey, key);
 			}
 			const verifyOptions = {

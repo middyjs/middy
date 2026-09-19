@@ -2105,4 +2105,40 @@ describe("@middy/core", () => {
 		// context; anything else loses or cross-attributes request data.
 		deepStrictEqual(seen, { A: "A", B: "B" });
 	});
+
+	// A hook that returns a non-promise is not awaited, so nothing it queued (a
+	// queueMicrotask callback, a settled promise's continuation) can run before
+	// the next hook. That is what lets a store entered synchronously in one hook
+	// stay ambient for the next one (#1661). `after` and `onError` hooks run
+	// last-registered first.
+	test("sync after middlewares run back-to-back without yielding to the microtask queue", async (t) => {
+		const order = [];
+		const handler = middy(() => {})
+			.after(() => {
+				order.push("second");
+			})
+			.after(() => {
+				order.push("first");
+				queueMicrotask(() => order.push("micro"));
+			});
+		await handler(defaultEvent, defaultContext);
+		deepStrictEqual(order, ["first", "second", "micro"]);
+	});
+
+	test("sync onError middlewares run back-to-back without yielding to the microtask queue", async (t) => {
+		const order = [];
+		const handler = middy(() => {
+			throw new Error("boom");
+		})
+			.onError((request) => {
+				order.push("second");
+				request.response = "handled";
+			})
+			.onError(() => {
+				order.push("first");
+				queueMicrotask(() => order.push("micro"));
+			});
+		strictEqual(await handler(defaultEvent, defaultContext), "handled");
+		deepStrictEqual(order, ["first", "second", "micro"]);
+	});
 });

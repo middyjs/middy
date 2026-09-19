@@ -90,20 +90,13 @@ const composeInvokedFunctionArn = (ecs) => {
 	return `arn:aws:ecs:${ecs.region}:${ecs.accountId}:service/${ecs.family}`;
 };
 
-// Stryker disable Regex: this block disable silences every Regex mutant of the pattern below, because Stryker cannot scope a Regex disable to one mutant. The mutant that is equivalent makes the `([a-z0-9.+-]+\+)?` group mandatory: the bare `json|xml` alternatives earlier in the same group already accept every subtype the optional form would, and only match/no-match is observed. The content-type table test exercises the anchor (`multipart/related; type=text/html`) and the `.` and `+` class members (`application/vnd.api+json`), but with the disable in place those kills are not observed by Stryker.
+// The optional `<name>+` prefix covers bare `json`/`xml` as well as every
+// structured-syntax suffix form (`ld+json`, `vnd.api+json`, `soap+xml`).
 const textContentTypePattern =
-	/^(text\/|application\/(json|xml|x-www-form-urlencoded|javascript|graphql|ld\+json|vnd\.api\+json|([a-z0-9.+-]+\+)?(json|xml)))/i;
-// Stryker restore Regex
+	/^(text\/|application\/(x-www-form-urlencoded|javascript|graphql|([a-z0-9.+-]+\+)?(json|xml)))/i;
 
 const isTextContentType = (contentType) => {
 	if (!contentType) return true;
-	// Fast paths for the ~95% of real traffic. Avoids regex when possible.
-	// Stryker disable next-line ConditionalExpression,StringLiteral: pure fast path; skipping it (or comparing against "", which `!contentType` already returned on) sends the value to the regex below, which accepts "application/json" too.
-	if (contentType === "application/json") return true;
-	// Stryker disable next-line ConditionalExpression: pure fast path; the regex below also accepts every "text/" prefix.
-	if (contentType.startsWith("text/")) return true;
-	// Stryker disable next-line ConditionalExpression: pure fast path; the regex below also accepts every "application/json;" prefix.
-	if (contentType.startsWith("application/json;")) return true;
 	return textContentTypePattern.test(contentType);
 };
 
@@ -186,8 +179,6 @@ const splitUrl = (rawUrl) => {
 // allocate the multi-value map on every request and discard it.
 const collectQuery = (queryString) => {
 	const single = Object.create(null);
-	// Stryker disable next-line ConditionalExpression: pure fast path; new URLSearchParams("") iterates nothing, so falling through yields the same empty map and size 0.
-	if (!queryString) return { single, size: 0 };
 	const params = new URLSearchParams(queryString);
 	let size = 0;
 	for (const [k, v] of params.entries()) {
@@ -205,8 +196,6 @@ const collectQuery = (queryString) => {
 // same handler behind a real load balancer.
 const collectQueryEncoded = (queryString) => {
 	const single = Object.create(null);
-	// Stryker disable next-line ConditionalExpression: pure fast path; "".split("&") yields [""], which the empty-pair guard below skips, so falling through yields the same empty map.
-	if (!queryString) return single;
 	for (const pair of queryString.split("&")) {
 		if (!pair) continue;
 		const eq = pair.indexOf("=");
@@ -220,8 +209,6 @@ const collectQueryEncoded = (queryString) => {
 const collectQueryMultiValue = (queryString) => {
 	const single = Object.create(null);
 	const multi = Object.create(null);
-	// Stryker disable next-line ConditionalExpression,ObjectLiteral: pure fast path; new URLSearchParams("") iterates nothing, so falling through yields the same empty maps and size 0, and the only consumer (buildEventV1) emits null for both maps whenever size is not > 0, so returning {} is indistinguishable too.
-	if (!queryString) return { single, multi, size: 0 };
 	const params = new URLSearchParams(queryString);
 	let size = 0;
 	for (const [k, v] of params.entries()) {
@@ -233,17 +220,7 @@ const collectQueryMultiValue = (queryString) => {
 	return { single, multi, size };
 };
 
-// Pre-cached protocol strings. ~99.9% of requests are HTTP/1.1; fall back to
-// concat only for anything else.
-// Stryker disable ObjectLiteral: emptying the cache is equivalent; every lookup then falls through to the `HTTP/${httpVersion}` concat, which produces the same strings. (The per-entry StringLiteral mutants are killed by the protocol table test.)
-const PROTOCOLS = {
-	1.1: "HTTP/1.1",
-	"1.0": "HTTP/1.0",
-	"2.0": "HTTP/2.0",
-};
-// Stryker restore ObjectLiteral
-const protocolFor = (httpVersion) =>
-	PROTOCOLS[httpVersion] ?? `HTTP/${httpVersion}`;
+const protocolFor = (httpVersion) => `HTTP/${httpVersion}`;
 
 const EMPTY_BUFFER = Buffer.alloc(0);
 
@@ -414,10 +391,9 @@ const writeError = (res, err) => {
 		typeof err?.statusCode === "number" && err.statusCode >= 400
 			? err.statusCode
 			: 500;
-	// Stryker disable OptionalChaining: equivalent; the `err?.message` branch only runs when statusCode < 500, which requires err to be an object carrying a numeric statusCode, so err is never nullish there.
+	// Below 500 `err` is an object: that is where the numeric statusCode came from.
 	const message =
-		statusCode >= 500 ? "Internal Server Error" : (err?.message ?? "");
-	// Stryker restore OptionalChaining
+		statusCode >= 500 ? "Internal Server Error" : (err.message ?? "");
 	res.writeHead(statusCode, { "content-type": "application/json" });
 	res.end(JSON.stringify({ message }));
 };

@@ -188,11 +188,9 @@ const httpX402Middleware = (opts = {}) => {
 	};
 
 	const httpX402V2Before = async (request, paymentHeader) => {
-		let payload;
-		try {
-			payload = decodeHeader(paymentHeader);
-		} catch {
-			// An undecodable header is treated the same as no payment at all.
+		// An undecodable header is treated the same as no payment at all.
+		const payload = decodeHeader(paymentHeader);
+		if (payload === undefined) {
 			return respondPaymentRequired(request, "Payment required");
 		}
 
@@ -220,10 +218,8 @@ const httpX402Middleware = (opts = {}) => {
 	};
 
 	const httpX402V1Before = async (request, paymentHeader) => {
-		let payload;
-		try {
-			payload = decodeHeader(paymentHeader);
-		} catch {
+		const payload = decodeHeader(paymentHeader);
+		if (payload === undefined) {
 			return respondPaymentRequiredV1(request, "Payment required");
 		}
 
@@ -455,18 +451,23 @@ const buildResource = (event) => {
 const encodeHeader = (obj) =>
 	Buffer.from(JSON.stringify(obj)).toString("base64");
 
+// Undefined for anything that is not a JSON object: bad base64, bad JSON, or a
+// well-formed payload of the wrong shape. The callers cannot tell those apart,
+// so the reason is not worth building.
 const decodeHeader = (header) => {
-	const payload = JSON.parse(Buffer.from(header, "base64").toString());
+	let payload;
+	try {
+		payload = JSON.parse(Buffer.from(header, "base64").toString());
+	} catch {
+		// Bad base64 or bad JSON leaves `payload` undefined, which the shape
+		// check below rejects like any other non-object.
+	}
 	if (
 		payload === null ||
 		typeof payload !== "object" ||
 		Array.isArray(payload)
 	) {
-		// Stryker disable next-line StringLiteral,ObjectLiteral: the before-hook catch block discards this error entirely (only a generic "Payment required" 402 is returned), so the message and cause are never observable.
-		throw new Error(`${pkg} payment payload must be an object`, {
-			// Stryker disable next-line ObjectLiteral: see above; cause is unobservable because the thrown error is swallowed.
-			cause: { package: pkg },
-		});
+		return undefined;
 	}
 	return payload;
 };

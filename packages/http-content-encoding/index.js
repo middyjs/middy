@@ -60,8 +60,7 @@ const defaults = {
 	deflate: undefined,
 	gzip: undefined,
 	zstd: undefined,
-	// Stryker disable next-line ArrayDeclaration: a non-empty default only adds a sentinel that the override loop skips because it is never in the negotiated list, which http-content-negotiation restricts to br/deflate/gzip/zstd/identity; no observable behavior changes.
-	overridePreferredEncoding: [],
+	overridePreferredEncoding: undefined,
 	// Where @middy/http-content-negotiation published its results; must match
 	// that middleware's `contextKey` when it has been overridden.
 	contextKeyHttpContentNegotiation: "http-content-negotiation",
@@ -130,10 +129,12 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 
 		// Resolve encoding choice before creating any stream
 		let contentEncoding = preferredEncoding;
-		for (const encoding of options.overridePreferredEncoding) {
-			if (!preferredEncodings?.includes(encoding)) continue;
-			contentEncoding = encoding;
-			break;
+		if (options.overridePreferredEncoding) {
+			for (const encoding of options.overridePreferredEncoding) {
+				if (!preferredEncodings?.includes(encoding)) continue;
+				contentEncoding = encoding;
+				break;
+			}
 		}
 
 		// Support streamifyResponse
@@ -143,12 +144,11 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 			);
 			request.response.headers["Content-Encoding"] = contentEncoding;
 			if (isNodeStream) {
-				// Stryker disable ConditionalExpression: reaching the `else if (isWebStream)` below implies isNodeStream is false, and the outer guard requires isNodeStream || isWebStream, so isWebStream is always true there; forcing it `true` is equivalent
 				request.response.body = request.response.body.pipe(
 					contentEncodingStream,
 				);
-			} else if (isWebStream) {
-				// Stryker restore ConditionalExpression
+			} else {
+				// The outer guard leaves only a web stream here.
 				request.response.body = Readable.toWeb(
 					Readable.fromWeb(response.body).pipe(contentEncodingStream),
 				);

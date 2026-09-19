@@ -66,10 +66,10 @@
 		"@middy/util": "8.0.0-alpha.0"
 	},
 	"peerDependencies": {
-		"@aws-sdk/client-ssm": "^3.0.0"
+		"@aws-sdk/client-ssm": "^3.1126.0"
 	},
 	"devDependencies": {
-		"@aws-sdk/client-ssm": "^3.0.0",
+		"@aws-sdk/client-ssm": "^3.1126.0",
 		"@middy/core": "8.0.0-alpha.0",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^24.0.0",

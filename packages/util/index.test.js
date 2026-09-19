@@ -473,6 +473,36 @@ describe("@middy/util", () => {
 			const values = await getInternal(true, {});
 			deepStrictEqual(values, Object.create(null));
 		});
+
+		test("getInternal settles ahead of a microtask queued after the call when every value is resolved", async (t) => {
+			// The sync fast path returns straight out of the async function, so the
+			// promise is already fulfilled when the caller gets it and its reaction
+			// runs before anything queued afterwards. The async fallback awaits
+			// Promise.allSettled and lands several hops later.
+			const request = { internal: { object: { key: "value" }, number: 1 } };
+			const order = [];
+			const settled = getInternal(["object.key", "number"], request).then(() =>
+				order.push("settled"),
+			);
+			queueMicrotask(() => order.push("tick"));
+			await settled;
+			deepStrictEqual(order, ["settled", "tick"]);
+		});
+
+		test("getInternal settles after a microtask queued after the call when a value is pending", async (t) => {
+			for (const [variables, internal] of [
+				["number", { number: Promise.resolve(1) }],
+				["object.key", { object: { key: Promise.resolve("value") } }],
+			]) {
+				const order = [];
+				const settled = getInternal(variables, { internal }).then(() =>
+					order.push("settled"),
+				);
+				queueMicrotask(() => order.push("tick"));
+				await settled;
+				deepStrictEqual(order, ["tick", "settled"]);
+			}
+		});
 	});
 
 	describe("sanitizeKey", () => {
@@ -524,6 +554,35 @@ describe("@middy/util", () => {
 			}
 			strictEqual(sanitizeKey("post-cap//key.1"), "post_cap_key_1");
 			strictEqual(sanitizeKey("post-cap//key.1"), "post_cap_key_1");
+		});
+
+		test("sanitizeKey keeps memoizing across keys, flushing at most once per cap", async (t) => {
+			// Two fresh keys alternated: each computes once, plus at most one
+			// recompute if the memo happens to fill and flush in between. A memo
+			// that flushes on every miss recomputes a key on every alternation.
+			const replace = t.mock.method(String.prototype, "replace");
+			for (const key of [
+				"flush-probe.a",
+				"flush-probe.b",
+				"flush-probe.a",
+				"flush-probe.b",
+				"flush-probe.a",
+			]) {
+				// replaceAll, so the expectation does not go through the spy.
+				strictEqual(sanitizeKey(key), key.replaceAll(/[-.]/g, "_"));
+			}
+			// Two replace() calls per compute: 2 keys, at most 3 computes.
+			ok(replace.mock.callCount() <= 6, `${replace.mock.callCount()} calls`);
+		});
+
+		test("sanitizeKey flushes the memo once it reaches the cap", async (t) => {
+			// 2048 fresh keys cross the cap at least once after the first key was
+			// stored, wherever the memo stood before, so the first key is gone and
+			// gets computed again.
+			for (let i = 0; i < 2048; i++) sanitizeKey(`flush-fill.${i}`);
+			const replace = t.mock.method(String.prototype, "replace");
+			strictEqual(sanitizeKey("flush-fill.0"), "flush_fill_0");
+			strictEqual(replace.mock.callCount(), 2);
 		});
 	});
 
@@ -1442,6 +1501,21 @@ describe("@middy/util", () => {
 			// would leave `this` undefined.
 			ok(holders.some((holder) => Object.hasOwn(holder, "n")));
 			ok(holders.every((holder) => holder !== undefined));
+		});
+
+		test("parses a clean body natively with the caller's reviver", (t) => {
+			// A body with no suspect key must not go through the guard reviver:
+			// JSON.parse receives exactly what the caller passed, reviver or not.
+			const parse = t.mock.method(JSON, "parse");
+			const reviver = (_key, value) => value;
+			jsonParseProtectProto('{"foo":"bar"}', reviver, "@middy/test");
+			jsonParseProtectProto('{"foo":"bar"}', undefined, "@middy/test");
+			// A suspect spelling is parsed with the guard reviver instead.
+			jsonParseProtectProto('{"constructor":{"x":1}}', reviver, "@middy/test");
+			strictEqual(parse.mock.calls[0].arguments[1], reviver);
+			strictEqual(parse.mock.calls[1].arguments[1], undefined);
+			strictEqual(typeof parse.mock.calls[2].arguments[1], "function");
+			notStrictEqual(parse.mock.calls[2].arguments[1], reviver);
 		});
 
 		// __proto__ vector

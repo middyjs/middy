@@ -240,6 +240,18 @@ describe("@middy/http-event-normalizer", () => {
 		});
 	});
 
+	test("It should form-decode an ALB query parameter made only of pluses", async (t) => {
+		// Nothing but `+`: the fast-path check must still see it as encoded, or the
+		// value would come back untouched instead of as spaces.
+		const handler = middy((event) => event).use(httpEventNormalizer());
+		const normalizedEvent = await handler(
+			albEvent({ pad: "++" }),
+			defaultContext,
+		);
+
+		deepStrictEqual(normalizedEvent.queryStringParameters, { pad: "  " });
+	});
+
 	test("It should form-decode ALB queryStringParameter keys", async (t) => {
 		const handler = middy((event) => event).use(httpEventNormalizer());
 		const normalizedEvent = await handler(
@@ -275,7 +287,10 @@ describe("@middy/http-event-normalizer", () => {
 			ok(false, "expected throw");
 		} catch (e) {
 			strictEqual(e.statusCode, 400);
-			strictEqual(e.cause.package, "@middy/http-event-normalizer");
+			deepStrictEqual(e.cause, {
+				package: "@middy/http-event-normalizer",
+				data: { reason: "Invalid query parameter encoding", value: "50%" },
+			});
 		}
 	});
 

@@ -82,12 +82,10 @@ const hostMatches = (hostname, allowedHost) => {
 		const want = allowedHost.split(".");
 		const have = hostname.split(".");
 		if (want.length !== have.length) return false;
-		// Stryker disable next-line EqualityOperator: equivalent; the label counts were just checked equal, so an extra iteration compares want[len] with have[len], both undefined, which can never return false.
-		for (let i = 0; i < want.length; i += 1) {
-			// `*` is exactly one label, so it does not stand for an empty one.
-			if (want[i] === "*" ? have[i] === "" : want[i] !== have[i]) return false;
-		}
-		return true;
+		// `*` is exactly one label, so it does not stand for an empty one.
+		return want.every((label, i) =>
+			label === "*" ? have[i] !== "" : label === have[i],
+		);
 	}
 	const domain = allowedHost.startsWith(".")
 		? allowedHost.slice(1)

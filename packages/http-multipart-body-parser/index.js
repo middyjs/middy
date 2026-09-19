@@ -51,7 +51,6 @@ export const httpMultipartBodyParserValidateOptions = (options) =>
 const defaults = {
 	// busboy options as per documentation: https://www.npmjs.com/package/busboy#busboy-methods
 	busboy: {},
-	// Stryker disable next-line StringLiteral: Node treats an empty-string encoding as the default utf8 for both Buffer.from and stream.write, so "" and "utf8" produce byte-identical results here (no observable behavior change).
 	charset: "utf8",
 	disableContentTypeCheck: false,
 	disableContentTypeError: false,
@@ -69,6 +68,13 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 		...options.busboy,
 		limits: { ...defaultLimits, ...options.busboy.limits },
 	};
+	// A typo here would otherwise surface as ERR_UNKNOWN_ENCODING on the first
+	// request instead of at construction.
+	if (!Buffer.isEncoding(options.charset)) {
+		throw new TypeError(`${pkg} charset must be a Buffer encoding`, {
+			cause: { package: pkg, data: { charset: options.charset } },
+		});
+	}
 
 	const httpMultipartBodyParserMiddlewareBefore = (request) => {
 		const { headers, body } = request.event;
@@ -177,18 +183,13 @@ const parseMultipartData = (event, options) => {
 			);
 
 		// @fastify/busboy does not enforce fieldNameSize for multipart, so guard
-		// here to bound attacker-controlled field-name length. Returns false once
-		// the promise has been rejected so the listener stops there.
+		// here to bound attacker-controlled field-name length. True only for an
+		// acceptable name; either failure rejects the promise and yields the
+		// undefined that `reject` returns, so the listener stops there.
 		const checkFieldName = (fieldname) => {
-			if (typeof fieldname !== "string") {
-				nameless();
-				// Stryker disable next-line BooleanLiteral: equivalent mutant - nameless() has already rejected the promise, so whether the listener carries on only decides work whose outcome can no longer be observed.
-				return false;
-			}
+			if (typeof fieldname !== "string") return nameless();
 			if (fieldname.length > fieldNameSize) {
-				tooLarge({ limit: "fieldNameSize" });
-				// Stryker disable next-line BooleanLiteral: equivalent mutant - tooLarge() has already rejected the promise, so whether the listener carries on only decides work whose outcome can no longer be observed.
-				return false;
+				return tooLarge({ limit: "fieldNameSize" });
 			}
 			return true;
 		};

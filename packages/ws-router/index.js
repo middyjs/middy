@@ -6,7 +6,6 @@ const name = "ws-router";
 const pkg = `@middy/${name}`;
 
 const defaults = {
-	// Stryker disable next-line ArrayDeclaration: a non-empty default would only ever add a route whose destructured handler is `undefined` (string element has no `routeKey`/`handler`), so the `handler !== undefined` guard makes any such entry inert and unreachable; equivalent mutant.
 	routes: [],
 	notFoundResponse: ({ routeKey }) => {
 		const err = new HttpError(404, {
@@ -53,6 +52,11 @@ const wsRouteHandler = (opts = {}) => {
 	const routesStatic = Object.create(null);
 	for (const route of routes) {
 		const { routeKey, handler } = route;
+		if (typeof routeKey !== "string") {
+			throw new Error("Invalid route", {
+				cause: { package: pkg, data: { routeKey } },
+			});
+		}
 
 		// Static
 		routesStatic[routeKey] = handler;

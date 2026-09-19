@@ -122,18 +122,15 @@ const importKey = async (entry) => {
 const readCookieValue = (event, cookieName) => {
 	const headers = event?.headers;
 	const cookieHeader = headers?.cookie ?? headers?.Cookie;
-	// Stryker disable next-line ArrayDeclaration: equivalent. The list is only ever searched for a `name=` prefix, and a seeded fallback entry carries no `=`, so it can never be the match.
-	const candidates = cookieHeader ? cookieHeader.split(";") : [];
-	if (Array.isArray(event?.cookies)) {
-		for (const cookie of event.cookies) {
-			if (typeof cookie === "string") candidates.push(cookie);
-		}
+	const prefix = `${cookieName}=`;
+	const isMatch = (c) => typeof c === "string" && c.trim().startsWith(prefix);
+	let match = cookieHeader ? cookieHeader.split(";").find(isMatch) : undefined;
+	if (match === undefined && Array.isArray(event?.cookies)) {
+		match = event.cookies.find(isMatch);
 	}
-	const match = candidates.find((c) => c.trim().startsWith(`${cookieName}=`));
-	if (!match) return undefined;
+	if (match === undefined) return undefined;
 	let value = match.trim().slice(cookieName.length + 1);
 	// RFC 6265 quoted-string cookie value
-	// Stryker disable next-line EqualityOperator,ConditionalExpression: the length guard only differs from `>2`/`true` for values shorter than 2 chars (or exactly 2, i.e. `""`), none of which are valid PASETO tokens, so the strip decision is observably identical.
 	if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
 		value = value.slice(1, -1);
 	}
@@ -251,12 +248,10 @@ const httpPasetoMiddleware = (opts = {}) => {
 		// only for object-shaped keys. `crypto.subtle.importKey` accepts
 		// Uint8Array / Buffer directly, no copy needed.
 		let keys = keyCache.get(keyData);
-		// Stryker disable next-line ConditionalExpression: forcing this `true` only bypasses the warm-cache reuse (re-importing an identical key); the verified claims are byte-identical, so the optimization is unobservable through the public interface.
 		if (keys === undefined) {
 			keys = await Promise.all(
 				(Array.isArray(keyData) ? keyData : [keyData]).map(importKey),
 			);
-			// Stryker disable next-line CallExpression: same warm-cache optimization as the guard above. Dropping the write only means the next invocation re-imports an identical key, which verifies to byte-identical claims.
 			keyCache.set(keyData, keys);
 		}
 

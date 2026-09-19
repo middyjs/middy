@@ -389,6 +389,45 @@ describe("@middy/event-batch-parser", () => {
 		});
 	});
 
+	test("parseAvro({ internalKey }) parses a schema definition once and reuses the type", async (t) => {
+		// Buffers are built before the spy goes on: buildAvroBuffer parses too.
+		const bufs = [
+			buildAvroBuffer({ id: "u-5", name: "Eve" }),
+			buildAvroBuffer({ id: "u-6", name: "Finn" }),
+		];
+		const parse = t.mock.method(avro, "parse");
+		const stubRegistry = () => ({
+			before: (request) => {
+				request.internal.userSchema = {
+					schemaVersionId: "00000000-0000-0000-0000-000000000000",
+					schemaDefinition: AVRO_USER_SCHEMA,
+					dataFormat: "AVRO",
+				};
+			},
+		});
+
+		const handler = middy()
+			.use(stubRegistry())
+			.use(
+				eventBatchParser({ value: parseAvro({ internalKey: "userSchema" }) }),
+			);
+		handler.handler((event) => event);
+
+		const event = {
+			eventSource: "aws:kafka",
+			records: {
+				"t-0": bufs.map((buf) => ({ value: buf.toString("base64") })),
+			},
+		};
+
+		const out = await handler(event, defaultContext);
+		deepStrictEqual(plain(out.records["t-0"][1].value), {
+			id: "u-6",
+			name: "Finn",
+		});
+		strictEqual(parse.mock.callCount(), 1);
+	});
+
 	// ---------- Glue framing ----------
 
 	const glueFramedBuffer = (uuid, payload, compressionByte = 0x00) => {
@@ -1360,9 +1399,59 @@ describe("@middy/event-batch-parser", () => {
 		strictEqual(out.records["t-0"][0].value, 101);
 	});
 
+	test("sync parsers run back-to-back without yielding to the microtask queue", async () => {
+		// A non-thenable result is not awaited, so nothing a parser queued can
+		// run before the next record is parsed; the batch stays one synchronous
+		// pass and the per-record microtask is never paid.
+		const order = [];
+		const handler = middy().use(
+			eventBatchParser({
+				value: (payload) => {
+					const parsed = JSON.parse(payload.toString("utf-8"));
+					order.push(parsed.i);
+					if (parsed.i === 1) queueMicrotask(() => order.push("micro"));
+					return parsed;
+				},
+			}),
+		);
+		handler.handler((event) => event);
+
+		const event = {
+			eventSource: "aws:kafka",
+			records: {
+				"t-0": [{ value: b64('{"i":1}') }, { value: b64('{"i":2}') }],
+			},
+		};
+
+		await handler(event, defaultContext);
+		deepStrictEqual(order, [1, 2, "micro"]);
+	});
+
+	test("A parser that rejects with a non-error value is still wrapped as a 422", async () => {
+		const handler = middy().use(
+			eventBatchParser({ value: () => Promise.reject(null) }),
+		);
+		handler.handler((event) => event);
+
+		const event = {
+			eventSource: "aws:kafka",
+			records: { "t-0": [{ value: b64("x") }] },
+		};
+
+		let caught;
+		try {
+			await handler(event, defaultContext);
+		} catch (e) {
+			caught = e;
+		}
+		strictEqual(caught.statusCode, 422);
+		strictEqual(caught.cause.data.reason, "Invalid record payload");
+		strictEqual(caught.cause.data.message, undefined);
+	});
+
 	// ---------- flattenGroups (single vs multi group) ----------
 
-	test("single Kafka group returns the source array uncopied (identity preserved)", async () => {
+	test("single Kafka group is parsed in place (the event keeps its own array)", async () => {
 		const recordsArr = [{ value: b64('{"x":1}') }];
 		const handler = middy().use(eventBatchParser({ value: parseJson() }));
 		handler.handler((event) => event);
@@ -1373,7 +1462,6 @@ describe("@middy/event-batch-parser", () => {
 		};
 
 		const out = await handler(event, defaultContext);
-		// Same array reference flattened through (single-group fast path).
 		strictEqual(out.records["t-0"], recordsArr);
 		deepStrictEqual(out.records["t-0"][0].value, { x: 1 });
 	});

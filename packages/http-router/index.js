@@ -41,8 +41,6 @@ const optionSchema = {
 							{ type: "string", pattern: "^/" },
 							{ type: "string", pattern: "^(/|.*[^/])$" },
 						],
-						// Stryker disable next-line ArrayDeclaration,StringLiteral: examples are documentation-only metadata; validateOptions never reads them, so mutating their content cannot change validation behavior.
-						examples: ["/", "/users", "/users/{id}"],
 					},
 					handler: { instanceof: "Function" },
 				},
@@ -90,8 +88,7 @@ const httpRouteHandler = (opts = {}) => {
 		}
 
 		// Static
-		// Stryker disable next-line EqualityOperator: `< 0` vs `<= 0` differ only when "{" is at index 0; a dynamic capture's brace is always preceded by "/" (index >= 1), and a brace at index 0 yields a literal regex with the same match set as a static entry, so the branch choice is unobservable.
-		if (path.indexOf("{") < 0) {
+		if (!path.includes("{")) {
 			attachStaticRoute(
 				method,
 				path,
@@ -241,8 +238,8 @@ const compileDynamicRoute = (path, handler) => {
 
 const countSlashes = (s) => {
 	let n = 0;
-	// Stryker disable next-line EqualityOperator: `<=` over-reads one index past the string; charCodeAt returns NaN there, which never equals 47, so the slash count is identical.
-	for (let i = 0; i < s.length; i++) {
+	let i = s.length;
+	while (i--) {
 		if (s.charCodeAt(i) === 47) n++;
 	}
 	return n;

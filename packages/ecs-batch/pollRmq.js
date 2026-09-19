@@ -50,16 +50,15 @@ const toLambdaHeaders = (headers) => {
 };
 
 // Lambda renders the AMQP timestamp (epoch seconds) as an en-US medium
-// date-time string in UTC, e.g. "Jan 1, 1970, 12:33:41 AM". Some ICU builds
-// put a narrow no-break space before AM/PM; normalise it to a plain space.
-const timestampFormat = new Intl.DateTimeFormat("en-US", {
-	dateStyle: "medium",
-	timeStyle: "medium",
-	timeZone: "UTC",
-});
-const toLambdaTimestamp = (seconds) =>
-	// Stryker disable next-line StringLiteral: equivalent on this ICU build, which already emits a plain space before AM/PM; the replacement only matters where ICU inserts U+202F.
-	timestampFormat.format(new Date(seconds * 1000)).replace(/\u202f/g, " ");
+// date-time string in UTC, e.g. "Jan 1, 1970, 12:33:41 AM". Assembled from
+// toUTCString ("Thu, 01 Jan 1970 00:33:41 GMT", fixed by the language spec)
+// rather than Intl, whose ICU builds disagree on the space before AM/PM.
+const toLambdaTimestamp = (seconds) => {
+	const date = new Date(seconds * 1000);
+	const utc = date.toUTCString();
+	const hours = date.getUTCHours();
+	return `${utc.slice(8, 11)} ${date.getUTCDate()}, ${date.getUTCFullYear()}, ${hours % 12 || 12}:${utc.slice(20, 25)} ${hours < 12 ? "AM" : "PM"}`;
+};
 
 const buildRmqRecord = (msg) => ({
 	basicProperties: {
@@ -140,15 +139,12 @@ export const pollRmq = (opts) => {
 			const onAbort = async () => {
 				wakeReader();
 				try {
-					// Stryker disable next-line OptionalChaining: equivalent; channel is assigned above before this listener is registered.
-					await channel?.close();
-					// Stryker disable next-line OptionalChaining: equivalent; connection is assigned above before this listener is registered.
-					await connection?.close();
+					await channel.close();
+					await connection.close();
 				} catch {
 					// best-effort
 				}
 			};
-			// Stryker disable next-line ObjectLiteral,BooleanLiteral: equivalent; an AbortSignal fires abort at most once, so `once` only releases the listener early.
 			signal.addEventListener("abort", onAbort, { once: true });
 
 			await channel.consume(
@@ -197,11 +193,9 @@ export const pollRmq = (opts) => {
 			const failed = batchFailures(response, new Set(taken.map(identifierFor)));
 			for (const msg of taken) {
 				if (failed.ids.has(identifierFor(msg))) {
-					// Stryker disable next-line OptionalChaining: equivalent; every event in `inflight` came out of poll(), which assigns channel before it yields.
-					channel?.nack(msg, false, true);
+					channel.nack(msg, false, true);
 				} else {
-					// Stryker disable next-line OptionalChaining: equivalent; every event in `inflight` came out of poll(), which assigns channel before it yields.
-					channel?.ack(msg);
+					channel.ack(msg);
 				}
 			}
 			// An invalid response requeues every delivery (the whole batch is

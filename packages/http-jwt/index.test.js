@@ -558,6 +558,47 @@ describe("@middy/http-jwt", () => {
 		strictEqual(result.jwt.sub, "user-kms");
 	});
 
+	test("It should build the KeyObject for a DER key once and reuse it across requests", async (t) => {
+		// Cached per keyData reference: a warm invocation handing over the same
+		// object must not read its bytes again to rebuild the KeyObject. The shape
+		// check reads `publicKey` once per request; only the first import reads it
+		// a second time.
+		const { privateKey, publicKey } = await generateKeyPairAsync("rsa", {
+			modulusLength: 2048,
+		});
+		const importedPrivate = await importPKCS8(
+			privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
+			"RS256",
+		);
+		const token = await new SignJWT({ sub: "user-kms" })
+			.setProtectedHeader({ alg: "RS256" })
+			.setIssuedAt()
+			.setExpirationTime("1h")
+			.sign(importedPrivate);
+		const spkiDer = new Uint8Array(
+			publicKey.export({ type: "spki", format: "der" }),
+		);
+		let reads = 0;
+		const kmsKey = {
+			get publicKey() {
+				reads++;
+				return spkiDer;
+			},
+			keySpec: "RSA_2048",
+		};
+
+		const handler = middy((event, context) => context.middyContext)
+			.before((request) => {
+				request.internal.kmsKey = kmsKey;
+			})
+			.use(httpJwt({ internalKey: "kmsKey", algorithm: "RS256" }));
+
+		await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
+		strictEqual(reads, 2);
+		await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
+		strictEqual(reads, 3);
+	});
+
 	test("It should throw 500 when internalKey resolves to undefined", async (t) => {
 		const handler = middy(() => {})
 			.before((request) => {
@@ -1096,6 +1137,49 @@ describe("@middy/http-jwt", () => {
 			);
 			strictEqual(result.jwt.iss, iss);
 			strictEqual(result.jwt.aud, "clientA");
+		} finally {
+			fetchStub.restore();
+		}
+	});
+
+	test("issuers: a JWK is imported once and reused across requests", async (t) => {
+		// Cached per `kid` and `alg`: a warm invocation for the same key must not
+		// pay the JWK import again. jose imports through crypto.subtle, so the
+		// import call is where the cache is visible.
+		const { privateKey, jwk, kid } = await jwksFixture();
+		const iss = "https://idp.example.com/poolA";
+		const jwksUri = nextJwksUri();
+		const token = await signToken({
+			privateKey,
+			alg: "RS256",
+			kid,
+			iss,
+			aud: "clientA",
+		});
+
+		const fetchStub = installFetch({
+			[jwksUri]: jwksResponse({ keys: [jwk] }),
+		});
+		try {
+			const handler = middy((event, context) => context.middyContext).use(
+				httpJwt({
+					issuers: { [iss]: { jwksUri, audience: "clientA" } },
+					algorithm: "RS256",
+				}),
+			);
+			const importKey = t.mock.method(crypto.subtle, "importKey");
+			await handler(
+				{ headers: { authorization: `Bearer ${token}` } },
+				{ ...defaultContext },
+			);
+			await handler(
+				{ headers: { authorization: `Bearer ${token}` } },
+				{ ...defaultContext },
+			);
+			const jwkImports = importKey.mock.calls.filter(
+				(call) => call.arguments[0] === "jwk",
+			);
+			strictEqual(jwkImports.length, 1);
 		} finally {
 			fetchStub.restore();
 		}

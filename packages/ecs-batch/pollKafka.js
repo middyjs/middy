@@ -138,7 +138,10 @@ export const pollKafka = (opts) => {
 	// Bridges kafkajs's push-mode eachBatch to the runner's pull loop. Only one
 	// batch is in flight at a time (partitionsConsumedConcurrently=1) so a
 	// single ack-gate per poller suffices.
-	let resolveNext;
+	// Both settle a waitForEvent() promise. They start as no-ops so a batch or
+	// abort that lands before the loop is parked (a non-retriable crash during
+	// connect fails the first wait without arming them) has nothing to call.
+	let resolveNext = noop;
 	let rejectNext = noop;
 	let resolveAck;
 	let inflight = Promise.resolve();
@@ -187,8 +190,7 @@ export const pollKafka = (opts) => {
 		const event = buildKafkaEvent(opts, eventSource, batch);
 		inflightIds = new Set(batch.messages.map((m) => recordId(batch, m)));
 		const ackGate = waitForAck();
-		// Stryker disable next-line OptionalChaining: equivalent; there is no await between consumer.run() and the loop's first waitForEvent() below, so resolveNext is set before kafkajs can deliver a batch.
-		resolveNext?.({ event, done: false });
+		resolveNext({ event, done: false });
 		// The handler may outlast the group's session timeout. kafkajs only
 		// heartbeats between eachBatch calls, so keep the session alive while
 		// the batch is held; heartbeat() itself throttles to heartbeatInterval
@@ -236,9 +238,7 @@ export const pollKafka = (opts) => {
 
 			// Wake the loop so it observes the abort. A batch already handed to
 			// the handler keeps its ack gate until the runner settles it.
-			// Stryker disable next-line OptionalChaining,ObjectLiteral: equivalent; resolveNext is set before consumer.run() can deliver anything, and an AbortSignal fires abort at most once, so the `{ once: true }` options object only releases the listener early.
-			signal.addEventListener("abort", () => resolveNext?.({ done: true }), {
-				// Stryker disable next-line BooleanLiteral: equivalent; an AbortSignal fires abort at most once, so `once` only releases the listener early.
+			signal.addEventListener("abort", () => resolveNext({ done: true }), {
 				once: true,
 			});
 

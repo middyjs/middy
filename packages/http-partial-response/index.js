@@ -63,10 +63,12 @@ const httpPartialResponseMiddleware = (opts = {}) => {
 		if (fields.length > maxFieldsLength) {
 			throw badSelector(`Selector exceeds ${maxFieldsLength} characters`);
 		}
-		// 47 = '/', 40 = '('
+		// 47 = '/', 40 = '('. Walked by index: `for...of` over a string allocates
+		// a one-character string per iteration on a per-request path bounded by
+		// maxFieldsLength.
 		let depth = 0;
-		// Stryker disable next-line EqualityOperator: equivalent. `i <= l` reads charCodeAt(l), which is NaN and never equals 47 or 40, so the depth is identical. Kept as an index loop on purpose: `for...of` over a string allocates a one-character string per iteration on a per-request path bounded by maxFieldsLength.
-		for (let i = 0, l = fields.length; i < l; i++) {
+		let i = fields.length;
+		while (i--) {
 			const code = fields.charCodeAt(i);
 			if (code === 47 || code === 40) depth += 1;
 		}

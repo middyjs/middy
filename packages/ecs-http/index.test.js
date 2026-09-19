@@ -1922,12 +1922,22 @@ describe("@middy/ecs-http", () => {
 			["APPLICATION/JSON", false],
 			["application/json; charset=utf-8", false],
 			["text/plain; charset=utf-8", false],
+			["TEXT/HTML", false],
 			["application/xml", false],
+			["application/soap+xml; charset=utf-8", false],
+			["application/ld+json", false],
 			["application/vnd.github+json", false],
 			["application/vnd.api+json", false],
+			["application/vnd.my-org.v2+json", false],
 			["application/x-www-form-urlencoded", false],
+			["application/javascript", false],
+			["application/graphql", false],
 			["application/octet-stream", true],
+			["application/zip", true],
+			["application/vnd.ms-excel", true],
+			["application/pdf; type=json", true],
 			["image/png", true],
+			["image/svg+xml", true],
 			// A text type mentioned inside a parameter does not make the body text.
 			["multipart/related; type=text/html; boundary=b", true],
 			["multipart/form-data; boundary=text/", true],
@@ -2021,6 +2031,24 @@ describe("@middy/ecs-http", () => {
 			headers: { "content-type": "application/json" },
 		});
 		deepStrictEqual(calls.endArgs, ['{"message":"nope"}']);
+	});
+
+	test("request handler: a 4xx error without a message reports an empty one", async () => {
+		const requestHandler = createRequestHandler({
+			handler: () => {
+				throw { statusCode: 404 };
+			},
+			eventVersion: "2.0",
+			requestContext: {},
+			timeout: 1000,
+			bodyLimit: 1024,
+		});
+		const calls = await dispatch(requestHandler, makeReq());
+		deepStrictEqual(calls.writeHead, {
+			code: 404,
+			headers: { "content-type": "application/json" },
+		});
+		deepStrictEqual(calls.endArgs, ['{"message":""}']);
 	});
 
 	test("request handler: only a numeric statusCode >= 400 is honored, else 500", async () => {

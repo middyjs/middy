@@ -98,9 +98,9 @@ const appConfigExtensionMiddleware = (opts = {}) => {
 							cause: { package: pkg },
 						});
 					}
-					// Stryker disable next-line StringLiteral: equivalent mutant. The fallback only applies when the Content-Type header is absent, and its sole use is `jsonContentTypePattern.test(contentType)`. Any non-`application/...json` string (including "" or any other literal) yields the same `false`, so the value is unobservable.
-					const contentType = res.headers.get("Content-Type") ?? "";
-					return jsonContentTypePattern.test(contentType)
+					// `get` yields null for an absent header, which `test` reads as the
+					// string "null": not a JSON media type, so the body is read as text.
+					return jsonContentTypePattern.test(res.headers.get("Content-Type"))
 						? res.json()
 						: res.text();
 				})

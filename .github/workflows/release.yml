@@ -206,7 +206,7 @@ jobs:
       #   uploads.github.com:443
       - name: Release
         # Replaces actions/create-release & actions/upload-release-asset (deprecated)
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.0 # zizmor: ignore[superfluous-actions] prefer maintained action over inline `gh release` script
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.0 # zizmor: ignore[superfluous-actions] prefer maintained action over inline `gh release` script
         with:
           draft: true
           prerelease: ${{ needs.build.outputs.prerelease }}

@@ -645,6 +645,24 @@ describe("@middy/http-multipart-body-parser", () => {
 		}
 	});
 
+	test("It should throw at construction for a charset Buffer does not know", async (t) => {
+		let thrown;
+		try {
+			httpMultipartBodyParser({ charset: "utf-9" });
+		} catch (e) {
+			thrown = e;
+		}
+		ok(thrown instanceof TypeError, "expected an unknown charset to throw");
+		strictEqual(
+			thrown.message,
+			"@middy/http-multipart-body-parser charset must be a Buffer encoding",
+		);
+		deepStrictEqual(thrown.cause, {
+			package: "@middy/http-multipart-body-parser",
+			data: { charset: "utf-9" },
+		});
+	});
+
 	test("httpMultipartBodyParserValidateOptions rejects wrong type", () => {
 		try {
 			httpMultipartBodyParserValidateOptions({ charset: 42 });

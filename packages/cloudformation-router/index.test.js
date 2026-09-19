@@ -1,4 +1,4 @@
-import { ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { describe, test } from "node:test";
 import middy from "../core/index.js";
 import cloudformationRouter, {
@@ -295,6 +295,21 @@ describe("@middy/cloudformation-router", () => {
 			ok(e instanceof TypeError);
 			strictEqual(e.cause.package, "@middy/cloudformation-router");
 		}
+	});
+
+	test("It should throw at construction for a route with an unknown requestType", async (t) => {
+		let thrown;
+		try {
+			cloudformationRouter([{ requestType: "Patch", handler: () => {} }]);
+		} catch (e) {
+			thrown = e;
+		}
+		ok(thrown, "expected an unknown requestType to throw");
+		strictEqual(thrown.message, "Invalid route");
+		deepStrictEqual(thrown.cause, {
+			package: "@middy/cloudformation-router",
+			data: { requestType: "Patch" },
+		});
 	});
 
 	test("cloudformationRouterValidateOptions rejects unknown extra property on route", () => {

@@ -161,8 +161,7 @@ const normalizeOrigin = (origin) => {
 	if (origin === undefined) return undefined;
 	let uri;
 	try {
-		// Stryker disable next-line StringLiteral: equivalent. The label only appears in the error httpUri throws, which the catch below discards in favour of its own TypeError.
-		uri = httpUri(origin, "Option 'origin'");
+		uri = httpUri(origin);
 	} catch {
 		throw new TypeError(`Option 'origin' is not a URL: '${origin}'`, {
 			cause: { package: pkg },
@@ -190,20 +189,15 @@ const normalizeAlgorithms = (algorithm) => {
 
 // Every reader below returns a string or undefined. The event is Lambda's, but
 // its shape is not guaranteed, so nothing here assumes a type it did not check.
-// The `event?.` links are kept for that reason even though they are
-// equivalent under mutation: every reader runs only after the authorization
-// and proof headers have been read off the event, which a null event cannot
-// have supplied. The `requestContext?.` and `http?.` links are not equivalent
-// and stay unpinned: the ALB test (no `requestContext`) and the REST test (no
-// `http`) kill them.
+// The event itself is never nullish here: every reader runs only after the
+// authorization and proof headers have been read off it, which a null event
+// cannot have supplied.
 const asString = (value) => (typeof value === "string" ? value : undefined);
 
 // Covers API Gateway HTTP (v2), API Gateway REST (v1) and ALB.
 const readMethod = (event) => {
-	// Stryker disable OptionalChaining: equivalent, see the note above; only the `event?.` links are on these lines.
-	const requestContext = event?.requestContext;
-	const httpMethod = asString(event?.httpMethod);
-	// Stryker restore OptionalChaining
+	const requestContext = event.requestContext;
+	const httpMethod = asString(event.httpMethod);
 	return asString(requestContext?.http?.method) ?? httpMethod;
 };
 
@@ -213,11 +207,9 @@ const readMethod = (event) => {
 // the latter is what makes a stage other than `$default` work at all. HTTP
 // (v2) has no `requestContext.path`; ALB has neither, and only `path`.
 const readPath = (event) => {
-	// Stryker disable OptionalChaining: equivalent, see the note above; only the `event?.` links are on these lines.
-	const rawPath = asString(event?.rawPath);
-	const requestContext = event?.requestContext;
-	const path = asString(event?.path);
-	// Stryker restore OptionalChaining
+	const rawPath = asString(event.rawPath);
+	const requestContext = event.requestContext;
+	const path = asString(event.path);
 	return rawPath ?? asString(requestContext?.path) ?? path;
 };
 
@@ -227,18 +219,17 @@ const readPath = (event) => {
 // why it is a safe fallback. Behind a CDN or any other proxy, set `origin`.
 const readOrigin = (event, configured) => {
 	if (configured) return configured;
-	// Stryker disable next-line OptionalChaining: equivalent, see the note above; only the `event?.` link is on this line.
-	const requestContext = event?.requestContext;
+	const requestContext = event.requestContext;
 	const domainName = asString(requestContext?.domainName);
 	return domainName ? `https://${domainName}` : undefined;
 };
 
 // Exactly one DPoP header, per RFC 9449 §4.3 step 1. Proxies can deliver a
 // repeated header as an array, and two proofs is ambiguous rather than merely
-// redundant, so it is refused instead of resolved.
+// redundant, so it is refused instead of resolved. readAuthorization runs first
+// and rejects when `headers` is absent, so `headers` is always an object here.
 const readProof = (headers) => {
-	// Stryker disable next-line OptionalChaining: equivalent. readAuthorization runs first and rejects when `headers` is absent, so this reader is never reached with an undefined `headers`.
-	const raw = headers?.dpop ?? headers?.DPoP ?? headers?.Dpop;
+	const raw = headers.dpop ?? headers.DPoP ?? headers.Dpop;
 	if (Array.isArray(raw)) {
 		return raw.length === 1 ? asString(raw[0]) : undefined;
 	}
@@ -406,9 +397,9 @@ const httpDpopMiddleware = (opts = {}) => {
 		}
 		const accessToken = authorization.slice("dpop ".length);
 
+		// readProof returns a string or undefined, so `!proof` is the whole check.
 		const proof = readProof(headers);
-		// Stryker disable next-line ConditionalExpression: equivalent. readProof returns a string or undefined, so the type check can only be true when the value is also falsy; `!proof` alone covers every reachable case.
-		if (typeof proof !== "string" || !proof) {
+		if (!proof) {
 			throw unauthorized("Missing DPoP header");
 		}
 		// Bounded before anything parses it, so a hostile proof cannot hand
@@ -424,22 +415,19 @@ const httpDpopMiddleware = (opts = {}) => {
 		// `requestContext.domainName`, and no `origin` configured, is a 500 the
 		// operator can act on and never a 401 the caller is left to guess at. A
 		// malformed `origin` never reaches this point; it fails at construction.
+		// An undefined origin makes the template below unparseable, so it is
+		// caught by the `url` check; an undefined path is not (the origin alone
+		// parses), hence its own arm.
 		const requestOrigin = readOrigin(request.event, origin);
 		const path = readPath(request.event);
 		let url;
 		try {
-			// Stryker disable next-line StringLiteral: equivalent. The label only appears in the error httpUri throws, which this catch discards in favour of `url = undefined`.
-			url = httpUri(`${requestOrigin}${path}`, "The request URI");
+			url = httpUri(`${requestOrigin}${path}`);
 		} catch {
 			// `url` was declared without an initialiser, so it is already
 			// undefined here; the check below is what reports it.
 		}
-		if (
-			// Stryker disable next-line ConditionalExpression: equivalent. An undefined requestOrigin makes the template above unparseable, so `url` is undefined too and the third arm already rejects.
-			requestOrigin === undefined ||
-			path === undefined ||
-			url === undefined
-		) {
+		if (path === undefined || url === undefined) {
 			throw new HttpError(500, {
 				cause: {
 					package: pkg,

@@ -1345,8 +1345,45 @@ describe("@middy/validator", () => {
 				thrown = e;
 			}
 			ok(thrown, `expected ${JSON.stringify(pointer)} to throw`);
-			ok(thrown.message.includes("JSON Pointer"));
+			strictEqual(
+				thrown.message,
+				`@middy/validator expected a JSON Pointer to a property, received "${pointer}"`,
+			);
+			deepStrictEqual(thrown.cause, { package: "@middy/validator" });
 		}
+	});
+
+	test("It should nest at a single-character property", async (t) => {
+		// "/a" is the shortest valid pointer; the length guard must let it through.
+		deepStrictEqual(nestedSchema("/a", { type: "string" }), {
+			type: "object",
+			required: ["a"],
+			properties: { a: { type: "string", $id: "middy:nested:/a" } },
+		});
+	});
+
+	test("It should unescape RFC 6901 `~1` and `~0` in pointer segments", async (t) => {
+		deepStrictEqual(nestedSchema("/a~1b/c~0d", { type: "string" }), {
+			type: "object",
+			required: ["a/b"],
+			properties: {
+				"a/b": {
+					type: "object",
+					required: ["c~d"],
+					properties: {
+						"c~d": { type: "string", $id: "middy:nested:/a~1b/c~0d" },
+					},
+				},
+			},
+		});
+	});
+
+	test("It should nest a null schema without reading $id off it", async (t) => {
+		deepStrictEqual(nestedSchema("/a", null), {
+			type: "object",
+			required: ["a"],
+			properties: { a: null },
+		});
 	});
 
 	test("It should keep a self-recursive $ref pointing at the nested schema", async (t) => {

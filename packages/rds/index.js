@@ -111,39 +111,34 @@ const rdsMiddleware = (opts = {}) => {
 	// counted per client, so a retired client closes as soon as its own holders
 	// release while newer clients stay open.
 	const holders = new Map(); // request -> client
-	const leases = new Map(); // client -> invocations holding it
-	const retired = new Set();
+	const leases = new Map(); // client -> { count, retired }
 	let live;
 	const close = (client) => {
-		// Stryker disable next-line CallExpression: equivalent; a client is retired at most once and closed only after its last lease is released (or before any lease exists), so a closed client is never looked up in `retired` again. The delete only frees the reference.
-		retired.delete(client);
 		Promise.try(() => client.end()).catch((e) => {
 			console.error("%s: cleanup error: %s", pkg, e.message);
 		});
 	};
 	const retire = (client) => {
-		if (leases.has(client)) {
-			retired.add(client);
-		} else {
-			close(client);
-		}
+		const held = leases.get(client);
+		if (held === undefined) close(client);
+		else held.retired = true;
 	};
 	const lease = (request, client) => {
 		holders.set(request, client);
-		leases.set(client, (leases.get(client) ?? 0) + 1);
+		const held = leases.get(client);
+		if (held === undefined) leases.set(client, { count: 1, retired: false });
+		else held.count += 1;
 	};
 	const release = (request) => {
 		const client = holders.get(request);
-		// Stryker disable next-line ConditionalExpression: equivalent; with no holder the fall-through only touches `leases` and `retired` with an undefined key, which neither ever holds, so nothing changes.
+		// An invocation whose connect failed holds nothing.
 		if (client === undefined) return;
 		holders.delete(request);
-		const remaining = leases.get(client) - 1;
-		if (remaining > 0) {
-			leases.set(client, remaining);
-			return;
-		}
+		const held = leases.get(client);
+		held.count -= 1;
+		if (held.count > 0) return;
 		leases.delete(client);
-		if (retired.has(client)) close(client);
+		if (held.retired) close(client);
 	};
 	// Durable execution skips onError, so an invocation that threw never
 	// released its lease. Invocations are sequential there, so every lease

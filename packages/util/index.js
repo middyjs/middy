@@ -382,15 +382,14 @@ export const createClientInit = (options) => {
 	let pending;
 	let credentials;
 	return (request) => {
-		// Stryker disable next-line ConditionalExpression: equivalent; without awsClientAssumeRole the lookup reads internal[undefined], which is undefined like the initial credentials, so the branch never resets the memo.
-		if (awsClientAssumeRole) {
-			// A request without `internal` is left to createClient, which rejects
-			// with the packaged error rather than throwing here synchronously.
-			const current = request?.internal?.[awsClientAssumeRole];
-			if (current !== credentials) {
-				credentials = current;
-				pending = undefined;
-			}
+		// A request without `internal` is left to createClient, which rejects
+		// with the packaged error rather than throwing here synchronously.
+		// Without awsClientAssumeRole the key is undefined, the read yields
+		// undefined on every request and the memo is never reset.
+		const current = request?.internal?.[awsClientAssumeRole];
+		if (current !== credentials) {
+			credentials = current;
+			pending = undefined;
 		}
 		if (pending === undefined) {
 			// Only the current attempt is forgotten on failure: one superseded by
@@ -432,9 +431,8 @@ const duplicateSanitizedKeyError = (keys, sanitized) => {
 // Internal Context
 export const getInternal = async (variables, request) => {
 	if (!variables || !request?.internal) return Object.create(null);
-	let keys = [];
-	// Stryker disable next-line ArrayDeclaration: equivalent; this initial value is only observable when no branch below matches (variables is a truthy non-true/string/array/object), and in that case `keys` stays [] so the output is always {} regardless of `values`.
-	let values = [];
+	let keys;
+	let values;
 	if (variables === true) {
 		keys = values = Object.keys(request.internal);
 	} else if (typeof variables === "string") {
@@ -444,23 +442,22 @@ export const getInternal = async (variables, request) => {
 	} else if (typeof variables === "object") {
 		keys = Object.keys(variables);
 		values = Object.values(variables);
+	} else {
+		return Object.create(null);
 	}
-	// Fast synchronous path: when all internal values are already resolved
-	// (warm/cached invocations), skip all Promise machinery entirely.
-	// The async fallback below produces byte-for-byte identical output, so the
-	// following sync-path mutants are equivalent: they only ever route execution
-	// to the async path (or vice versa), never change the resolved result.
-	// Stryker disable next-line BooleanLiteral: equivalent; starting allSync=false just forces the async path, which yields the same result.
+	// Fast synchronous path: when every internal value is already resolved
+	// (warm/cached invocations) the result is built without any Promise
+	// machinery, so the returned promise is already settled and an `await` on
+	// it costs no extra microtask hop. The first pending value hands over to
+	// the async fallback below, which produces the same output.
+	const obj = Object.create(null);
 	let allSync = true;
-	// Stryker disable next-line ArrayDeclaration: equivalent; new Array() vs new Array(n) both accept the same indexed assignments.
-	const syncResults = new Array(values.length);
 	for (let i = 0; i < values.length; i++) {
 		const internalKey = values[i];
 		const dotIndex = internalKey.indexOf(".");
 		const rootKey =
 			dotIndex === -1 ? internalKey : internalKey.substring(0, dotIndex);
 		let value = request.internal[rootKey];
-		// Stryker disable next-line ConditionalExpression: equivalent; forcing the async path for every value yields the same result.
 		if (isPromise(value)) {
 			allSync = false;
 			break;
@@ -469,24 +466,16 @@ export const getInternal = async (variables, request) => {
 			for (const part of internalKey.substring(dotIndex + 1).split(".")) {
 				value = safeGet(value, part);
 			}
-			// Stryker disable next-line ConditionalExpression: equivalent; forcing the promise branch abandons the sync fast-path for the async fallback below, which resolves to the same object. Only the fast path's saved microtask is lost, matching the disable on that fallback.
 			if (isPromise(value)) {
 				allSync = false;
 				break;
 			}
 		}
-		syncResults[i] = value;
+		const sanitized = sanitizeKey(keys[i]);
+		if (sanitized in obj) throw duplicateSanitizedKeyError(keys, sanitized);
+		obj[sanitized] = value;
 	}
-	// Stryker disable next-line ConditionalExpression,BlockStatement: equivalent; skipping the sync fast-path defers to the async fallback, which returns the same object.
-	if (allSync) {
-		const obj = Object.create(null);
-		for (let i = 0; i < keys.length; i++) {
-			const sanitized = sanitizeKey(keys[i]);
-			if (sanitized in obj) throw duplicateSanitizedKeyError(keys, sanitized);
-			obj[sanitized] = syncResults[i];
-		}
-		return obj;
-	}
+	if (allSync) return obj;
 
 	// Async fallback: for cold/first invocations with pending promises
 	const promises = [];
@@ -494,19 +483,18 @@ export const getInternal = async (variables, request) => {
 		// 'internal.key.sub_value' -> { [key]: internal.key.sub_value }
 		const pathOptionKey = internalKey.split(".");
 		const rootOptionKey = pathOptionKey.shift();
-		let valuePromise = request.internal[rootOptionKey];
-		// Stryker disable next-line ConditionalExpression: equivalent; Promise.resolve(p) returns p unchanged when p is already a promise, so always wrapping yields the same value.
-		if (!isPromise(valuePromise)) {
-			valuePromise = Promise.resolve(valuePromise);
-		}
+		// Promise.resolve hands a native promise back unchanged, so a resolved
+		// value and a pending one take the same path.
 		promises.push(
-			valuePromise.then((value) => pathOptionKey.reduce(safeGet, value)),
+			Promise.resolve(request.internal[rootOptionKey]).then((value) =>
+				pathOptionKey.reduce(safeGet, value),
+			),
 		);
 	}
 	// ensure promise has resolved by the time it's needed
 	// If one of the promises throws it will bubble up to @middy/core
 	values = await Promise.allSettled(promises);
-	const obj = Object.create(null);
+	const resolved = Object.create(null);
 	let errors;
 	for (let i = 0; i < keys.length; i++) {
 		if (values[i].status === "rejected") {
@@ -514,8 +502,10 @@ export const getInternal = async (variables, request) => {
 			errors.push(values[i].reason);
 		} else {
 			const sanitized = sanitizeKey(keys[i]);
-			if (sanitized in obj) throw duplicateSanitizedKeyError(keys, sanitized);
-			obj[sanitized] = values[i].value;
+			if (sanitized in resolved) {
+				throw duplicateSanitizedKeyError(keys, sanitized);
+			}
+			resolved[sanitized] = values[i].value;
 		}
 	}
 	if (errors) {
@@ -523,7 +513,7 @@ export const getInternal = async (variables, request) => {
 			cause: { package: pkg },
 		});
 	}
-	return obj;
+	return resolved;
 };
 
 const isPromise = (promise) => typeof promise?.then === "function";
@@ -538,10 +528,13 @@ export const sanitizeKey = (key) => {
 		sanitized = key
 			.replace(sanitizeKeyPrefixLeadingNumber, "_$1")
 			.replace(sanitizeKeyRemoveDisallowedChar, "_");
-		// Stryker disable next-line ConditionalExpression,EqualityOperator: the always-cache and cap-boundary variants are equivalent - storing past (or one entry beyond) the cap only changes whether a deterministic value is later recomputed, never the returned value, and killing them would require a test coupled to the exact global fill state of the memo. (The never-cache variants are killed by the replace-spy memo test.)
-		if (sanitizeKeyCache.size < sanitizeKeyCacheMaxSize) {
-			sanitizeKeyCache.set(key, sanitized);
+		// Flushed when full rather than frozen, so a container that sees more
+		// distinct keys than the cap keeps memoizing the recent ones.
+		// ponytail: whole-cache flush, swap for LRU if the recompute bursts matter.
+		if (sanitizeKeyCache.size === sanitizeKeyCacheMaxSize) {
+			sanitizeKeyCache.clear();
 		}
+		sanitizeKeyCache.set(key, sanitized);
 	}
 	return sanitized;
 };
@@ -620,10 +613,10 @@ export const assignSetToContext = ({ contextKey, pairs }, value, request) => {
 		if (typeof v?.then === "function") {
 			// Cold path: at least one value still pending; defer to
 			// `getInternal` for the standard await+sanitize+assign flow.
-			// Stryker disable next-line ArrayDeclaration: equivalent; new Array() vs new Array(n) both accept the same indexed assignments.
-			const keys = new Array(pairs.length);
-			for (let j = 0; j < pairs.length; j++) keys[j] = pairs[j][0];
-			return getInternal(keys, request).then((data) => {
+			return getInternal(
+				pairs.map((pair) => pair[0]),
+				request,
+			).then((data) => {
 				Object.assign(contextNamespace(request, contextKey), data);
 			});
 		}
@@ -876,20 +869,17 @@ export const setCacheKeyExpiry = (options, expiryMs) => {
 
 const evictCache = (maxSize) => {
 	if (cache.size <= maxSize) return;
-	let oldestKey = null;
-	let oldestExpiry;
+	// Seeded from the first entry, so a cache of nothing but never-expiring
+	// entries still evicts the oldest inserted one.
+	let [oldestKey, oldest] = cache.entries().next().value;
 	for (const [key, entry] of cache) {
-		if (entry && (oldestKey === null || entry.expiry < oldestExpiry)) {
-			oldestExpiry = entry.expiry;
+		if (entry.expiry < oldest.expiry) {
 			oldestKey = key;
+			oldest = entry;
 		}
 	}
-	// Stryker disable next-line ConditionalExpression: equivalent; evictCache only runs when cache.size > maxSize (>0) and every cache entry is a truthy object, so the loop always sets oldestKey to a real key. Forcing this guard true would at worst delete the null key, a harmless no-op.
-	if (oldestKey !== null) {
-		// Stryker disable next-line OptionalChaining: equivalent; oldestKey was just read from the live cache in the loop above, so cache.get(oldestKey) is always defined and the optional chain never short-circuits.
-		clearTimeout(cache.get(oldestKey)?.refresh);
-		cache.delete(oldestKey);
-	}
+	clearTimeout(oldest.refresh);
+	cache.delete(oldestKey);
 };
 
 export const clearCache = (inputKeys = null) => {
@@ -948,7 +938,6 @@ const suspectKeyRx =
 	/"(?:(?:_|\\u005[Ff]){2}(?:p|\\u0070)(?:r|\\u0072)(?:o|\\u006[Ff])(?:t|\\u0074)(?:o|\\u006[Ff])(?:_|\\u005[Ff]){2}|(?:c|\\u0063)(?:o|\\u006[Ff])(?:n|\\u006[Ee])(?:s|\\u0073)(?:t|\\u0074)(?:r|\\u0072)(?:u|\\u0075)(?:c|\\u0063)(?:t|\\u0074)(?:o|\\u006[Ff])(?:r|\\u0072))"\s*:/;
 
 export const jsonParseProtectProto = (text, reviver, packageName) => {
-	// Stryker disable next-line ConditionalExpression,BlockStatement: equivalent by construction. This is a pure fast path: skipping it routes every body through the guarded reviver below, which returns the same value and binds the same `this`. Only the ~8x native-parse win is lost, so no assertion can tell the two apart.
 	if (!suspectKeyRx.test(text)) {
 		return JSON.parse(text, reviver);
 	}

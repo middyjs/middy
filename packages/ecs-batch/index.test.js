@@ -9,6 +9,7 @@ import {
 	throws,
 } from "node:assert/strict";
 import nodeCluster from "node:cluster";
+import { getEventListeners } from "node:events";
 import { readFileSync } from "node:fs";
 import { describe, mock, test } from "node:test";
 import amqplib from "amqplib";
@@ -1946,6 +1947,23 @@ describe("@middy/ecs-batch", () => {
 		strictEqual(r.done, true);
 	});
 
+	test("pollKafka releases its abort listener once the signal fires", async () => {
+		// The runner's signal outlives the poller, so a listener left behind
+		// would be a leak per poll().
+		const poller = pollKafka({
+			brokers: ["b1"],
+			groupId: "g",
+			topics: ["t"],
+			consumer: makeFakeKafkaConsumer(),
+		});
+		const ac = new AbortController();
+		const { firstNext } = await drainKafkaSetup(poller.poll(ac.signal));
+		strictEqual(getEventListeners(ac.signal, "abort").length, 1);
+		ac.abort();
+		strictEqual((await firstNext).done, true);
+		strictEqual(getEventListeners(ac.signal, "abort").length, 0);
+	});
+
 	test("pollKafka runs the consumer with autoCommit and eachBatchAutoResolve off", async () => {
 		// With eachBatchAutoResolve left at its default (true) kafkajs resolves the
 		// batch's last offset after eachBatch returns, so the next commit would skip
@@ -2409,6 +2427,16 @@ describe("@middy/ecs-batch", () => {
 		strictEqual(r.done, true);
 	});
 
+	test("pollAmq releases its abort listener once the signal fires", async () => {
+		const poller = pollAmq({ ...amqBase, client: makeFakeStompClient() });
+		const ac = new AbortController();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		strictEqual(getEventListeners(ac.signal, "abort").length, 1);
+		ac.abort();
+		strictEqual((await firstNext).done, true);
+		strictEqual(getEventListeners(ac.signal, "abort").length, 0);
+	});
+
 	test("pollAmq windowing aborts mid-window via delay rejection", async () => {
 		const stomp = makeFakeStompClient();
 		const poller = pollAmq({
@@ -2698,6 +2726,69 @@ describe("@middy/ecs-batch", () => {
 		strictEqual(r.done, true);
 	});
 
+	test("pollRmq releases its abort listener once the signal fires", async () => {
+		const channel = makeFakeRmqChannel();
+		const poller = pollRmq({
+			queue: "q",
+			connection: {
+				async close() {},
+				async createChannel() {
+					return channel;
+				},
+			},
+			channel,
+		});
+		const ac = new AbortController();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		strictEqual(getEventListeners(ac.signal, "abort").length, 1);
+		ac.abort();
+		strictEqual((await firstNext).done, true);
+		strictEqual(getEventListeners(ac.signal, "abort").length, 0);
+	});
+
+	test("pollRmq renders AMQP timestamps in Lambda's en-US medium UTC format", async () => {
+		// Epoch seconds in, "Jan 1, 1970, 12:33:41 AM" style out: no zero-padded
+		// day or hour, 12-hour clock with 12 for midnight and noon, padded
+		// minutes and seconds.
+		const channel = makeFakeRmqChannel();
+		const poller = pollRmq({
+			queue: "q",
+			batchSize: 4,
+			batchWindowMs: 5,
+			connection: {
+				async close() {},
+				async createChannel() {
+					return channel;
+				},
+			},
+			channel,
+		});
+		const ac = new AbortController();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		const cb = channel.consumeCb();
+		const cases = [
+			[2021, "Jan 1, 1970, 12:33:41 AM"],
+			[1_699_963_200, "Nov 14, 2023, 12:00:00 PM"],
+			[1_700_000_000, "Nov 14, 2023, 10:13:20 PM"],
+			[1_709_216_461, "Feb 29, 2024, 2:21:01 PM"],
+		];
+		for (const [i, [timestamp]] of cases.entries()) {
+			cb({
+				fields: { deliveryTag: i + 1, redelivered: false },
+				properties: { timestamp },
+				content: Buffer.from(""),
+			});
+		}
+		const { value } = await firstNext;
+		deepStrictEqual(
+			value.rmqMessagesByQueue["q::/"].map(
+				(record) => record.basicProperties.timestamp,
+			),
+			cases.map(([, rendered]) => rendered),
+		);
+		ac.abort();
+	});
+
 	test("pollRmq windowing aborts mid-window via delay rejection", async () => {
 		const channel = makeFakeRmqChannel();
 		const poller = pollRmq({
@@ -2800,6 +2891,8 @@ describe("@middy/ecs-batch", () => {
 		const r = value.rmqMessagesByQueue["q::/"][0];
 		strictEqual(r.basicProperties.contentType, null);
 		strictEqual(r.basicProperties.deliveryMode, 1);
+		// An absent AMQP timestamp is null, never a rendering of "Invalid Date".
+		strictEqual(r.basicProperties.timestamp, null);
 		strictEqual(r.redelivered, false);
 		ac.abort();
 	});

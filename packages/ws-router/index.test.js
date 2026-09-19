@@ -239,6 +239,21 @@ describe("@middy/ws-router", () => {
 		ok(threw, "expected missing routeKey to throw");
 	});
 
+	test("It should throw at construction for a route without a string routeKey", async (t) => {
+		let thrown;
+		try {
+			wsRouter([{ handler: () => {} }]);
+		} catch (e) {
+			thrown = e;
+		}
+		ok(thrown, "expected a route without a routeKey to throw");
+		strictEqual(thrown.message, "Invalid route");
+		deepStrictEqual(thrown.cause, {
+			package: "@middy/ws-router",
+			data: { routeKey: undefined },
+		});
+	});
+
 	test("wsRouterValidateOptions accepts valid options and rejects typos", () => {
 		wsRouterValidateOptions({ routes: [], notFoundResponse: () => {} });
 		wsRouterValidateOptions({});

@@ -199,8 +199,6 @@ export const pollSqs = (opts) => {
 			// timeout, as it would from Lambda.
 			if (failed.error) throw failed.error;
 			const toDelete = records.filter((r) => !failed.ids.has(r.messageId));
-			// Stryker disable next-line ConditionalExpression: equivalent; an empty toDelete produces no chunks, so the loop below sends nothing and raises nothing.
-			if (!toDelete.length) return;
 			// DeleteMessageBatch reports each entry as Successful or Failed. A
 			// Failed entry stays in the queue and redelivers after the visibility
 			// timeout, so it must not count as acknowledged: every chunk is still

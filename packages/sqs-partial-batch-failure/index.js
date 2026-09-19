@@ -38,8 +38,6 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 		// https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html
 		// Required: include the value `ReportBatchItemFailures` in the `FunctionResponseTypes` list
 		const batchItemFailures = [];
-		// Stryker disable next-line ArrayDeclaration: equivalent - the fallback array is only used when response is not an array; entries are looked up by index and destructured for `status`, and no non-empty fallback content can ever yield status === "fulfilled", so all records fail identically with reason undefined.
-		const settled = Array.isArray(response) ? response : [];
 		if (Array.isArray(Records)) {
 			// Redact once for the whole batch. Only the values handed to `logger`
 			// come from the redacted copy; `status` and `messageId` stay raw so a
@@ -47,7 +45,9 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 			const safeRequest = omit(request, omitPathTree, mask);
 			const safeRecords = safeRequest.event.Records;
 			for (const [idx, record] of Records.entries()) {
-				const { status } = settled[idx] ?? {};
+				// A handler that did not return Promise.allSettled results (null, a
+				// plain object) has no entry for any record, so every record fails.
+				const { status } = response?.[idx] ?? {};
 				if (status === "fulfilled") continue;
 				batchItemFailures.push({ itemIdentifier: record.messageId });
 				if (typeof logger === "function") {
@@ -66,11 +66,11 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 		if (typeof request.response !== "undefined") return;
 
 		const length = request.event.Records?.length ?? 0;
-		request.response = Array.from({ length }, () => ({
-			// Stryker disable next-line StringLiteral: equivalent - `status` is only compared against "fulfilled" in the after handler; any non-"fulfilled" value (including "") is treated as a failure identically, so the literal value is unobservable.
-			status: "rejected",
-			reason: request.error,
-		}));
+		// Every record settles as rejected with the handler's error, in the
+		// shape the after hook expects from Promise.allSettled.
+		request.response = await Promise.allSettled(
+			Array.from({ length }, () => Promise.reject(request.error)),
+		);
 
 		await sqsPartialBatchFailureMiddlewareAfter(request);
 	};

@@ -78,6 +78,85 @@ describe("@middy/http-paseto", () => {
 		strictEqual(ctx.middyContext.paseto.sub, "user-1");
 	});
 
+	test("It should import the verification key as non-extractable", async (t) => {
+		// The CryptoKey only ever feeds paseto's verify and is never exported, so
+		// the import call is the one place the flag can be observed. The token is
+		// signed before the spy goes on so only the middleware's import is recorded.
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "user-1" }, privateKey);
+		const importKey = t.mock.method(crypto.subtle, "importKey");
+
+		const handler = makeHandlerWithKey(publicKey);
+		await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
+
+		const [format, , , extractable] = importKey.mock.calls[0].arguments;
+		strictEqual(format, "spki");
+		strictEqual(extractable, false);
+	});
+
+	test("It should import a key object once and reuse it across requests", async (t) => {
+		// Cached per keyData reference: a warm invocation handing over the same
+		// object must not pay the SPKI import again.
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "user-1" }, privateKey);
+		const keyData = new Uint8Array(
+			publicKey.export({ type: "spki", format: "der" }),
+		);
+		const importKey = t.mock.method(crypto.subtle, "importKey");
+
+		const handler = middy((event, context) => context.middyContext)
+			.before((request) => {
+				request.internal.pubKey = keyData;
+			})
+			.use(httpPaseto({ internalKey: "pubKey" }));
+		await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
+		await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
+
+		strictEqual(importKey.mock.callCount(), 1);
+	});
+
+	test("It should keep a lone-quote cookie value verbatim rather than slicing it to empty", async (t) => {
+		// A single '"' is not a quoted pair, so it reaches the version check as-is
+		// instead of vanishing into "No token found".
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const handler = makeHandlerWithKey(publicKey, {
+			tokenCookieName: "paseto_token",
+		});
+		try {
+			await handler(
+				{ headers: { cookie: 'paseto_token="' } },
+				{ ...defaultContext },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.data.reason, "Unsupported PASETO version or purpose");
+		}
+	});
+
+	test('It should slice an empty quoted-pair cookie value "" to no token', async (t) => {
+		// Two quotes are a quoted pair around nothing, so the cookie source yields
+		// no token at all.
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const handler = makeHandlerWithKey(publicKey, {
+			tokenCookieName: "paseto_token",
+		});
+		try {
+			await handler(
+				{ headers: { cookie: 'paseto_token=""' } },
+				{ ...defaultContext },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.data.reason, "No token found in configured sources");
+		}
+	});
+
 	test("It should always set payload to context", async (t) => {
 		const privateKey = await V4.generateKey();
 		const publicKey = createPublicKey(privateKey);

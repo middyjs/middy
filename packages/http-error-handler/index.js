@@ -102,22 +102,20 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
 			request.error = new FallbackError(fallbackMessage, request.error);
 		}
 
-		// Stryker disable next-line ConditionalExpression: equivalent mutant - after the block above `request.error.expose` is always truthy (the fallback sets `expose: true`; a kept error already had a truthy `expose`), so forcing the guard to `true` cannot be observed.
-		if (request.error.expose) {
-			normalizeHttpResponse(request);
-			const { statusCode, message, headers } = request.error;
+		// Either way `request.error` is now an exposable http error.
+		normalizeHttpResponse(request);
+		const { statusCode, message, headers } = request.error;
 
-			request.response.statusCode = statusCode;
+		request.response.statusCode = statusCode;
 
-			if (message) {
-				request.response.body = message;
-				request.response.headers["Content-Type"] = isJsonStructured(message)
-					? "application/json"
-					: "text/plain";
-			}
-
-			Object.assign(request.response.headers, headers);
+		if (message) {
+			request.response.body = message;
+			request.response.headers["Content-Type"] = isJsonStructured(message)
+				? "application/json"
+				: "text/plain";
 		}
+
+		Object.assign(request.response.headers, headers);
 	};
 
 	return {

@@ -164,7 +164,6 @@ export const pollAmq = (opts) => {
 					// best-effort
 				}
 			};
-			// Stryker disable next-line ObjectLiteral,BooleanLiteral: equivalent; an AbortSignal fires abort at most once, so `once` only releases the listener early.
 			signal.addEventListener("abort", onAbort, { once: true });
 
 			client.subscribe(
@@ -223,11 +222,9 @@ export const pollAmq = (opts) => {
 			);
 			for (const t of taken) {
 				if (failed.ids.has(t.record.messageID)) {
-					// Stryker disable next-line OptionalChaining: equivalent; every event in `inflight` came out of poll(), which assigns client before it yields.
-					client?.nack(t.message);
+					client.nack(t.message);
 				} else {
-					// Stryker disable next-line OptionalChaining: equivalent; every event in `inflight` came out of poll(), which assigns client before it yields.
-					client?.ack(t.message);
+					client.ack(t.message);
 				}
 			}
 			// An invalid response nacks every message (the whole batch is

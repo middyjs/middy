@@ -24,13 +24,7 @@ export const httpEventNormalizerValidateOptions = (options) =>
 // https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html
 // A query string is form-encoded, so `+` is a space; decodeURIComponent on its
 // own would leave it as a literal plus.
-// Compiled once at cold start; a literal in the function body would allocate a
-// new RegExp on every parameter.
-const encodedRegExp = /[%+]/;
 const formDecode = (value) => {
-	// Fast-path: most parameters are plain ASCII and decode to themselves.
-	// Stryker disable next-line ConditionalExpression,Regex: perf-only fast-path; a value with no '%' or '+' is unchanged by the replace + decodeURIComponent below and cannot throw, so skipping vs decoding is indistinguishable in the output.
-	if (!encodedRegExp.test(value)) return value;
 	try {
 		return decodeURIComponent(value.replaceAll("+", "%20"));
 	} catch (_e) {

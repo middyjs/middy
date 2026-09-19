@@ -168,21 +168,13 @@ export const drainAndExit = async ({
 }) => {
 	abortController.abort();
 	const deadlineCtl = new AbortController();
-	// The "drained" settle values below only feed `winner === "deadline"`, so
-	// undefined or "" map to the same exit code 0, and the catch on the
-	// deadline runs after the race is decided so its value is never read.
-	const drained = loopPromise.then(
-		// Stryker disable next-line ArrowFunction,StringLiteral: equivalent; see above.
-		() => "drained",
-		// Stryker disable next-line ArrowFunction,StringLiteral: equivalent; see above.
-		() => "drained",
-	);
+	// Only the timer settles to "deadline": a loop that rejects still counts as
+	// drained, and the timer's own abort rejection lands after the race is
+	// decided, so its value is never read.
+	const drained = loopPromise.catch(noop);
 	const deadline = delay(gracefulShutdownMs, "deadline", {
 		signal: deadlineCtl.signal,
-	}).catch(
-		// Stryker disable next-line ArrowFunction,StringLiteral: equivalent; see above.
-		() => "drained",
-	);
+	}).catch(noop);
 	const winner = await Promise.race([drained, deadline]);
 	deadlineCtl.abort();
 	exitImpl(winner === "deadline" ? 1 : 0);
@@ -193,13 +185,14 @@ export const runWorker = async (options, deps = {}) => {
 	const ecs = readEcsEnv();
 	const invokedFunctionArn = composeInvokedFunctionArn(ecs);
 	const abortController = deps.abortController ?? new AbortController();
+	const onError = options.onError ?? noop;
 	const loopPromise = runPollLoop({
 		poller: options.poller,
 		handler: options.handler,
 		timeout: options.timeout,
 		invokedFunctionArn,
 		signal: abortController.signal,
-		onError: options.onError,
+		onError,
 		contextOverride: options.contextOverride,
 	});
 	// A poller throw (network error, expired iterator, throttling) would
@@ -208,8 +201,7 @@ export const runWorker = async (options, deps = {}) => {
 	loopPromise.catch((err) => {
 		// A throwing onError must not leave the worker alive with a dead loop.
 		try {
-			// Stryker disable next-line OptionalChaining: equivalent; with no onError the plain call throws a TypeError that the catch below swallows, so the worker still exits 1 either way.
-			options.onError?.(err);
+			onError(err);
 		} catch {
 			// process.exit pre-empts anything the throw could still report.
 		}
