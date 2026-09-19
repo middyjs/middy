@@ -1,6 +1,6 @@
 {
 	"name": "@middy/secrets-manager-extension",
-	"version": "8.0.0-alpha.0",
+	"version": "8.0.0-alpha.1",
 	"description": "Secrets Manager Lambda Extension middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -64,10 +64,10 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "8.0.0-alpha.0"
+		"@middy/util": "8.0.0-alpha.1"
 	},
 	"devDependencies": {
-		"@middy/core": "8.0.0-alpha.0",
+		"@middy/core": "8.0.0-alpha.1",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^24.0.0"
 	}
