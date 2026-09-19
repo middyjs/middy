@@ -9,6 +9,9 @@ paths = [
     '''.*\.stryker-tmp/.*''',
     # AWS-published example creds + Kinesis sequence numbers in event fixtures
     '''^packages/event-normalizer/index\.test\.js$''',
+    # AWS-published example events; the Kafka record "key" is a base64 message
+    # key, not a credential
+    '''^packages/ecs-batch/fixtures/.*\.json$''',
 ]
 commits = [
     # Old README CircleCI badge token (revoked)

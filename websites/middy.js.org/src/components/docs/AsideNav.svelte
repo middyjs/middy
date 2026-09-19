@@ -36,6 +36,7 @@ const nav = {
 		"error-logger": "/docs/middlewares/error-logger",
 		"event-batch-parser": "/docs/middlewares/event-batch-parser",
 		"event-batch-response": "/docs/middlewares/event-batch-response",
+		"event-logger": "/docs/middlewares/event-logger",
 		"event-normalizer": "/docs/middlewares/event-normalizer",
 		"glue-schema-registry": "/docs/middlewares/glue-schema-registry",
 		"http-content-encoding": "/docs/middlewares/http-content-encoding",
@@ -58,10 +59,10 @@ const nav = {
 		"http-urlencode-path-parser":
 			"/docs/middlewares/http-urlencode-path-parser",
 		"http-x402": "/docs/middlewares/http-x402",
-		"input-output-logger": "/docs/middlewares/input-output-logger",
 		kms: "/docs/middlewares/kms",
 		rds: "/docs/middlewares/rds",
 		"rds-signer": "/docs/middlewares/rds-signer",
+		"response-logger": "/docs/middlewares/response-logger",
 		s3: "/docs/middlewares/s3",
 		"s3-object-response": "/docs/middlewares/s3-object-response",
 		"secrets-manager": "/docs/middlewares/secrets-manager",
@@ -100,6 +101,7 @@ const nav = {
 		"ecs-task": "/docs/runners/ecs-task",
 	},
 	Upgrade: {
+		"Upgrade 7.x -> 8.x": "/docs/upgrade/7-8",
 		"Upgrade 6.x -> 7.x": "/docs/upgrade/6-7",
 		"Upgrade 5.x -> 6.x": "/docs/upgrade/5-6",
 		"Upgrade 4.x -> 5.x": "/docs/upgrade/4-5",

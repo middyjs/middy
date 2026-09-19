@@ -33,7 +33,7 @@ const setupHandler = () => {
 
 const warmHandler = setupHandler();
 
-// Larger router with many dynamic routes at varied depths — exercises the
+// Larger router with many dynamic routes at varied depths, exercises the
 // segment-count short-circuit. Worst case is the last-registered route.
 const setupBigHandler = () => {
 	const h = () => {};

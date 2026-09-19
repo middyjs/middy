@@ -10,7 +10,7 @@ The token is resolved from the first available source in this order: cookie, hea
 
 Two key-source modes are supported:
 
-- **`issuers` (recommended for OIDC).** A map of issuer URL → `{ jwksUri, audience, algorithm? }`. The middleware reads the token's `iss` claim, looks up the matching entry, fetches the public key from that issuer's JWKS (matched by `kid`), and verifies. Supports multiple issuers in one config. Key rotation, kid lookup, JWKS caching, and refresh-on-miss are handled internally via `jose.createRemoteJWKSet`.
+- **`issuers` (recommended for OIDC).** A map of issuer URL → `{ jwksUri, audience, algorithm? }`. The middleware reads the token's `iss` claim, looks up the matching entry, fetches the public key from that issuer's JWKS (matched by `kid`), and verifies. Supports multiple issuers in one config. Key rotation, kid lookup, JWKS caching, and refresh-on-miss are handled by the built-in JWKS resolver (`cacheExpiry`, `cooldownDuration`, `jwksTimeoutMs`).
 - **`internalKey`.** Reads a key from `request.internal[internalKey]`, populated by another middleware that ran earlier. Used for KMS-hosted public keys (via [`@middy/kms`](/docs/middlewares/kms)), bare keys, or symmetric (HMAC) secrets.
 
 This middleware does **not** check role / scope / permission claims. See [Validating roles](#validating-roles) below for a small custom middleware you can drop in alongside it.
@@ -27,22 +27,27 @@ npm install --save jose
 - `issuers` (object) (one of `issuers`/`internalKey` required): Map of issuer URL → `{ jwksUri, audience?, algorithm? }`. See [Issuers options](#issuers-options) for entry shape.
 - `internalKey` (string) (one of `issuers`/`internalKey` required): Key on `request.internal` holding the verification key. Accepts a `{ publicKey: Uint8Array, keySpec }` shape from `@middy/kms`, a bare `Uint8Array` SPKI DER public key, an already-resolved `KeyObject` or `CryptoKey`, or a string symmetric secret. It may also hold an **array** of any of those; see [Key rotation](#key-rotation).
 - `algorithm` (string | string[]) (required for `issuers`; required for `internalKey` bare-key/HMAC shapes; auto-inferred for KMS shape): JWS algorithm allowlist. `'none'` is rejected. Empty arrays are rejected.
-- `tokenCookieName` (string) (optional): Cookie name to read the token from.
+- `tokenCookieName` (string) (optional): Cookie name to read the token from. Looked up in the `Cookie` header first, then in `event.cookies` (HTTP API payload 2.0 delivers cookies there instead of in a header).
 - `tokenHeaderName` (string) (optional): Custom header to read the token from. When the name is `Authorization` (case-insensitive), the `Bearer ` scheme is stripped; any other scheme causes the source to fall through. Other header names return the raw value.
 - `tokenQueryStringName` (string) (optional): Query-string parameter to read the token from.
-- `audience` (string | string[]) (optional, ignored when `issuers` is used — per-entry audience is authoritative): Expected `aud` claim.
+- `audience` (string | string[]) (optional, ignored when `issuers` is used, per-entry audience is authoritative): Expected `aud` claim.
 - `issuer` (string | string[]) (optional, ignored when `issuers` is used): Expected `iss` claim.
 - `clockTolerance` (number) (default `0`): Clock skew tolerance in seconds applied to `exp`/`nbf` checks.
+- `requireExp` (boolean) (default `false`): Reject tokens that carry no `exp` claim. Forwarded to jose's `requiredClaims`. Tokens without an expiry are otherwise accepted, so enable this when your issuer always sets one.
+- `maxTokenAge` (string | number) (optional): Maximum age of the token measured from its `iat` claim, forwarded to `jose.jwtVerify`'s `maxTokenAge`. A number is seconds; a string is a time span such as `'1h'` or `'30 minutes'`. Setting it also makes `iat` required, so tokens without one are rejected.
 - `expectedClaims` (object) (optional): Claims the payload must carry, compared with strict equality, e.g. `{ token_use: 'access' }`. A claim that is absent fails the same way a claim with the wrong value does. Checked after the signature and before the payload is published, so nothing downstream can read a payload this rejected. Distinct from jose's `requiredClaims`, which only asserts presence. Values must be a string, number, or boolean: an array or object could only match itself by reference, so it is refused at construction.
 - `payloadKey` (string) (default `jwt`): Key under which the decoded payload is stored.
-- `setToContext` (boolean) (default `false`): When `true`, the verified payload is also written to `request.context[payloadKey]`. By default it is written only to `request.internal[payloadKey]` (matches `@middy/ssm` and `@middy/secrets-manager`).
-- `cacheExpiry` (number) (optional, `issuers` only): JWKS cache TTL in ms. Forwarded to `jose.createRemoteJWKSet`'s `cacheMaxAge`.
-- `cooldownDuration` (number) (optional, `issuers` only): Minimum interval in ms between JWKS refetches on `kid` miss. Forwarded to `jose.createRemoteJWKSet`'s `cooldownDuration`.
+- `setToContext` (boolean) (default `false`): When `true`, the verified payload is also published to `request.context.middyContext[payloadKey]`. By default it is written only to `request.internal[payloadKey]` (matches `@middy/ssm` and `@middy/secrets-manager`). There is no separate `contextKey`: `payloadKey` names both.
+- `cacheExpiry` (number) (default `600000`, `issuers` only): JWKS cache TTL in ms.
+- `cooldownDuration` (number) (default `30000`, `issuers` only): Minimum interval in ms between JWKS fetches. Inside it a `kid` miss is answered from the cached document, and a failed fetch is answered with the same `502` or `504` without contacting the endpoint again.
+- `jwksTimeoutMs` (integer) (default `5000`, `issuers` only): Deadline in ms for each JWKS fetch. A fetch that exceeds it is aborted and the request fails with a `504 Gateway Timeout`.
 - `disablePrefetch` (boolean) (default `false`, `issuers` only): Skip the warm-up fetch fired at factory time for each issuer entry.
 
 NOTES:
 
 - A missing or malformed token, an invalid signature, or a failed claim check throws `401 Unauthorized`. Pair with [`http-error-handler`](/docs/middlewares/http-error-handler) to convert it into a proper HTTP response.
+- A JWKS endpoint that cannot be reached, answers with a non-2xx status, sends no body, serves a document over 1 MiB, or serves one that is not a JSON object with a `keys` array throws `502 Bad Gateway`; one that exceeds `jwksTimeoutMs` throws `504 Gateway Timeout`. Either way `cause.data.reason` carries the underlying failure (`JWKS fetch failed: HTTP 503`, `JWKS response has no body`, the timeout message, and so on), and the error is thrown with `expose: true` so [http-error-handler](/docs/middlewares/http-error-handler) sends the gateway status rather than its generic `500`. The token was not refused; it could not be checked, and a 401 would send the client off for a new token that the same outage would reject again. The failure is remembered for `cooldownDuration`: requests inside it get the same `502` or `504` immediately instead of each paying a fetch against the failing endpoint.
+- A JWKS key whose `use` is not `sig`, or whose `key_ops` leaves out `verify`, is never selected, so an encryption key published under a matching `kid` cannot verify a token.
 - HMAC secrets (HS256/HS384/HS512) work via `internalKey`. There is no top-level `secretKey` option; see [the HS256 example](#with-an-hmac-shared-secret-hs256) for the recommended shape. Asymmetric crypto (RS256/ES256) is strongly preferred for cross-service auth; HMAC is fine for webhook signatures and contained internal trust boundaries where you control both signer and verifier.
 
 ## Sample usage
@@ -62,7 +67,7 @@ const COGNITO_ISSUER = `https://cognito-idp.${COGNITO_REGION}.amazonaws.com/${CO
 
 const lambdaHandler = async (event) => {
   // The verified payload is on request.internal.jwt by default.
-  // To use context.jwt as below, pass setToContext: true to httpJwt.
+  // To use context.middyContext.jwt as below, pass setToContext: true to httpJwt.
   return { statusCode: 200, body: JSON.stringify({ ok: true }) }
 }
 
@@ -137,7 +142,7 @@ httpJwt({
 
 Top-level (see [Options](#options) for full details on each):
 
-- `issuers` (required), `algorithm` (required), `cacheExpiry`, `cooldownDuration`, `disablePrefetch`, `clockTolerance`, `setToContext`, `payloadKey`, token-source options.
+- `issuers` (required), `algorithm` (required), `cacheExpiry`, `cooldownDuration`, `jwksTimeoutMs`, `disablePrefetch`, `clockTolerance`, `setToContext`, `payloadKey`, token-source options.
 
 Per entry:
 
@@ -183,7 +188,7 @@ export const handler = middy()
 
 There is no top-level `secretKey` option. Symmetric secrets flow through the same `internalKey` contract as every other key shape: a small middleware that places the secret on `request.internal` before `http-jwt` runs.
 
-This shape works well for webhook signature verification (e.g., a third-party webhook that signs payloads with a shared secret), or for a contained internal trust boundary where you control both signer and verifier. For cross-service auth, prefer JWKS (`issuers` mode) or KMS — see the security note below.
+This shape works well for webhook signature verification (e.g., a third-party webhook that signs payloads with a shared secret), or for a contained internal trust boundary where you control both signer and verifier. For cross-service auth, prefer JWKS (`issuers` mode) or KMS, see the security note below.
 
 ```javascript
 import middy from '@middy/core'
@@ -250,18 +255,18 @@ httpJwt({
 The patterns above are safe against the two classic JWT verification mistakes:
 
 - **`alg` substitution.** Attackers can place `alg: none` or `alg: HS256` in the protected header to try to bypass signature checks or use an RSA public key as an HMAC secret. The defenses are: (1) the `algorithm` allowlist is pinned by configuration, never read from the token; (2) in the JWKS path the lookup is also filtered by that allowlist, so a token claiming an unconfigured `alg` cannot find a key at all; (3) `algorithm: 'none'` is rejected at factory time.
-- **Untrusted JWKS source.** Each `jwksUri` is configured once at factory time. `jose.createRemoteJWKSet` ignores any `jku` claim in the token header, so an attacker cannot redirect key fetching to a server they control. The `kid` from the token header is a *selector* into a trusted JWKS, not a source of trust on its own — an unknown `kid` fails the lookup, and the attacker cannot forge a signature without the IdP's private key.
+- **Untrusted JWKS source.** Each `jwksUri` is configured once at factory time. The built-in resolver ignores any `jku` claim in the token header, so an attacker cannot redirect key fetching to a server they control. The `kid` from the token header is a *selector* into a trusted JWKS, not a source of trust on its own, an unknown `kid` fails the lookup, and the attacker cannot forge a signature without the IdP's private key.
 
 ### When to use which mode
 
 - **JWKS (`issuers`)**: any OIDC/OAuth2-style cross-service auth where the IdP publishes a public keyset endpoint. Cognito, Auth0, Okta, Google, Azure AD, custom OIDC. Strongly recommended for production.
 - **KMS via `internalKey`**: tokens signed in-house by an AWS KMS asymmetric key. Good when you control both signer and verifier and want the signing key in KMS for audit/rotation.
-- **HMAC via `internalKey`**: webhook signatures (Stripe, GitHub, etc.), short-lived internal tokens inside a trust boundary you fully control. Avoid for cross-service auth — rotation is harder than asymmetric, and a leak from any verifier compromises every signer.
+- **HMAC via `internalKey`**: webhook signatures (Stripe, GitHub, etc.), short-lived internal tokens inside a trust boundary you fully control. Avoid for cross-service auth, rotation is harder than asymmetric, and a leak from any verifier compromises every signer.
 
 ### Other notes for Cognito users
 
 - Use `audience: COGNITO_CLIENT_ID` for **ID tokens**. **Access tokens** carry `client_id` instead of `aud`; either drop the `audience` check and validate `payload.client_id` in a follow-up middleware, or restrict the handler to one token type.
-- Cognito tokens also carry a `token_use` claim (`id` or `access`). To enforce which type your handler accepts, add a small middleware after `http-jwt` that reads `request.internal.jwt.token_use` and throws `createError(401, ...)` on mismatch.
+- Cognito tokens also carry a `token_use` claim (`id` or `access`). To enforce which type your handler accepts, add a small middleware after `http-jwt` that reads `request.internal.jwt.token_use` and throws `new HttpError(401, ...)` on mismatch.
 
 ## Key rotation
 
@@ -333,7 +338,7 @@ Do not confuse this with `requireExp`, which forwards jose's `requiredClaims` an
 import middy from '@middy/core'
 import httpJwt from '@middy/http-jwt'
 import httpErrorHandler from '@middy/http-error-handler'
-import { createError } from '@middy/util'
+import { HttpError } from '@middy/util'
 
 const requireRole = (requiredRole, { payloadKey = 'jwt', claim = 'roles' } = {}) => ({
   before: (request) => {
@@ -343,8 +348,11 @@ const requireRole = (requiredRole, { payloadKey = 'jwt', claim = 'roles' } = {})
       ? roles.includes(requiredRole)
       : roles === requiredRole
     if (!has) {
-      throw createError(403, 'Forbidden', {
-        cause: { package: 'custom/require-role', data: `Missing role: ${requiredRole}` },
+      throw new HttpError(403, {
+        cause: {
+          package: 'custom/require-role',
+          data: { reason: 'Missing role', requiredRole },
+        },
       })
     }
   },

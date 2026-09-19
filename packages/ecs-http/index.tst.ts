@@ -81,6 +81,7 @@ test("EcsHttpRunnerOptions accepts all optional fields", () => {
 		workers: 4,
 		timeout: 30_000,
 		bodyLimit: 1024,
+		trustedProxies: 2,
 	};
 	expect(options).type.toBeAssignableTo<EcsHttpRunnerOptions>();
 });

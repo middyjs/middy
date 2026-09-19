@@ -1,6 +1,8 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { setTimeout as delay } from "node:timers/promises";
+// The module object rather than a named import so a test's mock timers can
+// intercept setTimeout; a named import binds the real function at load time.
+import timers from "node:timers/promises";
 import {
 	GetRecordsCommand,
 	GetShardIteratorCommand,
@@ -40,11 +42,16 @@ const optionSchema = {
 export const pollKinesisValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
+// A Buffer is a Uint8Array; viewing either over its own memory encodes the
+// same bytes without a copy.
 const toBase64 = (data) => {
 	if (data == null) return "";
 	if (typeof data === "string") return data;
-	if (Buffer.isBuffer(data)) return data.toString("base64");
-	if (data instanceof Uint8Array) return Buffer.from(data).toString("base64");
+	if (data instanceof Uint8Array) {
+		return Buffer.from(data.buffer, data.byteOffset, data.byteLength).toString(
+			"base64",
+		);
+	}
 	return Buffer.from(String(data)).toString("base64");
 };
 
@@ -67,9 +74,13 @@ const toLambdaRecord = (record, streamArn, awsRegion, shardId) => ({
 	eventSourceARN: streamArn,
 });
 
+// arn:aws:kinesis:<region>:<account>:stream/<name>
+const regionFromArn = (streamArn) => streamArn?.split(":")[3];
+
 export const pollKinesis = (opts) => {
 	pollKinesisValidateOptions(opts);
 	const client = opts.client ?? new KinesisClient({});
+	let awsRegion = opts.awsRegion ?? regionFromArn(opts.streamArn);
 	const shardIteratorType = opts.shardIteratorType ?? "LATEST";
 	const limit = opts.limit ?? 1000;
 	const pollingDelay = opts.pollingDelay ?? 1000;
@@ -78,6 +89,9 @@ export const pollKinesis = (opts) => {
 		source: "aws:kinesis",
 		client,
 		async *poll(signal) {
+			// Without a stream ARN or an explicit region, take the client's, which
+			// the SDK resolves asynchronously.
+			awsRegion ??= await client.config?.region?.();
 			let iterRes;
 			try {
 				iterRes = await client.send(
@@ -114,11 +128,11 @@ export const pollKinesis = (opts) => {
 				if (records.length) {
 					yield {
 						Records: records.map((r) =>
-							toLambdaRecord(r, opts.streamArn, opts.awsRegion, opts.shardId),
+							toLambdaRecord(r, opts.streamArn, awsRegion, opts.shardId),
 						),
 					};
 				} else if (pollingDelay > 0) {
-					await delay(pollingDelay);
+					await timers.setTimeout(pollingDelay);
 				}
 			}
 		},

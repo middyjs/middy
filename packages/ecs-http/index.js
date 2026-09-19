@@ -14,6 +14,7 @@ const defaults = {
 	requestContext: {},
 	timeout: 60_000,
 	bodyLimit: 10 * 1024 * 1024,
+	trustedProxies: 1,
 };
 
 const optionSchema = {
@@ -26,6 +27,7 @@ const optionSchema = {
 		workers: { type: "integer", minimum: 1 },
 		timeout: { type: "integer", minimum: 0 },
 		bodyLimit: { type: "integer", minimum: 0 },
+		trustedProxies: { type: "integer", minimum: 0 },
 		contextOverride: {
 			type: "object",
 			properties: {
@@ -88,21 +90,21 @@ const composeInvokedFunctionArn = (ecs) => {
 	return `arn:aws:ecs:${ecs.region}:${ecs.accountId}:service/${ecs.family}`;
 };
 
+// The optional `<name>+` prefix covers bare `json`/`xml` as well as every
+// structured-syntax suffix form (`ld+json`, `vnd.api+json`, `soap+xml`).
 const textContentTypePattern =
-	/^(text\/|application\/(json|xml|x-www-form-urlencoded|javascript|graphql|ld\+json|vnd\.api\+json|([a-z0-9.+-]+\+)?(json|xml)))/i;
+	/^(text\/|application\/(x-www-form-urlencoded|javascript|graphql|([a-z0-9.+-]+\+)?(json|xml)))/i;
 
 const isTextContentType = (contentType) => {
 	if (!contentType) return true;
-	// Fast paths for the ~95% of real traffic. Avoids regex when possible.
-	if (contentType === "application/json") return true;
-	if (contentType.startsWith("text/")) return true;
-	if (contentType.startsWith("application/json;")) return true;
 	return textContentTypePattern.test(contentType);
 };
 
 export const lowercaseHeaders = (rawHeaders) => {
 	const headers = {};
-	for (const [k, v] of Object.entries(rawHeaders)) {
+	// `for...in` for the same reason as buildMultiValueHeaders below.
+	for (const k in rawHeaders) {
+		const v = rawHeaders[k];
 		headers[k.toLowerCase()] = Array.isArray(v) ? v.join(",") : v;
 	}
 	return headers;
@@ -120,11 +122,29 @@ const buildMultiValueHeaders = (rawHeaders) => {
 	return out;
 };
 
-export const resolveSourceIp = (headers, socketAddress) => {
-	const xff = headers["x-forwarded-for"];
-	if (xff) {
-		const first = xff.split(",")[0].trim();
-		if (first) return first;
+// With routing.http.xff_client_port.enabled ALB appends "ip:port" for IPv4
+// and "[ip]:port" for IPv6; a bare IPv6 hop has no brackets. The event
+// carries the address only.
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/x-forwarded-headers.html
+const ipv6WithPort = /^\[([^\]]+)\]:\d+$/;
+const ipv4WithPort = /^([^:]+):\d+$/;
+const stripClientPort = (hop) => {
+	const match = ipv6WithPort.exec(hop) ?? ipv4WithPort.exec(hop);
+	return match ? match[1] : hop;
+};
+
+// Behind ALB the client address is the hop the load balancer appends, i.e. the
+// last one. Anything before it arrived in the client's own request and can be
+// spoofed. `trustedProxies` is the number of trailing hops added by proxies
+// you control (1 for a lone ALB, 2 for CloudFront in front of ALB). 0 ignores
+// the header and uses the socket address.
+export const resolveSourceIp = (headers, socketAddress, trustedProxies = 1) => {
+	if (trustedProxies > 0) {
+		const xff = headers["x-forwarded-for"];
+		if (xff) {
+			const hop = xff.split(",").at(-trustedProxies)?.trim();
+			if (hop) return stripClientPort(hop);
+		}
 	}
 	return socketAddress ?? "";
 };
@@ -144,7 +164,7 @@ const parseCookies = (cookieHeader) => {
 };
 
 // Cheap path/query split. node:http has already validated the request line by
-// the time req.url reaches us — any URL we receive is guaranteed parsable, so
+// the time req.url reaches us, any URL we receive is guaranteed parsable, so
 // we skip the (~150 ns) `new URL(...)` validation step entirely.
 const splitUrl = (rawUrl) => {
 	const qIdx = rawUrl.indexOf("?");
@@ -155,10 +175,40 @@ const splitUrl = (rawUrl) => {
 	};
 };
 
+// Only v1 carries multiValueQueryStringParameters; v2 would otherwise
+// allocate the multi-value map on every request and discard it.
 const collectQuery = (queryString) => {
 	const single = Object.create(null);
+	const params = new URLSearchParams(queryString);
+	let size = 0;
+	for (const [k, v] of params.entries()) {
+		single[k] = v;
+		size++;
+	}
+	return { single, size };
+};
+
+// ALB splits the query string on `&`/`=` and hands over the raw substrings:
+// "If the query parameters are URL-encoded, the load balancer does not decode
+// them. You must decode them in your Lambda function."
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html
+// Decoding here would make an ecs-http handler see different values than the
+// same handler behind a real load balancer.
+const collectQueryEncoded = (queryString) => {
+	const single = Object.create(null);
+	for (const pair of queryString.split("&")) {
+		if (!pair) continue;
+		const eq = pair.indexOf("=");
+		// Last value wins, matching ALB's default (non multi-value) format.
+		if (eq === -1) single[pair] = "";
+		else single[pair.slice(0, eq)] = pair.slice(eq + 1);
+	}
+	return single;
+};
+
+const collectQueryMultiValue = (queryString) => {
+	const single = Object.create(null);
 	const multi = Object.create(null);
-	if (!queryString) return { single, multi, size: 0 };
 	const params = new URLSearchParams(queryString);
 	let size = 0;
 	for (const [k, v] of params.entries()) {
@@ -170,15 +220,7 @@ const collectQuery = (queryString) => {
 	return { single, multi, size };
 };
 
-// Pre-cached protocol strings. ~99.9% of requests are HTTP/1.1; fall back to
-// concat only for anything else.
-const PROTOCOLS = {
-	1.1: "HTTP/1.1",
-	"1.0": "HTTP/1.0",
-	"2.0": "HTTP/2.0",
-};
-const protocolFor = (httpVersion) =>
-	PROTOCOLS[httpVersion] ?? `HTTP/${httpVersion}`;
+const protocolFor = (httpVersion) => `HTTP/${httpVersion}`;
 
 const EMPTY_BUFFER = Buffer.alloc(0);
 
@@ -235,7 +277,7 @@ export const buildEventV1 = (input) => {
 		single: queryStringParameters,
 		multi: multiValueQueryStringParameters,
 		size,
-	} = collectQuery(url.queryString);
+	} = collectQueryMultiValue(url.queryString);
 	const v1Body = encodeBody(body, isBase64Encoded);
 	return {
 		resource: url.path,
@@ -261,19 +303,20 @@ export const buildEventV1 = (input) => {
 	};
 };
 
+// ALB events carry only requestContext.elb: no identity block, so the client
+// address is left to the X-Forwarded-For header like on Lambda.
+// https://docs.aws.amazon.com/lambda/latest/dg/services-alb.html
 export const buildEventAlb = (input) => {
-	const { req, body, isBase64Encoded, requestContext, sourceIp, requestId } =
-		input;
+	const { req, body, isBase64Encoded, requestContext, requestId } = input;
 	const headers = input.headers ?? req.headers;
 	const url = input.url ?? splitUrl(req.url);
-	const { single: queryStringParameters } = collectQuery(url.queryString);
+	const queryStringParameters = collectQueryEncoded(url.queryString);
 	const albBody = encodeBody(body, isBase64Encoded);
 	return {
 		requestContext: {
 			...requestContext,
 			elb: requestContext.elb ?? { targetGroupArn: "" },
 			requestId,
-			identity: { sourceIp, userAgent: headers["user-agent"] ?? "" },
 		},
 		httpMethod: req.method,
 		path: url.path,
@@ -298,7 +341,6 @@ export const buildContext = ({
 }) => ({
 	awsRequestId,
 	invokedFunctionArn,
-	callbackWaitsForEmptyEventLoop: false,
 	getRemainingTimeInMillis: () =>
 		Math.max(0, timeout - (Date.now() - requestStart)),
 });
@@ -349,8 +391,9 @@ const writeError = (res, err) => {
 		typeof err?.statusCode === "number" && err.statusCode >= 400
 			? err.statusCode
 			: 500;
+	// Below 500 `err` is an object: that is where the numeric statusCode came from.
 	const message =
-		statusCode >= 500 ? "Internal Server Error" : (err?.message ?? "");
+		statusCode >= 500 ? "Internal Server Error" : (err.message ?? "");
 	res.writeHead(statusCode, { "content-type": "application/json" });
 	res.end(JSON.stringify({ message }));
 };
@@ -391,6 +434,7 @@ export const createRequestHandler = ({
 	requestContext,
 	timeout,
 	bodyLimit,
+	trustedProxies,
 	invokedFunctionArn,
 	contextOverride,
 }) => {
@@ -406,7 +450,11 @@ export const createRequestHandler = ({
 			const body = hasBody ? await readBody(req, bodyLimit) : EMPTY_BUFFER;
 			const isBase64Encoded =
 				hasBody && !isTextContentType(headers["content-type"]);
-			const sourceIp = resolveSourceIp(headers, req.socket?.remoteAddress);
+			const sourceIp = resolveSourceIp(
+				headers,
+				req.socket?.remoteAddress,
+				trustedProxies,
+			);
 			const requestId = resolveRequestId(headers, requestIdOverride);
 			const url = splitUrl(req.url);
 			const event = buildEvent({
@@ -454,6 +502,7 @@ export const runWorker = async (options, deps = {}) => {
 		requestContext,
 		timeout: options.timeout,
 		bodyLimit: options.bodyLimit,
+		trustedProxies: options.trustedProxies,
 		invokedFunctionArn,
 		contextOverride: options.contextOverride,
 	});
@@ -474,19 +523,62 @@ export const runWorker = async (options, deps = {}) => {
 	return { server, onSigterm };
 };
 
+// Crash-loop guard for worker re-forks. Each worker exit within `healthyMs` of
+// the previous one doubles the delay before the replacement is forked, from
+// 1 s up to a 30 s cap; 60 s without any exit starts over at 1 s.
+const reforkBackoff = { initialMs: 1_000, maxMs: 30_000, healthyMs: 60_000 };
+
 export const runPrimary = async (options, deps = {}) => {
 	const clusterImpl = deps.cluster ?? cluster;
 	const fetchImpl = deps.fetch ?? fetch;
+	const exitImpl = deps.exit ?? process.exit;
+	const setTimeoutImpl = deps.setTimeout ?? setTimeout;
 	const meta = await fetchEcsMetadata(
 		process.env.ECS_CONTAINER_METADATA_URI_V4,
 		fetchImpl,
 	);
 	writeEcsEnv(meta);
+	let stopping = false;
+	let delayMs = 0;
+	let lastExitAt = -Infinity;
+	// Highest exit code a worker reported while draining, so a worker that died
+	// non-zero during shutdown surfaces as a non-zero task exit instead of 0. A
+	// crash before SIGTERM is re-forked and does not count: the worker was
+	// replaced and the task went on serving.
+	let workerExitCode = 0;
+	const liveWorkers = () => Object.values(clusterImpl.workers ?? {});
+	const exitWhenDrained = () => {
+		if (liveWorkers().length === 0) exitImpl(workerExitCode);
+	};
+	const nextReforkDelay = () => {
+		const now = Date.now();
+		delayMs =
+			now - lastExitAt >= reforkBackoff.healthyMs
+				? reforkBackoff.initialMs
+				: Math.min(delayMs * 2, reforkBackoff.maxMs);
+		lastExitAt = now;
+		return delayMs;
+	};
 	for (let i = 0; i < options.workers; i++) clusterImpl.fork();
-	clusterImpl.on("exit", () => clusterImpl.fork());
+	clusterImpl.on("exit", (_worker, code) => {
+		if (stopping) {
+			// code is null when a signal killed the worker; that is not a clean exit.
+			workerExitCode = Math.max(workerExitCode, code ?? 1);
+			return exitWhenDrained();
+		}
+		setTimeoutImpl(() => {
+			if (!stopping) clusterImpl.fork();
+		}, nextReforkDelay());
+	});
+	// node:cluster drops a worker from cluster.workers before the last of its
+	// exit/disconnect events, in either order, so the drain check runs on both.
+	clusterImpl.on("disconnect", () => {
+		if (stopping) exitWhenDrained();
+	});
 	const onSigterm = () => {
-		const workers = clusterImpl.workers ?? {};
-		for (const w of Object.values(workers)) w?.process.kill("SIGTERM");
+		stopping = true;
+		for (const w of liveWorkers()) w?.process.kill("SIGTERM");
+		exitWhenDrained();
 	};
 	process.once("SIGTERM", onSigterm);
 	return { onSigterm };

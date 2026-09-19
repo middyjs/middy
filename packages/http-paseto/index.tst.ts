@@ -23,7 +23,8 @@ test("use with all options", () => {
 		internalKey: "signingKey",
 		audience: "https://api.example.com",
 		issuer: "https://auth.example.com",
-		clockTolerance: "5 seconds",
+		clockTolerance: 5,
+		maxTokenAge: 3600,
 		expectedClaims: { typ: "access" },
 		payloadKey: "auth",
 	});
@@ -48,3 +49,7 @@ test("allow specifying the event type", () => {
 });
 
 import type { Options } from "./index.js";
+
+test("options declare maxTokenAge", () => {
+	expect<Options["maxTokenAge"]>().type.toBe<number | undefined>();
+});

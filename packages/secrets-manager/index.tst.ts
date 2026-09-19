@@ -56,7 +56,9 @@ test("setToContext: true", () => {
 			}),
 		)
 		.before(async (request) => {
-			expect(request.context.foo).type.toBe<unknown>();
+			expect(
+				request.context.middyContext["secrets-manager"].foo,
+			).type.toBe<unknown>();
 
 			const data = await getInternal("foo", request);
 			expect(data.foo).type.toBe<unknown>();
@@ -91,7 +93,9 @@ test("setToContext: true, use return type hint function", () => {
 			}),
 		)
 		.before(async (request) => {
-			expect(request.context.someSecret).type.toBe<{
+			expect(
+				request.context.middyContext["secrets-manager"].someSecret,
+			).type.toBe<{
 				User: string;
 				Password: string;
 			}>();
@@ -117,5 +121,27 @@ test("setToContext: false, use return type hint function", () => {
 		.before(async (request) => {
 			const data = await getInternal("someSecret", request);
 			expect(data.someSecret).type.toBe<{ User: string; Password: string }>();
+		});
+});
+
+test("contextKey literal narrows middyContext without as const", () => {
+	handler
+		.use(
+			secretsManager({
+				...options,
+				fetchData: {
+					someSecret: secretsManagerParam<{ User: string; Password: string }>(
+						"someHiddenSecret",
+					),
+				},
+				setToContext: true,
+				contextKey: "custom",
+			}),
+		)
+		.before(async (request) => {
+			expect(request.context.middyContext.custom.someSecret).type.toBe<{
+				User: string;
+				Password: string;
+			}>();
 		});
 });

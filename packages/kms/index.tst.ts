@@ -70,3 +70,20 @@ test("Internal type maps fetchData key to KMSPublicKey", () => {
 	type Result = Internal<{ fetchData: { signingKey: "alias/my-signing-key" } }>;
 	expect<Result["signingKey"]>().type.toBe<KMSPublicKey>();
 });
+
+test("contextKey literal narrows middyContext without as const", () => {
+	const handler = middy(async (event: {}, context: LambdaContext) => {});
+	handler
+		.use(
+			kms({
+				fetchData: { signingKey: "alias/my-signing-key" },
+				setToContext: true,
+				contextKey: "custom",
+			}),
+		)
+		.before(async (request) => {
+			expect(
+				request.context.middyContext.custom.signingKey,
+			).type.toBe<KMSPublicKey>();
+		});
+});

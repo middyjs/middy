@@ -23,13 +23,17 @@ npm install --save-dev @aws-sdk/client-s3
 - `fetchData` (object) (required): Mapping of internal key name to API request parameters.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `cacheKey` (string) (default `s3`): Cache key for the fetched data responses. Must be unique across all middleware.
+- `cacheKeyExpiry` (object) (default `{}`): Per-`cacheKey` expiry override, `{ [cacheKey]: cacheExpiry }`; a unix timestamp in ms above 86400000 is treated as an absolute expiry.
+- `cacheMaxSize` (number) (default `128`): Maximum number of entries kept in the shared middleware cache; the oldest expiring entry is evicted when exceeded.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
-- `setToContext` (boolean) (default `false`): Store credentials to `request.context`.
+- `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext.s3`.
+- `contextKey` (string) (default `s3`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.
 
 NOTES:
 
 - Lambda is required to have IAM permission for `s3:GetObject`
 - If the file is stored without `ContentType`, you can set it on the response using `ResponseContentType` as part of the input
+- `fetchData` entries take any `GetObject` parameter, including `ChecksumMode: 'ENABLED'` to have the SDK verify the object checksum
 
 ## Sample usage
 
@@ -38,7 +42,7 @@ import middy from '@middy/core'
 import s3 from '@middy/s3'
 
 const lambdaHandler = (event, context) => {
-  console.log(context.config)
+  console.log(context.middyContext.s3.config)
   const response = {
     statusCode: 200,
     headers: {},
@@ -85,7 +89,7 @@ import { getInternal } from '@middy/util'
 import s3, { s3Param } from '@middy/s3'
 
 const lambdaHandler = (event, context) => {
-  console.log(context.config)
+  console.log(context.middyContext.s3.config)
   const response = {
     statusCode: 200,
     headers: {},

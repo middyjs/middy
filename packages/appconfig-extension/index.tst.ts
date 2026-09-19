@@ -3,6 +3,7 @@ import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { expect, test } from "tstyche";
 import appConfigExtension, {
+	type AppConfigExtensionOptions,
 	appConfigExtensionParam,
 	type Context,
 } from "./index.js";
@@ -89,5 +90,55 @@ test("chain of multiple middleware", () => {
 			const data = await getInternal(["config", "flags"], request);
 			expect(data.config).type.toBe<{ field1: string; field2: number }>();
 			expect(data.flags).type.toBe<{ featureA: boolean }>();
+		});
+});
+
+test("use with contextKey", () => {
+	handler
+		.use(
+			appConfigExtension({
+				fetchData: {
+					config: appConfigExtensionParam<{ field1: string }>({
+						application: "my-app",
+						environment: "dev",
+						configuration: "my-config",
+					}),
+				},
+				setToContext: true,
+				contextKey: "appconfig" as const,
+			}),
+		)
+		.before(async (request) => {
+			expect(request.context.middyContext.appconfig.config).type.toBe<{
+				field1: string;
+			}>();
+		});
+});
+
+test("options declare contextKey", () => {
+	expect<AppConfigExtensionOptions["contextKey"]>().type.toBe<
+		string | undefined
+	>();
+});
+
+test("contextKey literal narrows middyContext without as const", () => {
+	handler
+		.use(
+			appConfigExtension({
+				fetchData: {
+					config: appConfigExtensionParam<{ field1: string }>({
+						application: "my-app",
+						environment: "dev",
+						configuration: "my-config",
+					}),
+				},
+				setToContext: true,
+				contextKey: "custom",
+			}),
+		)
+		.before(async (request) => {
+			expect(request.context.middyContext.custom.config).type.toBe<{
+				field1: string;
+			}>();
 		});
 });

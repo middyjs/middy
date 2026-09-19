@@ -10,6 +10,7 @@ Addresses [docs/SPVS-COMPLIANCE.md](../../docs/SPVS-COMPLIANCE.md) follow-up und
 | --- | --- | --- |
 | `develop.json` | branch `refs/heads/develop` | Deletion + non-fast-forward blocked, signed commits required |
 | `main.json` | default branch (`main`) | Everything in `develop` plus: PR with 2 approvals, CODEOWNERS review, stale-review dismissal, last-push approval, required status checks (full CI matrix), CodeQL + zizmor code-scanning thresholds |
+| `maintenance.json` | branches `refs/heads/[0-9]*.x` (`7.x`, ...; ruleset fnmatch has no `+`) | Same rules as `main.json`; one ruleset for every maintenance branch. Created with `POST`, see [docs/RELEASE.md](../../docs/RELEASE.md#maintenance-releases) |
 | `version.json` | tags (all) | Deletion + non-fast-forward blocked |
 
 All rulesets are at repo scope (`source_type: "Repository"`), enforcement `active`, with no bypass actors. `bypass_actors: []` means even repo admins follow the rules; combined with `current_user_can_bypass: never` set on the live ruleset, this is the strictest configuration.

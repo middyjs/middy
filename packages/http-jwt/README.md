@@ -31,7 +31,7 @@
 ## Install
 
 ```bash
-npm install --save @middy/http-jwt
+npm install --save @middy/http-jwt jose
 ```
 
 

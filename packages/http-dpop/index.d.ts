@@ -54,8 +54,8 @@ export declare function accessTokenHash(token: string): string;
 
 export declare function verifyDpopProof(
 	proof: string,
-	options?: {
-		method?: string;
+	options: {
+		method: string;
 		url?: string;
 		accessToken?: string;
 		algorithms?: DpopAlgorithm[];

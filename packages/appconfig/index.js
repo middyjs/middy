@@ -36,6 +36,7 @@ const defaults = {
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -61,6 +62,7 @@ const optionSchema = {
 					RequiredMinimumPollIntervalInSeconds: {
 						type: "number",
 						minimum: 15,
+						maximum: Number.MAX_SAFE_INTEGER,
 					},
 				},
 				additionalProperties: true,
@@ -70,10 +72,24 @@ const optionSchema = {
 		cacheKey: { type: "string" },
 		cacheKeyExpiry: {
 			type: "object",
-			additionalProperties: { type: "number", minimum: -1 },
+			additionalProperties: {
+				type: "number",
+				minimum: -1,
+				maximum: Number.MAX_SAFE_INTEGER,
+			},
 		},
-		cacheExpiry: { type: "number", minimum: -1 },
+		cacheExpiry: {
+			type: "number",
+			minimum: -1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
+		cacheMaxSize: {
+			type: "integer",
+			minimum: 1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -111,7 +127,10 @@ const appConfigMiddleware = (opts = {}) => {
 				return value;
 			})
 			.catch((e) => {
-				const value = getCache(options.cacheKey).value ?? {};
+				// Copy rather than mutate the cached object in place, matching the
+				// session-command catch below: the cache must be updated through
+				// `modifyCache` so the refresh timer is rescheduled with it.
+				const value = { ...getCache(options.cacheKey).value };
 				value[internalKey] = undefined;
 				modifyCache(options.cacheKey, value);
 				throw e;
@@ -159,20 +178,21 @@ const appConfigMiddleware = (opts = {}) => {
 		client = createPrefetchClient(options);
 		processCache(options, fetchRequest);
 	}
-	const appConfigMiddlewareBefore = async (request) => {
-		if (!client) {
-			clientInit ??= createClient(options, request);
-			client = await clientInit;
-		}
+	const appConfigMiddlewareFetch = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: `pending` is either a
-			// Promise (cold path) or undefined (warm path); forcing the guard true
-			// only adds `await undefined`, which is observationally identical.
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
+	};
+
+	const appConfigMiddlewareBefore = (request) => {
+		if (client) return appConfigMiddlewareFetch(request);
+		clientInit ??= createClient(options, request);
+		return clientInit.then((resolvedClient) => {
+			client = resolvedClient;
+			return appConfigMiddlewareFetch(request);
+		});
 	};
 	return {
 		before: appConfigMiddlewareBefore,

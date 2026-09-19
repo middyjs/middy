@@ -1,9 +1,39 @@
 import { ok, strictEqual } from "node:assert/strict";
-import { createPublicKey } from "node:crypto";
-import { test } from "node:test";
-import { V4 } from "paseto";
+import { createPrivateKey, createPublicKey } from "node:crypto";
+import { describe, test } from "node:test";
+import { PublicProtocol } from "paseto";
+import { SecretKeyFromCryptoKey, SignFactory } from "paseto/v4/public";
 import middy from "../core/index.js";
 import realHttpPaseto, { httpPasetoValidateOptions } from "./index.js";
+
+const signer = new PublicProtocol(SignFactory);
+
+// paseto v4 removed the `V4` namespace and works in WebCrypto keys. These tests
+// build public keys with `createPublicKey`, so the shim keeps minting node
+// KeyObjects and converts at the point of signing. `expiresIn` is seconds now,
+// and defaults to 3600 when omitted.
+const V4 = {
+	generateKey: async () => {
+		const { privateKey } = await crypto.subtle.generateKey("Ed25519", true, [
+			"sign",
+			"verify",
+		]);
+		const pkcs8 = await crypto.subtle.exportKey("pkcs8", privateKey);
+		return createPrivateKey({
+			key: Buffer.from(pkcs8),
+			format: "der",
+			type: "pkcs8",
+		});
+	},
+	sign: async (payload, privateKey, options) =>
+		signer.Sign(
+			await SecretKeyFromCryptoKey(
+				privateKey.toCryptoKey("Ed25519", true, ["sign"]),
+			),
+			payload,
+			options,
+		),
+};
 
 // Tests below assume the verified payload is exposed on request.context for
 // assertion convenience. The middleware default is internal-only (matches
@@ -22,1571 +52,1842 @@ const makeEvent = (authorization) => ({
 
 const makeHandlerWithKey = (publicKey, opts = {}) => {
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	return middy((event, context) => context)
+	return middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.pubKey = new Uint8Array(spkiDer);
 		})
 		.use(httpPaseto({ internalKey: "pubKey", ...opts }));
 };
 
-test("It should verify a valid v4.public PASETO token and set payload to internal and context", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-
-	const token = await V4.sign({ sub: "user-1", role: "admin" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const ctx = { ...defaultContext };
-	const handler = makeHandlerWithKey(publicKey);
-
-	const result = await handler(makeEvent(`Bearer ${token}`), ctx);
-
-	strictEqual(result.paseto.sub, "user-1");
-	strictEqual(result.paseto.role, "admin");
-	strictEqual(ctx.paseto.sub, "user-1");
-});
-
-test("It should always set payload to context", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-
-	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const ctx = { ...defaultContext };
-	const handler = makeHandlerWithKey(publicKey);
-
-	await handler(makeEvent(`Bearer ${token}`), ctx);
-
-	strictEqual(ctx.paseto.sub, "user-1");
-});
-
-test("It should use a custom payloadKey", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-
-	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const ctx = { ...defaultContext };
-	const handler = makeHandlerWithKey(publicKey, { payloadKey: "auth" });
-
-	const result = await handler(makeEvent(`Bearer ${token}`), ctx);
-
-	strictEqual(result.auth.sub, "user-1");
-});
-
-test("It should verify audience claim", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-
-	const token = await V4.sign(
-		{ sub: "user-1", aud: "https://api.example.com" },
-		privateKey,
-		{ expiresIn: "1h" },
-	);
-
-	const ctx = { ...defaultContext };
-	const handler = makeHandlerWithKey(publicKey, {
-		audience: "https://api.example.com",
-	});
-
-	const result = await handler(makeEvent(`Bearer ${token}`), ctx);
-
-	strictEqual(result.paseto.sub, "user-1");
-});
-
-test("It should verify issuer claim", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-
-	const token = await V4.sign(
-		{ sub: "user-1", iss: "https://auth.example.com" },
-		privateKey,
-		{ expiresIn: "1h" },
-	);
-
-	const ctx = { ...defaultContext };
-	const handler = makeHandlerWithKey(publicKey, {
-		issuer: "https://auth.example.com",
-	});
-
-	const result = await handler(makeEvent(`Bearer ${token}`), ctx);
-
-	strictEqual(result.paseto.sub, "user-1");
-});
-
-test("It should respect clockTolerance option for expired tokens", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-
-	// Token already expired 5s ago, but well within the 30s clockTolerance.
-	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1s",
-		now: new Date(Date.now() - 5000),
-	});
-
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
-		.before((request) => {
-			request.internal.pubKey = new Uint8Array(spkiDer);
-		})
-		.use(
-			httpPaseto({
-				internalKey: "pubKey",
-				clockTolerance: "30s",
-			}),
-		);
-
-	const result = await handler(makeEvent(`Bearer ${token}`), {
-		...defaultContext,
-	});
-	strictEqual(result.paseto.sub, "user-1");
-});
-
-test("It should throw 401 when Authorization header is missing", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-
-	const handler = makeHandlerWithKey(publicKey);
-
-	try {
-		await handler({ headers: {} }, defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
-
-test("It should throw 401 when Authorization scheme is not Bearer or DPoP", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-
-	const handler = makeHandlerWithKey(publicKey);
-
-	try {
-		await handler(makeEvent("Basic dXNlcjpwYXNz"), defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-	}
-});
-
-test("It should accept the DPoP scheme", async (t) => {
-	// RFC 9449 §7.1: a sender-constrained token travels under `DPoP`. Verifying
-	// it is unchanged; pair with `@middy/http-dpop` to require the proof, which
-	// is the only thing that can read the token's `cnf` claim.
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-
-	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
-	});
-	const handler = makeHandlerWithKey(publicKey);
-
-	const result = await handler(makeEvent(`DPoP ${token}`), {
-		...defaultContext,
-	});
-
-	strictEqual(result.paseto.sub, "user-1");
-});
-
-test("It should throw 401 when token is invalid", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const wrongPrivateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-
-	const token = await V4.sign({ sub: "x" }, wrongPrivateKey, {
-		expiresIn: "1h",
-	});
-
-	const ctx = { ...defaultContext };
-	const handler = makeHandlerWithKey(publicKey);
-
-	try {
-		await handler(makeEvent(`Bearer ${token}`), ctx);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.message, "Unauthorized");
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
-
-test("It should throw 401 for unsupported PASETO version", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-
-	const ctx = { ...defaultContext };
-	const handler = makeHandlerWithKey(publicKey);
-
-	try {
-		await handler(makeEvent("Bearer v3.public.sometoken"), ctx);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-	}
-});
-
-test("It should throw TypeError at factory when internalKey is not configured", () => {
-	try {
-		httpPaseto({});
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-		strictEqual(e.message, "No key source configured: set internalKey");
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
-
-test("It should NOT return the credential of a non-Bearer 2-part Authorization header", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	// A valid token carried under the wrong scheme must be ignored (the scheme
-	// check rejects it). With only the Authorization source, that means 401.
-	const token = await V4.sign({ sub: "wrong-scheme" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const handler = makeHandlerWithKey(publicKey);
-
-	try {
-		await handler(makeEvent(`Basic ${token}`), defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
-
-test("It should NOT return a part of a 3-part Bearer Authorization header", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	// `Bearer <token> extra` has 3 parts: the length check must reject it even
-	// though the scheme is Bearer.
-	const token = await V4.sign({ sub: "three-parts" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const handler = makeHandlerWithKey(publicKey);
-
-	try {
-		await handler(makeEvent(`Bearer ${token} extra`), defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
-
-test("It should 401 (not crash) when the header source gets a nullish event", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const handler = makeHandlerWithKey(publicKey);
-
-	// Default config uses the Authorization header source; a null event must be
-	// guarded by `event?.headers`, ending in a clean 401 rather than a crash.
-	try {
-		await handler(null, defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
-
-test("It should 401 (not crash) when the query source gets a nullish event", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-
-	const handler = middy(() => {})
-		.before((request) => {
-			request.internal.pubKey = new Uint8Array(spkiDer);
-		})
-		.use(httpPaseto({ internalKey: "pubKey", tokenQueryStringName: "paseto" }));
-
-	// Query-only source with a null event: `event?.queryStringParameters` must
-	// be guarded, ending in a clean 401 rather than a TypeError crash.
-	try {
-		await handler(null, defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
-
-test("It should NOT fall back to the Authorization header when an explicit source is configured", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const token = await V4.sign({ sub: "should-not-be-read" }, privateKey, {
-		expiresIn: "1h",
-	});
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-
-	// Only a cookie source is configured. A valid Bearer token in the
-	// Authorization header must be ignored (no implicit Authorization fallback),
-	// so with no cookie present the result is 401.
-	const handler = middy(() => {})
-		.before((request) => {
-			request.internal.pubKey = new Uint8Array(spkiDer);
-		})
-		.use(
-			httpPaseto({ internalKey: "pubKey", tokenCookieName: "paseto_token" }),
-		);
-
-	try {
-		await handler(
-			{ headers: { authorization: `Bearer ${token}` } },
-			defaultContext,
-		);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
-
-test("It should read PASETO from a cookie when tokenCookieName is set", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-
-	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
-		.before((request) => {
-			request.internal.pubKey = new Uint8Array(spkiDer);
-		})
-		.use(
-			httpPaseto({ internalKey: "pubKey", tokenCookieName: "paseto_token" }),
-		);
-
-	const result = await handler(
-		{ headers: { cookie: `other=val; paseto_token=${token}; extra=1` } },
-		{ ...defaultContext },
-	);
-
-	strictEqual(result.paseto.sub, "user-1");
-});
-
-test("It should read PASETO from capitalized Cookie header when lowercase is absent", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-
-	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
-		.before((request) => {
-			request.internal.pubKey = new Uint8Array(spkiDer);
-		})
-		.use(
-			httpPaseto({ internalKey: "pubKey", tokenCookieName: "paseto_token" }),
-		);
-
-	const result = await handler(
-		{ headers: { Cookie: `paseto_token=${token}` } },
-		{ ...defaultContext },
-	);
-
-	strictEqual(result.paseto.sub, "user-1");
-});
-
-test("It should throw 401 when no cookie header is present for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-
-	const handler = middy(() => {})
-		.before((request) => {
-			request.internal.pubKey = new Uint8Array(spkiDer);
-		})
-		.use(
-			httpPaseto({ internalKey: "pubKey", tokenCookieName: "paseto_token" }),
-		);
-
-	try {
-		await handler({ headers: {} }, defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
-
-test("It should throw 401 when cookie is missing for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-
-	const handler = middy(() => {})
-		.before((request) => {
-			request.internal.pubKey = new Uint8Array(spkiDer);
-		})
-		.use(
-			httpPaseto({ internalKey: "pubKey", tokenCookieName: "paseto_token" }),
-		);
-
-	try {
-		await handler({ headers: { cookie: "other=val" } }, defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
-
-test("It should handle KMS { publicKey, keySpec } shape from internalKey", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-
-	const token = await V4.sign({ sub: "user-kms" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
-		.before((request) => {
-			request.internal.kmsKey = {
-				publicKey: new Uint8Array(spkiDer),
-				keySpec: "ECC_NIST_ED25519",
-			};
-		})
-		.use(httpPaseto({ internalKey: "kmsKey" }));
-
-	const result = await handler(makeEvent(`Bearer ${token}`), {
-		...defaultContext,
-	});
-
-	strictEqual(result.paseto.sub, "user-kms");
-});
-
-test("It should throw 500 when internalKey resolves to undefined for PASETO", async (t) => {
-	const handler = middy(() => {})
-		.before((request) => {
-			request.internal.missing = undefined;
-		})
-		.use(httpPaseto({ internalKey: "missing" }));
-
-	try {
-		await handler(makeEvent("Bearer v4.public.sometoken"), defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 500);
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
-
-test("It should read PASETO from a custom header when tokenHeaderName is set", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-
-	const token = await V4.sign({ sub: "user-hdr" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
-		.before((request) => {
-			request.internal.pubKey = new Uint8Array(spkiDer);
-		})
-		.use(httpPaseto({ internalKey: "pubKey", tokenHeaderName: "X-Id-Token" }));
-
-	const result = await handler(
-		{ headers: { "X-Id-Token": token } },
-		{ ...defaultContext },
-	);
-
-	strictEqual(result.paseto.sub, "user-hdr");
-});
-
-test("It should read PASETO from a lowercased custom header when literal case is absent", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-
-	const token = await V4.sign({ sub: "user-hdr-lower" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
-		.before((request) => {
-			request.internal.pubKey = new Uint8Array(spkiDer);
-		})
-		.use(httpPaseto({ internalKey: "pubKey", tokenHeaderName: "X-Id-Token" }));
-
-	const result = await handler(
-		{ headers: { "x-id-token": token } },
-		{ ...defaultContext },
-	);
-
-	strictEqual(result.paseto.sub, "user-hdr-lower");
-});
-
-test("It should throw 401 when custom header is missing for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-
-	const handler = middy(() => {})
-		.before((request) => {
-			request.internal.pubKey = new Uint8Array(spkiDer);
-		})
-		.use(httpPaseto({ internalKey: "pubKey", tokenHeaderName: "X-Id-Token" }));
-
-	try {
-		await handler({ headers: {} }, defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
-
-test("It should read PASETO from a query parameter when tokenQueryStringName is set", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-
-	const token = await V4.sign({ sub: "user-qs" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
-		.before((request) => {
-			request.internal.pubKey = new Uint8Array(spkiDer);
-		})
-		.use(httpPaseto({ internalKey: "pubKey", tokenQueryStringName: "paseto" }));
-
-	const result = await handler(
-		{ headers: {}, queryStringParameters: { paseto: token } },
-		{ ...defaultContext },
-	);
-
-	strictEqual(result.paseto.sub, "user-qs");
-});
-
-test("It should throw 401 when tokenQueryStringName is missing for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-
-	const handler = middy(() => {})
-		.before((request) => {
-			request.internal.pubKey = new Uint8Array(spkiDer);
-		})
-		.use(httpPaseto({ internalKey: "pubKey", tokenQueryStringName: "paseto" }));
-
-	try {
-		await handler({ headers: {} }, defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
-
-test("It should throw 401 when event has no headers at all for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-
-	const handler = middy(() => {})
-		.before((request) => {
-			request.internal.pubKey = new Uint8Array(spkiDer);
-		})
-		.use(httpPaseto({ internalKey: "pubKey" }));
-
-	try {
-		await handler({}, defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
-
-test("It should fall through when Authorization header has wrong number of parts for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-
-	const token = await V4.sign({ sub: "from-query-malformed" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
-		.before((request) => {
-			request.internal.pubKey = new Uint8Array(spkiDer);
-		})
-		.use(
-			httpPaseto({
-				internalKey: "pubKey",
-				tokenHeaderName: "Authorization",
-				tokenQueryStringName: "paseto",
-			}),
-		);
-
-	const result = await handler(
-		{
-			headers: { authorization: "MalformedHeaderNoSpaces" },
-			queryStringParameters: { paseto: token },
-		},
-		{ ...defaultContext },
-	);
-
-	strictEqual(result.paseto.sub, "from-query-malformed");
-});
-
-test("It should chain cookie -> header -> query, cookie wins when present for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-
-	const cookieToken = await V4.sign({ sub: "from-cookie" }, privateKey, {
-		expiresIn: "1h",
-	});
-	const headerToken = await V4.sign({ sub: "from-header" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
-		.before((request) => {
-			request.internal.pubKey = new Uint8Array(spkiDer);
-		})
-		.use(
-			httpPaseto({
-				internalKey: "pubKey",
-				tokenCookieName: "paseto_token",
-				tokenHeaderName: "Authorization",
-				tokenQueryStringName: "paseto",
-			}),
-		);
-
-	const result = await handler(
-		{
-			headers: {
-				cookie: `paseto_token=${cookieToken}`,
-				authorization: `Bearer ${headerToken}`,
-			},
-			queryStringParameters: { paseto: "ignored" },
-		},
-		{ ...defaultContext },
-	);
-
-	strictEqual(result.paseto.sub, "from-cookie");
-});
-
-test("It should fall through to query when cookie and header are absent for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-
-	const token = await V4.sign({ sub: "from-query" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
-		.before((request) => {
-			request.internal.pubKey = new Uint8Array(spkiDer);
-		})
-		.use(
-			httpPaseto({
-				internalKey: "pubKey",
-				tokenCookieName: "paseto_token",
-				tokenHeaderName: "Authorization",
-				tokenQueryStringName: "paseto",
-			}),
-		);
-
-	const result = await handler(
-		{ headers: {}, queryStringParameters: { paseto: token } },
-		{ ...defaultContext },
-	);
-
-	strictEqual(result.paseto.sub, "from-query");
-});
-
-test("setToContext: false (default) writes only to internal, not context for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const token = await V4.sign({ sub: "user-internal-only" }, privateKey, {
-		expiresIn: "1h",
-	});
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-
-	const seen = {};
-	const handler = middy((event, context) => context)
-		.before((request) => {
-			request.internal.pubKey = new Uint8Array(spkiDer);
-		})
-		.use(realHttpPaseto({ internalKey: "pubKey" }))
-		.before((request) => {
-			seen.internal = request.internal.paseto?.sub;
-			seen.context = request.context.paseto?.sub;
+describe("@middy/http-paseto", () => {
+	test("It should verify a valid v4.public PASETO token and set payload to internal and context", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const token = await V4.sign({ sub: "user-1", role: "admin" }, privateKey, {
+			expiresIn: 3600,
 		});
 
-	const result = await handler(makeEvent(`Bearer ${token}`), {
-		...defaultContext,
+		const ctx = { ...defaultContext };
+		const handler = makeHandlerWithKey(publicKey);
+
+		const result = await handler(makeEvent(`Bearer ${token}`), ctx);
+
+		strictEqual(result.paseto.sub, "user-1");
+		strictEqual(result.paseto.role, "admin");
+		strictEqual(ctx.middyContext.paseto.sub, "user-1");
 	});
 
-	strictEqual(seen.internal, "user-internal-only");
-	strictEqual(seen.context, undefined);
-	strictEqual(result.paseto, undefined);
-});
+	test("It should import the verification key as non-extractable", async (t) => {
+		// The CryptoKey only ever feeds paseto's verify and is never exported, so
+		// the import call is the one place the flag can be observed. The token is
+		// signed before the spy goes on so only the middleware's import is recorded.
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "user-1" }, privateKey);
+		const importKey = t.mock.method(crypto.subtle, "importKey");
 
-test("httpPasetoValidateOptions accepts valid options and rejects typos", () => {
-	httpPasetoValidateOptions({ audience: "https://example.com" });
-	httpPasetoValidateOptions({ internalKey: "k", maxTokenAge: "1h" });
-	httpPasetoValidateOptions({});
-	try {
-		httpPasetoValidateOptions({ audiance: "typo" });
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
+		const handler = makeHandlerWithKey(publicKey);
+		await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
 
-test("It should accept Authorization header delivered as an array (multiValueHeaders / repeated headers)", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const token = await V4.sign({ sub: "array-hdr" }, privateKey, {
-		expiresIn: "1h",
+		const [format, , , extractable] = importKey.mock.calls[0].arguments;
+		strictEqual(format, "spki");
+		strictEqual(extractable, false);
 	});
 
-	const handler = makeHandlerWithKey(publicKey);
-
-	const result = await handler(
-		{ headers: { authorization: [`Bearer ${token}`, "Bearer other"] } },
-		{ ...defaultContext },
-	);
-
-	strictEqual(result.paseto.sub, "array-hdr");
-});
-
-test("It should strip RFC 6265 surrounding double-quotes from a cookie value", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const token = await V4.sign({ sub: "quoted-cookie" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const handler = makeHandlerWithKey(publicKey, {
-		tokenCookieName: "paseto_token",
-	});
-
-	const result = await handler(
-		{ headers: { cookie: `paseto_token="${token}"; other=val` } },
-		{ ...defaultContext },
-	);
-
-	strictEqual(result.paseto.sub, "quoted-cookie");
-});
-
-test("It should resolve a hyphenated internalKey without a spurious 500", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const token = await V4.sign({ sub: "user-hyphen-key" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
-		.before((request) => {
-			request.internal["paseto-key"] = new Uint8Array(spkiDer);
-		})
-		.use(httpPaseto({ internalKey: "paseto-key" }));
-
-	const result = await handler(makeEvent(`Bearer ${token}`), {
-		...defaultContext,
-	});
-
-	strictEqual(result.paseto.sub, "user-hyphen-key");
-});
-
-test("It should resolve a dotted nested internalKey without a spurious 500", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const token = await V4.sign({ sub: "user-dotted-key" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
-		.before((request) => {
-			request.internal.kms = { publicKey: new Uint8Array(spkiDer) };
-		})
-		.use(httpPaseto({ internalKey: "kms.publicKey" }));
-
-	const result = await handler(makeEvent(`Bearer ${token}`), {
-		...defaultContext,
-	});
-
-	strictEqual(result.paseto.sub, "user-dotted-key");
-});
-
-test("It should accept a token without exp by default", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	// No expiresIn: token has no exp claim.
-	const token = await V4.sign({ sub: "user-no-exp" }, privateKey);
-
-	const handler = makeHandlerWithKey(publicKey);
-
-	const result = await handler(makeEvent(`Bearer ${token}`), {
-		...defaultContext,
-	});
-
-	strictEqual(result.paseto.sub, "user-no-exp");
-});
-
-test("It should reject a token older than maxTokenAge", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	// iat stamped 2 hours ago via the `now` option, no exp claim.
-	const token = await V4.sign({ sub: "user-stale" }, privateKey, {
-		now: new Date(Date.now() - 7200 * 1000),
-	});
-
-	const handler = makeHandlerWithKey(publicKey, { maxTokenAge: "1h" });
-
-	try {
-		await handler(makeEvent(`Bearer ${token}`), defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
-
-test("It should accept a fresh token within maxTokenAge", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const token = await V4.sign({ sub: "user-fresh" }, privateKey);
-
-	const handler = makeHandlerWithKey(publicKey, { maxTokenAge: "1h" });
-
-	const result = await handler(makeEvent(`Bearer ${token}`), {
-		...defaultContext,
-	});
-
-	strictEqual(result.paseto.sub, "user-fresh");
-});
-
-// --- Option-schema type validation (httpPasetoValidateOptions) ---
-
-const expectOptionTypeError = (opts, expectedMessage) => {
-	try {
-		httpPasetoValidateOptions(opts);
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-		strictEqual(e.cause.package, "@middy/http-paseto");
-		strictEqual(e.message, expectedMessage);
-	}
-};
-
-test("httpPasetoValidateOptions accepts and enforces string type for tokenCookieName", () => {
-	httpPasetoValidateOptions({ tokenCookieName: "tok" });
-	expectOptionTypeError(
-		{ tokenCookieName: 123 },
-		"Option 'tokenCookieName' must be string",
-	);
-});
-
-test("httpPasetoValidateOptions accepts and enforces string type for tokenHeaderName", () => {
-	httpPasetoValidateOptions({ tokenHeaderName: "X-Tok" });
-	expectOptionTypeError(
-		{ tokenHeaderName: 123 },
-		"Option 'tokenHeaderName' must be string",
-	);
-});
-
-test("httpPasetoValidateOptions accepts and enforces string type for tokenQueryStringName", () => {
-	httpPasetoValidateOptions({ tokenQueryStringName: "tok" });
-	expectOptionTypeError(
-		{ tokenQueryStringName: 123 },
-		"Option 'tokenQueryStringName' must be string",
-	);
-});
-
-test("httpPasetoValidateOptions accepts and enforces string type for issuer", () => {
-	httpPasetoValidateOptions({ issuer: "https://iss" });
-	expectOptionTypeError({ issuer: 123 }, "Option 'issuer' must be string");
-});
-
-test("httpPasetoValidateOptions accepts and enforces string type for clockTolerance", () => {
-	httpPasetoValidateOptions({ clockTolerance: "30s" });
-	expectOptionTypeError(
-		{ clockTolerance: 123 },
-		"Option 'clockTolerance' must be string",
-	);
-});
-
-test("httpPasetoValidateOptions accepts and enforces string type for payloadKey", () => {
-	httpPasetoValidateOptions({ payloadKey: "paseto" });
-	expectOptionTypeError(
-		{ payloadKey: 123 },
-		"Option 'payloadKey' must be string",
-	);
-});
-
-test("httpPasetoValidateOptions accepts and enforces boolean type for setToContext", () => {
-	httpPasetoValidateOptions({ setToContext: true });
-	expectOptionTypeError(
-		{ setToContext: "yes" },
-		"Option 'setToContext' must be boolean",
-	);
-});
-
-// --- Verify-options forwarding to V4.verify (claim mismatches must 401) ---
-
-test("It should reject a token whose audience does not match the configured audience", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const token = await V4.sign(
-		{ sub: "user-1", aud: "https://wrong.example.com" },
-		privateKey,
-		{ expiresIn: "1h" },
-	);
-
-	const handler = makeHandlerWithKey(publicKey, {
-		audience: "https://api.example.com",
-	});
-
-	try {
-		await handler(makeEvent(`Bearer ${token}`), defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
-
-test("It should accept a token (no audience option) regardless of its aud claim", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const token = await V4.sign(
-		{ sub: "user-no-aud-opt", aud: "https://whatever.example.com" },
-		privateKey,
-		{ expiresIn: "1h" },
-	);
-
-	const handler = makeHandlerWithKey(publicKey);
-
-	const result = await handler(makeEvent(`Bearer ${token}`), {
-		...defaultContext,
-	});
-
-	strictEqual(result.paseto.sub, "user-no-aud-opt");
-});
-
-test("It should reject a token whose issuer does not match the configured issuer", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const token = await V4.sign(
-		{ sub: "user-1", iss: "https://wrong-auth.example.com" },
-		privateKey,
-		{ expiresIn: "1h" },
-	);
-
-	const handler = makeHandlerWithKey(publicKey, {
-		issuer: "https://auth.example.com",
-	});
-
-	try {
-		await handler(makeEvent(`Bearer ${token}`), defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
-
-test("It should reject an expired token when no clockTolerance is configured", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	// Expired 10s ago.
-	const token = await V4.sign({ sub: "user-expired" }, privateKey, {
-		expiresIn: "1s",
-		now: new Date(Date.now() - 10000),
-	});
-
-	const handler = makeHandlerWithKey(publicKey);
-
-	try {
-		await handler(makeEvent(`Bearer ${token}`), defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
-
-// --- Error messages and causes ---
-
-test("It should throw 401 'Unauthorized' with the no-token cause when no token is found", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const handler = makeHandlerWithKey(publicKey);
-
-	try {
-		await handler({ headers: {} }, defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.message, "Unauthorized");
-		strictEqual(e.cause.data, "No token found in configured sources");
-	}
-});
-
-test("It should throw 401 'Unauthorized' with the unsupported-version cause for a non-v4.public token", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const handler = makeHandlerWithKey(publicKey);
-
-	try {
-		await handler(makeEvent("Bearer v3.public.sometoken"), defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.message, "Unauthorized");
-		strictEqual(e.cause.package, "@middy/http-paseto");
-		strictEqual(e.cause.data, "Unsupported PASETO version or purpose");
-	}
-});
-
-test("It should require the exact v4.public. prefix (a v4.local token is rejected as unsupported)", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const handler = makeHandlerWithKey(publicKey);
-
-	try {
-		await handler(makeEvent("Bearer v4.local.sometoken"), defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.data, "Unsupported PASETO version or purpose");
-	}
-});
-
-test("It should throw 500 'Internal Server Error' with the resolved-undefined cause", async (t) => {
-	const handler = middy(() => {})
-		.before((request) => {
-			request.internal.missing = undefined;
-		})
-		.use(httpPaseto({ internalKey: "missing" }));
-
-	try {
-		await handler(makeEvent("Bearer v4.public.sometoken"), defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 500);
-		strictEqual(e.message, "Internal Server Error");
-		strictEqual(e.cause.data, "internalKey 'missing' resolved to undefined");
-	}
-});
-
-test("It should 401 (not crash) when the cookie source gets a nullish event", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-
-	const handler = middy(() => {})
-		.before((request) => {
-			request.internal.pubKey = new Uint8Array(spkiDer);
-		})
-		.use(
-			httpPaseto({ internalKey: "pubKey", tokenCookieName: "paseto_token" }),
+	test("It should import a key object once and reuse it across requests", async (t) => {
+		// Cached per keyData reference: a warm invocation handing over the same
+		// object must not pay the SPKI import again.
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "user-1" }, privateKey);
+		const keyData = new Uint8Array(
+			publicKey.export({ type: "spki", format: "der" }),
 		);
+		const importKey = t.mock.method(crypto.subtle, "importKey");
 
-	// event is null: readCookieValue's `event?.headers` guard must hold, so the
-	// source returns undefined and the chain ends in a clean 401. Dropping the
-	// optional chain would throw a raw TypeError without statusCode/cause.
-	try {
-		await handler(null, defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
-
-test("It should 401 (not crash) when the cookie source gets null headers", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-
-	const handler = middy(() => {})
-		.before((request) => {
-			request.internal.pubKey = new Uint8Array(spkiDer);
-		})
-		.use(
-			httpPaseto({ internalKey: "pubKey", tokenCookieName: "paseto_token" }),
-		);
-
-	// headers is null: both `headers?.cookie` and `headers?.Cookie` guards must
-	// hold so the cookie lookup yields undefined and ends in a clean 401.
-	try {
-		await handler({ headers: null }, defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.package, "@middy/http-paseto");
-	}
-});
-
-test("It should surface an unsupported-key-shape 500 (not a null-deref) when internalKey resolves to null", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const token = await V4.sign({ sub: "x" }, privateKey, { expiresIn: "1h" });
-
-	const handler = middy(() => {})
-		.before((request) => {
-			// null slips past the `=== undefined` guard, so it reaches key import.
-			request.internal.k = null;
-		})
-		.use(httpPaseto({ internalKey: "k" }));
-
-	// Real code: `keyData?.publicKey` is undefined, bytes = null, and null is not
-	// a shape we can import. Dropping the optional chain would instead throw
-	// "Cannot read properties of null".
-	try {
-		await handler(makeEvent(`Bearer ${token}`), defaultContext);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 500);
-		ok(e.cause.data.includes("unsupported key shape"), e.cause.data);
-		ok(!e.cause.data.includes("Cannot read properties"), e.cause.data);
-	}
-});
-
-test("It should NOT strip an unquoted cookie value (plain token verifies as-is)", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const token = await V4.sign({ sub: "plain-cookie" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const handler = makeHandlerWithKey(publicKey, {
-		tokenCookieName: "paseto_token",
-	});
-
-	// No surrounding quotes: real code must NOT strip. Any quote-check mutant
-	// that forces a strip here would slice off the first/last token bytes and
-	// fail verification.
-	const result = await handler(
-		{ headers: { cookie: `paseto_token=${token}` } },
-		{ ...defaultContext },
-	);
-
-	strictEqual(result.paseto.sub, "plain-cookie");
-});
-
-test("It should NOT strip a cookie value with only a trailing quote (kept verbatim)", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const token = await V4.sign({ sub: "trail-quote" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const handler = makeHandlerWithKey(publicKey, {
-		tokenCookieName: "paseto_token",
-	});
-
-	// Trailing quote only (no leading quote): real code must NOT strip, and
-	// PASETO tolerates the stray trailing quote, so verification succeeds.
-	// A mutant that strips on the trailing quote alone would slice off the
-	// leading token byte and fail verification.
-	const result = await handler(
-		{ headers: { cookie: `paseto_token=${token}"` } },
-		{ ...defaultContext },
-	);
-
-	strictEqual(result.paseto.sub, "trail-quote");
-});
-
-test("It should NOT strip a cookie value that has a leading quote but no trailing quote", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const token = await V4.sign({ sub: "lead-quote" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const handler = makeHandlerWithKey(publicKey, {
-		tokenCookieName: "paseto_token",
-	});
-
-	// Leading quote, plus a trailing non-quote byte. Real code requires BOTH
-	// quotes to strip, so it keeps the value verbatim: the leading quote breaks
-	// verification -> 401. A mutant that strips when only the leading quote is
-	// present (e.g. endsWith swapped to startsWith) would slice(1,-1) to the
-	// exact valid token and wrongly succeed.
-	try {
-		await handler(
-			{ headers: { cookie: `paseto_token="${token}Z` } },
-			defaultContext,
-		);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-	}
-});
-
-// --- Key rotation: internalKey may resolve to several keys ------------------
-//
-// An asymmetric signing key cannot be rotated in place, so rotating means standing
-// up a second key and accepting both until the last token signed by the retiring
-// one has expired. Neither an array nor a KeyObject used to work: `createPublicKey`
-// throws on both, so accepting them is strictly new ground.
-
-const makeHandlerWithKeys = (keyData, opts = {}) =>
-	middy((event, context) => context)
-		.before((request) => {
-			request.internal.pubKey = keyData;
-		})
-		.use(httpPaseto({ internalKey: "pubKey", ...opts }));
-
-const derOf = (publicKey) =>
-	new Uint8Array(publicKey.export({ type: "spki", format: "der" }));
-
-test("It should verify against either key during a rotation overlap", async (t) => {
-	const retiring = await V4.generateKey("public");
-	const current = await V4.generateKey("public");
-	const keyData = [
-		derOf(createPublicKey(current)),
-		derOf(createPublicKey(retiring)),
-	];
-
-	// A token signed by the key being retired still verifies, which is the whole
-	// point: it was minted before the rotation and has not expired yet.
-	const old = await V4.sign({ sub: "minted-before" }, retiring, {
-		expiresIn: "1h",
-	});
-	const fresh = await V4.sign({ sub: "minted-after" }, current, {
-		expiresIn: "1h",
-	});
-
-	strictEqual(
-		(
-			await makeHandlerWithKeys(keyData)(makeEvent(`Bearer ${old}`), {
-				...defaultContext,
+		const handler = middy((event, context) => context.middyContext)
+			.before((request) => {
+				request.internal.pubKey = keyData;
 			})
-		).paseto.sub,
-		"minted-before",
-	);
-	strictEqual(
-		(
-			await makeHandlerWithKeys(keyData)(makeEvent(`Bearer ${fresh}`), {
-				...defaultContext,
-			})
-		).paseto.sub,
-		"minted-after",
-	);
-});
+			.use(httpPaseto({ internalKey: "pubKey" }));
+		await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
+		await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
 
-test("It should still reject a token signed by no configured key", async (t) => {
-	const stranger = await V4.generateKey("public");
-	const keyData = [
-		derOf(createPublicKey(await V4.generateKey("public"))),
-		derOf(createPublicKey(await V4.generateKey("public"))),
-	];
-	const token = await V4.sign({ sub: "nope" }, stranger, { expiresIn: "1h" });
+		strictEqual(importKey.mock.callCount(), 1);
+	});
 
-	try {
-		await makeHandlerWithKeys(keyData)(makeEvent(`Bearer ${token}`), {
-			...defaultContext,
+	test("It should keep a lone-quote cookie value verbatim rather than slicing it to empty", async (t) => {
+		// A single '"' is not a quoted pair, so it reaches the version check as-is
+		// instead of vanishing into "No token found".
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const handler = makeHandlerWithKey(publicKey, {
+			tokenCookieName: "paseto_token",
 		});
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-	}
-});
-
-test("It should throw 500 when internalKey resolves to an empty array", async (t) => {
-	// A misconfiguration, not a rejection: with no key to try there is no reason to
-	// report that anyone could act on.
-	const privateKey = await V4.generateKey("public");
-	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	try {
-		await makeHandlerWithKeys([])(makeEvent(`Bearer ${token}`), {
-			...defaultContext,
-		});
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 500);
-		ok(e.cause.data.includes("no keys"));
-	}
-});
-
-test("It should accept a KeyObject that the caller resolved itself", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	// Straight KeyObject, no DER round trip: what you get from createPublicKey on a
-	// PEM held in the environment.
-	const result = await makeHandlerWithKeys(publicKey, { setToContext: true })(
-		makeEvent(`Bearer ${token}`),
-		{ ...defaultContext },
-	);
-
-	strictEqual(result.paseto.sub, "user-1");
-});
-
-test("It should accept an array of KeyObjects", async (t) => {
-	const retiring = await V4.generateKey("public");
-	const current = await V4.generateKey("public");
-	const token = await V4.sign({ sub: "minted-before" }, retiring, {
-		expiresIn: "1h",
-	});
-
-	const result = await makeHandlerWithKeys([
-		createPublicKey(current),
-		createPublicKey(retiring),
-	])(makeEvent(`Bearer ${token}`), { ...defaultContext });
-
-	strictEqual(result.paseto.sub, "minted-before");
-});
-
-// --- expectedClaims --------------------------------------------------------
-//
-// The generic case is a token type discriminator: PASETO's own `typ`, Cognito's
-// `token_use`, or any claim that separates an access token from a credential that
-// merely buys one. Leaving it unchecked is how an ID token gets accepted as an
-// access token.
-//
-// Named `expectedClaims`, not `requiredClaims`: jose already uses that name for a
-// list of claims that must be PRESENT, and @middy/http-jwt passes it through, so
-// reusing it for an equality check would mean one name and two meanings.
-
-test("It should accept a token whose expected claims all match", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const token = await V4.sign({ sub: "user-1", typ: "access" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const handler = makeHandlerWithKey(publicKey, {
-		expectedClaims: { typ: "access" },
-	});
-
-	strictEqual(
-		(await handler(makeEvent(`Bearer ${token}`), { ...defaultContext })).paseto
-			.sub,
-		"user-1",
-	);
-});
-
-test("It should reject a token whose expected claim differs", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const token = await V4.sign(
-		{ sub: "user-1", typ: "credential" },
-		privateKey,
-		{
-			expiresIn: "1h",
-		},
-	);
-
-	const handler = makeHandlerWithKey(publicKey, {
-		expectedClaims: { typ: "access" },
-	});
-
-	try {
-		await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		ok(e.cause.data.includes("'typ'"));
-	}
-});
-
-test("It should reject a token missing an expected claim entirely", async (t) => {
-	// A credential minted before the discriminator existed carries no claim at all,
-	// and must be refused by the same comparison rather than sliding through.
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const handler = makeHandlerWithKey(publicKey, {
-		expectedClaims: { typ: "access" },
-	});
-
-	try {
-		await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-	}
-});
-
-test("It should check every expected claim, not just the first", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const token = await V4.sign(
-		{ sub: "user-1", typ: "access", tier: "free" },
-		privateKey,
-		{ expiresIn: "1h" },
-	);
-
-	const handler = makeHandlerWithKey(publicKey, {
-		expectedClaims: { typ: "access", tier: "paid" },
-	});
-
-	try {
-		await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		ok(e.cause.data.includes("'tier'"));
-	}
-});
-
-test("It should not publish a payload that expectedClaims rejected", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const token = await V4.sign(
-		{ sub: "user-1", typ: "credential" },
-		privateKey,
-		{
-			expiresIn: "1h",
-		},
-	);
-
-	const ctx = { ...defaultContext };
-	const handler = makeHandlerWithKey(publicKey, {
-		expectedClaims: { typ: "access" },
-	});
-
-	await handler(makeEvent(`Bearer ${token}`), ctx).catch(() => {});
-
-	strictEqual(ctx.paseto, undefined);
-});
-
-test("It should ignore an empty expectedClaims object", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const publicKey = createPublicKey(privateKey);
-	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	const handler = makeHandlerWithKey(publicKey, { expectedClaims: {} });
-
-	strictEqual(
-		(await handler(makeEvent(`Bearer ${token}`), { ...defaultContext })).paseto
-			.sub,
-		"user-1",
-	);
-});
-
-test("It should validate the new options", () => {
-	httpPasetoValidateOptions({
-		internalKey: "pubKey",
-		expectedClaims: { typ: "access" },
-	});
-});
-
-test("It should reject an expectedClaims value that strict equality can never match", () => {
-	// An array or an object is compared by reference, so it would match nothing and
-	// 401 every request with a message reading `is 'a,b', expected 'a,b'`. Fail at
-	// construction instead, where the reason is legible.
-	for (const expectedClaims of [
-		{ scope: ["read", "write"] },
-		{ ctx: { tenant: "acme" } },
-		{ sub: null },
-	]) {
 		try {
-			httpPasetoValidateOptions({ internalKey: "pubKey", expectedClaims });
-			ok(false, `expected throw for ${JSON.stringify(expectedClaims)}`);
+			await handler(
+				{ headers: { cookie: 'paseto_token="' } },
+				{ ...defaultContext },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.data.reason, "Unsupported PASETO version or purpose");
+		}
+	});
+
+	test('It should slice an empty quoted-pair cookie value "" to no token', async (t) => {
+		// Two quotes are a quoted pair around nothing, so the cookie source yields
+		// no token at all.
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const handler = makeHandlerWithKey(publicKey, {
+			tokenCookieName: "paseto_token",
+		});
+		try {
+			await handler(
+				{ headers: { cookie: 'paseto_token=""' } },
+				{ ...defaultContext },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.data.reason, "No token found in configured sources");
+		}
+	});
+
+	test("It should always set payload to context", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const token = await V4.sign({ sub: "user-1" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const ctx = { ...defaultContext };
+		const handler = makeHandlerWithKey(publicKey);
+
+		await handler(makeEvent(`Bearer ${token}`), ctx);
+
+		strictEqual(ctx.middyContext.paseto.sub, "user-1");
+	});
+
+	test("It should use a custom payloadKey", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const token = await V4.sign({ sub: "user-1" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const ctx = { ...defaultContext };
+		const handler = makeHandlerWithKey(publicKey, { payloadKey: "auth" });
+
+		const result = await handler(makeEvent(`Bearer ${token}`), ctx);
+
+		strictEqual(result.auth.sub, "user-1");
+	});
+
+	test("It should verify audience claim", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const token = await V4.sign(
+			{ sub: "user-1", aud: "https://api.example.com" },
+			privateKey,
+			{ expiresIn: 3600 },
+		);
+
+		const ctx = { ...defaultContext };
+		const handler = makeHandlerWithKey(publicKey, {
+			audience: "https://api.example.com",
+		});
+
+		const result = await handler(makeEvent(`Bearer ${token}`), ctx);
+
+		strictEqual(result.paseto.sub, "user-1");
+	});
+
+	test("It should verify issuer claim", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const token = await V4.sign(
+			{ sub: "user-1", iss: "https://auth.example.com" },
+			privateKey,
+			{ expiresIn: 3600 },
+		);
+
+		const ctx = { ...defaultContext };
+		const handler = makeHandlerWithKey(publicKey, {
+			issuer: "https://auth.example.com",
+		});
+
+		const result = await handler(makeEvent(`Bearer ${token}`), ctx);
+
+		strictEqual(result.paseto.sub, "user-1");
+	});
+
+	test("It should respect clockTolerance option for expired tokens", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		// Token already expired 5s ago, but well within the 30s clockTolerance.
+		const token = await V4.sign({ sub: "user-1" }, privateKey, {
+			expiresIn: 1,
+			now: new Date(Date.now() - 5000),
+		});
+
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+		const handler = middy((event, context) => context.middyContext)
+			.before((request) => {
+				request.internal.pubKey = new Uint8Array(spkiDer);
+			})
+			.use(
+				httpPaseto({
+					internalKey: "pubKey",
+					clockTolerance: 30,
+				}),
+			);
+
+		const result = await handler(makeEvent(`Bearer ${token}`), {
+			...defaultContext,
+		});
+		strictEqual(result.paseto.sub, "user-1");
+	});
+
+	test("It should throw 401 when Authorization header is missing", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const handler = makeHandlerWithKey(publicKey);
+
+		try {
+			await handler({ headers: {} }, defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
+	});
+
+	test("It should throw 401 when Authorization scheme is not Bearer or DPoP", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const handler = makeHandlerWithKey(publicKey);
+
+		try {
+			await handler(makeEvent("Basic dXNlcjpwYXNz"), defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+		}
+	});
+
+	test("It should accept the DPoP scheme", async (t) => {
+		// RFC 9449 §7.1: a sender-constrained token travels under `DPoP`. Verifying
+		// it is unchanged; pair with `@middy/http-dpop` to require the proof, which
+		// is the only thing that can read the token's `cnf` claim.
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const token = await V4.sign({ sub: "user-1" }, privateKey, {
+			expiresIn: 3600,
+		});
+		const handler = makeHandlerWithKey(publicKey);
+
+		const result = await handler(makeEvent(`DPoP ${token}`), {
+			...defaultContext,
+		});
+
+		strictEqual(result.paseto.sub, "user-1");
+	});
+
+	test("It should throw 401 when token is invalid", async (t) => {
+		const privateKey = await V4.generateKey();
+		const wrongPrivateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const token = await V4.sign({ sub: "x" }, wrongPrivateKey, {
+			expiresIn: 3600,
+		});
+
+		const ctx = { ...defaultContext };
+		const handler = makeHandlerWithKey(publicKey);
+
+		try {
+			await handler(makeEvent(`Bearer ${token}`), ctx);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.message, "Unauthorized");
+			strictEqual(e.cause.package, "@middy/http-paseto");
+			// The 401 message is a fixed reason phrase, so the underlying verify
+			// failure is only visible through cause.data.reason.
+			ok(typeof e.cause.data.reason === "string");
+			ok(e.cause.data.reason.length > 0);
+		}
+	});
+
+	test("It should throw 401 for unsupported PASETO version", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const ctx = { ...defaultContext };
+		const handler = makeHandlerWithKey(publicKey);
+
+		try {
+			await handler(makeEvent("Bearer v3.public.sometoken"), ctx);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+		}
+	});
+
+	test("It should throw TypeError at factory when internalKey is not configured", () => {
+		try {
+			httpPaseto({});
+			ok(false, "expected throw");
 		} catch (e) {
 			ok(e instanceof TypeError);
+			strictEqual(e.message, "No key source configured: set internalKey");
+			strictEqual(e.cause.package, "@middy/http-paseto");
 		}
-	}
-});
-
-// --- Which failure is reported after a rotation overlap --------------------
-//
-// Every key that is not the signer fails identically, on the signature, and says
-// nothing about the request. Only the signing key can report why a token that IS
-// correctly signed was still refused. Reporting a signature miss in its place
-// turns every rotation-era 401 into a dead end.
-
-test("It should report the signing key's claim failure, not an earlier key's signature miss", async (t) => {
-	const other = await V4.generateKey("public");
-	const signer = await V4.generateKey("public");
-	const token = await V4.sign({ sub: "user-1" }, signer, {
-		expiresIn: "1h",
-		audience: "other-api",
 	});
 
-	try {
-		await makeHandlerWithKeys(
-			[derOf(createPublicKey(other)), derOf(createPublicKey(signer))],
-			{ audience: "my-api" },
-		)(makeEvent(`Bearer ${token}`), { ...defaultContext });
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		ok(e.cause.data.includes("audience"), e.cause.data);
-	}
-});
+	test("It should NOT return the credential of a non-Bearer 2-part Authorization header", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		// A valid token carried under the wrong scheme must be ignored (the scheme
+		// check rejects it). With only the Authorization source, that means 401.
+		const token = await V4.sign({ sub: "wrong-scheme" }, privateKey, {
+			expiresIn: 3600,
+		});
 
-test("It should keep the signing key's claim failure when a later key misses on signature", async (t) => {
-	// Same as above with the order flipped, so neither "keep the first" nor "keep
-	// the last" passes both.
-	const signer = await V4.generateKey("public");
-	const other = await V4.generateKey("public");
-	const token = await V4.sign({ sub: "user-1" }, signer, {
-		expiresIn: "1h",
-		audience: "other-api",
+		const handler = makeHandlerWithKey(publicKey);
+
+		try {
+			await handler(makeEvent(`Basic ${token}`), defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
 	});
 
-	try {
-		await makeHandlerWithKeys(
-			[derOf(createPublicKey(signer)), derOf(createPublicKey(other))],
-			{ audience: "my-api" },
-		)(makeEvent(`Bearer ${token}`), { ...defaultContext });
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 401);
-		ok(e.cause.data.includes("audience"), e.cause.data);
-	}
-});
+	test("It should NOT return a part of a 3-part Bearer Authorization header", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		// `Bearer <token> extra` has 3 parts: the length check must reject it even
+		// though the scheme is Bearer.
+		const token = await V4.sign({ sub: "three-parts" }, privateKey, {
+			expiresIn: 3600,
+		});
 
-test("It should refuse a key shape it cannot place with a 500, not a raw TypeError", async (t) => {
-	// `createPublicKey` throws a bare TypeError on anything it does not recognise,
-	// which escaped the middleware as an unlabelled 500. Name the problem instead.
-	const privateKey = await V4.generateKey("public");
-	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
+		const handler = makeHandlerWithKey(publicKey);
+
+		try {
+			await handler(makeEvent(`Bearer ${token} extra`), defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
 	});
 
-	try {
-		await makeHandlerWithKeys({ nonsense: true })(
+	test("It should 401 (not crash) when the header source gets a nullish event", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const handler = makeHandlerWithKey(publicKey);
+
+		// Default config uses the Authorization header source; a null event must be
+		// guarded by `event?.headers`, ending in a clean 401 rather than a crash.
+		try {
+			await handler(null, defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
+	});
+
+	test("It should 401 (not crash) when the query source gets a nullish event", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.pubKey = new Uint8Array(spkiDer);
+			})
+			.use(
+				httpPaseto({ internalKey: "pubKey", tokenQueryStringName: "paseto" }),
+			);
+
+		// Query-only source with a null event: `event?.queryStringParameters` must
+		// be guarded, ending in a clean 401 rather than a TypeError crash.
+		try {
+			await handler(null, defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
+	});
+
+	test("It should NOT fall back to the Authorization header when an explicit source is configured", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "should-not-be-read" }, privateKey, {
+			expiresIn: 3600,
+		});
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+
+		// Only a cookie source is configured. A valid Bearer token in the
+		// Authorization header must be ignored (no implicit Authorization fallback),
+		// so with no cookie present the result is 401.
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.pubKey = new Uint8Array(spkiDer);
+			})
+			.use(
+				httpPaseto({ internalKey: "pubKey", tokenCookieName: "paseto_token" }),
+			);
+
+		try {
+			await handler(
+				{ headers: { authorization: `Bearer ${token}` } },
+				defaultContext,
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
+	});
+
+	test("It should read PASETO from a cookie when tokenCookieName is set", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const token = await V4.sign({ sub: "user-1" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+		const handler = middy((event, context) => context.middyContext)
+			.before((request) => {
+				request.internal.pubKey = new Uint8Array(spkiDer);
+			})
+			.use(
+				httpPaseto({ internalKey: "pubKey", tokenCookieName: "paseto_token" }),
+			);
+
+		const result = await handler(
+			{ headers: { cookie: `other=val; paseto_token=${token}; extra=1` } },
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.paseto.sub, "user-1");
+	});
+
+	test("It should read PASETO from capitalized Cookie header when lowercase is absent", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const token = await V4.sign({ sub: "user-1" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+		const handler = middy((event, context) => context.middyContext)
+			.before((request) => {
+				request.internal.pubKey = new Uint8Array(spkiDer);
+			})
+			.use(
+				httpPaseto({ internalKey: "pubKey", tokenCookieName: "paseto_token" }),
+			);
+
+		const result = await handler(
+			{ headers: { Cookie: `paseto_token=${token}` } },
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.paseto.sub, "user-1");
+	});
+
+	test("It should throw 401 when no cookie header is present for PASETO", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.pubKey = new Uint8Array(spkiDer);
+			})
+			.use(
+				httpPaseto({ internalKey: "pubKey", tokenCookieName: "paseto_token" }),
+			);
+
+		try {
+			await handler({ headers: {} }, defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
+	});
+
+	test("It should throw 401 when cookie is missing for PASETO", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.pubKey = new Uint8Array(spkiDer);
+			})
+			.use(
+				httpPaseto({ internalKey: "pubKey", tokenCookieName: "paseto_token" }),
+			);
+
+		try {
+			await handler({ headers: { cookie: "other=val" } }, defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
+	});
+
+	test("It should handle KMS { publicKey, keySpec } shape from internalKey", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const token = await V4.sign({ sub: "user-kms" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+		const handler = middy((event, context) => context.middyContext)
+			.before((request) => {
+				request.internal.kmsKey = {
+					publicKey: new Uint8Array(spkiDer),
+					keySpec: "ECC_NIST_ED25519",
+				};
+			})
+			.use(httpPaseto({ internalKey: "kmsKey" }));
+
+		const result = await handler(makeEvent(`Bearer ${token}`), {
+			...defaultContext,
+		});
+
+		strictEqual(result.paseto.sub, "user-kms");
+	});
+
+	test("It should throw 500 when internalKey resolves to undefined for PASETO", async (t) => {
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.missing = undefined;
+			})
+			.use(httpPaseto({ internalKey: "missing" }));
+
+		try {
+			await handler(makeEvent("Bearer v4.public.sometoken"), defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 500);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
+	});
+
+	test("It should read PASETO from a custom header when tokenHeaderName is set", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const token = await V4.sign({ sub: "user-hdr" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+		const handler = middy((event, context) => context.middyContext)
+			.before((request) => {
+				request.internal.pubKey = new Uint8Array(spkiDer);
+			})
+			.use(
+				httpPaseto({ internalKey: "pubKey", tokenHeaderName: "X-Id-Token" }),
+			);
+
+		const result = await handler(
+			{ headers: { "X-Id-Token": token } },
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.paseto.sub, "user-hdr");
+	});
+
+	test("It should read PASETO from a lowercased custom header when literal case is absent", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const token = await V4.sign({ sub: "user-hdr-lower" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+		const handler = middy((event, context) => context.middyContext)
+			.before((request) => {
+				request.internal.pubKey = new Uint8Array(spkiDer);
+			})
+			.use(
+				httpPaseto({ internalKey: "pubKey", tokenHeaderName: "X-Id-Token" }),
+			);
+
+		const result = await handler(
+			{ headers: { "x-id-token": token } },
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.paseto.sub, "user-hdr-lower");
+	});
+
+	test("It should throw 401 when custom header is missing for PASETO", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.pubKey = new Uint8Array(spkiDer);
+			})
+			.use(
+				httpPaseto({ internalKey: "pubKey", tokenHeaderName: "X-Id-Token" }),
+			);
+
+		try {
+			await handler({ headers: {} }, defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
+	});
+
+	test("It should read PASETO from a query parameter when tokenQueryStringName is set", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const token = await V4.sign({ sub: "user-qs" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+		const handler = middy((event, context) => context.middyContext)
+			.before((request) => {
+				request.internal.pubKey = new Uint8Array(spkiDer);
+			})
+			.use(
+				httpPaseto({ internalKey: "pubKey", tokenQueryStringName: "paseto" }),
+			);
+
+		const result = await handler(
+			{ headers: {}, queryStringParameters: { paseto: token } },
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.paseto.sub, "user-qs");
+	});
+
+	test("It should throw 401 when tokenQueryStringName is missing for PASETO", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.pubKey = new Uint8Array(spkiDer);
+			})
+			.use(
+				httpPaseto({ internalKey: "pubKey", tokenQueryStringName: "paseto" }),
+			);
+
+		try {
+			await handler({ headers: {} }, defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
+	});
+
+	test("It should throw 401 when event has no headers at all for PASETO", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.pubKey = new Uint8Array(spkiDer);
+			})
+			.use(httpPaseto({ internalKey: "pubKey" }));
+
+		try {
+			await handler({}, defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
+	});
+
+	test("It should fall through when Authorization header has wrong number of parts for PASETO", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const token = await V4.sign({ sub: "from-query-malformed" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+		const handler = middy((event, context) => context.middyContext)
+			.before((request) => {
+				request.internal.pubKey = new Uint8Array(spkiDer);
+			})
+			.use(
+				httpPaseto({
+					internalKey: "pubKey",
+					tokenHeaderName: "Authorization",
+					tokenQueryStringName: "paseto",
+				}),
+			);
+
+		const result = await handler(
+			{
+				headers: { authorization: "MalformedHeaderNoSpaces" },
+				queryStringParameters: { paseto: token },
+			},
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.paseto.sub, "from-query-malformed");
+	});
+
+	test("It should chain cookie -> header -> query, cookie wins when present for PASETO", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const cookieToken = await V4.sign({ sub: "from-cookie" }, privateKey, {
+			expiresIn: 3600,
+		});
+		const headerToken = await V4.sign({ sub: "from-header" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+		const handler = middy((event, context) => context.middyContext)
+			.before((request) => {
+				request.internal.pubKey = new Uint8Array(spkiDer);
+			})
+			.use(
+				httpPaseto({
+					internalKey: "pubKey",
+					tokenCookieName: "paseto_token",
+					tokenHeaderName: "Authorization",
+					tokenQueryStringName: "paseto",
+				}),
+			);
+
+		const result = await handler(
+			{
+				headers: {
+					cookie: `paseto_token=${cookieToken}`,
+					authorization: `Bearer ${headerToken}`,
+				},
+				queryStringParameters: { paseto: "ignored" },
+			},
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.paseto.sub, "from-cookie");
+	});
+
+	test("It should fall through to query when cookie and header are absent for PASETO", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const token = await V4.sign({ sub: "from-query" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+		const handler = middy((event, context) => context.middyContext)
+			.before((request) => {
+				request.internal.pubKey = new Uint8Array(spkiDer);
+			})
+			.use(
+				httpPaseto({
+					internalKey: "pubKey",
+					tokenCookieName: "paseto_token",
+					tokenHeaderName: "Authorization",
+					tokenQueryStringName: "paseto",
+				}),
+			);
+
+		const result = await handler(
+			{ headers: {}, queryStringParameters: { paseto: token } },
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.paseto.sub, "from-query");
+	});
+
+	test("setToContext: false (default) writes only to internal, not context for PASETO", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "user-internal-only" }, privateKey, {
+			expiresIn: 3600,
+		});
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+
+		const seen = {};
+		const handler = middy((event, context) => context.middyContext)
+			.before((request) => {
+				request.internal.pubKey = new Uint8Array(spkiDer);
+			})
+			.use(realHttpPaseto({ internalKey: "pubKey" }))
+			.before((request) => {
+				seen.internal = request.internal.paseto?.sub;
+				seen.context = request.context.middyContext.paseto?.sub;
+			});
+
+		const result = await handler(makeEvent(`Bearer ${token}`), {
+			...defaultContext,
+		});
+
+		strictEqual(seen.internal, "user-internal-only");
+		strictEqual(seen.context, undefined);
+		strictEqual(result.paseto, undefined);
+	});
+
+	test("httpPasetoValidateOptions accepts valid options and rejects typos", () => {
+		httpPasetoValidateOptions({ audience: "https://example.com" });
+		httpPasetoValidateOptions({ internalKey: "k", maxTokenAge: 3600 });
+		httpPasetoValidateOptions({});
+		try {
+			httpPasetoValidateOptions({ audiance: "typo" });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
+	});
+
+	test("It should accept Authorization header delivered as an array (multiValueHeaders / repeated headers)", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "array-hdr" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const handler = makeHandlerWithKey(publicKey);
+
+		const result = await handler(
+			{ headers: { authorization: [`Bearer ${token}`, "Bearer other"] } },
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.paseto.sub, "array-hdr");
+	});
+
+	test("It should strip RFC 6265 surrounding double-quotes from a cookie value", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "quoted-cookie" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const handler = makeHandlerWithKey(publicKey, {
+			tokenCookieName: "paseto_token",
+		});
+
+		const result = await handler(
+			{ headers: { cookie: `paseto_token="${token}"; other=val` } },
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.paseto.sub, "quoted-cookie");
+	});
+
+	test("It should resolve a hyphenated internalKey without a spurious 500", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "user-hyphen-key" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+		const handler = middy((event, context) => context.middyContext)
+			.before((request) => {
+				request.internal["paseto-key"] = new Uint8Array(spkiDer);
+			})
+			.use(httpPaseto({ internalKey: "paseto-key" }));
+
+		const result = await handler(makeEvent(`Bearer ${token}`), {
+			...defaultContext,
+		});
+
+		strictEqual(result.paseto.sub, "user-hyphen-key");
+	});
+
+	test("It should resolve a dotted nested internalKey without a spurious 500", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "user-dotted-key" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+		const handler = middy((event, context) => context.middyContext)
+			.before((request) => {
+				request.internal.kms = { publicKey: new Uint8Array(spkiDer) };
+			})
+			.use(httpPaseto({ internalKey: "kms.publicKey" }));
+
+		const result = await handler(makeEvent(`Bearer ${token}`), {
+			...defaultContext,
+		});
+
+		strictEqual(result.paseto.sub, "user-dotted-key");
+	});
+
+	test("It should reject a token without exp", async (t) => {
+		// paseto v3 validated `exp` only when present; v4 requires it unless the
+		// caller opts out with `allowNonExpiring`, which this middleware does not.
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "user-no-exp" }, privateKey, {
+			nonExpiring: true,
+		});
+
+		const handler = makeHandlerWithKey(publicKey);
+
+		try {
+			await handler(makeEvent(`Bearer ${token}`), defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+			ok(e.cause.data.reason.includes("exp"));
+		}
+	});
+
+	test("It should reject a token older than maxTokenAge", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		// iat stamped 2 hours ago, but a 3 hour lifetime, so `exp` is still an hour
+		// out: the only thing that can reject this token is its age.
+		const token = await V4.sign({ sub: "user-stale" }, privateKey, {
+			now: new Date(Date.now() - 7200 * 1000),
+			expiresIn: 10800,
+		});
+
+		const handler = makeHandlerWithKey(publicKey, { maxTokenAge: 3600 });
+
+		try {
+			await handler(makeEvent(`Bearer ${token}`), defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
+	});
+
+	test("It should accept a fresh token within maxTokenAge", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "user-fresh" }, privateKey);
+
+		const handler = makeHandlerWithKey(publicKey, { maxTokenAge: 3600 });
+
+		const result = await handler(makeEvent(`Bearer ${token}`), {
+			...defaultContext,
+		});
+
+		strictEqual(result.paseto.sub, "user-fresh");
+	});
+
+	// --- Option-schema type validation (httpPasetoValidateOptions) ---
+
+	const expectOptionTypeError = (opts, expectedMessage) => {
+		try {
+			httpPasetoValidateOptions(opts);
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+			strictEqual(e.message, expectedMessage);
+		}
+	};
+
+	test("httpPasetoValidateOptions accepts and enforces string type for tokenCookieName", () => {
+		httpPasetoValidateOptions({ tokenCookieName: "tok" });
+		expectOptionTypeError(
+			{ tokenCookieName: 123 },
+			"Option 'tokenCookieName' must be string",
+		);
+	});
+
+	test("httpPasetoValidateOptions accepts and enforces string type for tokenHeaderName", () => {
+		httpPasetoValidateOptions({ tokenHeaderName: "X-Tok" });
+		expectOptionTypeError(
+			{ tokenHeaderName: 123 },
+			"Option 'tokenHeaderName' must be string",
+		);
+	});
+
+	test("httpPasetoValidateOptions accepts and enforces string type for tokenQueryStringName", () => {
+		httpPasetoValidateOptions({ tokenQueryStringName: "tok" });
+		expectOptionTypeError(
+			{ tokenQueryStringName: 123 },
+			"Option 'tokenQueryStringName' must be string",
+		);
+	});
+
+	test("httpPasetoValidateOptions accepts and enforces string type for issuer", () => {
+		httpPasetoValidateOptions({ issuer: "https://iss" });
+		expectOptionTypeError({ issuer: 123 }, "Option 'issuer' must be string");
+	});
+
+	test("httpPasetoValidateOptions accepts and enforces number type for clockTolerance", () => {
+		httpPasetoValidateOptions({ clockTolerance: 30 });
+		httpPasetoValidateOptions({ clockTolerance: 0 });
+		expectOptionTypeError(
+			{ clockTolerance: "30s" },
+			"Option 'clockTolerance' must be number",
+		);
+		expectOptionTypeError(
+			{ clockTolerance: -1 },
+			"Option 'clockTolerance' must be >= 0",
+		);
+		// paseto requires a finite number; ajv rejects NaN under `type: "number"`
+		// but lets Infinity through without the `maximum` bound.
+		expectOptionTypeError(
+			{ clockTolerance: Infinity },
+			`Option 'clockTolerance' must be <= ${Number.MAX_SAFE_INTEGER}`,
+		);
+	});
+
+	test("httpPasetoValidateOptions accepts and enforces number type for maxTokenAge", () => {
+		httpPasetoValidateOptions({ maxTokenAge: 3600 });
+		expectOptionTypeError(
+			{ maxTokenAge: "1h" },
+			"Option 'maxTokenAge' must be number",
+		);
+		expectOptionTypeError(
+			{ maxTokenAge: -1 },
+			"Option 'maxTokenAge' must be >= 0",
+		);
+	});
+
+	test("httpPasetoValidateOptions accepts and enforces string type for payloadKey", () => {
+		httpPasetoValidateOptions({ payloadKey: "paseto" });
+		expectOptionTypeError(
+			{ payloadKey: 123 },
+			"Option 'payloadKey' must be string",
+		);
+	});
+
+	test("httpPasetoValidateOptions accepts and enforces boolean type for setToContext", () => {
+		httpPasetoValidateOptions({ setToContext: true });
+		expectOptionTypeError(
+			{ setToContext: "yes" },
+			"Option 'setToContext' must be boolean",
+		);
+	});
+
+	// --- Verify-options forwarding to V4.verify (claim mismatches must 401) ---
+
+	test("It should reject a token whose audience does not match the configured audience", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign(
+			{ sub: "user-1", aud: "https://wrong.example.com" },
+			privateKey,
+			{ expiresIn: 3600 },
+		);
+
+		const handler = makeHandlerWithKey(publicKey, {
+			audience: "https://api.example.com",
+		});
+
+		try {
+			await handler(makeEvent(`Bearer ${token}`), defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
+	});
+
+	test("It should accept a token (no audience option) regardless of its aud claim", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign(
+			{ sub: "user-no-aud-opt", aud: "https://whatever.example.com" },
+			privateKey,
+			{ expiresIn: 3600 },
+		);
+
+		const handler = makeHandlerWithKey(publicKey);
+
+		const result = await handler(makeEvent(`Bearer ${token}`), {
+			...defaultContext,
+		});
+
+		strictEqual(result.paseto.sub, "user-no-aud-opt");
+	});
+
+	test("It should reject a token whose issuer does not match the configured issuer", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign(
+			{ sub: "user-1", iss: "https://wrong-auth.example.com" },
+			privateKey,
+			{ expiresIn: 3600 },
+		);
+
+		const handler = makeHandlerWithKey(publicKey, {
+			issuer: "https://auth.example.com",
+		});
+
+		try {
+			await handler(makeEvent(`Bearer ${token}`), defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
+	});
+
+	test("It should reject an expired token when no clockTolerance is configured", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		// Expired 10s ago.
+		const token = await V4.sign({ sub: "user-expired" }, privateKey, {
+			expiresIn: 1,
+			now: new Date(Date.now() - 10000),
+		});
+
+		const handler = makeHandlerWithKey(publicKey);
+
+		try {
+			await handler(makeEvent(`Bearer ${token}`), defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
+	});
+
+	// --- Error messages and causes ---
+
+	test("It should throw 401 'Unauthorized' with the no-token cause when no token is found", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const handler = makeHandlerWithKey(publicKey);
+
+		try {
+			await handler({ headers: {} }, defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.message, "Unauthorized");
+			strictEqual(e.cause.data.reason, "No token found in configured sources");
+		}
+	});
+
+	test("It should throw 401 'Unauthorized' with the unsupported-version cause for a non-v4.public token", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const handler = makeHandlerWithKey(publicKey);
+
+		try {
+			await handler(makeEvent("Bearer v3.public.sometoken"), defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.message, "Unauthorized");
+			strictEqual(e.cause.package, "@middy/http-paseto");
+			strictEqual(e.cause.data.reason, "Unsupported PASETO version or purpose");
+		}
+	});
+
+	test("It should require the exact v4.public. prefix (a v4.local token is rejected as unsupported)", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const handler = makeHandlerWithKey(publicKey);
+
+		try {
+			await handler(makeEvent("Bearer v4.local.sometoken"), defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.data.reason, "Unsupported PASETO version or purpose");
+		}
+	});
+
+	test("It should throw 500 'Internal Server Error' with the resolved-undefined cause", async (t) => {
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.missing = undefined;
+			})
+			.use(httpPaseto({ internalKey: "missing" }));
+
+		try {
+			await handler(makeEvent("Bearer v4.public.sometoken"), defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 500);
+			strictEqual(e.message, "Internal Server Error");
+			strictEqual(
+				e.cause.data.reason,
+				"internalKey 'missing' resolved to undefined",
+			);
+		}
+	});
+
+	test("It should 401 (not crash) when the cookie source gets a nullish event", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.pubKey = new Uint8Array(spkiDer);
+			})
+			.use(
+				httpPaseto({ internalKey: "pubKey", tokenCookieName: "paseto_token" }),
+			);
+
+		// event is null: readCookieValue's `event?.headers` guard must hold, so the
+		// source returns undefined and the chain ends in a clean 401. Dropping the
+		// optional chain would throw a raw TypeError without statusCode/cause.
+		try {
+			await handler(null, defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
+	});
+
+	test("It should 401 (not crash) when the cookie source gets null headers", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const spkiDer = publicKey.export({ type: "spki", format: "der" });
+
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.pubKey = new Uint8Array(spkiDer);
+			})
+			.use(
+				httpPaseto({ internalKey: "pubKey", tokenCookieName: "paseto_token" }),
+			);
+
+		// headers is null: both `headers?.cookie` and `headers?.Cookie` guards must
+		// hold so the cookie lookup yields undefined and ends in a clean 401.
+		try {
+			await handler({ headers: null }, defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
+	});
+
+	test("It should surface an unsupported-key-shape 500 (not a null-deref) when internalKey resolves to null", async (t) => {
+		const privateKey = await V4.generateKey();
+		const token = await V4.sign({ sub: "x" }, privateKey, { expiresIn: 3600 });
+
+		const handler = middy(() => {})
+			.before((request) => {
+				// null slips past the `=== undefined` guard, so it reaches key import.
+				request.internal.k = null;
+			})
+			.use(httpPaseto({ internalKey: "k" }));
+
+		// Real code: `keyData?.publicKey` is undefined, bytes = null, and null is not
+		// a shape we can import. Dropping the optional chain would instead throw
+		// "Cannot read properties of null".
+		try {
+			await handler(makeEvent(`Bearer ${token}`), defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 500);
+			ok(
+				e.cause.data.reason.includes("unsupported key shape"),
+				e.cause.data.reason,
+			);
+			ok(
+				!e.cause.data.reason.includes("Cannot read properties"),
+				e.cause.data.reason,
+			);
+		}
+	});
+
+	test("It should NOT strip an unquoted cookie value (plain token verifies as-is)", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "plain-cookie" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const handler = makeHandlerWithKey(publicKey, {
+			tokenCookieName: "paseto_token",
+		});
+
+		// No surrounding quotes: real code must NOT strip. Any quote-check mutant
+		// that forces a strip here would slice off the first/last token bytes and
+		// fail verification.
+		const result = await handler(
+			{ headers: { cookie: `paseto_token=${token}` } },
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.paseto.sub, "plain-cookie");
+	});
+
+	test("It should NOT strip a cookie value with only a trailing quote (kept verbatim)", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "trail-quote" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const handler = makeHandlerWithKey(publicKey, {
+			tokenCookieName: "paseto_token",
+		});
+
+		// Trailing quote only (no leading quote): real code must NOT strip, so the
+		// stray quote reaches paseto and fails the token decode. A mutant that
+		// strips on the trailing quote alone would slice off the leading `v`, and
+		// the value would be rejected earlier by the `v4.public.` prefix check -
+		// so the two are told apart by which failure comes back, not by the status.
+		try {
+			await handler(
+				{ headers: { cookie: `paseto_token=${token}"` } },
+				defaultContext,
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(
+				e.cause.data.reason,
+				"Invalid base64url in token payload",
+				"token should have reached paseto with the trailing quote intact",
+			);
+		}
+	});
+
+	test("It should NOT strip a cookie value that has a leading quote but no trailing quote", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "lead-quote" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const handler = makeHandlerWithKey(publicKey, {
+			tokenCookieName: "paseto_token",
+		});
+
+		// Leading quote, plus a trailing non-quote byte. Real code requires BOTH
+		// quotes to strip, so it keeps the value verbatim: the leading quote breaks
+		// verification -> 401. A mutant that strips when only the leading quote is
+		// present (e.g. endsWith swapped to startsWith) would slice(1,-1) to the
+		// exact valid token and wrongly succeed.
+		try {
+			await handler(
+				{ headers: { cookie: `paseto_token="${token}Z` } },
+				defaultContext,
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+		}
+	});
+
+	// --- Key rotation: internalKey may resolve to several keys ------------------
+	//
+	// An asymmetric signing key cannot be rotated in place, so rotating means standing
+	// up a second key and accepting both until the last token signed by the retiring
+	// one has expired. Neither an array nor a KeyObject used to work: `createPublicKey`
+	// throws on both, so accepting them is strictly new ground.
+
+	const makeHandlerWithKeys = (keyData, opts = {}) =>
+		middy((event, context) => context.middyContext)
+			.before((request) => {
+				request.internal.pubKey = keyData;
+			})
+			.use(httpPaseto({ internalKey: "pubKey", ...opts }));
+
+	const derOf = (publicKey) =>
+		new Uint8Array(publicKey.export({ type: "spki", format: "der" }));
+
+	test("It should verify against either key during a rotation overlap", async (t) => {
+		const retiring = await V4.generateKey();
+		const current = await V4.generateKey();
+		const keyData = [
+			derOf(createPublicKey(current)),
+			derOf(createPublicKey(retiring)),
+		];
+
+		// A token signed by the key being retired still verifies, which is the whole
+		// point: it was minted before the rotation and has not expired yet.
+		const old = await V4.sign({ sub: "minted-before" }, retiring, {
+			expiresIn: 3600,
+		});
+		const fresh = await V4.sign({ sub: "minted-after" }, current, {
+			expiresIn: 3600,
+		});
+
+		strictEqual(
+			(
+				await makeHandlerWithKeys(keyData)(makeEvent(`Bearer ${old}`), {
+					...defaultContext,
+				})
+			).paseto.sub,
+			"minted-before",
+		);
+		strictEqual(
+			(
+				await makeHandlerWithKeys(keyData)(makeEvent(`Bearer ${fresh}`), {
+					...defaultContext,
+				})
+			).paseto.sub,
+			"minted-after",
+		);
+	});
+
+	test("It should still reject a token signed by no configured key", async (t) => {
+		const stranger = await V4.generateKey();
+		const keyData = [
+			derOf(createPublicKey(await V4.generateKey())),
+			derOf(createPublicKey(await V4.generateKey())),
+		];
+		const token = await V4.sign({ sub: "nope" }, stranger, { expiresIn: 3600 });
+
+		try {
+			await makeHandlerWithKeys(keyData)(makeEvent(`Bearer ${token}`), {
+				...defaultContext,
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+		}
+	});
+
+	test("It should throw 500 when internalKey resolves to an empty array", async (t) => {
+		// A misconfiguration, not a rejection: with no key to try there is no reason to
+		// report that anyone could act on.
+		const privateKey = await V4.generateKey();
+		const token = await V4.sign({ sub: "user-1" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		try {
+			await makeHandlerWithKeys([])(makeEvent(`Bearer ${token}`), {
+				...defaultContext,
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 500);
+			ok(e.cause.data.reason.includes("no keys"));
+		}
+	});
+
+	test("It should accept a KeyObject that the caller resolved itself", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "user-1" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		// Straight KeyObject, no DER round trip: what you get from createPublicKey on a
+		// PEM held in the environment.
+		const result = await makeHandlerWithKeys(publicKey, { setToContext: true })(
 			makeEvent(`Bearer ${token}`),
 			{ ...defaultContext },
 		);
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 500);
-		ok(e.cause.data.includes("unsupported key shape"), e.cause.data);
-	}
+
+		strictEqual(result.paseto.sub, "user-1");
+	});
+
+	test("It should accept an array of KeyObjects", async (t) => {
+		const retiring = await V4.generateKey();
+		const current = await V4.generateKey();
+		const token = await V4.sign({ sub: "minted-before" }, retiring, {
+			expiresIn: 3600,
+		});
+
+		const result = await makeHandlerWithKeys([
+			createPublicKey(current),
+			createPublicKey(retiring),
+		])(makeEvent(`Bearer ${token}`), { ...defaultContext });
+
+		strictEqual(result.paseto.sub, "minted-before");
+	});
+
+	// --- expectedClaims --------------------------------------------------------
+	//
+	// The generic case is a token type discriminator: PASETO's own `typ`, Cognito's
+	// `token_use`, or any claim that separates an access token from a credential that
+	// merely buys one. Leaving it unchecked is how an ID token gets accepted as an
+	// access token.
+	//
+	// Named `expectedClaims`, not `requiredClaims`: jose already uses that name for a
+	// list of claims that must be PRESENT, and @middy/http-jwt passes it through, so
+	// reusing it for an equality check would mean one name and two meanings.
+
+	test("It should accept a token whose expected claims all match", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "user-1", typ: "access" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const handler = makeHandlerWithKey(publicKey, {
+			expectedClaims: { typ: "access" },
+		});
+
+		strictEqual(
+			(await handler(makeEvent(`Bearer ${token}`), { ...defaultContext }))
+				.paseto.sub,
+			"user-1",
+		);
+	});
+
+	test("It should reject a token whose expected claim differs", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign(
+			{ sub: "user-1", typ: "credential" },
+			privateKey,
+			{
+				expiresIn: 3600,
+			},
+		);
+
+		const handler = makeHandlerWithKey(publicKey, {
+			expectedClaims: { typ: "access" },
+		});
+
+		try {
+			await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			ok(e.cause.data.reason.includes("'typ'"));
+		}
+	});
+
+	test("It should reject a token missing an expected claim entirely", async (t) => {
+		// A credential minted before the discriminator existed carries no claim at all,
+		// and must be refused by the same comparison rather than sliding through.
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "user-1" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const handler = makeHandlerWithKey(publicKey, {
+			expectedClaims: { typ: "access" },
+		});
+
+		try {
+			await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+		}
+	});
+
+	test("It should check every expected claim, not just the first", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign(
+			{ sub: "user-1", typ: "access", tier: "free" },
+			privateKey,
+			{ expiresIn: 3600 },
+		);
+
+		const handler = makeHandlerWithKey(publicKey, {
+			expectedClaims: { typ: "access", tier: "paid" },
+		});
+
+		try {
+			await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			ok(e.cause.data.reason.includes("'tier'"));
+		}
+	});
+
+	test("It should not publish a payload that expectedClaims rejected", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign(
+			{ sub: "user-1", typ: "credential" },
+			privateKey,
+			{
+				expiresIn: 3600,
+			},
+		);
+
+		const ctx = { ...defaultContext };
+		const handler = makeHandlerWithKey(publicKey, {
+			expectedClaims: { typ: "access" },
+		});
+
+		await handler(makeEvent(`Bearer ${token}`), ctx).catch(() => {});
+
+		strictEqual(ctx.paseto, undefined);
+	});
+
+	test("It should ignore an empty expectedClaims object", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "user-1" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const handler = makeHandlerWithKey(publicKey, { expectedClaims: {} });
+
+		strictEqual(
+			(await handler(makeEvent(`Bearer ${token}`), { ...defaultContext }))
+				.paseto.sub,
+			"user-1",
+		);
+	});
+
+	test("It should validate the new options", () => {
+		httpPasetoValidateOptions({
+			internalKey: "pubKey",
+			expectedClaims: { typ: "access" },
+		});
+	});
+
+	test("It should reject an expectedClaims value that strict equality can never match", () => {
+		// An array or an object is compared by reference, so it would match nothing and
+		// 401 every request with a message reading `is 'a,b', expected 'a,b'`. Fail at
+		// construction instead, where the reason is legible.
+		for (const expectedClaims of [
+			{ scope: ["read", "write"] },
+			{ ctx: { tenant: "acme" } },
+			{ sub: null },
+		]) {
+			try {
+				httpPasetoValidateOptions({ internalKey: "pubKey", expectedClaims });
+				ok(false, `expected throw for ${JSON.stringify(expectedClaims)}`);
+			} catch (e) {
+				ok(e instanceof TypeError);
+			}
+		}
+	});
+
+	// --- Which failure is reported after a rotation overlap --------------------
+	//
+	// Every key that is not the signer fails identically, on the signature, and says
+	// nothing about the request. Only the signing key can report why a token that IS
+	// correctly signed was still refused. Reporting a signature miss in its place
+	// turns every rotation-era 401 into a dead end.
+
+	test("It should report the signing key's claim failure, not an earlier key's signature miss", async (t) => {
+		const other = await V4.generateKey();
+		const signer = await V4.generateKey();
+		const token = await V4.sign({ sub: "user-1", aud: "other-api" }, signer, {
+			expiresIn: 3600,
+		});
+
+		try {
+			await makeHandlerWithKeys(
+				[derOf(createPublicKey(other)), derOf(createPublicKey(signer))],
+				{ audience: "my-api" },
+			)(makeEvent(`Bearer ${token}`), { ...defaultContext });
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			ok(e.cause.data.reason.includes("aud"), e.cause.data.reason);
+		}
+	});
+
+	test("It should keep the signing key's claim failure when a later key misses on signature", async (t) => {
+		// Same as above with the order flipped, so neither "keep the first" nor "keep
+		// the last" passes both.
+		const signer = await V4.generateKey();
+		const other = await V4.generateKey();
+		const token = await V4.sign({ sub: "user-1", aud: "other-api" }, signer, {
+			expiresIn: 3600,
+		});
+
+		try {
+			await makeHandlerWithKeys(
+				[derOf(createPublicKey(signer)), derOf(createPublicKey(other))],
+				{ audience: "my-api" },
+			)(makeEvent(`Bearer ${token}`), { ...defaultContext });
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			ok(e.cause.data.reason.includes("aud"), e.cause.data.reason);
+		}
+	});
+
+	test("It should refuse a key shape it cannot place with a 500, not a raw TypeError", async (t) => {
+		// `crypto.subtle.importKey` throws a bare error on anything it does not
+		// recognise, which escaped the middleware as an unlabelled 500. Name it.
+		const privateKey = await V4.generateKey();
+		const token = await V4.sign({ sub: "user-1" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		try {
+			await makeHandlerWithKeys({ nonsense: true })(
+				makeEvent(`Bearer ${token}`),
+				{ ...defaultContext },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 500);
+			ok(
+				e.cause.data.reason.includes("unsupported key shape"),
+				e.cause.data.reason,
+			);
+		}
+	});
+
+	test("It should refuse well-formed SPKI bytes for a non-Ed25519 key with a 500", async (t) => {
+		// v4.public is Ed25519 only. A P-256 key is a valid SPKI, so it clears the
+		// shape check and fails inside `crypto.subtle.importKey` instead. That is an
+		// operator installing the wrong key, not a bad request, so it is a 500.
+		const privateKey = await V4.generateKey();
+		const token = await V4.sign({ sub: "user-1" }, privateKey, {
+			expiresIn: 3600,
+		});
+		const { publicKey } = await crypto.subtle.generateKey(
+			{ name: "ECDSA", namedCurve: "P-256" },
+			true,
+			["sign", "verify"],
+		);
+		const wrongAlgorithmSpki = new Uint8Array(
+			await crypto.subtle.exportKey("spki", publicKey),
+		);
+
+		try {
+			await makeHandlerWithKeys(wrongAlgorithmSpki)(
+				makeEvent(`Bearer ${token}`),
+				{
+					...defaultContext,
+				},
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 500);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+			ok(
+				e.cause.data.reason.includes("not an Ed25519 verification key"),
+				e.cause.data.reason,
+			);
+		}
+	});
+
+	// HTTP API payload 2.0 strips the Cookie header and delivers each cookie as a
+	// `name=value` entry of `event.cookies`, so a header-only lookup always 401s.
+	test("It should read PASETO from event.cookies on an HTTP API payload 2.0 event when tokenCookieName is set", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const token = await V4.sign({ sub: "user-1" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const handler = makeHandlerWithKey(publicKey, {
+			tokenCookieName: "paseto_token",
+		});
+
+		const result = await handler(
+			{
+				version: "2.0",
+				headers: {},
+				cookies: ["other=val", `paseto_token=${token}`, "extra=1"],
+			},
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.paseto.sub, "user-1");
+	});
+
+	test("It should prefer the Cookie header over event.cookies when both carry the cookie for PASETO", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const headerToken = await V4.sign({ sub: "from-header" }, privateKey, {
+			expiresIn: 3600,
+		});
+		const cookiesToken = await V4.sign({ sub: "from-cookies" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const handler = makeHandlerWithKey(publicKey, {
+			tokenCookieName: "paseto_token",
+		});
+
+		const result = await handler(
+			{
+				headers: { cookie: `paseto_token=${headerToken}` },
+				cookies: [`paseto_token=${cookiesToken}`],
+			},
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.paseto.sub, "from-header");
+	});
+
+	test("It should skip non-string entries in event.cookies for PASETO", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const token = await V4.sign({ sub: "user-1" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		const handler = makeHandlerWithKey(publicKey, {
+			tokenCookieName: "paseto_token",
+		});
+
+		const result = await handler(
+			{ cookies: [42, null, `paseto_token=${token}`] },
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.paseto.sub, "user-1");
+	});
+
+	test("It should throw 401 when event.cookies is not an array for PASETO", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+
+		const handler = makeHandlerWithKey(publicKey, {
+			tokenCookieName: "paseto_token",
+		});
+
+		try {
+			await handler({ cookies: "paseto_token=x" }, { ...defaultContext });
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
+	});
 });

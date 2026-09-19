@@ -20,6 +20,12 @@ export interface Options {
 	deflate?: boolean | ZlibOptions;
 	zstd?: boolean | ZstdOptions;
 	overridePreferredEncoding?: ContentEncoding[];
+	/**
+	 * Where `@middy/http-content-negotiation` published its results. Must match
+	 * that middleware's `contextKey` when it has been overridden.
+	 * @default "http-content-negotiation"
+	 */
+	contextKeyHttpContentNegotiation?: string;
 }
 
 export declare function getContentEncodingStream(

@@ -21,6 +21,7 @@ const defaults = {
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -31,10 +32,19 @@ const optionSchema = {
 		cacheKey: { type: "string" },
 		cacheKeyExpiry: {
 			type: "object",
-			additionalProperties: { type: "number", minimum: -1 },
+			additionalProperties: {
+				type: "number",
+				minimum: -1,
+				maximum: Number.MAX_SAFE_INTEGER,
+			},
 		},
-		cacheExpiry: { type: "number", minimum: -1 },
+		cacheExpiry: {
+			type: "number",
+			minimum: -1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -87,13 +97,11 @@ const ssmExtensionMiddleware = (opts = {}) => {
 		processCache(options, fetchRequest);
 	}
 
-	const ssmExtensionMiddlewareBefore = async (request) => {
+	const ssmExtensionMiddlewareBefore = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: equivalent. assignSetToContext returns either undefined (sync path) or a Promise; `await undefined` is a no-op, so guarding with `if (pending)` vs always awaiting is observationally identical.
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
 	};
 

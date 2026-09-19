@@ -1,6 +1,5 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { isExecutionModeDurable } from "@middy/util";
 
 const name = "event-batch-response";
 const pkg = `@middy/${name}`;
@@ -79,9 +78,15 @@ const buildS3BatchResponse = ({ records, source, settled, request }) => {
 const encodeFirehoseData = (value, fallback) => {
 	if (value === undefined || value === null) return fallback;
 	if (typeof value === "string") return Buffer.from(value).toString("base64");
-	// Stryker disable next-line ConditionalExpression: a Buffer is a Uint8Array, so the next branch produces identical base64; forcing this false changes nothing observable.
-	if (Buffer.isBuffer(value)) return value.toString("base64");
-	if (value instanceof Uint8Array) return Buffer.from(value).toString("base64");
+	// A Buffer is a Uint8Array; viewing either over its own memory encodes the
+	// same bytes without a copy.
+	if (value instanceof Uint8Array) {
+		return Buffer.from(
+			value.buffer,
+			value.byteOffset,
+			value.byteLength,
+		).toString("base64");
+	}
 	return Buffer.from(JSON.stringify(value)).toString("base64");
 };
 
@@ -119,17 +124,12 @@ const buildFirehoseResponse = ({ records, source, settled }) => {
 
 const asArray = (value) => (Array.isArray(value) ? value : []);
 const sqsLikeRecords = (event) => asArray(event.Records);
-const kafkaRecords = (event) => {
-	const records = event.records;
-	// Stryker disable next-line LogicalOperator,ConditionalExpression: for any truthy non-object primitive, Object.values() yields no array entries, so the loop also produces []; the guard is an optimization with no observable difference.
-	if (!records || typeof records !== "object") return [];
-	const out = [];
-	for (const messages of Object.values(records)) {
-		if (!Array.isArray(messages)) continue;
-		for (const message of messages) out.push(message);
-	}
-	return out;
-};
+// A topic-partition group that isn't an array (a malformed event) has no
+// messages; Object.values of a primitive `records` yields none either.
+const kafkaRecords = (event) =>
+	Object.values(event.records ?? {})
+		.filter(Array.isArray)
+		.flat();
 
 const sources = Object.assign(Object.create(null), {
 	"aws:sqs": {
@@ -165,8 +165,7 @@ const sources = Object.assign(Object.create(null), {
 sources.SelfManagedKafka = sources["aws:kafka"];
 
 const detectEventSource = (event) => {
-	// Stryker disable next-line ConditionalExpression: for any truthy non-object primitive, every subsequent property read is undefined and the function still returns undefined; the typeof guard is purely defensive with no observable difference.
-	if (!event || typeof event !== "object") return undefined;
+	if (!event) return undefined;
 	if (event.eventSource) return event.eventSource;
 	// Firehose transform: identified by deliveryStreamArn.
 	if (event.deliveryStreamArn) return "aws:lambda:events";
@@ -214,18 +213,18 @@ const eventBatchResponseMiddleware = () => {
 		});
 	};
 
-	const eventBatchResponseMiddlewareOnError = (request) => {
-		// TODO remove in v8: core already skips the onError stack in durable mode.
-		if (isExecutionModeDurable(request.context)) throw request.error;
+	const eventBatchResponseMiddlewareOnError = async (request) => {
 		if (typeof request.response !== "undefined") return;
 		const cached = request.internal[pkg];
 		if (!cached) return;
 
-		request.response = Array.from({ length: cached.records.length }, () => ({
-			// Stryker disable next-line StringLiteral: synthesized status is only ever compared against "fulfilled"; any non-"fulfilled" value routes the entry to the failure branch identically, so the literal is unobservable.
-			status: "rejected",
-			reason: request.error,
-		}));
+		// Every record settles as rejected with the handler's error, in the
+		// shape the after hook expects from Promise.allSettled.
+		request.response = await Promise.allSettled(
+			Array.from({ length: cached.records.length }, () =>
+				Promise.reject(request.error),
+			),
+		);
 
 		eventBatchResponseMiddlewareAfter(request);
 	};

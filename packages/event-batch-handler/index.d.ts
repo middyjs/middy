@@ -7,7 +7,7 @@ import type { Context } from "aws-lambda";
  *
  * `context` defaults to the standard Lambda `Context`. Under Durable
  * Functions, the wrapper passes the per-step child context provided by
- * `@aws/durable-execution-sdk-js`'s `withDurableExecution` — narrow the
+ * `@aws/durable-execution-sdk-js`'s `withDurableExecution`, narrow the
  * `TContext` generic to that SDK's `DurableContext` to type-check
  * nested `ctx.step(...)` calls.
  */

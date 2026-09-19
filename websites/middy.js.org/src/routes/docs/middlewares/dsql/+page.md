@@ -25,18 +25,19 @@ npm install --save @middy/dsql @middy/dsql-signer postgres
 
 - `client` (function) (required): Adapter function `(config) => client | Promise<client>`. Use one of the bundled adapters: `@middy/dsql/clientPg`, `@middy/dsql/clientPgPool`, or `@middy/dsql/clientPostgres`.
 - `config` (object) (required): Connection config. Must include `host`. Standard fields: `username`, `database`, `port`. Anything extra is forwarded to the underlying driver. `ssl` defaults to `true` and can be overridden.
-- `contextKey` (string) (default `dsql`): Key on `request.context` where the client is attached.
-- `internalKey` (string) (optional): Key in `request.internal` holding the auth token from `@middy/dsql-signer`. When set, the token is merged as `password` into the connection config. Prefetch is disabled when this is set.
+- `contextKey` (string) (default `dsql`): Key under `context.middyContext` where the client is published.
+- `internalKey` (string) (optional): Key in `request.internal` holding the auth token from `@middy/dsql-signer`. When set, the token is merged as `password` into the connection config. Prefetch is disabled when this is set. With a positive `cacheExpiry` the connection is not refreshed in the background, since that could only replay the token of the invocation that opened it; the entry expires and the next invocation reconnects with its own token.
 - `disablePrefetch` (boolean) (default `false`): On cold start, requests will trigger early if they can. Ignored when `internalKey` is set.
 - `cacheKey` (string) (default `@middy/dsql`): Cache key for the instantiated client. Must be unique across middleware.
-- `cacheKeyExpiry` (object) (default `{}`): Per-key cache expiry overrides.
-- `cacheExpiry` (number) (default `-1`): How long the client should be cached for. `-1`: cache forever (recommended for connection pooling), `0`: never cache (calls `client.end()` on `after` / `onError`), `n`: cache for n ms.
+- `cacheKeyExpiry` (object) (default `{}`): Per-`cacheKey` expiry override, `{ [cacheKey]: cacheExpiry }`. The override replaces `cacheExpiry` entirely, including whether the connection is closed after each invocation.
+- `cacheExpiry` (number) (default `-1`): How long the client should be cached for. `-1`: cache forever (recommended for connection pooling), `0`: never cache (calls `client.end()` on `after` / `onError`), `n`: cache for n ms. A connection replaced by a refresh, or flagged broken by the adapter, is closed once the invocations using it finish; newer connections stay open.
 
 NOTES:
 
 - Lambda is required to have IAM permission for `dsql:DbConnect` (or `dsql:DbConnectAdmin` if `username` is `admin`) on the cluster ARN.
 - DSQL clusters listen on port `5432` and require TLS. `ssl: true` is applied by default.
 - Token TTL and caching should be configured on `@middy/dsql-signer` (default DSQL token TTL is 900 s).
+- Under `@middy/core/executionModeDurableContext` a handler that throws does not run `onError`, so the connection that invocation held is released at the next durable invocation on the same execution environment instead (and, with `cacheExpiry: 0`, closed then).
 
 ## Sample usage
 
@@ -49,7 +50,7 @@ import dsql from '@middy/dsql'
 import clientPgPool from '@middy/dsql/clientPgPool'
 
 const lambdaHandler = async (event, context) => {
-  const { rows } = await context.dsql.query('SELECT now()')
+  const { rows } = await context.middyContext.dsql.query('SELECT now()')
   return { statusCode: 200, body: JSON.stringify(rows) }
 }
 
@@ -105,7 +106,7 @@ export const handler = middy()
     }),
   )
   .handler(async (event, context) => {
-    const { rows } = await context.dsql.query('SELECT now()')
+    const { rows } = await context.middyContext.dsql.query('SELECT now()')
     return rows
   })
 ```
@@ -135,7 +136,7 @@ export const handler = middy()
     }),
   )
   .handler(async (event, context) => {
-    return context.dsql`SELECT now()`
+    return context.middyContext.dsql`SELECT now()`
   })
 ```
 

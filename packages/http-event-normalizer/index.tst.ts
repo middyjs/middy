@@ -1,5 +1,8 @@
 import type middy from "@middy/core";
 import type {
+	ALBEvent,
+	ALBEventMultiValueQueryStringParameters,
+	ALBEventQueryStringParameters,
 	APIGatewayEvent,
 	APIGatewayProxyEventMultiValueQueryStringParameters,
 	APIGatewayProxyEventPathParameters,
@@ -21,7 +24,13 @@ test("use with default options", () => {
 			| (APIGatewayProxyEventV2 & {
 					pathParameters: Record<string, string>;
 					queryStringParameters: Record<string, string>;
-			  }),
+			  })
+			| (ALBEvent & {
+					multiValueQueryStringParameters: ALBEventMultiValueQueryStringParameters;
+					pathParameters: APIGatewayProxyEventPathParameters;
+					queryStringParameters: ALBEventQueryStringParameters;
+			  })
+			| VPCLatticeEvent,
 			unknown,
 			Error
 		>
@@ -54,6 +63,28 @@ test("use with V2 event type", () => {
 			unknown,
 			Error
 		>
+	>();
+});
+
+test("use with ALB event type", () => {
+	const middleware = httpEventNormalizer<ALBEvent>();
+	expect(middleware).type.toBe<
+		middy.MiddlewareObj<
+			ALBEvent & {
+				multiValueQueryStringParameters: ALBEventMultiValueQueryStringParameters;
+				pathParameters: APIGatewayProxyEventPathParameters;
+				queryStringParameters: ALBEventQueryStringParameters;
+			},
+			unknown,
+			Error
+		>
+	>();
+});
+
+test("use with VPC Lattice event type", () => {
+	const middleware = httpEventNormalizer<VPCLatticeEvent>();
+	expect(middleware).type.toBe<
+		middy.MiddlewareObj<VPCLatticeEvent, unknown, Error>
 	>();
 });
 

@@ -26,9 +26,11 @@ npm install --save-dev @aws-sdk/client-kms
 - `fetchData` (object) (required): Mapping of internal key name to KMS `KeyId` (key ID, key ARN, alias name, or alias ARN, e.g. `alias/jwt-signing-key`).
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `cacheKey` (string) (default `@middy/kms`): Cache key for the fetched data responses. Must be unique across all middleware.
-- `cacheKeyExpiry` (object) (default `{}`): Per-key cache expiry overrides.
+- `cacheKeyExpiry` (object) (default `{}`): Per-`cacheKey` expiry override, `{ [cacheKey]: cacheExpiry }`; a unix timestamp in ms above 86400000 is treated as an absolute expiry.
+- `cacheMaxSize` (number) (default `128`): Maximum number of entries kept in the shared middleware cache; the oldest expiring entry is evicted when exceeded.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms. KMS public keys do not rotate without an explicit `CreateKey`, so the default of "cache forever" is appropriate for most deployments.
-- `setToContext` (boolean) (default `false`): Also store fetched keys on `request.context`.
+- `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext.kms`.
+- `contextKey` (string) (default `kms`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.
 
 NOTES:
 
@@ -46,7 +48,9 @@ import httpJwt from '@middy/http-jwt'
 import httpErrorHandler from '@middy/http-error-handler'
 
 const lambdaHandler = (event, context) => {
-  return { statusCode: 200, body: JSON.stringify({ sub: context.jwt.sub }) }
+  // `jwt` is @middy/http-jwt's payloadKey under context.middyContext
+  const { sub } = context.middyContext.jwt
+  return { statusCode: 200, body: JSON.stringify({ sub }) }
 }
 
 export const handler = middy()

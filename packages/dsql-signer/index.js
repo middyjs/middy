@@ -5,14 +5,26 @@ import {
 	assignSetToContext,
 	buildSetToContextSpec,
 	canPrefetch,
-	getCache,
-	modifyCache,
+	evictCacheOnFailure,
 	processCache,
+	setCacheKeyExpiry,
 	validateOptions,
 } from "@middy/util";
 
 const name = "dsql-signer";
 const pkg = `@middy/${name}`;
+
+// A DSQL authentication token "automatically expires in 15 minutes by
+// default" (the maximum is 604,800 seconds); the SDK signer implements that
+// as `expiresIn: 900`, the number of seconds the token is valid, unless the
+// signer options override it. The token is cached for its validity minus a
+// one minute margin so a warm container never presents an expired token. With
+// an `expiresIn` of 60 s or less the margin leaves no lifetime, so the token
+// is not cached and every invocation signs a fresh one.
+// https://docs.aws.amazon.com/aurora-dsql/latest/userguide/SECTION_authentication-token.html
+const defaultExpiresIn = 900;
+const expiryMarginMs = 60 * 1000;
+const tokenLifetimeMs = (expiresIn) => expiresIn * 1000 - expiryMarginMs;
 
 const defaults = {
 	AwsClient: DsqlSigner,
@@ -23,6 +35,7 @@ const defaults = {
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -50,10 +63,19 @@ const optionSchema = {
 		cacheKey: { type: "string" },
 		cacheKeyExpiry: {
 			type: "object",
-			additionalProperties: { type: "number", minimum: -1 },
+			additionalProperties: {
+				type: "number",
+				minimum: -1,
+				maximum: Number.MAX_SAFE_INTEGER,
+			},
 		},
-		cacheExpiry: { type: "number", minimum: -1 },
+		cacheExpiry: {
+			type: "number",
+			minimum: -1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -62,7 +84,11 @@ export const dsqlSignerValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
 const dsqlSignerMiddleware = (opts = {}) => {
-	const options = { ...defaults, ...opts };
+	const options = {
+		...defaults,
+		...opts,
+		cacheKeyExpiry: { ...defaults.cacheKeyExpiry, ...opts.cacheKeyExpiry },
+	};
 
 	const defaultFetchData = {
 		hostname: process.env.PGHOST ?? process.env.DBHOST,
@@ -87,10 +113,11 @@ const dsqlSignerMiddleware = (opts = {}) => {
 			if (cachedValues[internalKey]) continue;
 
 			const { username, ...signerConfig } = options.fetchData[internalKey];
-			clients[internalKey] ??= new options.AwsClient({
-				...options.awsClientOptions,
-				...signerConfig,
-			});
+			const signerOptions = { ...options.awsClientOptions, ...signerConfig };
+			clients[internalKey] ??= new options.AwsClient(signerOptions);
+			const lifetimeMs = tokenLifetimeMs(
+				signerOptions.expiresIn ?? defaultExpiresIn,
+			);
 			const method =
 				username === "admin"
 					? "getDbConnectAdminAuthToken"
@@ -103,17 +130,15 @@ const dsqlSignerMiddleware = (opts = {}) => {
 					// A missing token usually indicates a credential or signing problem.
 					if (!token.includes("X-Amz-Security-Token=")) {
 						throw new Error("X-Amz-Security-Token Missing", {
-							cause: { package: pkg, method },
+							cause: { package: pkg, data: { method } },
 						});
 					}
+					// A lifetime of zero or less records an expiry that has already
+					// passed, which processCache treats as expired on the next read.
+					setCacheKeyExpiry(options, Date.now() + lifetimeMs);
 					return token;
 				})
-				.catch((e) => {
-					const value = getCache(options.cacheKey).value ?? {};
-					value[internalKey] = undefined;
-					modifyCache(options.cacheKey, value);
-					throw e;
-				});
+				.catch(evictCacheOnFailure(options.cacheKey, internalKey, values));
 		}
 
 		return values;
@@ -123,15 +148,13 @@ const dsqlSignerMiddleware = (opts = {}) => {
 		processCache(options, fetchRequest);
 	}
 
-	const dsqlSignerMiddlewareBefore = async (request) => {
+	const dsqlSignerMiddlewareBefore = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
 
 		Object.assign(request.internal, value);
 
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: assignSetToContext returns either a Promise (truthy) or undefined; `await undefined` on the sync path is a no-op, so forcing the branch to true is behaviourally equivalent.
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
 	};
 

@@ -12,7 +12,8 @@ Middy is built to help with all AWS Events that can connect with AWS Lambda.
 import middy from '@middy/core'
 import cloudWatchMetricsMiddleware from '@middy/cloudwatch-metrics'
 import errorLoggerMiddleware from '@middy/error-logger'
-import inputOutputLoggerMiddleware from '@middy/input-output-logger'
+import eventLoggerMiddleware from '@middy/event-logger'
+import responseLoggerMiddleware from '@middy/response-logger'
 import validatorMiddleware from 'validator'
 import warmupMiddleware from 'warmup'
 
@@ -22,7 +23,8 @@ import responseSchema from './responseSchema.json' with { type: 'json' }
 const handler = middy()
   .use(warmupMiddleware())
   .use(cloudWatchMetricsMiddleware())
-  .use(inputOutputLoggerMiddleware())
+  .use(eventLoggerMiddleware())
+  .use(responseLoggerMiddleware())
   .use(errorLoggerMiddleware())
   .use(validatorMiddleware({ eventSchema, responseSchema }))
   .handler(async (event, context, { signal }) => {
@@ -77,10 +79,10 @@ export const handler = middy()
     })
   )
   .before(async (request) => {
-    request.context.secrets = await getInternal(true, request)
+    request.context.middyContext.secrets = await getInternal(true, request)
   })
   .handler(async (event, context, { signal }) => {
-    // context.secrets = { rdsSigner, secretsManager, ssm, sts }
+    // context.middyContext.secrets = { rdsSigner, secretsManager, ssm, sts }
   })
 ```
 
@@ -135,9 +137,9 @@ export const handler = middy()
     })
   )
   .before(async (request) => {
-    request.context.configs = await getInternal(true, request)
+    request.context.middyContext.configs = await getInternal(true, request)
   })
   .handler(async (event, context, { signal }) => {
-    // context.configs = { appConfig, dynamodb, s3, ssm }
+    // context.middyContext.configs = { appConfig, dynamodb, s3, ssm }
   })
 ```

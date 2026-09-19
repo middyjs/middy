@@ -1,6 +1,9 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import { randomUUID } from "node:crypto";
 import { jsonSafeParse, validateOptions } from "@middy/util";
+
+const noop = () => {};
 
 const name = "ecs-task";
 const pkg = `@middy/${name}`;
@@ -113,7 +116,6 @@ export const buildTaskContext = ({
 }) => ({
 	awsRequestId,
 	invokedFunctionArn,
-	callbackWaitsForEmptyEventLoop: false,
 	getRemainingTimeInMillis: () =>
 		Math.max(0, timeout - (Date.now() - startTime)),
 	...ecs,
@@ -123,7 +125,9 @@ export const ecsTaskRunner = async (opts, deps = {}) => {
 	const options = { ...defaults, ...opts };
 	ecsTaskValidateOptions(options);
 
-	const exitImpl = deps.exit ?? process.exit;
+	// Destructured default rather than `??`: a mutated `deps.exit && process.exit`
+	// would hand the real process.exit to the test suite and terminate it.
+	const { exit: exitImpl = process.exit } = deps;
 	const procImpl = deps.process ?? process;
 	const argv = deps.argv ?? process.argv;
 	const env = deps.env ?? process.env;
@@ -143,10 +147,12 @@ export const ecsTaskRunner = async (opts, deps = {}) => {
 
 	const event = resolveTaskEvent(options, argv, env);
 	const startTime = Date.now();
+	// Falls back to a random UUID so logs and traces always carry a request id,
+	// as documented for the runner.
 	const awsRequestId =
 		taskIdFromArn(ecs.taskArn) ??
 		options.contextOverride?.awsRequestId?.(event) ??
-		"";
+		randomUUID();
 	const invokedFunctionArn = ecs.taskArn;
 	const context = buildTaskContext({
 		timeout: options.timeout,
@@ -174,13 +180,11 @@ export const ecsTaskRunner = async (opts, deps = {}) => {
 		procImpl.removeListener?.("SIGTERM", onSigterm);
 		return exitImpl(0);
 	} catch (err) {
-		if (typeof options.onFailure === "function") {
-			try {
-				await options.onFailure(err, context);
-			} catch {
-				// onFailure errors are swallowed: the original handler error is what
-				// matters for the task exit code.
-			}
+		try {
+			await (options.onFailure ?? noop)(err, context);
+		} catch {
+			// onFailure errors are swallowed: the original handler error is what
+			// matters for the task exit code.
 		}
 		if (forcedExit) clearTimeoutImpl(forcedExit);
 		procImpl.removeListener?.("SIGTERM", onSigterm);

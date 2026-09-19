@@ -25,7 +25,7 @@
     <img alt="code coverage" src="https://img.shields.io/badge/code%20coverage-95%25-brightgreen"></a>
     <br/>
   </p>
-<p>You can read the documentation at: <a href="https://middy.js.org/docs/servers/ecs-http">https://middy.js.org/docs/servers/ecs-http</a></p>
+<p>You can read the documentation at: <a href="https://middy.js.org/docs/runners/ecs-http">https://middy.js.org/docs/runners/ecs-http</a></p>
 </div>
 
 ## Install
@@ -37,7 +37,7 @@ npm install --save @middy/ecs-http
 
 ## Documentation and examples
 
-For documentation and examples, refer to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org/docs/servers/ecs-http).
+For documentation and examples, refer to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org/docs/runners/ecs-http).
 
 
 ## Contributing

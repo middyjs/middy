@@ -1,5 +1,5 @@
-import { ok, strictEqual } from "node:assert/strict";
-import { test } from "node:test";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { describe, test } from "node:test";
 import middy from "../core/index.js";
 import cloudformationRouter, {
 	cloudformationRouterValidateOptions,
@@ -10,363 +10,380 @@ const defaultContext = {
 };
 
 // Types of routes
-test("It should route to a static route", async (t) => {
-	const event = {
-		RequestType: "Create",
-	};
-	const handler = cloudformationRouter([
-		{
-			requestType: "Create",
-			handler: () => true,
-		},
-	]);
-	const response = await handler(event, defaultContext);
-	ok(response);
-});
-
-test("It should throw FAILURE when route not found", async (t) => {
-	const event = {
-		RequestType: "Update",
-	};
-	const handler = cloudformationRouter([
-		{
-			requestType: "Create",
-			handler: () => true,
-		},
-	]);
-	try {
-		await handler(event, defaultContext);
-	} catch (e) {
-		strictEqual(e.message, "Route does not exist");
-	}
-});
-
-test("It should throw FAILURE when route not found, using notFoundResponse", async (t) => {
-	const event = {
-		RequestType: "Update",
-	};
-	const handler = cloudformationRouter({
-		routes: [
+describe("@middy/cloudformation-router", () => {
+	test("It should route to a static route", async (t) => {
+		const event = {
+			RequestType: "Create",
+		};
+		const handler = cloudformationRouter([
 			{
 				requestType: "Create",
 				handler: () => true,
 			},
-		],
-		notFoundResponse: (args) => {
-			return {
-				Status: "SUCCESS",
-			};
-		},
+		]);
+		const response = await handler(event, defaultContext);
+		ok(response);
 	});
-	const res = await handler(event, defaultContext);
 
-	strictEqual(res.Status, "SUCCESS");
-});
-
-// with middleware
-test("It should run middleware that are part of route handler", async (t) => {
-	const event = {
-		RequestType: "Create",
-	};
-	const handler = cloudformationRouter([
-		{
-			requestType: "Create",
-			handler: middy(() => false).after((request) => {
-				request.response = true;
-			}),
-		},
-	]);
-	const response = await handler(event, defaultContext);
-	ok(response);
-});
-
-test("It should middleware part of router", async (t) => {
-	const event = {
-		RequestType: "Create",
-	};
-	const handler = middy(
-		cloudformationRouter([
+	test("It should throw FAILURE when route not found", async (t) => {
+		const event = {
+			RequestType: "Update",
+		};
+		const handler = cloudformationRouter([
 			{
 				requestType: "Create",
-				handler: () => false,
+				handler: () => true,
 			},
-		]),
-	).after((request) => {
-		request.response = true;
+		]);
+		try {
+			await handler(event, defaultContext);
+		} catch (e) {
+			strictEqual(e.message, "Route does not exist");
+		}
 	});
-	const response = await handler(event, defaultContext);
-	ok(response);
-});
 
-// Errors
+	test("It should throw FAILURE when route not found, using notFoundResponse", async (t) => {
+		const event = {
+			RequestType: "Update",
+		};
+		const handler = cloudformationRouter({
+			routes: [
+				{
+					requestType: "Create",
+					handler: () => true,
+				},
+			],
+			notFoundResponse: (args) => {
+				return {
+					Status: "SUCCESS",
+				};
+			},
+		});
+		const res = await handler(event, defaultContext);
 
-test("It should throw when not a cloudformation event", async (t) => {
-	const event = {
-		path: "/",
-	};
-	const handler = cloudformationRouter([
-		{
-			requestType: "Create",
-			handler: () => true,
-		},
-	]);
-	try {
-		await handler(event, defaultContext);
-	} catch (e) {
+		strictEqual(res.Status, "SUCCESS");
+	});
+
+	// with middleware
+	test("It should run middleware that are part of route handler", async (t) => {
+		const event = {
+			RequestType: "Create",
+		};
+		const handler = cloudformationRouter([
+			{
+				requestType: "Create",
+				handler: middy(() => false).after((request) => {
+					request.response = true;
+				}),
+			},
+		]);
+		const response = await handler(event, defaultContext);
+		ok(response);
+	});
+
+	test("It should middleware part of router", async (t) => {
+		const event = {
+			RequestType: "Create",
+		};
+		const handler = middy(
+			cloudformationRouter([
+				{
+					requestType: "Create",
+					handler: () => false,
+				},
+			]),
+		).after((request) => {
+			request.response = true;
+		});
+		const response = await handler(event, defaultContext);
+		ok(response);
+	});
+
+	// Errors
+
+	test("It should throw when not a cloudformation event", async (t) => {
+		const event = {
+			path: "/",
+		};
+		const handler = cloudformationRouter([
+			{
+				requestType: "Create",
+				handler: () => true,
+			},
+		]);
+		try {
+			await handler(event, defaultContext);
+		} catch (e) {
+			strictEqual(
+				e.message,
+				"Unknown CloudFormation Custom Resource event format: 'RequestType' must be one of Create, Update, Delete. Received: undefined",
+			);
+		}
+	});
+
+	// Optimization regression guards: lock semantics of valid-event-format check
+	// and dispatch-map lookup so Set/single-read swaps can't change behavior.
+	test("It should route to each of Create / Update / Delete when all registered", async (t) => {
+		const handler = cloudformationRouter([
+			{ requestType: "Create", handler: () => "c" },
+			{ requestType: "Update", handler: () => "u" },
+			{ requestType: "Delete", handler: () => "d" },
+		]);
+		strictEqual(await handler({ RequestType: "Create" }, defaultContext), "c");
+		strictEqual(await handler({ RequestType: "Update" }, defaultContext), "u");
+		strictEqual(await handler({ RequestType: "Delete" }, defaultContext), "d");
+	});
+
+	test("It should reject prototype-pollution attempts in RequestType", async (t) => {
+		const handler = cloudformationRouter([
+			{ requestType: "Create", handler: () => true },
+		]);
+		for (const malicious of [
+			"__proto__",
+			"constructor",
+			"toString",
+			"hasOwnProperty",
+		]) {
+			try {
+				await handler({ RequestType: malicious }, defaultContext);
+				ok(false, `expected throw for ${malicious}`);
+			} catch (e) {
+				ok(
+					e.message.startsWith(
+						"Unknown CloudFormation Custom Resource event format",
+					),
+					`got: ${e.message}`,
+				);
+			}
+		}
+	});
+
+	test("It should reject case-variant RequestType (enum is case-sensitive)", async (t) => {
+		const handler = cloudformationRouter([
+			{ requestType: "Create", handler: () => true },
+		]);
+		for (const bad of ["create", "CREATE", "Created", "Pdate"]) {
+			try {
+				await handler({ RequestType: bad }, defaultContext);
+				ok(false, `expected throw for ${bad}`);
+			} catch (e) {
+				ok(
+					e.message.includes("'RequestType' must be one of"),
+					`got: ${e.message}`,
+				);
+			}
+		}
+	});
+
+	test("It should call notFoundResponse only when valid RequestType has no route", async (t) => {
+		let calls = 0;
+		const handler = cloudformationRouter({
+			routes: [{ requestType: "Create", handler: () => "registered" }],
+			notFoundResponse: ({ requestType }) => {
+				calls += 1;
+				return `nf:${requestType}`;
+			},
+		});
 		strictEqual(
-			e.message,
+			await handler({ RequestType: "Create" }, defaultContext),
+			"registered",
+		);
+		strictEqual(calls, 0);
+		strictEqual(
+			await handler({ RequestType: "Update" }, defaultContext),
+			"nf:Update",
+		);
+		strictEqual(calls, 1);
+		strictEqual(
+			await handler({ RequestType: "Delete" }, defaultContext),
+			"nf:Delete",
+		);
+		strictEqual(calls, 2);
+	});
+
+	// Default notFoundResponse behavior (no routes / no notFoundResponse configured)
+	test("Default notFoundResponse throws with cause when no route configured", async (t) => {
+		const handler = cloudformationRouter();
+		let thrown;
+		try {
+			await handler({ RequestType: "Create" }, defaultContext);
+			ok(false, "expected default notFoundResponse to throw");
+		} catch (e) {
+			thrown = e;
+		}
+		strictEqual(thrown.message, "Route does not exist");
+		ok(thrown.cause, "expected cause to exist");
+		strictEqual(thrown.cause.package, "@middy/cloudformation-router");
+		ok(thrown.cause.data, "expected cause.data to exist");
+		strictEqual(thrown.cause.data.requestType, "Create");
+	});
+
+	test("Default notFoundResponse fires when constructed with no routes (defaults applied)", async (t) => {
+		const handler = cloudformationRouter();
+		let thrown;
+		try {
+			await handler({ RequestType: "Delete" }, defaultContext);
+			ok(false, "expected throw with empty default routes");
+		} catch (e) {
+			thrown = e;
+		}
+		strictEqual(thrown.message, "Route does not exist");
+		strictEqual(thrown.cause.data.requestType, "Delete");
+	});
+
+	// Invalid RequestType runtime error cause + exact message
+	test("Invalid RequestType throws Error with full message and cause", async (t) => {
+		const handler = cloudformationRouter([
+			{ requestType: "Create", handler: () => true },
+		]);
+		let thrown;
+		try {
+			await handler({ RequestType: "Patch" }, defaultContext);
+			ok(false, "expected throw for invalid RequestType");
+		} catch (e) {
+			thrown = e;
+		}
+		strictEqual(
+			thrown.message,
+			"Unknown CloudFormation Custom Resource event format: 'RequestType' must be one of Create, Update, Delete. Received: Patch",
+		);
+		ok(thrown.cause, "expected cause to exist");
+		strictEqual(thrown.cause.package, "@middy/cloudformation-router");
+		ok(thrown.cause.data, "expected cause.data to exist");
+		strictEqual(thrown.cause.data.requestType, "Patch");
+	});
+
+	test("Missing RequestType throws Error with 'Received: undefined' message and cause", async (t) => {
+		const handler = cloudformationRouter([
+			{ requestType: "Create", handler: () => true },
+		]);
+		let thrown;
+		try {
+			await handler({}, defaultContext);
+			ok(false, "expected throw for missing RequestType");
+		} catch (e) {
+			thrown = e;
+		}
+		strictEqual(
+			thrown.message,
 			"Unknown CloudFormation Custom Resource event format: 'RequestType' must be one of Create, Update, Delete. Received: undefined",
 		);
-	}
-});
-
-// Optimization regression guards: lock semantics of valid-event-format check
-// and dispatch-map lookup so Set/single-read swaps can't change behavior.
-test("It should route to each of Create / Update / Delete when all registered", async (t) => {
-	const handler = cloudformationRouter([
-		{ requestType: "Create", handler: () => "c" },
-		{ requestType: "Update", handler: () => "u" },
-		{ requestType: "Delete", handler: () => "d" },
-	]);
-	strictEqual(await handler({ RequestType: "Create" }, defaultContext), "c");
-	strictEqual(await handler({ RequestType: "Update" }, defaultContext), "u");
-	strictEqual(await handler({ RequestType: "Delete" }, defaultContext), "d");
-});
-
-test("It should reject prototype-pollution attempts in RequestType", async (t) => {
-	const handler = cloudformationRouter([
-		{ requestType: "Create", handler: () => true },
-	]);
-	for (const malicious of [
-		"__proto__",
-		"constructor",
-		"toString",
-		"hasOwnProperty",
-	]) {
-		try {
-			await handler({ RequestType: malicious }, defaultContext);
-			ok(false, `expected throw for ${malicious}`);
-		} catch (e) {
-			ok(
-				e.message.startsWith(
-					"Unknown CloudFormation Custom Resource event format",
-				),
-				`got: ${e.message}`,
-			);
-		}
-	}
-});
-
-test("It should reject case-variant RequestType (enum is case-sensitive)", async (t) => {
-	const handler = cloudformationRouter([
-		{ requestType: "Create", handler: () => true },
-	]);
-	for (const bad of ["create", "CREATE", "Created", "Pdate"]) {
-		try {
-			await handler({ RequestType: bad }, defaultContext);
-			ok(false, `expected throw for ${bad}`);
-		} catch (e) {
-			ok(
-				e.message.includes("'RequestType' must be one of"),
-				`got: ${e.message}`,
-			);
-		}
-	}
-});
-
-test("It should call notFoundResponse only when valid RequestType has no route", async (t) => {
-	let calls = 0;
-	const handler = cloudformationRouter({
-		routes: [{ requestType: "Create", handler: () => "registered" }],
-		notFoundResponse: ({ requestType }) => {
-			calls += 1;
-			return `nf:${requestType}`;
-		},
+		ok(thrown.cause, "expected cause to exist");
+		strictEqual(thrown.cause.package, "@middy/cloudformation-router");
+		strictEqual(thrown.cause.data.requestType, undefined);
 	});
-	strictEqual(
-		await handler({ RequestType: "Create" }, defaultContext),
-		"registered",
-	);
-	strictEqual(calls, 0);
-	strictEqual(
-		await handler({ RequestType: "Update" }, defaultContext),
-		"nf:Update",
-	);
-	strictEqual(calls, 1);
-	strictEqual(
-		await handler({ RequestType: "Delete" }, defaultContext),
-		"nf:Delete",
-	);
-	strictEqual(calls, 2);
-});
 
-// Default notFoundResponse behavior (no routes / no notFoundResponse configured)
-test("Default notFoundResponse throws with cause when no route configured", async (t) => {
-	const handler = cloudformationRouter();
-	let thrown;
-	try {
-		await handler({ RequestType: "Create" }, defaultContext);
-		ok(false, "expected default notFoundResponse to throw");
-	} catch (e) {
-		thrown = e;
-	}
-	strictEqual(thrown.message, "Route does not exist");
-	ok(thrown.cause, "expected cause to exist");
-	strictEqual(thrown.cause.package, "@middy/cloudformation-router");
-	ok(thrown.cause.data, "expected cause.data to exist");
-	strictEqual(thrown.cause.data.requestType, "Create");
-});
-
-test("Default notFoundResponse fires when constructed with no routes (defaults applied)", async (t) => {
-	const handler = cloudformationRouter();
-	let thrown;
-	try {
-		await handler({ RequestType: "Delete" }, defaultContext);
-		ok(false, "expected throw with empty default routes");
-	} catch (e) {
-		thrown = e;
-	}
-	strictEqual(thrown.message, "Route does not exist");
-	strictEqual(thrown.cause.data.requestType, "Delete");
-});
-
-// Invalid RequestType runtime error cause + exact message
-test("Invalid RequestType throws Error with full message and cause", async (t) => {
-	const handler = cloudformationRouter([
-		{ requestType: "Create", handler: () => true },
-	]);
-	let thrown;
-	try {
-		await handler({ RequestType: "Patch" }, defaultContext);
-		ok(false, "expected throw for invalid RequestType");
-	} catch (e) {
-		thrown = e;
-	}
-	strictEqual(
-		thrown.message,
-		"Unknown CloudFormation Custom Resource event format: 'RequestType' must be one of Create, Update, Delete. Received: Patch",
-	);
-	ok(thrown.cause, "expected cause to exist");
-	strictEqual(thrown.cause.package, "@middy/cloudformation-router");
-	ok(thrown.cause.data, "expected cause.data to exist");
-	strictEqual(thrown.cause.data.requestType, "Patch");
-});
-
-test("Missing RequestType throws Error with 'Received: undefined' message and cause", async (t) => {
-	const handler = cloudformationRouter([
-		{ requestType: "Create", handler: () => true },
-	]);
-	let thrown;
-	try {
-		await handler({}, defaultContext);
-		ok(false, "expected throw for missing RequestType");
-	} catch (e) {
-		thrown = e;
-	}
-	strictEqual(
-		thrown.message,
-		"Unknown CloudFormation Custom Resource event format: 'RequestType' must be one of Create, Update, Delete. Received: undefined",
-	);
-	ok(thrown.cause, "expected cause to exist");
-	strictEqual(thrown.cause.package, "@middy/cloudformation-router");
-	strictEqual(thrown.cause.data.requestType, undefined);
-});
-
-test("cloudformationRouterValidateOptions rejects route missing requestType", () => {
-	try {
-		cloudformationRouterValidateOptions({
-			routes: [{ handler: () => {} }],
-		});
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-		strictEqual(e.cause.package, "@middy/cloudformation-router");
-	}
-});
-
-test("cloudformationRouterValidateOptions rejects route missing handler", () => {
-	try {
-		cloudformationRouterValidateOptions({
-			routes: [{ requestType: "Create" }],
-		});
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-		strictEqual(e.cause.package, "@middy/cloudformation-router");
-	}
-});
-
-test("cloudformationRouterValidateOptions rejects unknown extra property on route", () => {
-	try {
-		cloudformationRouterValidateOptions({
-			routes: [{ requestType: "Create", handler: () => {}, extra: true }],
-		});
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-		strictEqual(e.cause.package, "@middy/cloudformation-router");
-	}
-});
-
-test("cloudformationRouterValidateOptions accepts valid options and rejects typos", () => {
-	cloudformationRouterValidateOptions({
-		routes: [],
-		notFoundResponse: () => {},
+	test("cloudformationRouterValidateOptions rejects route missing requestType", () => {
+		try {
+			cloudformationRouterValidateOptions({
+				routes: [{ handler: () => {} }],
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			strictEqual(e.cause.package, "@middy/cloudformation-router");
+		}
 	});
-	cloudformationRouterValidateOptions({});
-	try {
-		cloudformationRouterValidateOptions({ rotes: [] });
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-		strictEqual(e.cause.package, "@middy/cloudformation-router");
-	}
-});
 
-test("cloudformationRouterValidateOptions rejects wrong type", () => {
-	try {
-		cloudformationRouterValidateOptions({ routes: "not-an-array" });
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e.message.includes("routes"));
-	}
-});
+	test("cloudformationRouterValidateOptions rejects route missing handler", () => {
+		try {
+			cloudformationRouterValidateOptions({
+				routes: [{ requestType: "Create" }],
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			strictEqual(e.cause.package, "@middy/cloudformation-router");
+		}
+	});
 
-test("cloudformationRouterValidateOptions rejects invalid requestType", () => {
-	try {
-		cloudformationRouterValidateOptions({
-			routes: [{ requestType: "Patch", handler: () => {} }],
+	test("It should throw at construction for a route with an unknown requestType", async (t) => {
+		let thrown;
+		try {
+			cloudformationRouter([{ requestType: "Patch", handler: () => {} }]);
+		} catch (e) {
+			thrown = e;
+		}
+		ok(thrown, "expected an unknown requestType to throw");
+		strictEqual(thrown.message, "Invalid route");
+		deepStrictEqual(thrown.cause, {
+			package: "@middy/cloudformation-router",
+			data: { requestType: "Patch" },
 		});
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-		strictEqual(e.cause.package, "@middy/cloudformation-router");
-	}
-});
+	});
 
-test("cloudformationRouterValidateOptions rejects non-function handler", () => {
-	try {
-		cloudformationRouterValidateOptions({
-			routes: [{ requestType: "Create", handler: "not-a-fn" }],
-		});
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-	}
-});
+	test("cloudformationRouterValidateOptions rejects unknown extra property on route", () => {
+		try {
+			cloudformationRouterValidateOptions({
+				routes: [{ requestType: "Create", handler: () => {}, extra: true }],
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			strictEqual(e.cause.package, "@middy/cloudformation-router");
+		}
+	});
 
-test("cloudformationRouterValidateOptions rejects duplicate requestType", () => {
-	try {
+	test("cloudformationRouterValidateOptions accepts valid options and rejects typos", () => {
 		cloudformationRouterValidateOptions({
-			routes: [
-				{ requestType: "Create", handler: () => {} },
-				{ requestType: "Create", handler: () => {} },
-			],
+			routes: [],
+			notFoundResponse: () => {},
 		});
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-		ok(e.message.includes("routes[1]"));
-		strictEqual(e.cause.package, "@middy/cloudformation-router");
-	}
+		cloudformationRouterValidateOptions({});
+		try {
+			cloudformationRouterValidateOptions({ rotes: [] });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			strictEqual(e.cause.package, "@middy/cloudformation-router");
+		}
+	});
+
+	test("cloudformationRouterValidateOptions rejects wrong type", () => {
+		try {
+			cloudformationRouterValidateOptions({ routes: "not-an-array" });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("routes"));
+		}
+	});
+
+	test("cloudformationRouterValidateOptions rejects invalid requestType", () => {
+		try {
+			cloudformationRouterValidateOptions({
+				routes: [{ requestType: "Patch", handler: () => {} }],
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			strictEqual(e.cause.package, "@middy/cloudformation-router");
+		}
+	});
+
+	test("cloudformationRouterValidateOptions rejects non-function handler", () => {
+		try {
+			cloudformationRouterValidateOptions({
+				routes: [{ requestType: "Create", handler: "not-a-fn" }],
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+		}
+	});
+
+	test("cloudformationRouterValidateOptions rejects duplicate requestType", () => {
+		try {
+			cloudformationRouterValidateOptions({
+				routes: [
+					{ requestType: "Create", handler: () => {} },
+					{ requestType: "Create", handler: () => {} },
+				],
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("routes[1]"));
+			strictEqual(e.cause.package, "@middy/cloudformation-router");
+		}
+	});
 });

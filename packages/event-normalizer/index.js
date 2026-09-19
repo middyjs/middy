@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 import { gunzipSync } from "node:zlib";
 import {
+	HttpError,
 	jsonParseProtectProto,
 	jsonSafeParse,
 	validateOptions,
@@ -63,15 +64,13 @@ const parseEvent = (event, options) => {
 			(event.configRuleId && "aws:config") ??
 			(event.awslogs && "aws:cloudwatch") ??
 			(event["CodePipeline.job"] && "aws:codepipeline");
-		// Stryker disable next-line ConditionalExpression: equivalent. When eventSource is falsy it is undefined/empty-string, and `events` (a null-prototype object of string keys) has no such key, so `events[eventSource]?.()` no-ops whether the branch runs or not.
-		if (eventSource) {
+		// `events` is a null-prototype map, so an unknown or missing source
+		// resolves to no handler and the event is left untouched.
+		try {
 			events[eventSource]?.(event, options);
+		} catch (err) {
+			throw malformedRecord(err, eventSource);
 		}
-		return;
-	}
-
-	// Stryker disable next-line ConditionalExpression,BlockStatement: equivalent. records is guaranteed a real array here; with zero records the only code after the early return (records[0]?... resolves undefined, and the per-record loop) performs no work, so skipping the return is observationally identical.
-	if (!records.length) {
 		return;
 	}
 
@@ -86,11 +85,38 @@ const parseEvent = (event, options) => {
 	// instead of once per record.
 	const fn = events[eventSource];
 	if (fn) {
-		for (const record of records) {
-			fn(record, options);
+		try {
+			for (const record of records) {
+				fn(record, options);
+			}
+		} catch (err) {
+			throw malformedRecord(err, eventSource);
 		}
 	}
 };
+
+// A source handler reads the fields its event contract promises
+// (`record.dynamodb`, `record.s3`, `event.records`, ...). When one is missing
+// the resulting TypeError is opaque, so it is reported as a 422 naming the
+// source; so is the URIError from an S3 key that is not valid
+// percent-encoding. Everything else (the BigInt and unsupported-type errors,
+// the gunzip cap, the JSON prototype guard) is already descriptive and passes
+// through.
+const malformedRecord = (err, eventSource) => {
+	if (!(err instanceof TypeError || err instanceof URIError)) return err;
+	return new HttpError(422, {
+		cause: {
+			package: pkg,
+			data: {
+				reason: "Malformed event record",
+				eventSource,
+				message: err.message,
+			},
+		},
+	});
+};
+
+const isObject = (value) => typeof value === "object" && value !== null;
 
 const normalizeS3KeyReplacePlus = /\+/g;
 const events = Object.assign(Object.create(null), {
@@ -159,20 +185,25 @@ const events = Object.assign(Object.create(null), {
 	SelfManagedKafka: (event) => {
 		events["aws:kafka"](event);
 	},
+	// Only an object Message can carry nested records; a missing or plain-text
+	// Message has nothing further to normalize.
 	"aws:sns": (record, options) => {
 		record.Sns.Message = protectedTextParse(record.Sns.Message);
-		parseEvent(record.Sns.Message, options);
+		if (isObject(record.Sns.Message)) parseEvent(record.Sns.Message, options);
 	},
 	"aws:sns:sqs": (record, options) => {
+		// A notification without a Message has nothing nested to normalize,
+		// and must not gain an own `Message: undefined` key.
+		if (record.Message === undefined) return;
 		record.Message = protectedTextParse(record.Message);
-		parseEvent(record.Message, options);
+		if (isObject(record.Message)) parseEvent(record.Message, options);
 	},
 	"aws:sqs": (record, options) => {
 		record.body = protectedTextParse(record.body);
 		// SNS -> SQS Special Case
 		if (record.body?.Type === "Notification") {
 			events["aws:sns:sqs"](record.body, options);
-		} else if (typeof record.body === "object" && record.body !== null) {
+		} else if (isObject(record.body)) {
 			parseEvent(record.body, options);
 		}
 	},
@@ -224,7 +255,7 @@ const convertValue = {
 					{
 						cause: {
 							package: pkg,
-							value,
+							data: { value },
 						},
 					},
 				);

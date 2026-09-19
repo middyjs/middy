@@ -1,0 +1,62 @@
+{
+	"Records": [
+		{
+			"eventID": "1",
+			"eventVersion": "1.1",
+			"dynamodb": {
+				"ApproximateCreationDateTime": 1479499740,
+				"Keys": {
+					"Id": {
+						"N": "101"
+					}
+				},
+				"NewImage": {
+					"Message": {
+						"S": "New item!"
+					},
+					"Id": {
+						"N": "101"
+					}
+				},
+				"StreamViewType": "NEW_AND_OLD_IMAGES",
+				"SequenceNumber": "111",
+				"SizeBytes": 26
+			},
+			"awsRegion": "us-west-2",
+			"eventName": "INSERT",
+			"eventSourceARN": "arn:aws:dynamodb:us-east-2:123456789012:table/my-table/stream/2024-06-10T19:26:16.525",
+			"eventSource": "aws:dynamodb"
+		},
+		{
+			"eventID": "3",
+			"eventVersion": "1.1",
+			"dynamodb": {
+				"ApproximateCreationDateTime": 1479499800,
+				"OldImage": {
+					"Message": {
+						"S": "This item has changed"
+					},
+					"Id": {
+						"N": "101"
+					}
+				},
+				"SequenceNumber": "333",
+				"Keys": {
+					"Id": {
+						"N": "101"
+					}
+				},
+				"SizeBytes": 38,
+				"StreamViewType": "NEW_AND_OLD_IMAGES"
+			},
+			"awsRegion": "us-west-2",
+			"eventName": "REMOVE",
+			"eventSourceARN": "arn:aws:dynamodb:us-east-2:123456789012:table/my-table/stream/2024-06-10T19:26:16.525",
+			"eventSource": "aws:dynamodb",
+			"userIdentity": {
+				"type": "Service",
+				"principalId": "dynamodb.amazonaws.com"
+			}
+		}
+	]
+}

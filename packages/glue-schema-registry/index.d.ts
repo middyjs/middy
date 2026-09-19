@@ -6,7 +6,7 @@ import type {
 	GlueClientConfig,
 } from "@aws-sdk/client-glue";
 import type middy from "@middy/core";
-import type { Options as MiddyOptions } from "@middy/util";
+import type { ContextNamespace, Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
 export type ParamType<T> = string & { __returnType?: T };
@@ -20,23 +20,13 @@ export interface ResolvedSchema {
 	dataFormat: DataFormat;
 }
 
-export interface SchemaSlotEntry {
-	schemaDefinition: string;
-	dataFormat: DataFormat;
-}
-
-export interface SchemaSlot {
-	schemas: Map<string, SchemaSlotEntry>;
-	schema: string | undefined;
-}
-
 export type GlueSchemaFetchInput =
 	| (Pick<GetSchemaVersionCommandInput, "SchemaVersionId"> & {
 			SchemaVersionId: string;
 	  })
 	| {
 			SchemaId: NonNullable<GetSchemaVersionCommandInput["SchemaId"]>;
-			SchemaVersionNumber?: number;
+			SchemaVersionNumber?: GetSchemaVersionCommandInput["SchemaVersionNumber"];
 	  };
 
 export interface GlueSchemaRegistryOptions<AwsGlueClient = GlueClient>
@@ -50,6 +40,7 @@ export interface GlueSchemaRegistryOptions<AwsGlueClient = GlueClient>
 		| "cacheExpiry"
 		| "cacheKeyExpiry"
 		| "setToContext"
+		| "contextKey"
 	> {
 	awsClientAssumeRole?: string;
 	fetchData?: {
@@ -60,9 +51,11 @@ export interface GlueSchemaRegistryOptions<AwsGlueClient = GlueClient>
 export type Context<TOptions extends GlueSchemaRegistryOptions | undefined> =
 	TOptions extends { setToContext: true }
 		? TOptions extends { fetchData: infer TFetchData }
-			? LambdaContext & {
-					[Key in keyof TFetchData]: ResolvedSchema;
-				}
+			? ContextNamespace<
+					TOptions,
+					"glue-schema-registry",
+					{ [Key in keyof TFetchData]: ResolvedSchema }
+				>
 			: LambdaContext
 		: LambdaContext;
 
@@ -71,14 +64,17 @@ export type Internal<TOptions extends GlueSchemaRegistryOptions | undefined> =
 		? TOptions extends { fetchData: infer TFetchData }
 			? {
 					[Key in keyof TFetchData]: ResolvedSchema;
-				} & { "glue-schema-registry": SchemaSlot }
-			: { "glue-schema-registry": SchemaSlot }
-		: { "glue-schema-registry": SchemaSlot };
+				}
+			: {}
+		: {};
 
 declare function glueSchemaRegistry<
 	TOptions extends GlueSchemaRegistryOptions | undefined,
+	TKey extends string = string,
 >(
-	options?: TOptions,
+	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
+	// key narrows `middyContext` without `as const`.
+	options?: TOptions & { contextKey?: TKey },
 ): middy.MiddlewareObj<
 	unknown,
 	unknown,

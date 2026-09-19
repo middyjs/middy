@@ -10,8 +10,9 @@ import {
 	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
-	createClient,
+	createClientInit,
 	createPrefetchClient,
+	evictCacheOnFailure,
 	getCache,
 	jsonSafeParse,
 	modifyCache,
@@ -28,12 +29,13 @@ const defaults = {
 	awsClientOptions: {},
 	awsClientAssumeRole: undefined,
 	awsClientCapture: undefined,
-	fetchData: {}, // { contextKey: fetchKey, contextPrefix: fetchPath/ }
+	fetchData: {}, // { internalKey: fetchKey } | { internalKey: fetchPath/ }
 	disablePrefetch: false,
 	cacheKey: pkg,
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
+	contextKey: name,
 	awsRequestLimit: 10,
 };
 
@@ -52,10 +54,24 @@ const optionSchema = {
 		cacheKey: { type: "string" },
 		cacheKeyExpiry: {
 			type: "object",
-			additionalProperties: { type: "number", minimum: -1 },
+			additionalProperties: {
+				type: "number",
+				minimum: -1,
+				maximum: Number.MAX_SAFE_INTEGER,
+			},
 		},
-		cacheExpiry: { type: "number", minimum: -1 },
+		cacheExpiry: {
+			type: "number",
+			minimum: -1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
+		cacheMaxSize: {
+			type: "integer",
+			minimum: 1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 		awsRequestLimit: { type: "integer", minimum: 1, maximum: 10 },
 	},
 	additionalProperties: false,
@@ -93,10 +109,10 @@ const ssmMiddleware = (opts = {}) => {
 		for (const [idx, internalKey] of namedKeys.entries()) {
 			const fetchKey = options.fetchData[internalKey];
 			batchKeys.set(internalKey, fetchKey);
-			// from the first to the batch size skip, unless it's the last entry
+			// Flush once the batch holds awsRequestLimit names, or on the last name.
 			if (
-				(!idx || (idx + 1) % options.awsRequestLimit !== 0) &&
-				!(idx + 1 === namedKeys.length)
+				(idx + 1) % options.awsRequestLimit !== 0 &&
+				idx + 1 !== namedKeys.length
 			) {
 				continue;
 			}
@@ -112,10 +128,12 @@ const ssmMiddleware = (opts = {}) => {
 				.then((resp) => {
 					// Don't sanitize key, mapped to set value in options
 					const result = {};
-					// Stryker disable next-line ArrayDeclaration: a non-empty fallback injects a bogus fetchKey whose indexOf is -1, so it only writes result[bogus]=Promise.reject and value[undefined]=undefined; neither is ever read back (only requested keys are resolved), so it is indistinguishable from the empty fallback.
 					for (const fetchKey of resp.InvalidParameters ?? []) {
 						const internalKey = internalKeys[fetchKeys.indexOf(fetchKey)];
-						const value = getCache(options.cacheKey).value ?? {};
+						// Copy rather than mutate the cached object in place, so the
+						// cache is only updated through `modifyCache` and its refresh
+						// timer is rescheduled with it.
+						const value = { ...getCache(options.cacheKey).value };
 						value[internalKey] = undefined;
 						modifyCache(options.cacheKey, value);
 						result[fetchKey] = Promise.reject(
@@ -124,9 +142,12 @@ const ssmMiddleware = (opts = {}) => {
 							}),
 						);
 					}
-					// Stryker disable next-line ArrayDeclaration: a non-empty fallback injects a string element whose .Name and .Value are undefined, so parseValue yields undefined and only result["undefined"]=undefined is added, which is indistinguishable from the key being absent.
-					for (const param of resp.Parameters ?? []) {
-						result[param.Name] = parseValue(param);
+					// `Parameters` is optional in the GetParameters response.
+					// https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_GetParameters.html
+					if (resp.Parameters !== undefined) {
+						for (const param of resp.Parameters) {
+							result[param.Name] = parseValue(param);
+						}
 					}
 					return result;
 				})
@@ -164,12 +185,9 @@ const ssmMiddleware = (opts = {}) => {
 			if (cachedValues[internalKey]) continue;
 			const fetchKey = options.fetchData[internalKey];
 			if (!fetchKey.endsWith("/")) continue; // Skip not path passed in
-			values[internalKey] = fetchPathRequest(fetchKey).catch((e) => {
-				const value = getCache(options.cacheKey).value ?? {};
-				value[internalKey] = undefined;
-				modifyCache(options.cacheKey, value);
-				throw e;
-			});
+			values[internalKey] = fetchPathRequest(fetchKey).catch(
+				evictCacheOnFailure(options.cacheKey, internalKey, values),
+			);
 		}
 		return values;
 	};
@@ -203,27 +221,31 @@ const ssmMiddleware = (opts = {}) => {
 	};
 
 	let client;
-	let clientInit;
+	const clientInit = createClientInit(options);
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
 		processCache(options, fetchRequest);
 	}
 
-	const ssmMiddlewareBefore = async (request) => {
-		if (!client) {
-			clientInit ??= createClient(options, request);
-			client = await clientInit;
-		}
-
+	const ssmMiddlewareFetch = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
-
 		Object.assign(request.internal, value);
-
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: assignSetToContext returns a Promise or undefined; awaiting undefined (forced true) is a no-op with no observable difference.
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
+	};
+
+	const ssmMiddlewareBefore = (request) => {
+		// With `awsClientAssumeRole` the client is rebuilt when sts refetches the
+		// credentials, so it is resolved on every invocation (util memoises on
+		// the credential promise identity, so a hit costs one microtask).
+		if (client && !options.awsClientAssumeRole) {
+			return ssmMiddlewareFetch(request);
+		}
+		return clientInit(request).then((resolvedClient) => {
+			client = resolvedClient;
+			return ssmMiddlewareFetch(request);
+		});
 	};
 
 	return {

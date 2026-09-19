@@ -2,11 +2,15 @@
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
 
-declare function cloudformationResponse(): middy.MiddlewareObj<
-	unknown,
-	unknown,
-	Error
->;
+export interface CloudformationResponseOptions {
+	// PUT the shaped response to `event.ResponseURL`, which is what
+	// CloudFormation reads. Default `true`.
+	sendResponse?: boolean;
+}
+
+declare function cloudformationResponse(
+	options?: CloudformationResponseOptions,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export declare function cloudformationResponseValidateOptions(
 	options?: Record<string, unknown>,

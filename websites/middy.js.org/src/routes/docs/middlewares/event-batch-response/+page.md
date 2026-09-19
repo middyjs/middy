@@ -28,10 +28,10 @@ For per-record handler wrapping, see [`@middy/event-batch-handler`](/docs/handle
 | Self-managed Apache Kafka | `eventSource: "SelfManagedKafka"` | `event.records` (object keyed by `topic-partition`) | ✓ | `"<topic>-<partition>-<offset>"` |
 | S3 Batch Operations | `event.invocationSchemaVersion` + `event.tasks[]` | `event.tasks[]` | ✓ | `task.taskId` |
 | Kinesis Firehose transform | `event.deliveryStreamArn` | `event.records[]` | ✓ | `record.recordId` |
-| Amazon DocumentDB streams | `eventSource: "aws:docdb"` | `event.events[]` | ✗ (not supported by AWS — DocumentDB invokes Lambda sequentially with concurrency 1, no partial-failure contract) | — |
-| Amazon MQ (ActiveMQ / RabbitMQ) | `eventSource: "aws:amq"` / `"aws:rmq"` | varies | ✗ (not supported by AWS) | — |
+| Amazon DocumentDB streams | `eventSource: "aws:docdb"` | `event.events[]` | ✗ (not supported by AWS, DocumentDB invokes Lambda sequentially with concurrency 1, no partial-failure contract) |, |
+| Amazon MQ (ActiveMQ / RabbitMQ) | `eventSource: "aws:amq"` / `"aws:rmq"` | varies | ✗ (not supported by AWS) |, |
 
-For an unsupported or unrecognized event source the middleware no-ops — your handler's response is left untouched.
+For an unsupported or unrecognized event source the middleware no-ops, your handler's response is left untouched.
 
 ## Options
 
@@ -39,7 +39,7 @@ The middleware takes no options.
 
 ## Sample usage
 
-The recommended pattern is to pair this middleware with [`@middy/event-batch-handler`](/docs/handlers/event-batch-handler), which walks the right record container per source and produces a correctly-ordered `PromiseSettledResult[]`. One handler shape works for every source — only the per-record logic changes.
+The recommended pattern is to pair this middleware with [`@middy/event-batch-handler`](/docs/handlers/event-batch-handler), which walks the right record container per source and produces a correctly-ordered `PromiseSettledResult[]`. One handler shape works for every source, only the per-record logic changes.
 
 ### SQS / Kinesis / DynamoDB Streams / MSK / Self-managed Kafka
 
@@ -113,29 +113,29 @@ Every record at or after the checkpoint is reprocessed on the next invocation, i
 When the handler is wrapped in `withDurableExecution(...)`, this middleware defers to the durable runtime:
 
 - **Success path** is unchanged: every record fulfills, the response is `{ batchItemFailures: [] }` (or all-`Succeeded` for S3 Batch / all-`Ok` for Firehose).
-- **Failure path is intentionally a no-op.** If the handler throws (because a step exhausted its durable retry policy), the middleware does **not** synthesize a partial-failure response — the unhandled error reaches Lambda, which retries the whole batch on a fresh invocation. This avoids stacking Lambda's batch-level retry on top of durable's per-step retry.
+- **Failure path is intentionally a no-op.** If the handler throws (because a step exhausted its durable retry policy), the middleware does **not** synthesize a partial-failure response, the unhandled error reaches Lambda, which retries the whole batch on a fresh invocation. This avoids stacking Lambda's batch-level retry on top of durable's per-step retry.
 
 Detection uses [`isExecutionModeDurable`](https://github.com/middyjs/middy/blob/main/packages/util/index.js) from `@middy/util`. Pair with [`@middy/event-batch-handler`](/docs/handlers/event-batch-handler), which wraps each record in `ctx.step("record-N", ...)` automatically when running under durable.
 
 ### `BisectBatchOnFunctionError`
 
-When `BisectBatchOnFunctionError` is enabled on the event source mapping, Lambda splits a failing batch in half and retries each half independently — narrowing in on the offending record. Combine it with this middleware so that:
+When `BisectBatchOnFunctionError` is enabled on the event source mapping, Lambda splits a failing batch in half and retries each half independently, narrowing in on the offending record. Combine it with this middleware so that:
 
 - Successful halves checkpoint normally.
 - The half containing the failure is reported via `batchItemFailures`, letting Lambda checkpoint to the lowest failed sequence number rather than reprocessing the original full batch.
 
-This is the recommended setting for noisy Kinesis / DynamoDB consumers — it isolates poison records faster than retrying full batches.
+This is the recommended setting for noisy Kinesis / DynamoDB consumers, it isolates poison records faster than retrying full batches.
 
 See:
-- [Reporting batch item failures — Kinesis](https://docs.aws.amazon.com/lambda/latest/dg/services-kinesis-batchfailurereporting.html)
-- [Reporting batch item failures — DynamoDB Streams](https://docs.aws.amazon.com/lambda/latest/dg/services-ddb-batchfailurereporting.html)
+- [Reporting batch item failures, Kinesis](https://docs.aws.amazon.com/lambda/latest/dg/services-kinesis-batchfailurereporting.html)
+- [Reporting batch item failures, DynamoDB Streams](https://docs.aws.amazon.com/lambda/latest/dg/services-ddb-batchfailurereporting.html)
 
 ## Kafka: per-partition offsets
 
 Kafka event sources (MSK and self-managed) **do not** use a single checkpoint per batch. Lambda commits offsets per topic-partition, only for messages that were not reported as failed:
 
 - Within a single partition, message order is preserved as long as no failures occur.
-- If message *N* fails but *N+1* succeeds in the same partition, *N+1*'s offset still commits — which means *N* will be retried later out of order with respect to *N+1*. If your handler depends on strict per-partition ordering, treat any partial batch failure as a full-batch failure (throw from the handler) rather than reporting individual offsets.
+- If message *N* fails but *N+1* succeeds in the same partition, *N+1*'s offset still commits, which means *N* will be retried later out of order with respect to *N+1*. If your handler depends on strict per-partition ordering, treat any partial batch failure as a full-batch failure (throw from the handler) rather than reporting individual offsets.
 - `BisectBatchOnFunctionError` does **not** apply to Kafka event sources.
 - Retries follow `MaximumRetryAttempts` on the event source mapping; exhausted records go to the on-failure destination if configured.
 
@@ -147,9 +147,9 @@ See:
 
 S3 Batch Operations expects **every** input task to appear in the response with a `resultCode`. Missing taskIds are treated according to `treatMissingKeysAs` (the middleware sets `PermanentFailure`). Result codes:
 
-- `Succeeded` — task completed; `resultString` is included in the job completion report.
-- `TemporaryFailure` — task will be retried; `resultString` is ignored.
-- `PermanentFailure` — task is recorded as failed in the report.
+- `Succeeded`, task completed; `resultString` is included in the job completion report.
+- `TemporaryFailure`, task will be retried; `resultString` is ignored.
+- `PermanentFailure`, task is recorded as failed in the report.
 
 See [Invoking a Lambda function from S3 Batch Operations](https://docs.aws.amazon.com/AmazonS3/latest/userguide/batch-ops-invoke-lambda.html).
 

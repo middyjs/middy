@@ -25,8 +25,25 @@ test("use with all options", () => {
 		audience: "https://api.example.com",
 		issuer: "https://auth.example.com",
 		clockTolerance: 5,
+		requireExp: true,
+		maxTokenAge: "1h",
 		expectedClaims: { token_use: "access" },
 		payloadKey: "auth",
+	});
+	expect(middleware).type.toBe<
+		middy.MiddlewareObj<
+			APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent,
+			unknown,
+			Error
+		>
+	>();
+});
+
+test("use with maxTokenAge as seconds", () => {
+	const middleware = httpJwt({
+		internalKey: "hmacKey",
+		algorithm: "HS256",
+		maxTokenAge: 3600,
 	});
 	expect(middleware).type.toBe<
 		middy.MiddlewareObj<
@@ -69,6 +86,7 @@ test("use with issuers map (single + multi entry, array algorithms, per-issuer o
 		algorithm: "RS256",
 		cacheExpiry: 600_000,
 		cooldownDuration: 30_000,
+		jwksTimeoutMs: 5000,
 		disablePrefetch: false,
 	});
 	expect(middleware).type.toBe<
@@ -92,3 +110,8 @@ test("allow specifying the event type", () => {
 });
 
 import type { Options } from "./index.js";
+
+test("options declare maxTokenAge and requireExp", () => {
+	expect<Options["maxTokenAge"]>().type.toBe<string | number | undefined>();
+	expect<Options["requireExp"]>().type.toBe<boolean | undefined>();
+});

@@ -11,13 +11,14 @@ Each middleware should do a single task. We try to balance each to be as perform
 
 ## Observability
 
-- [`cloudwatch-metrics`](/docs/middlewares/cloudwatch-metrics): Hydrates lambda's `context.metrics` property with an instance of AWS MetricLogger
+- [`cloudwatch-metrics`](/docs/middlewares/cloudwatch-metrics): Publishes an instance of AWS MetricLogger to `context.middyContext['cloudwatch-metrics']`
 - [`error-logger`](/docs/middlewares/error-logger): Logs errors
-- [`input-output-logger`](/docs/middlewares/input-output-logger): Logs request and response
+- [`event-logger`](/docs/middlewares/event-logger): Logs the incoming event
+- [`response-logger`](/docs/middlewares/response-logger): Logs the outgoing response
 
 ## Lifecycle
 
-- [`do-not-wait-for-empty-event-loop`](/docs/middlewares/do-not-wait-for-empty-event-loop): Sets callbackWaitsForEmptyEventLoop property to false
+- [`do-not-wait-for-empty-event-loop`](/docs/middlewares/do-not-wait-for-empty-event-loop): Deprecated in v8 and removed from the monorepo (7.x remains on npm). `callbackWaitsForEmptyEventLoop` only applies to callback-based handlers, which Lambda supports on Node.js 22 and earlier only
 - [`warmup`](/docs/middlewares/warmup): Used to pre-warm a lambda function
 
 ## Request Transformation

@@ -1,10 +1,10 @@
 {
 	"name": "@middy/rds",
-	"version": "7.9.2",
+	"version": "8.0.0-alpha.0",
 	"description": "RDS (Relational Database Service) connection middleware for the middy framework",
 	"type": "module",
 	"engines": {
-		"node": ">=22"
+		"node": ">=24"
 	},
 	"engineStrict": true,
 	"publishConfig": {
@@ -51,176 +51,211 @@
 		},
 		"./certificates/global": {
 			"import": {
+				"types": "./certificates/global.d.ts",
 				"default": "./certificates/global.js"
 			}
 		},
 		"./certificates/us-east-1": {
 			"import": {
+				"types": "./certificates/us-east-1.d.ts",
 				"default": "./certificates/us-east-1.js"
 			}
 		},
 		"./certificates/us-east-2": {
 			"import": {
+				"types": "./certificates/us-east-2.d.ts",
 				"default": "./certificates/us-east-2.js"
 			}
 		},
 		"./certificates/us-west-1": {
 			"import": {
+				"types": "./certificates/us-west-1.d.ts",
 				"default": "./certificates/us-west-1.js"
 			}
 		},
 		"./certificates/us-west-2": {
 			"import": {
+				"types": "./certificates/us-west-2.d.ts",
 				"default": "./certificates/us-west-2.js"
 			}
 		},
 		"./certificates/af-south-1": {
 			"import": {
+				"types": "./certificates/af-south-1.d.ts",
 				"default": "./certificates/af-south-1.js"
 			}
 		},
 		"./certificates/ap-east-1": {
 			"import": {
+				"types": "./certificates/ap-east-1.d.ts",
 				"default": "./certificates/ap-east-1.js"
 			}
 		},
 		"./certificates/ap-south-2": {
 			"import": {
+				"types": "./certificates/ap-south-2.d.ts",
 				"default": "./certificates/ap-south-2.js"
 			}
 		},
 		"./certificates/ap-southeast-3": {
 			"import": {
+				"types": "./certificates/ap-southeast-3.d.ts",
 				"default": "./certificates/ap-southeast-3.js"
 			}
 		},
 		"./certificates/ap-southeast-4": {
 			"import": {
+				"types": "./certificates/ap-southeast-4.d.ts",
 				"default": "./certificates/ap-southeast-4.js"
 			}
 		},
 		"./certificates/ap-southeast-5": {
 			"import": {
+				"types": "./certificates/ap-southeast-5.d.ts",
 				"default": "./certificates/ap-southeast-5.js"
 			}
 		},
 		"./certificates/ap-southeast-7": {
 			"import": {
+				"types": "./certificates/ap-southeast-7.d.ts",
 				"default": "./certificates/ap-southeast-7.js"
 			}
 		},
 		"./certificates/ap-south-1": {
 			"import": {
+				"types": "./certificates/ap-south-1.d.ts",
 				"default": "./certificates/ap-south-1.js"
 			}
 		},
 		"./certificates/ap-northeast-3": {
 			"import": {
+				"types": "./certificates/ap-northeast-3.d.ts",
 				"default": "./certificates/ap-northeast-3.js"
 			}
 		},
 		"./certificates/ap-northeast-1": {
 			"import": {
+				"types": "./certificates/ap-northeast-1.d.ts",
 				"default": "./certificates/ap-northeast-1.js"
 			}
 		},
 		"./certificates/ap-northeast-2": {
 			"import": {
+				"types": "./certificates/ap-northeast-2.d.ts",
 				"default": "./certificates/ap-northeast-2.js"
 			}
 		},
 		"./certificates/ap-southeast-1": {
 			"import": {
+				"types": "./certificates/ap-southeast-1.d.ts",
 				"default": "./certificates/ap-southeast-1.js"
 			}
 		},
 		"./certificates/ap-southeast-2": {
 			"import": {
+				"types": "./certificates/ap-southeast-2.d.ts",
 				"default": "./certificates/ap-southeast-2.js"
 			}
 		},
 		"./certificates/ca-central-1": {
 			"import": {
+				"types": "./certificates/ca-central-1.d.ts",
 				"default": "./certificates/ca-central-1.js"
 			}
 		},
 		"./certificates/ca-west-1": {
 			"import": {
+				"types": "./certificates/ca-west-1.d.ts",
 				"default": "./certificates/ca-west-1.js"
 			}
 		},
 		"./certificates/eu-central-1": {
 			"import": {
+				"types": "./certificates/eu-central-1.d.ts",
 				"default": "./certificates/eu-central-1.js"
 			}
 		},
 		"./certificates/eu-west-1": {
 			"import": {
+				"types": "./certificates/eu-west-1.d.ts",
 				"default": "./certificates/eu-west-1.js"
 			}
 		},
 		"./certificates/eu-west-2": {
 			"import": {
+				"types": "./certificates/eu-west-2.d.ts",
 				"default": "./certificates/eu-west-2.js"
 			}
 		},
 		"./certificates/eu-south-1": {
 			"import": {
+				"types": "./certificates/eu-south-1.d.ts",
 				"default": "./certificates/eu-south-1.js"
 			}
 		},
 		"./certificates/eu-west-3": {
 			"import": {
+				"types": "./certificates/eu-west-3.d.ts",
 				"default": "./certificates/eu-west-3.js"
 			}
 		},
 		"./certificates/eu-south-2": {
 			"import": {
+				"types": "./certificates/eu-south-2.d.ts",
 				"default": "./certificates/eu-south-2.js"
 			}
 		},
 		"./certificates/eu-north-1": {
 			"import": {
+				"types": "./certificates/eu-north-1.d.ts",
 				"default": "./certificates/eu-north-1.js"
 			}
 		},
 		"./certificates/eu-central-2": {
 			"import": {
+				"types": "./certificates/eu-central-2.d.ts",
 				"default": "./certificates/eu-central-2.js"
 			}
 		},
 		"./certificates/il-central-1": {
 			"import": {
+				"types": "./certificates/il-central-1.d.ts",
 				"default": "./certificates/il-central-1.js"
 			}
 		},
 		"./certificates/me-south-1": {
 			"import": {
+				"types": "./certificates/me-south-1.d.ts",
 				"default": "./certificates/me-south-1.js"
 			}
 		},
 		"./certificates/me-central-1": {
 			"import": {
+				"types": "./certificates/me-central-1.d.ts",
 				"default": "./certificates/me-central-1.js"
 			}
 		},
 		"./certificates/mx-central-1": {
 			"import": {
+				"types": "./certificates/mx-central-1.d.ts",
 				"default": "./certificates/mx-central-1.js"
 			}
 		},
 		"./certificates/sa-east-1": {
 			"import": {
+				"types": "./certificates/sa-east-1.d.ts",
 				"default": "./certificates/sa-east-1.js"
 			}
 		},
 		"./certificates/us-gov-east-1": {
 			"import": {
+				"types": "./certificates/us-gov-east-1.d.ts",
 				"default": "./certificates/us-gov-east-1.js"
 			}
 		},
 		"./certificates/us-gov-west-1": {
 			"import": {
+				"types": "./certificates/us-gov-west-1.d.ts",
 				"default": "./certificates/us-gov-west-1.js"
 			}
 		}
@@ -293,12 +328,12 @@
 		}
 	},
 	"dependencies": {
-		"@middy/util": "7.9.2"
+		"@middy/util": "8.0.0-alpha.0"
 	},
 	"devDependencies": {
-		"@middy/core": "7.9.2",
+		"@middy/core": "8.0.0-alpha.0",
 		"@types/aws-lambda": "^8.0.0",
-		"@types/node": "^22.0.0",
+		"@types/node": "^24.0.0",
 		"pg": "^8.0.0",
 		"postgres": "^3.0.0"
 	}

@@ -30,12 +30,13 @@ There is no peer dependency: verification uses `node:crypto` only.
 - `maxAge` (number) (default `60`): How many seconds either side of now a proof's `iat` may fall.
 - `maxProofLength` (number) (default `8192`): Longest `DPoP` header accepted, checked before anything parses it.
 - `required` (boolean) (default `false`): When `true`, a token with no confirmation claim is rejected instead of passed through.
-- `setToContext` (boolean) (default `false`): When `true`, the verified proof claims are also written to `request.context[proofKey]`.
+- `setToContext` (boolean) (default `false`): When `true`, the verified proof claims are also published to `request.context.middyContext[proofKey]`. There is no separate `contextKey`: `proofKey` names both.
 
 NOTES:
 
 - Every rejection is a `401 Unauthorized` carrying `WWW-Authenticate: DPoP algs="..."`, so a client learns which proofs you accept (RFC 9449 §7.1). Pair with [`http-error-handler`](/docs/middlewares/http-error-handler) to turn it into a response; it copies the header across for you.
 - The `htu` is built from `origin` and the request path, **never** from the `Host` header. A client controls `Host`, so trusting it would let anyone mint a proof for an origin of their choosing.
+- The request method comes from `requestContext.http.method` (HTTP API), then `httpMethod` (REST API, ALB). An event with neither is a `500 Internal Server Error`, not a 401: the proof's `htm` is required by RFC 9449 §4.2 and there is nothing to hold it against. The standalone `verifyDpopProof` export takes `method` as a required option for the same reason.
 - The request path comes from `rawPath` (HTTP API), then `requestContext.path` (REST API), then `path` (ALB). REST is read from `requestContext.path` because API Gateway strips the stage from `event.path`, and the client signs the URL it actually called.
 - **On a REST API or an ALB, put [`http-header-normalizer`](/docs/middlewares/http-header-normalizer) in front.** Those two pass the client's header casing through verbatim, so a client sending `DPOP:` instead of `DPoP:` is refused for the wrong reason. HTTP APIs already lower-case everything.
 - **Behind a custom domain with an API mapping, put the base path on `origin`.** AWS does not include the mapping in `rawPath`, so a request to `https://api.example.com/v1/orders` arrives as `/orders`; `origin: 'https://api.example.com/v1'` restores it.

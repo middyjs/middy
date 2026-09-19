@@ -76,7 +76,12 @@ npm install --save @middy/event-normalizer
 ## Options
 
 - `wrapNumbers` (boolean) (default `undefined`): Whether to return numbers as a string instead of converting them to native JavaScript numbers. This allows for the safe round-trip transport of numbers of arbitrary size. For DynamoDB Events only.
-- `maxDecompressedBytes` (integer) (default `10485760` — 10 MiB): Cap on the decompressed size of a CloudWatch Logs (`awslogs.data`) gzip payload. Bounds gunzip output to defend against compression-bomb DoS. A breach throws `ERR_BUFFER_TOO_LARGE`.
+- `maxDecompressedBytes` (integer) (default `10485760`, 10 MiB): Cap on the decompressed size of a CloudWatch Logs (`awslogs.data`) gzip payload. Bounds gunzip output to defend against compression-bomb DoS. A breach throws `ERR_BUFFER_TOO_LARGE`.
+
+NOTES:
+
+- A record missing the fields its event source promises (a DynamoDB record without `dynamodb`, an S3 record without `s3`, an SNS record without `Sns`, a Kafka event without `records`, ...) fails the invocation with a 422 `HttpError`. `cause.data` carries `{ reason: 'Malformed event record', eventSource, message }`. This also applies to records nested in an SQS or SNS message, and to an S3 `object.key` or S3 Batch `s3Key` that is not valid percent-encoding.
+- An SNS notification (direct or delivered through SQS) is only descended into when its `Message` parses to an object; a missing or plain-text `Message` is left as is.
 
 ## Sample usage
 

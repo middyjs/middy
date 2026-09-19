@@ -1,6 +1,8 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { setTimeout as delay } from "node:timers/promises";
+// The module object rather than a named import so a test's mock timers can
+// intercept setTimeout; a named import binds the real function at load time.
+import timers from "node:timers/promises";
 import {
 	DynamoDBStreamsClient,
 	GetRecordsCommand,
@@ -37,19 +39,48 @@ const optionSchema = {
 export const pollDynamoDBStreamsValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
-const toLambdaRecord = (record, streamArn, awsRegion) => ({
-	eventID: record.eventID,
-	eventName: record.eventName,
-	eventVersion: record.eventVersion ?? "1.1",
-	eventSource: "aws:dynamodb",
-	awsRegion,
-	dynamodb: record.dynamodb,
-	eventSourceARN: streamArn,
-});
+// The SDK decodes ApproximateCreationDateTime as a Date; Lambda delivers it
+// as epoch seconds rounded down.
+// https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_streams_StreamRecord.html
+const toLambdaStreamRecord = (dynamodb) => {
+	const out = { ...dynamodb };
+	if (out.ApproximateCreationDateTime instanceof Date) {
+		out.ApproximateCreationDateTime = Math.floor(
+			out.ApproximateCreationDateTime.getTime() / 1000,
+		);
+	}
+	return out;
+};
+
+const toLambdaRecord = (record, streamArn, awsRegion) => {
+	const out = {
+		eventID: record.eventID,
+		eventName: record.eventName,
+		eventVersion: record.eventVersion ?? "1.1",
+		eventSource: "aws:dynamodb",
+		awsRegion,
+		dynamodb: toLambdaStreamRecord(record.dynamodb),
+		eventSourceARN: streamArn,
+	};
+	// Set on Time to Live deletes. The Streams API Identity shape is
+	// { PrincipalId, Type }; Lambda delivers { type, principalId }.
+	// https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/time-to-live-ttl-streams.html
+	if (record.userIdentity !== undefined) {
+		out.userIdentity = {
+			type: record.userIdentity.Type,
+			principalId: record.userIdentity.PrincipalId,
+		};
+	}
+	return out;
+};
+
+// arn:aws:dynamodb:<region>:<account>:table/<name>/stream/<label>
+const regionFromArn = (streamArn) => streamArn.split(":")[3];
 
 export const pollDynamoDBStreams = (opts) => {
 	pollDynamoDBStreamsValidateOptions(opts);
 	const client = opts.client ?? new DynamoDBStreamsClient({});
+	const awsRegion = opts.awsRegion ?? regionFromArn(opts.streamArn);
 	const shardIteratorType = opts.shardIteratorType ?? "LATEST";
 	const limit = opts.limit ?? 1000;
 	const pollingDelay = opts.pollingDelay ?? 1000;
@@ -93,11 +124,11 @@ export const pollDynamoDBStreams = (opts) => {
 				if (records.length) {
 					yield {
 						Records: records.map((r) =>
-							toLambdaRecord(r, opts.streamArn, opts.awsRegion),
+							toLambdaRecord(r, opts.streamArn, awsRegion),
 						),
 					};
 				} else if (pollingDelay > 0) {
-					await delay(pollingDelay);
+					await timers.setTimeout(pollingDelay);
 				}
 			}
 		},

@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
 import type {
+	ALBEvent,
+	ALBEventMultiValueQueryStringParameters,
+	ALBEventQueryStringParameters,
 	APIGatewayEvent,
 	APIGatewayProxyEventMultiValueQueryStringParameters,
 	APIGatewayProxyEventPathParameters,
@@ -23,7 +26,11 @@ export interface VPCLatticeEvent {
 	queryStringParameters: APIGatewayProxyEventQueryStringParameters;
 }
 
-export type RequestEvent = APIGatewayEvent | APIGatewayProxyEventV2;
+export type RequestEvent =
+	| APIGatewayEvent
+	| APIGatewayProxyEventV2
+	| ALBEvent
+	| VPCLatticeEvent;
 
 export type Event<T extends RequestEvent = RequestEvent> =
 	T extends APIGatewayEvent
@@ -37,7 +44,15 @@ export type Event<T extends RequestEvent = RequestEvent> =
 					pathParameters: Record<string, string>;
 					queryStringParameters: Record<string, string>;
 				}
-			: never;
+			: T extends ALBEvent
+				? ALBEvent & {
+						multiValueQueryStringParameters: ALBEventMultiValueQueryStringParameters;
+						pathParameters: APIGatewayProxyEventPathParameters;
+						queryStringParameters: ALBEventQueryStringParameters;
+					}
+				: T extends VPCLatticeEvent
+					? VPCLatticeEvent
+					: never;
 
 declare function httpEventNormalizer<
 	EventType extends RequestEvent = RequestEvent,

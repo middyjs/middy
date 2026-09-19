@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 import avro from "avro-js";
 
+const pkg = "@middy/event-batch-parser";
+
 export const parseAvro = (parserOpts = {}) => {
 	if (parserOpts.schema) {
 		const type = avro.parse(parserOpts.schema);
@@ -12,6 +14,7 @@ export const parseAvro = (parserOpts = {}) => {
 	if (!internalKey) {
 		throw new TypeError(
 			"parseAvro: requires `schema` or `internalKey` (matching a fetchData key on @middy/glue-schema-registry)",
+			{ cause: { package: pkg, data: { internalKey } } },
 		);
 	}
 	const typeCache = new Map();
@@ -21,10 +24,10 @@ export const parseAvro = (parserOpts = {}) => {
 		if (!schemaDefinition) {
 			throw new TypeError(
 				`parseAvro: request.internal["${internalKey}"] is unset; did glue-schema-registry run with a matching fetchData key?`,
+				{ cause: { package: pkg, data: { internalKey } } },
 			);
 		}
 		let type = typeCache.get(schemaDefinition);
-		// Stryker disable next-line ConditionalExpression: the cache is a perf optimization; forcing the parse branch re-parses the identical schema and yields an equal type, so decoded output is unchanged regardless of cache hit/miss.
 		if (!type) {
 			type = avro.parse(schemaDefinition);
 			typeCache.set(schemaDefinition, type);

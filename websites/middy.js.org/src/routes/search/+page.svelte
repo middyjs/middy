@@ -5,6 +5,7 @@ import H1 from "@design-system/components/Heading1.svelte";
 import H2 from "@design-system/components/Heading2.svelte";
 import LayoutCenter from "@design-system/components/LayoutCenter.svelte";
 import A from "@design-system/elements/a.svelte";
+import Mark from "@design-system/elements/mark.svelte";
 import P from "@design-system/elements/p.svelte";
 import Section from "@design-system/elements/section.svelte";
 import Span from "@design-system/elements/span.svelte";
@@ -32,7 +33,8 @@ const { results } = data;
                             ></H2
                         >
                         {#if card.description}
-                            <P>{@html card.description}</P>
+                            <!-- segments are plain text; Svelte escapes them, matches get <mark> -->
+                            <P>{#each card.description as segment}{#if segment.match}<Mark>{segment.text}</Mark>{:else}{segment.text}{/if}{/each}</P>
                         {/if}
                         {#if card.button}
                             <Span aria-hidden="true" id={card.id}

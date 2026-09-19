@@ -58,7 +58,8 @@ const timePlugin = (opts = {}) => {
 }
 
 export const handler = middy(timePlugin())
-  .use(inputOutputLogger())
+  .use(eventLogger())
+  .use(responseLogger())
   .use(errorLogger())
   .use(httpEventNormalizer())
   .use(httpHeaderNormalizer())
@@ -76,7 +77,7 @@ await handler()
 This will log out something this:
 
 ```shell
-inputOutputLoggerMiddlewareBefore 0.156033 ms
+eventLoggerMiddlewareBefore 0.156033 ms
 httpEventNormalizerMiddlewareBefore 0.073921 ms
 httpHeaderNormalizerMiddlewareBefore 0.095098 ms
 httpUrlencodePathParserMiddlewareBefore 0.036255 ms
@@ -88,7 +89,7 @@ handler 0.094875 ms
 validatorMiddlewareAfter 0.083601 ms
 httpSecurityHeadersMiddlewareAfter 0.19702 ms
 httpCorsMiddlewareAfter 0.080532 ms
-inputOutputLoggerMiddlewareAfter 0.066886 ms
+responseLoggerMiddlewareAfter 0.066886 ms
 lambda 66.141835 ms
 ```
 
@@ -155,7 +156,8 @@ const memoryPlugin = (opts = {}) => {
 }
 
 export const handler = middy(memoryPlugin())
-  .use(inputOutputLogger())
+  .use(eventLogger())
+  .use(responseLogger())
   .use(errorLogger())
   .use(httpEventNormalizer())
   .use(httpHeaderNormalizer())

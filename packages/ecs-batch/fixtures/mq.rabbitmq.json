@@ -1,0 +1,37 @@
+{
+	"eventSource": "aws:rmq",
+	"eventSourceArn": "arn:aws:mq:us-east-2:111122223333:broker:pizzaBroker:b-9bcfa592-423a-4942-879d-eb284b418fc8",
+	"rmqMessagesByQueue": {
+		"pizzaQueue::/": [
+			{
+				"basicProperties": {
+					"contentType": "text/plain",
+					"contentEncoding": null,
+					"headers": {
+						"header1": {
+							"bytes": [118, 97, 108, 117, 101, 49]
+						},
+						"header2": {
+							"bytes": [118, 97, 108, 117, 101, 50]
+						},
+						"numberInHeader": 10
+					},
+					"deliveryMode": 1,
+					"priority": 34,
+					"correlationId": null,
+					"replyTo": null,
+					"expiration": "60000",
+					"messageId": null,
+					"timestamp": "Jan 1, 1970, 12:33:41 AM",
+					"type": null,
+					"userId": "AIDACKCEVSQ6C2EXAMPLE",
+					"appId": null,
+					"clusterId": null,
+					"bodySize": 80
+				},
+				"redelivered": false,
+				"data": "eyJ0aW1lb3V0IjowLCJkYXRhIjoiQ1pybWYwR3c4T3Y0YnFMUXhENEUifQ=="
+			}
+		]
+	}
+}

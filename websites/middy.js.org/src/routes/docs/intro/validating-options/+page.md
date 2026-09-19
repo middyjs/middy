@@ -4,7 +4,7 @@ description: "Catch typos and type mismatches in middleware and router options u
 position: 6
 ---
 
-Every Middy middleware, router, and `@middy/core` exports a named option validator that checks the options you plan to pass for unknown keys, missing required fields, and type mismatches. The validator is opt-in: Middy will not call it for you — you call it yourself, wherever catching a misconfiguration earliest is most useful (app boot, tests, CI config check, etc.).
+Every Middy middleware, router, and `@middy/core` exports a named option validator that checks the options you plan to pass for unknown keys, missing required fields, and type mismatches. The validator is opt-in: Middy will not call it for you, you call it yourself, wherever catching a misconfiguration earliest is most useful (app boot, tests, CI config check, etc.).
 
 ## Usage
 
@@ -37,10 +37,10 @@ try {
 
 ## What the validator checks
 
-- **Unknown keys** — any key in your options that isn't in the schema throws, catching typos like `cachExpiry` or `requestHedaers`.
-- **Required fields** — fields listed in `required` throw when missing.
-- **Types** — each field is checked against its declared type (`string`, `number`, `integer`, `boolean`, `object`, `array`).
-- **Constraints** — `minimum`, `enum`, `const`, `instanceof`, and `oneOf` let schemas express bounded values, whitelists, class instances, and type unions.
+- **Unknown keys**: any key in your options that isn't in the schema throws, catching typos like `cachExpiry` or `requestHedaers`.
+- **Required fields**: fields listed in `required` throw when missing.
+- **Types**: each field is checked against its declared type (`string`, `number`, `integer`, `boolean`, `object`, `array`).
+- **Constraints**: `minimum`, `enum`, `const`, `instanceof`, and `oneOf` let schemas express bounded values, whitelists, class instances, and type unions.
 
 What it **does not** check: validity of values that depend on runtime conditions, or anything the middleware would discover only while running. The validator is a fast, static contract check at the boundary.
 
@@ -48,9 +48,9 @@ What it **does not** check: validity of values that depend on runtime conditions
 
 Call the validator once, wherever misconfiguration is cheapest to surface:
 
-- **At app boot** — before the handler is constructed, alongside other config loading.
-- **In tests** — a dedicated test that asserts your production config validates, so a typo in a config file fails CI.
-- **Inside your own validators** — if you wrap Middy middlewares in a higher-level factory, compose your validator with theirs.
+- **At app boot**: before the handler is constructed, alongside other config loading.
+- **In tests**: a dedicated test that asserts your production config validates, so a typo in a config file fails CI.
+- **Inside your own validators**: if you wrap Middy middlewares in a higher-level factory, compose your validator with theirs.
 
 ## Routers and core
 
@@ -102,15 +102,15 @@ export const myMiddlewareValidateOptions = (options) =>
 
 Supported keywords:
 
-- **`type`** — `string`, `number`, `integer`, `boolean`, `object`, `array`.
-- **`required`** — array of property names that must be present (object only).
-- **`properties`** — per-key sub-schemas (object only).
-- **`additionalProperties`** — `false` to reject unknown keys, `true` to allow them, or a sub-schema to validate them (object only).
-- **`items`** — sub-schema applied to every element (array only).
-- **`minimum`** — lower bound for numbers/integers.
-- **`enum`** — array of allowed values.
-- **`const`** — single allowed value (useful with `oneOf`, e.g. `{ const: false }`).
-- **`instanceof`** — class name resolved via `globalThis` (`Function`, `RegExp`, etc.). Middy's extension for JS constructs JSON Schema has no native type for.
-- **`oneOf`** — array of sub-schemas; value must match exactly one. Use for type unions like `{ oneOf: [{ type: 'boolean' }, { type: 'object' }] }`.
+- **`type`**: `string`, `number`, `integer`, `boolean`, `object`, `array`.
+- **`required`**: array of property names that must be present (object only).
+- **`properties`**: per-key sub-schemas (object only).
+- **`additionalProperties`**: `false` to reject unknown keys, `true` to allow them, or a sub-schema to validate them (object only).
+- **`items`**: sub-schema applied to every element (array only).
+- **`minimum`**: lower bound for numbers/integers.
+- **`enum`**: array of allowed values.
+- **`const`**: single allowed value (useful with `oneOf`, e.g. `{ const: false }`).
+- **`instanceof`**: class name resolved via `globalThis` (`Function`, `RegExp`, etc.). Middy's extension for JS constructs JSON Schema has no native type for.
+- **`oneOf`**: array of sub-schemas; value must match exactly one. Use for type unions like `{ oneOf: [{ type: 'boolean' }, { type: 'object' }] }`.
 
-AWS-SDK-wrapping middlewares inline the shared fields (`AwsClient`, `awsClientOptions`, `cacheKey`, `cacheExpiry`, etc.) directly in their schemas — see any of `@middy/ssm`, `@middy/s3`, `@middy/dynamodb`, etc. for the pattern.
+AWS-SDK-wrapping middlewares inline the shared fields (`AwsClient`, `awsClientOptions`, `cacheKey`, `cacheExpiry`, etc.) directly in their schemas, see any of `@middy/ssm`, `@middy/s3`, `@middy/dynamodb`, etc. for the pattern.

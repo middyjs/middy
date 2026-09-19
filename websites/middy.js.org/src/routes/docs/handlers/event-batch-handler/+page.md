@@ -59,16 +59,16 @@ const lambdaHandler = eventBatchHandler(recordHandler)
 
 ### Failure semantics
 
-If any step's retry policy exhausts and the step throws, the wrapper rethrows the first failure so the handler throws and Lambda retries the whole batch on a fresh invocation. `event-batch-response.onError` no-ops under durable so no `batchItemFailures` response is synthesized — this avoids stacking Lambda's batch-level retry on top of durable's per-step retry.
+If any step's retry policy exhausts and the step throws, the wrapper rethrows the first failure so the handler throws and Lambda retries the whole batch on a fresh invocation. `event-batch-response.onError` no-ops under durable so no `batchItemFailures` response is synthesized, this avoids stacking Lambda's batch-level retry on top of durable's per-step retry.
 
 If every record's step succeeds (within retry budget), the wrapper returns `{ status: "fulfilled" }` entries and `event-batch-response` produces an all-success response.
 
 ## When durable functions help most
 
-- **Kinesis Data Streams / DynamoDB Streams** — partial-batch retries replay every record at-or-after the lowest failed sequence number. Wrapping each record in a step prevents already-completed work from re-running.
-- **MSK / Self-Managed Kafka** — same reasoning per topic-partition.
-- **S3 Batch Operations** — long-running per-task work (multi-MB downloads, expensive transforms) benefits from step-level checkpointing if the Lambda hits the 15-minute limit and is replayed.
-- **SQS / Firehose** — durable adds less here; SQS messages are redelivered independently anyway, and Firehose transforms are typically short-lived.
+- **Kinesis Data Streams / DynamoDB Streams**: partial-batch retries replay every record at-or-after the lowest failed sequence number. Wrapping each record in a step prevents already-completed work from re-running.
+- **MSK / Self-Managed Kafka**: same reasoning per topic-partition.
+- **S3 Batch Operations**: long-running per-task work (multi-MB downloads, expensive transforms) benefits from step-level checkpointing if the Lambda hits the 15-minute limit and is replayed.
+- **SQS / Firehose**: durable adds less here; SQS messages are redelivered independently anyway, and Firehose transforms are typically short-lived.
 
 See [examples in the AWS event docs](/docs/events/intro) for full per-source patterns.
 

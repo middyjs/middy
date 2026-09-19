@@ -8,6 +8,9 @@ const pkg = `@middy/${name}`;
 const defaults = {
 	serializers: [],
 	defaultContentType: undefined,
+	// Where @middy/http-content-negotiation published its results; must match
+	// that middleware's `contextKey` when it has been overridden.
+	contextKeyHttpContentNegotiation: "http-content-negotiation",
 };
 
 const maxMediaTypeLength = 128;
@@ -30,6 +33,7 @@ const optionSchema = {
 			},
 		},
 		defaultContentType: { type: "string" },
+		contextKeyHttpContentNegotiation: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -38,7 +42,11 @@ export const httpResponseSerializerValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
 const httpResponseSerializerMiddleware = (opts = {}) => {
-	const { serializers, defaultContentType } = { ...defaults, ...opts };
+	const { serializers, defaultContentType, contextKeyHttpContentNegotiation } =
+		{
+			...defaults,
+			...opts,
+		};
 	const httpResponseSerializerMiddlewareAfter = (request) => {
 		normalizeHttpResponse(request);
 
@@ -52,12 +60,17 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
 
 		// find accept value(s)
 		const types = [
-			...(request.context.preferredMediaTypes ?? []), // from @middy/http-content-negotiation
+			...(request.context.middyContext?.[contextKeyHttpContentNegotiation]
+				?.preferredMediaTypes ?? []), // from @middy/http-content-negotiation
 			defaultContentType,
 		];
 
 		outerLoop: for (const type of types) {
-			if (typeof type === "string" && type.length > maxMediaTypeLength) {
+			if (typeof type !== "string") {
+				continue;
+			}
+
+			if (type.length > maxMediaTypeLength) {
 				continue;
 			}
 
@@ -67,7 +80,7 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
 					continue;
 				}
 
-				if (typeof type === "string" && mediaTypeGrammar.test(type)) {
+				if (mediaTypeGrammar.test(type)) {
 					request.response.headers["Content-Type"] = type;
 				}
 				const result = s.serializer(request.response);

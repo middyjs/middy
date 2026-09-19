@@ -1,7 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import { inflateSync } from "node:zlib";
-import { createError, validateOptions } from "@middy/util";
+import { HttpError, validateOptions } from "@middy/util";
 
 const name = "event-batch-parser";
 const pkg = `@middy/${name}`;
@@ -44,7 +44,7 @@ const eventBatchParserMiddleware = (opts = {}) => {
 			throw new Error("Unsupported event source", {
 				cause: {
 					package: pkg,
-					data: eventSource ?? null,
+					data: { eventSource: eventSource ?? null },
 				},
 			});
 		}
@@ -82,36 +82,46 @@ const eventBatchParserMiddleware = (opts = {}) => {
 		const encoding = source.encoding;
 		const text = encoding === "utf8";
 		const records = source.getRecords(request.event);
+		// A hand-built event without its records array has nothing to parse.
+		if (!Array.isArray(records)) return;
 		for (let r = 0; r < records.length; r += 1) {
 			const record = records[r];
 			for (let w = 0; w < work.length; w += 1) {
 				const { field, accessor, parser } = work[w];
 				const raw = accessor.get(record);
-				if (raw == null) continue;
-				let payload = raw;
-				let framing;
-				if (!text) {
-					payload = Buffer.from(raw, encoding);
-					framing = parseGlueFraming(payload, maxDecompressedBytes);
-				}
+				if (raw === undefined || raw === null) continue;
 				let parsed;
 				try {
+					let payload = raw;
+					let framing;
+					if (!text) {
+						// A non-string here (a record already decoded upstream) makes
+						// Buffer.from throw, reported like any other bad payload.
+						payload = Buffer.from(raw, encoding);
+						framing = parseGlueFraming(payload, maxDecompressedBytes);
+					}
 					// Skip `await` for sync parsers (parseJson, schema-bound
 					// parseAvro/parseProtobuf bindings), saves a microtask per
 					// record across the batch. Only awaits when the parser
 					// actually returns a thenable.
 					parsed = parser(payload, record, request, framing);
-					// Stryker disable next-line ConditionalExpression,LogicalOperator: guard is a perf gate; awaiting a non-thenable returns the same value, so widening/forcing these branches only adds a no-op await with no observable effect (the null/undefined safety is covered by separate OptionalChaining mutants/tests).
-					if (parsed !== null && typeof parsed?.then === "function") {
-						parsed = await parsed;
-					}
+					if (typeof parsed?.then === "function") parsed = await parsed;
 				} catch (err) {
-					throw createError(422, "Invalid record payload", {
+					// An error that already carries an HTTP status (the 413 cap
+					// breach, the 422 from the JSON prototype guard, a parser's own
+					// HttpError) is the intended response; only opaque failures
+					// (base64 decode, framing, zlib, decode, a parser rejecting
+					// with a non-error value) are wrapped.
+					if (typeof err?.statusCode === "number") throw err;
+					throw new HttpError(422, {
 						cause: {
 							package: pkg,
-							source: eventSource,
-							field,
-							message: err.message,
+							data: {
+								reason: "Invalid record payload",
+								source: eventSource,
+								field,
+								message: err?.message,
+							},
 						},
 					});
 				}
@@ -127,18 +137,9 @@ const eventBatchParserMiddleware = (opts = {}) => {
 
 // Each source returns a flat array of records (not a generator): the before
 // loop indexes it directly, so a real array avoids the per-yield iterator-result
-// allocation that dominated GC on large batches. The single-group fast path
-// returns the source's own array uncopied; only multi-group events allocate.
-const flattenGroups = (groups) => {
-	// Stryker disable next-line ConditionalExpression: single-group fast path is a copy-avoidance optimization; forcing the multi-group branch still flattens the same record references (mutated in place), producing an identical observable result.
-	if (groups.length === 1) return groups[0];
-	// Stryker disable next-line ArrayDeclaration: a non-empty seed only adds a primitive sentinel record whose key/value/body/data accessors all read undefined, so it is skipped (no parser call, no write-back) and never reaches the event.
-	const out = [];
-	for (const group of groups) {
-		for (const record of group) out.push(record);
-	}
-	return out;
-};
+// allocation that dominated GC on large batches. A group that isn't an array
+// (a malformed event) has no records.
+const flattenGroups = (groups) => groups.filter(Array.isArray).flat();
 
 const kafkaRecords = (event) =>
 	flattenGroups(Object.values(event.records ?? {}));
@@ -203,8 +204,7 @@ const sources = {
 	// Kinesis: `data` is base64.
 	// docs.aws.amazon.com/lambda/latest/dg/with-kinesis.html
 	"aws:kinesis": {
-		// Stryker disable next-line ArrayDeclaration: a non-empty fallback only adds a primitive sentinel record (skipped because its accessors read undefined); getRecords' return is never written back to the event, so the seed is unobservable.
-		getRecords: (event) => event.Records ?? [],
+		getRecords: (event) => event.Records,
 		fields: {
 			value: accKinesisData,
 			body: accKinesisData,
@@ -215,8 +215,7 @@ const sources = {
 	// Kinesis Firehose: transform-records `data` is base64.
 	// docs.aws.amazon.com/firehose/latest/dev/data-transformation.html
 	"aws:lambda:events": {
-		// Stryker disable next-line ArrayDeclaration: a non-empty fallback only adds a primitive sentinel record (skipped because its accessors read undefined); getRecords' return is never written back to the event, so the seed is unobservable.
-		getRecords: (event) => event.records ?? [],
+		getRecords: (event) => event.records,
 		fields: { value: accData, body: accData, data: accData },
 		encoding: "base64",
 	},
@@ -224,8 +223,7 @@ const sources = {
 	// docs.aws.amazon.com/lambda/latest/dg/with-sqs.html
 	//   example: { "body": "Test message.", … }
 	"aws:sqs": {
-		// Stryker disable next-line ArrayDeclaration: a non-empty fallback only adds a primitive sentinel record (skipped because its accessors read undefined); getRecords' return is never written back to the event, so the seed is unobservable.
-		getRecords: (event) => event.Records ?? [],
+		getRecords: (event) => event.Records,
 		fields: { value: accBody, body: accBody, data: accBody },
 		encoding: "utf8",
 	},
@@ -233,8 +231,7 @@ const sources = {
 	// base64-encodes them into a single JSON payload."
 	// docs.aws.amazon.com/lambda/latest/dg/with-mq.html
 	"aws:amq": {
-		// Stryker disable next-line ArrayDeclaration: a non-empty fallback only adds a primitive sentinel record (skipped because its accessors read undefined); getRecords' return is never written back to the event, so the seed is unobservable.
-		getRecords: (event) => event.messages ?? [],
+		getRecords: (event) => event.messages,
 		fields: { value: accData, body: accData, data: accData },
 		encoding: "base64",
 	},
@@ -261,32 +258,47 @@ const detectEventSource = (event) => {
 	return undefined;
 };
 
+// Glue defines exactly two compression types, NONE (0x00) and ZLIB (0x05):
+// `COMPRESSION { NONE, ZLIB }`, `COMPRESSION_DEFAULT_BYTE = 0` and
+// `COMPRESSION_BYTE = 5` in AWSSchemaRegistryConstants.java of
+// github.com/awslabs/aws-glue-schema-registry. parseGlueFraming only frames
+// those two, so no other byte reaches here.
 const decompress = (compressionByte, payload, maxOutputLength) => {
 	if (compressionByte === 0x00) return payload;
-	if (compressionByte === 0x05) {
-		try {
-			return inflateSync(payload, { maxOutputLength });
-		} catch (err) {
-			// Stryker disable next-line OptionalChaining: inflateSync only ever throws a non-null Error, so `err?.code` and `err.code` are indistinguishable; no input can make the suite observe the nullish-safety branch.
-			if (err?.code === "ERR_BUFFER_TOO_LARGE") {
-				throw createError(413, "Decompressed payload exceeds cap", {
-					cause: {
-						package: pkg,
+	try {
+		return inflateSync(payload, { maxOutputLength });
+	} catch (err) {
+		if (err.code === "ERR_BUFFER_TOO_LARGE") {
+			throw new HttpError(413, {
+				cause: {
+					package: pkg,
+					data: {
+						reason: "Decompressed payload exceeds cap",
 						maxDecompressedBytes: maxOutputLength,
 					},
-				});
-			}
-			throw err;
+				},
+			});
 		}
+		throw err;
 	}
-	throw new Error(
-		`Unsupported Glue Schema Registry compression byte: 0x${compressionByte.toString(16).padStart(2, "0")}`,
-	);
 };
 
+// Glue Schema Registry header: 0x03 version byte, compression byte, 16-byte
+// schema version id (`HEADER_VERSION_BYTE = 3`, `SCHEMA_VERSION_ID_SIZE = 16`
+// in the constants cited above; the serializer "decorates each record with
+// the schema version ID ... compresses the record (optional producer
+// configuration)" per
+// docs.aws.amazon.com/glue/latest/dg/schema-registry-works.html).
+// The version byte alone is not proof of framing: a raw Avro/Protobuf record
+// can start with 0x03 too, so the compression byte must also be one of the
+// two values Glue defines (0x00 none, 0x05 zlib). Anything else is not a Glue
+// header and is handed to the parser unframed.
 const parseGlueFraming = (buffer, maxDecompressedBytes) => {
-	// 0x03 == Glue Header
-	if (buffer.length >= 18 && buffer[0] === 0x03) {
+	if (
+		buffer.length >= 18 &&
+		buffer[0] === 0x03 &&
+		(buffer[1] === 0x00 || buffer[1] === 0x05)
+	) {
 		const uuidBytes = buffer.subarray(2, 18);
 		const hex = uuidBytes.toString("hex");
 		return {

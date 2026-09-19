@@ -1,33 +1,38 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import { randomUUID } from "node:crypto";
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
 import {
 	assignSetToContext,
 	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
-	createClient,
+	createClientInit,
 	createPrefetchClient,
-	getCache,
-	modifyCache,
+	evictCacheOnFailure,
 	processCache,
+	setCacheKeyExpiry,
 	validateOptions,
 } from "@middy/util";
 
 const name = "sts";
 const pkg = `@middy/${name}`;
 
+// Refresh credentials this long before STS says they expire.
+const expirationMarginMs = 60 * 1000;
+
 const defaults = {
 	AwsClient: STSClient,
 	awsClientOptions: {},
 	// awsClientAssumeRole: undefined, // Not Applicable, as this is the middleware that defines the roles
 	awsClientCapture: undefined,
-	fetchData: {}, // { contextKey: {RoleArn, RoleSessionName} }
+	fetchData: {}, // { internalKey: {RoleArn, RoleSessionName} }
 	disablePrefetch: false,
 	cacheKey: pkg,
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -41,10 +46,19 @@ const optionSchema = {
 		cacheKey: { type: "string" },
 		cacheKeyExpiry: {
 			type: "object",
-			additionalProperties: { type: "number", minimum: -1 },
+			additionalProperties: {
+				type: "number",
+				minimum: -1,
+				maximum: Number.MAX_SAFE_INTEGER,
+			},
 		},
-		cacheExpiry: { type: "number", minimum: -1 },
+		cacheExpiry: {
+			type: "number",
+			minimum: -1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 		fetchData: {
 			type: "object",
 			additionalProperties: {
@@ -89,6 +103,7 @@ const stsMiddleware = (opts = {}) => {
 		...defaults,
 		...opts,
 		fetchData: cloneFetchData({ ...defaults.fetchData, ...opts.fetchData }),
+		cacheKeyExpiry: { ...defaults.cacheKeyExpiry, ...opts.cacheKeyExpiry },
 	};
 
 	const fetchDataKeys = Object.keys(options.fetchData);
@@ -100,49 +115,62 @@ const stsMiddleware = (opts = {}) => {
 			if (cachedValues[internalKey]) continue;
 			const assumeRoleOptions = options.fetchData[internalKey];
 			// Date cannot be used here to assign default session name, possibility of collision when > 1 role defined
-			assumeRoleOptions.RoleSessionName ??= `middy-sts-session-${Math.ceil(Math.random() * 99999)}`;
+			assumeRoleOptions.RoleSessionName ??= `@middy-sts-${randomUUID()}`;
 			const command = new AssumeRoleCommand(assumeRoleOptions);
 			values[internalKey] = client
 				.send(command)
 				.catch((e) => catchInvalidSignatureException(e, client, command))
-				.then((resp) => ({
-					accessKeyId: resp.Credentials.AccessKeyId,
-					secretAccessKey: resp.Credentials.SecretAccessKey,
-					sessionToken: resp.Credentials.SessionToken,
-				}))
-				.catch((e) => {
-					const value = getCache(options.cacheKey).value ?? {};
-					value[internalKey] = undefined;
-					modifyCache(options.cacheKey, value);
-					throw e;
-				});
+				.then((resp) => {
+					// The SDK unmarshals `Expiration` to a Date, but a custom client may
+					// hand back the ISO string; `new Date()` yields epoch ms for both.
+					// Clamp the cache entry to the earliest credential expiry of this
+					// cycle, less a safety margin, so a `-1` cacheExpiry never serves
+					// expired credentials.
+					const { Expiration } = resp.Credentials;
+					setCacheKeyExpiry(
+						options,
+						Expiration
+							? Number(new Date(Expiration)) - expirationMarginMs
+							: Number.POSITIVE_INFINITY,
+					);
+					return {
+						accessKeyId: resp.Credentials.AccessKeyId,
+						secretAccessKey: resp.Credentials.SecretAccessKey,
+						sessionToken: resp.Credentials.SessionToken,
+					};
+				})
+				.catch(evictCacheOnFailure(options.cacheKey, internalKey, values));
 		}
 
 		return values;
 	};
 
 	let client;
-	let clientInit;
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
 		processCache(options, fetchRequest);
 	}
 
-	const stsMiddlewareBefore = async (request) => {
-		if (!client) {
-			clientInit ??= createClient(options, request);
-			client = await clientInit;
-		}
-
+	const stsMiddlewareFetch = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
-
 		Object.assign(request.internal, value);
-
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: equivalent mutant. assignSetToContext returns a Promise (cold path) or undefined (sync warm path); `await undefined` is a no-op, so forcing the guard to `true` is observationally identical.
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
+	};
+
+	const clientInit = createClientInit(options);
+	const stsMiddlewareBefore = (request) => {
+		// With `awsClientAssumeRole` the client is rebuilt when sts refetches the
+		// credentials, so it is resolved on every invocation (util memoises on
+		// the credential promise identity, so a hit costs one microtask).
+		if (client && !options.awsClientAssumeRole) {
+			return stsMiddlewareFetch(request);
+		}
+		return clientInit(request).then((resolvedClient) => {
+			client = resolvedClient;
+			return stsMiddlewareFetch(request);
+		});
 	};
 
 	return {

@@ -33,6 +33,7 @@ const optionSchema = {
 			type: "array",
 			items: { type: "string", enum: ["br", "deflate", "gzip", "zstd"] },
 		},
+		contextKeyHttpContentNegotiation: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -59,7 +60,10 @@ const defaults = {
 	deflate: undefined,
 	gzip: undefined,
 	zstd: undefined,
-	overridePreferredEncoding: [],
+	overridePreferredEncoding: undefined,
+	// Where @middy/http-content-negotiation published its results; must match
+	// that middleware's `contextKey` when it has been overridden.
+	contextKeyHttpContentNegotiation: "http-content-negotiation",
 };
 
 export const getContentEncodingStream = (preferredEncoding, encoderOptions) => {
@@ -70,13 +74,29 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
 	const supportedContentEncodings = Object.keys(contentEncodingStreams);
+	// `{ [encoding]: false }` disables that encoder.
+	const disabledContentEncodings = new Set(
+		supportedContentEncodings.filter((encoding) => options[encoding] === false),
+	);
+	const isEnabledContentEncoding = (encoding) =>
+		!disabledContentEncodings.has(encoding);
 
-	const httpContentEncodingMiddlewareAfter = async (request) => {
+	const contextKeyHttpContentNegotiation =
+		options.contextKeyHttpContentNegotiation;
+
+	const httpContentEncodingMiddlewareAfter = (request) => {
 		normalizeHttpResponse(request);
-		const {
-			context: { preferredEncoding, preferredEncodings },
-			response,
-		} = request;
+		const { response } = request;
+		let { preferredEncoding, preferredEncodings } =
+			request.context.middyContext?.[contextKeyHttpContentNegotiation] ?? {};
+		// Drop disabled encodings from the negotiated list so the client's next
+		// acceptable encoding (or identity) is used instead. Unconditional: the
+		// list holds at most four entries, and a fast path for "nothing disabled"
+		// only added a branch that no test could tell apart from its absence.
+		preferredEncodings = preferredEncodings?.filter(isEnabledContentEncoding);
+		if (!isEnabledContentEncoding(preferredEncoding)) {
+			preferredEncoding = preferredEncodings?.[0];
+		}
 
 		// Encoding not supported, already encoded, or doesn't need to
 		const eventCacheControl =
@@ -109,10 +129,12 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 
 		// Resolve encoding choice before creating any stream
 		let contentEncoding = preferredEncoding;
-		for (const encoding of options.overridePreferredEncoding) {
-			if (!preferredEncodings?.includes(encoding)) continue;
-			contentEncoding = encoding;
-			break;
+		if (options.overridePreferredEncoding) {
+			for (const encoding of options.overridePreferredEncoding) {
+				if (!preferredEncodings?.includes(encoding)) continue;
+				contentEncoding = encoding;
+				break;
+			}
 		}
 
 		// Support streamifyResponse
@@ -122,12 +144,11 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 			);
 			request.response.headers["Content-Encoding"] = contentEncoding;
 			if (isNodeStream) {
-				// Stryker disable ConditionalExpression: reaching the `else if (isWebStream)` below implies isNodeStream is false, and the outer guard requires isNodeStream || isWebStream, so isWebStream is always true there; forcing it `true` is equivalent
 				request.response.body = request.response.body.pipe(
 					contentEncodingStream,
 				);
-			} else if (isWebStream) {
-				// Stryker restore ConditionalExpression
+			} else {
+				// The outer guard leaves only a web stream here.
 				request.response.body = Readable.toWeb(
 					Readable.fromWeb(response.body).pipe(contentEncodingStream),
 				);
@@ -135,7 +156,7 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 			addHeaderPart(response, "Vary", "Accept-Encoding");
 			return;
 		}
-		// isString/isBuffer — use sync compression (avoids stream overhead)
+		// isString/isBuffer, use sync compression (avoids stream overhead)
 		const inputBuffer = Buffer.isBuffer(response.body)
 			? response.body
 			: Buffer.from(response.body);
@@ -155,9 +176,9 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 		request.response = response;
 	};
 
-	const httpContentEncodingMiddlewareOnError = async (request) => {
+	const httpContentEncodingMiddlewareOnError = (request) => {
 		if (typeof request.response === "undefined") return;
-		await httpContentEncodingMiddlewareAfter(request);
+		httpContentEncodingMiddlewareAfter(request);
 	};
 
 	return {

@@ -16,6 +16,7 @@ test("use with all options", () => {
 		deflate: {},
 		zstd: {},
 		overridePreferredEncoding: ["br", "gzip", "deflate", "zstd"],
+		contextKeyHttpContentNegotiation: "http-content-negotiation",
 	});
 	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });

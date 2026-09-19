@@ -8,14 +8,14 @@ A unified body-parser middleware for Lambda batch event sources. Walks the recor
 
 Supported sources:
 
-- Kafka — Amazon MSK (`aws:kafka`) and self-managed (`SelfManagedKafka`) — per-field config: `key` and/or `value`
-- Kinesis Data Streams (`aws:kinesis`) — `data` mapped to `record.kinesis.data`
-- Kinesis Firehose (`aws:lambda:events`) — `data` mapped to `record.data`
-- SQS (`aws:sqs`) — `body` mapped to `record.body`
-- ActiveMQ (`aws:amq`) — `data` mapped to `message.data`
-- RabbitMQ (`aws:rmq`) — `data` mapped to `message.data`
+- Kafka, Amazon MSK (`aws:kafka`) and self-managed (`SelfManagedKafka`), per-field config: `key` and/or `value`
+- Kinesis Data Streams (`aws:kinesis`), `data` mapped to `record.kinesis.data`
+- Kinesis Firehose (`aws:lambda:events`), `data` mapped to `record.data`
+- SQS (`aws:sqs`), `body` mapped to `record.body`
+- ActiveMQ (`aws:amq`), `data` mapped to `message.data`
+- RabbitMQ (`aws:rmq`), `data` mapped to `message.data`
 
-Each non-Kafka source supports exactly one of `body` or `data` — whichever matches the underlying record field. Using the wrong one throws a `TypeError` at startup.
+Each non-Kafka source supports exactly one of `body` or `data`, whichever matches the underlying record field. Using the wrong one throws a `TypeError` at startup.
 
 ## Install
 
@@ -38,13 +38,13 @@ npm install --save-dev @aws-sdk/client-glue
 - `body` (function) (SQS only): Parser to apply to `record.body`.
 - `data` (function) (Kinesis / Firehose / MQ): Parser to apply to the source-specific data field (`record.kinesis.data`, `record.data`, or `message.data`).
 - `disableEventSourceError` (boolean) (default `false`): If `true`, unknown event sources are skipped silently instead of throwing.
-- `maxDecompressedBytes` (integer) (default `10485760` — 10 MiB): Cap on the decompressed size of any single Glue-framed (`0x05` zlib) record payload. Bounds zlib output to defend against compression-bomb DoS from external producers. A breach throws an HTTP 413 error.
+- `maxDecompressedBytes` (integer) (default `10485760`, 10 MiB): Cap on the decompressed size of any single Glue-framed (`0x05` zlib) record payload. Bounds zlib output to defend against compression-bomb DoS from external producers. A breach throws an HTTP 413 error.
 
 ## Parser exports
 
 ### `parseJson({ reviver? })`
 
-Parses each record body as JSON. Equivalent to `JSON.parse(buffer.toString('utf-8'), reviver)`.
+Parses each record body as JSON, like `JSON.parse(buffer.toString('utf-8'), reviver)`, but a payload carrying an own `__proto__` key or a `constructor.prototype` key is rejected with a 422 (see Errors below).
 
 ### `parseAvro({ schema?, internalKey? })`
 
@@ -125,7 +125,7 @@ export const handler = middy()
 
 ## Glue framing
 
-When a record's base64-decoded buffer starts with byte `0x03`, the middleware treats it as AWS Glue Schema Registry framing:
+A record's base64-decoded buffer is treated as AWS Glue Schema Registry framing when it starts with the header version byte `0x03` **and** the compression byte is one of the documented values. A raw Avro or Protobuf record can start with `0x03` too, so the magic byte alone is not enough.
 
 ```
 byte 0     : header version (0x03)
@@ -134,7 +134,18 @@ bytes 2-17 : SchemaVersionId UUID
 bytes 18+  : payload (Avro/Protobuf/JSON-Schema-encoded)
 ```
 
-The middleware sets `record._schemaVersionId` (canonical UUID with dashes) and `record._payload` (decompressed bytes after the prefix). Parsers read these properties when present and fall back to the full buffer otherwise.
+`0x00` and `0x05` are the only compression types the Glue serializer defines, so a `0x03` record with any other second byte is not a Glue header and reaches the parser unframed. A parser bound to [`@middy/glue-schema-registry`](/docs/middlewares/glue-schema-registry) through `internalKey` (`parseAvro({ internalKey })`, `parseProtobuf({ internalKey })`) then decodes the raw bytes and fails with the usual 422 when they are not a valid record.
+
+One raw record cannot be told apart from Glue framing: an Avro record whose first field is an `int` or `long` with the value `-2`, which the [zigzag varint encoding](https://avro.apache.org/docs/1.11.1/specification/#binary-encoding) writes as the single byte `0x03`, followed by a `0x00` byte (an `int` or `long` `0`, `false`, an empty `string` or `bytes`, the first branch of a union) or a `0x05` byte. Such a record is read as a Glue header: the next 16 bytes become the schema version id and the rest fails to decode, or decodes against the wrong schema. Lengths, union branches and enum indexes are never negative and so never start a record with `0x03`. To avoid the collision, produce every record through the Glue Schema Registry serializer so all records are framed, or order the schema so its first field is a `string`, `bytes`, `boolean`, `enum` or union rather than a signed `int` or `long` (or a `float`, `double` or `fixed`, whose raw bytes can also start with `0x03`).
+
+The framing is passed to the parser as its fourth argument, `{ schemaVersionId, payload }` (canonical UUID with dashes, decompressed bytes after the header); an unframed record gets `{ payload: buffer }`. The bundled parsers decode `framing.payload` when present and fall back to the full buffer otherwise.
+
+## Errors
+
+- A record whose payload cannot be handled (a non-string value already decoded upstream, an invalid base64/zlib stream, a decode failure in the parser) fails the invocation with a 422 `HttpError`. `cause.data` carries `{ reason: 'Invalid record payload', source, field, message }`.
+- `parseJson` rejects a payload with an own `__proto__` key or a `constructor.prototype` key with a 422 (`cause.data.reason` `Forbidden key in JSON body`), so a crafted record cannot smuggle a prototype gadget into the object handed to your handler.
+- A zlib-framed record whose decompressed size exceeds `maxDecompressedBytes` fails with a 413 `HttpError`.
+- Kafka and RabbitMQ groups that are not arrays are skipped.
 
 
 ## Pairs well with

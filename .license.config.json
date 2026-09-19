@@ -1,7 +1,7 @@
 {
 	"license": ".license.template",
 	"licenseFormats": {
-		"js|ts": {
+		"js|mjs|cjs|ts": {
 			"eachLine": {
 				"prepend": "// "
 			}
@@ -20,15 +20,16 @@
 		".license.template",
 		".gitleaks.toml",
 		"**/.gitignore",
+		"**/.npmrc",
 		"**/*.fuzz.js",
 		"**/*.perf.js",
 		"**/*.test.js",
 		"**/*.tst.ts",
 		"**/*.md",
 		"**/*.yml",
+		"**/*.yaml",
 		"**/certificates",
 		"**/certificates/*.js",
-		"test/**/*",
 		"websites/**/*",
 		".DS_Store"
 	]

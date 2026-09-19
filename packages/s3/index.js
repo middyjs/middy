@@ -6,12 +6,11 @@ import {
 	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
-	createClient,
+	createClientInit,
 	createPrefetchClient,
-	getCache,
+	evictCacheOnFailure,
 	jsonContentTypePattern,
 	jsonSafeParse,
-	modifyCache,
 	processCache,
 	validateOptions,
 } from "@middy/util";
@@ -30,6 +29,7 @@ const defaults = {
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -63,10 +63,24 @@ const optionSchema = {
 		cacheKey: { type: "string" },
 		cacheKeyExpiry: {
 			type: "object",
-			additionalProperties: { type: "number", minimum: -1 },
+			additionalProperties: {
+				type: "number",
+				minimum: -1,
+				maximum: Number.MAX_SAFE_INTEGER,
+			},
 		},
-		cacheExpiry: { type: "number", minimum: -1 },
+		cacheExpiry: {
+			type: "number",
+			minimum: -1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
+		cacheMaxSize: {
+			type: "integer",
+			minimum: 1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -89,40 +103,46 @@ const s3Middleware = (opts = {}) => {
 				.send(command)
 				.catch((e) => catchInvalidSignatureException(e, client, command))
 				.then(async (resp) => {
-					if (!resp.Body) throw new Error("S3 GetObject response missing Body");
+					if (!resp.Body) {
+						throw new Error("S3 GetObject response missing Body", {
+							cause: { package: pkg, data: { internalKey } },
+						});
+					}
 					let value = await resp.Body.transformToString();
 					if (jsonContentTypePattern.test(resp.ContentType)) {
 						value = jsonSafeParse(value);
 					}
 					return value;
 				})
-				.catch((e) => {
-					const value = getCache(options.cacheKey).value ?? {};
-					value[internalKey] = undefined;
-					modifyCache(options.cacheKey, value);
-					throw e;
-				});
+				.catch(evictCacheOnFailure(options.cacheKey, internalKey, values));
 		}
 		return values;
 	};
 	let client;
-	let clientInit;
+	const clientInit = createClientInit(options);
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
 		processCache(options, fetchRequest);
 	}
-	const s3MiddlewareBefore = async (request) => {
-		if (!client) {
-			clientInit ??= createClient(options, request);
-			client = await clientInit;
-		}
+	const s3MiddlewareFetch = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: assignSetToContext returns only undefined or a Promise; `if (true) await undefined` is a no-op, so forcing the condition true produces no observable behavior change.
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
+	};
+
+	const s3MiddlewareBefore = (request) => {
+		// With `awsClientAssumeRole` the client is rebuilt when sts refetches the
+		// credentials, so it is resolved on every invocation (util memoises on
+		// the credential promise identity, so a hit costs one microtask).
+		if (client && !options.awsClientAssumeRole) {
+			return s3MiddlewareFetch(request);
+		}
+		return clientInit(request).then((resolvedClient) => {
+			client = resolvedClient;
+			return s3MiddlewareFetch(request);
+		});
 	};
 	return {
 		before: s3MiddlewareBefore,

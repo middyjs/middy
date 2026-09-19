@@ -1,6 +1,10 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { normalizeHttpResponse, validateOptions } from "@middy/util";
+import {
+	normalizeHttpResponse,
+	resolveHttpEventVersion,
+	validateOptions,
+} from "@middy/util";
 
 const name = "http-cors";
 const pkg = `@middy/${name}`;
@@ -15,8 +19,6 @@ const optionSchema = {
 		methods: {
 			type: "string",
 			pattern: "^\\s*(\\*|[A-Z]+)(\\s*,\\s*(\\*|[A-Z]+))*\\s*$",
-			// Stryker disable next-line StringLiteral,ArrayDeclaration: JSON Schema `examples` is an annotation only; it does not affect validation, so mutating its contents cannot change observable behavior.
-			examples: ["*", "GET", "GET,POST"],
 		},
 		origin: { type: "string" },
 		origins: { type: "array", items: { type: "string" } },
@@ -57,9 +59,10 @@ const hostnameToPunycode = (hostname) => {
 const asciiOriginFast = /^https?:\/\/[a-z0-9.-]+(?::\d+)?$/i;
 
 const originToPunycode = (origin) => {
-	// Stryker disable next-line ConditionalExpression,StringLiteral: "*" fails both the asciiOriginFast regex and the /^(https?:\/\/)(.+)$/ match, so it is returned unchanged downstream regardless; the early-return is a pure fast-path with no observable effect.
-	if (!origin || origin === "*") return origin;
-	// Fast-path: ASCII origin without wildcard — just canonicalize case.
+	// A bare `*` needs no special case: it fails both matches below and comes
+	// back unchanged.
+	if (!origin) return origin;
+	// Fast-path: ASCII origin without wildcard, just canonicalize case.
 	// `new URL().host` lowercases the host portion; reproduce that here.
 	if (asciiOriginFast.test(origin)) {
 		// Lowercase only the scheme+host portion (which is all of it for this regex).
@@ -147,7 +150,15 @@ const httpCorsMiddleware = (opts = {}) => {
 	options.requestMethods = options.requestMethods?.map((v) => v.toUpperCase());
 
 	let originAny = false;
-	let originMany = options.origins.length > 1;
+	// True whenever the emitted Access-Control-Allow-Origin can differ by request
+	// Origin. A bare `origin` never varies: it is sent as-is whatever the request
+	// carries. Any entry in `origins` other than "*" does, because it is only
+	// sent on a match. `Vary: Origin` then goes on every response, including a
+	// mismatch and a request with no Origin, so a shared cache never serves the
+	// header-less variant to an allowed origin.
+	let originVaries = options.origins.some(
+		(origin) => origin && originToPunycode(origin) !== "*",
+	);
 	const originStatic = Object.create(null);
 	const originDynamic = [];
 
@@ -166,7 +177,7 @@ const httpCorsMiddleware = (opts = {}) => {
 			originStatic[origin] = true;
 			continue;
 		}
-		originMany = true;
+		originVaries = true;
 		// Dynamic
 		const regExpStr = origin
 			.replace(/[.+?^${}()|[\]\\]/g, "\\$&")
@@ -176,11 +187,11 @@ const httpCorsMiddleware = (opts = {}) => {
 		originDynamic.push(new RegExp(`^${regExpStr}$`));
 	}
 
-	// Stryker disable next-line ConditionalExpression: forcing this to `false` is equivalent - it just sends the default getOrigin through the explicit originToPunycode comparison below, which holds by construction for the default (the pre-fast-path behavior, identical results). (The EqualityOperator variant on this line remains active and is killed by the custom-getOrigin reflection tests.)
-	const usesDefaultGetOrigin = options.getOrigin === getOrigin;
 	const getOriginOptions = { ...options };
 	const getOriginOptionsCredentials = { ...options, credentials: true };
 	const getOriginOptionsNoCredentials = { ...options, credentials: false };
+
+	const maxAge = options.maxAge ? String(options.maxAge) : options.maxAge;
 
 	const modifyHeaders = (headers, options, request) => {
 		let credentials = options.credentials;
@@ -204,10 +215,11 @@ const httpCorsMiddleware = (opts = {}) => {
 		}
 
 		let newOrigin;
-		let reflectsRequestOrigin = false;
 		if (!Object.hasOwn(headers, "Access-Control-Allow-Origin")) {
 			const eventHeaders = request.event.headers ?? {};
-			const incomingOrigin = eventHeaders.Origin ?? eventHeaders.origin;
+			const incomingOrigin = headerValue(
+				eventHeaders.Origin ?? eventHeaders.origin,
+			);
 			newOrigin = options.getOrigin(
 				incomingOrigin,
 				credentials === true
@@ -219,23 +231,18 @@ const httpCorsMiddleware = (opts = {}) => {
 			if (newOrigin) {
 				headers["Access-Control-Allow-Origin"] = newOrigin;
 			}
-			reflectsRequestOrigin =
-				options.origins.length > 0 &&
-				!!newOrigin &&
-				newOrigin !== "*" &&
-				(usesDefaultGetOrigin ||
-					newOrigin === originToPunycode(incomingOrigin));
 		}
 
-		if (!headers.Vary) {
+		// The `vary` option is a default for responses that set no Vary of their
+		// own, in either casing; a handler that already chose one keeps it.
+		if (!headers.Vary && !headers.vary) {
 			addHeaderPart(headers, "Vary", options.vary);
 		}
 
 		if (
-			originMany ||
+			originVaries ||
 			(originAny && newOrigin !== "*") ||
-			(newOrigin === "*" && credentials) ||
-			reflectsRequestOrigin
+			(newOrigin === "*" && credentials)
 		) {
 			addHeaderPart(headers, "Vary", "Origin");
 		}
@@ -246,12 +253,10 @@ const httpCorsMiddleware = (opts = {}) => {
 		) {
 			headers["Access-Control-Expose-Headers"] = options.exposeHeaders;
 		}
-		if (options.maxAge && !Object.hasOwn(headers, "Access-Control-Max-Age")) {
-			headers["Access-Control-Max-Age"] = String(options.maxAge);
+		if (maxAge && !Object.hasOwn(headers, "Access-Control-Max-Age")) {
+			headers["Access-Control-Max-Age"] = maxAge;
 		}
-		const httpMethod = getVersionHttpMethod[request.event.version ?? "1.0"]?.(
-			request.event,
-		);
+		const httpMethod = readHttpMethod(request.event);
 		if (
 			httpMethod === "OPTIONS" &&
 			options.cacheControl &&
@@ -264,15 +269,14 @@ const httpCorsMiddleware = (opts = {}) => {
 	const httpCorsMiddlewareBefore = (request) => {
 		if (options.disableBeforePreflightResponse) return;
 
-		const method = getVersionHttpMethod[request.event.version ?? "1.0"]?.(
-			request.event,
-		);
+		const method = readHttpMethod(request.event);
 		if (method === "OPTIONS") {
 			normalizeHttpResponse(request);
 			const eventHeaders = request.event.headers ?? {};
-			const requestMethod =
+			const requestMethod = headerValue(
 				eventHeaders["Access-Control-Request-Method"] ??
-				eventHeaders["access-control-request-method"];
+					eventHeaders["access-control-request-method"],
+			);
 
 			if (options.requestMethods?.length && requestMethod) {
 				if (!options.requestMethods.includes(requestMethod)) {
@@ -282,9 +286,14 @@ const httpCorsMiddleware = (opts = {}) => {
 				}
 			}
 
-			const requestHeadersValue =
+			// A repeated header arrives as one array entry per value (VPC Lattice
+			// V2); every entry names a header the client wants to send, so they are
+			// all checked, unlike Origin and Access-Control-Request-Method, which
+			// are single-valued and take the first entry.
+			const requestHeadersValue = headerListValue(
 				eventHeaders["Access-Control-Request-Headers"] ??
-				eventHeaders["access-control-request-headers"];
+					eventHeaders["access-control-request-headers"],
+			);
 
 			if (options.requestHeaders?.length && requestHeadersValue) {
 				const requestedHeaders = requestHeadersValue
@@ -313,6 +322,8 @@ const httpCorsMiddleware = (opts = {}) => {
 
 	const httpCorsMiddlewareAfter = (request) => {
 		normalizeHttpResponse(request);
+		// Cloned, not mutated: a handler may return a module-level constant as its
+		// `headers`, which would leak one invocation's origin into the next.
 		const headers = { ...request.response.headers };
 		modifyHeaders(headers, options, request);
 		request.response.headers = headers;
@@ -329,17 +340,50 @@ const httpCorsMiddleware = (opts = {}) => {
 };
 const getVersionHttpMethod = Object.assign(Object.create(null), {
 	"1.0": (event) => event.httpMethod,
-	"2.0": (event) => event.requestContext.http.method,
+	// VPC Lattice V2 events also carry `version: "2.0"`, but put `method` at the
+	// top level (no `requestContext.http`; `requestContext` holds the
+	// service/target-group ARNs).
+	// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html#event-structure-v2
+	"2.0": (event) => event.requestContext?.http?.method ?? event.method,
+	// VPC Lattice V1: no `version`, top-level `method`.
+	// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html#event-structure-v1
+	vpc: (event) => event.method,
 });
+
+const readHttpMethod = (event) =>
+	getVersionHttpMethod[resolveHttpEventVersion(event)]?.(event);
+
+// VPC Lattice V2 delivers every header value as an array.
+const headerValue = (value) => (Array.isArray(value) ? value[0] : value);
+
+// For a list-valued header (RFC 9110 §5.3), a repeated header and one
+// comma-joined header mean the same thing, so the array is folded back into
+// the single list form the check below parses.
+const headerListValue = (value) =>
+	Array.isArray(value) ? value.join(", ") : value;
 
 // header in official name, lowercase variant handled
 const addHeaderPart = (headers, header, value) => {
 	if (!value) return;
 	const headerLower = header.toLowerCase();
 	const sanitizedHeader = headers[headerLower] ? headerLower : header;
-	headers[sanitizedHeader] ??= "";
-	headers[sanitizedHeader] &&= `${headers[sanitizedHeader]}, `;
-	headers[sanitizedHeader] += value;
+	const current = headers[sanitizedHeader];
+	if (!current) {
+		headers[sanitizedHeader] = value;
+		return;
+	}
+	// A handler (or `vary`) may already list the token; `Vary: Origin, Origin`
+	// is harmless to caches but wrong on the wire. `Vary: *` already says the
+	// response varies on everything (RFC 9110 §12.5.5), so it is left alone too.
+	const wanted = value.toLowerCase();
+	const present = String(current)
+		.split(",")
+		.some((token) => {
+			const existing = token.trim();
+			return existing === "*" || existing.toLowerCase() === wanted;
+		});
+	if (present) return;
+	headers[sanitizedHeader] = `${current}, ${value}`;
 };
 
 export default httpCorsMiddleware;

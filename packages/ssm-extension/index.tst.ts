@@ -2,7 +2,11 @@ import middy from "@middy/core";
 import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { expect, test } from "tstyche";
-import ssmExtension, { type Context, ssmExtensionParam } from "./index.js";
+import ssmExtension, {
+	type Context,
+	type SsmExtensionOptions,
+	ssmExtensionParam,
+} from "./index.js";
 
 test("use with default options", () => {
 	expect(ssmExtension()).type.toBe<
@@ -71,5 +75,45 @@ test("chain of multiple middleware", () => {
 			const data = await getInternal(["defaults", "config"], request);
 			expect(data.defaults).type.toBe<string>();
 			expect(data.config).type.toBe<{ host: string; port: number }>();
+		});
+});
+
+test("use with contextKey", () => {
+	handler
+		.use(
+			ssmExtension({
+				fetchData: {
+					config: ssmExtensionParam<{ host: string }>("/dev/config"),
+				},
+				setToContext: true,
+				contextKey: "ssm" as const,
+			}),
+		)
+		.before(async (request) => {
+			expect(request.context.middyContext.ssm.config).type.toBe<{
+				host: string;
+			}>();
+		});
+});
+
+test("options declare contextKey", () => {
+	expect<SsmExtensionOptions["contextKey"]>().type.toBe<string | undefined>();
+});
+
+test("contextKey literal narrows middyContext without as const", () => {
+	handler
+		.use(
+			ssmExtension({
+				fetchData: {
+					config: ssmExtensionParam<{ host: string }>("/dev/config"),
+				},
+				setToContext: true,
+				contextKey: "custom",
+			}),
+		)
+		.before(async (request) => {
+			expect(request.context.middyContext.custom.config).type.toBe<{
+				host: string;
+			}>();
 		});
 });

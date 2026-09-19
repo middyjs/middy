@@ -40,7 +40,7 @@ import httpHeaderNormalizer from '@middy/http-header-normalizer'
 import httpJsonBodyParser from '@middy/http-json-body-parser'
 
 const lambdaHandler = (event, context) => {
-  return {}
+  return event.body // propagates the parsed body as response
 }
 
 export const handler = middy()
@@ -56,9 +56,8 @@ const event = {
   },
   body: JSON.stringify({ foo: 'bar' })
 }
-handler(event, {}, (_, body) => {
-  deepStrictEqual(body, { foo: 'bar' })
-})
+const response = await handler(event, {})
+deepStrictEqual(response, { foo: 'bar' })
 ```
 
 ## Pairs well with

@@ -44,11 +44,58 @@ test("fuzz `event` w/ `object`", async () => {
 });
 
 test("fuzz `event` w/ `record`", async () => {
+	// Any inputS3Url is either fetched (allowed host) or rejected with the
+	// documented 400; no other error may escape.
 	await fc.assert(
 		fc.asyncProperty(
 			fc.record({
 				getObjectContext: fc.record({
 					inputS3Url: fc.webUrl(),
+					outputRoute: fc.webUrl(),
+					outputToken: fc.string(),
+				}),
+				Body: fc.string(),
+			}),
+			async (event) => {
+				try {
+					await handler(event, defaultContext);
+				} catch (e) {
+					if (e.statusCode !== 400) throw e;
+				}
+			},
+		),
+		{
+			numRuns: 10_000,
+
+			examples: [],
+		},
+	);
+});
+
+test("fuzz `event` w/ allowed inputS3Url host", async () => {
+	await fc.assert(
+		fc.asyncProperty(
+			fc.record({
+				getObjectContext: fc.record({
+					// Every supporting access point host shape S3 Object Lambda
+					// hands out, in the commercial, GovCloud and China partitions.
+					inputS3Url: fc
+						.tuple(
+							fc.stringMatching(/^[a-z0-9]{1,30}$/),
+							fc.constantFrom(
+								"s3-accesspoint.us-east-1.amazonaws.com",
+								"s3-accesspoint-fips.us-gov-west-1.amazonaws.com",
+								"s3-accesspoint.dualstack.eu-west-1.amazonaws.com",
+								"s3-accesspoint-fips.dualstack.us-east-2.amazonaws.com",
+								"s3-accesspoint.cn-north-1.amazonaws.com.cn",
+								"s3-accesspoint.dualstack.cn-northwest-1.amazonaws.com.cn",
+							),
+							fc.webPath(),
+						)
+						.map(
+							([accessPoint, endpoint, path]) =>
+								`https://${accessPoint}-111122223333.${endpoint}${path}`,
+						),
 					outputRoute: fc.webUrl(),
 					outputToken: fc.string(),
 				}),

@@ -38,7 +38,9 @@ test("setToContext: true", () => {
 			}),
 		)
 		.before(async (request) => {
-			expect(request.context.foo).type.toBe<AssumedRoleCredentials>();
+			expect(
+				request.context.middyContext.sts.foo,
+			).type.toBe<AssumedRoleCredentials>();
 
 			const data = await getInternal("foo", request);
 			expect(data.foo).type.toBe<AssumedRoleCredentials>();
@@ -57,5 +59,44 @@ test("setToContext: false", () => {
 		.before(async (request) => {
 			const data = await getInternal("foo", request);
 			expect(data.foo).type.toBe<AssumedRoleCredentials>();
+		});
+});
+
+test("accepts contextKey and awsClientAssumeRole", () => {
+	expect(sts).type.toBeCallableWith({ contextKey: "custom" });
+	expect(sts).type.toBeCallableWith({ awsClientAssumeRole: "some-role" });
+});
+
+test("contextKey renames the context namespace", () => {
+	handler
+		.use(
+			sts({
+				...options,
+				fetchData: { foo: { RoleArn: "foo" } },
+				setToContext: true,
+				contextKey: "custom" as const,
+			}),
+		)
+		.before(async (request) => {
+			expect(
+				request.context.middyContext.custom.foo,
+			).type.toBe<AssumedRoleCredentials>();
+		});
+});
+
+test("contextKey literal narrows middyContext without as const", () => {
+	handler
+		.use(
+			sts({
+				...options,
+				fetchData: { foo: { RoleArn: "foo" } },
+				setToContext: true,
+				contextKey: "custom",
+			}),
+		)
+		.before(async (request) => {
+			expect(
+				request.context.middyContext.custom.foo,
+			).type.toBe<AssumedRoleCredentials>();
 		});
 });

@@ -17,30 +17,31 @@ export const executionModeStreamifyResponse = (
 		async (event, lambdaResponseStream, context) => {
 			const request = middyRequest(event, context);
 			plugin.requestStart(request);
-			const handlerResponse = await runRequest(
-				request,
-				beforeMiddlewares,
-				lambdaHandler,
-				afterMiddlewares,
-				onErrorMiddlewares,
-				plugin,
-			);
-			let responseStream = lambdaResponseStream;
-			let handlerBody = handlerResponse ?? "";
-			if (handlerResponse?.statusCode) {
-				const { body, ...restResponse } = handlerResponse;
-				handlerBody = body ?? ""; // #1137
-				responseStream = awslambda.HttpResponseStream.from(
-					responseStream,
-					restResponse,
-				);
-				responseStream.write("");
-			}
-
-			// See executionModeStandard for the .cause-chaining rationale.
+			// See executionModeStandard for the .cause-chaining rationale. The
+			// middleware/handler run and the stream write share one try so that
+			// requestEnd still runs when a middleware or the handler throws.
 			let handlerError;
 			let hasError = false;
 			try {
+				const handlerResponse = await runRequest(
+					request,
+					beforeMiddlewares,
+					lambdaHandler,
+					afterMiddlewares,
+					onErrorMiddlewares,
+					plugin,
+				);
+				let responseStream = lambdaResponseStream;
+				let handlerBody = handlerResponse ?? "";
+				if (handlerResponse?.statusCode) {
+					const { body, ...restResponse } = handlerResponse;
+					handlerBody = body ?? ""; // #1137
+					responseStream = awslambda.HttpResponseStream.from(
+						responseStream,
+						restResponse,
+					);
+					responseStream.write("");
+				}
 				if (typeof handlerBody === "string") {
 					await writeString(responseStream, handlerBody);
 				} else if (
@@ -81,27 +82,23 @@ export const executionModeStreamifyResponse = (
 };
 
 // #1189 Streams the string body directly into the AWS Lambda response stream,
-// bypassing Readable.from + pipeline. For sub-chunk strings this is a single
-// write+end; for larger strings we slice and respect backpressure via `drain`.
+// bypassing Readable.from + pipeline. One write per chunk, respecting
+// backpressure via `drain`. A body up to one chunk is a single write (V8 hands
+// back the same string for a whole-string substring, so nothing is copied),
+// and an empty body still gets its write: the prelude is already flushed
+// eagerly after HttpResponseStream.from, so it needs no special care.
 const chunkSize = 16384; // 16 * 1024, matches Node.js default highWaterMark
 const writeString = async (stream, body) => {
-	// Stryker disable next-line EqualityOperator: at body.length === chunkSize both branches emit one identical full-body write then end(); behavior is indistinguishable.
-	if (body.length <= chunkSize) {
-		// Single-shot: write then end(). The prelude is already flushed eagerly
-		// after HttpResponseStream.from, so an empty body needs no special care.
-		stream.write(body);
-	} else {
-		let position = 0;
-		const length = body.length;
-		while (position < length) {
-			const next = position + chunkSize;
-			const ok = stream.write(body.substring(position, next));
-			position = next;
-			if (!ok && position < length) {
-				await once(stream, "drain");
-			}
+	let position = 0;
+	const length = body.length;
+	do {
+		const next = position + chunkSize;
+		const ok = stream.write(body.substring(position, next));
+		position = next;
+		if (!ok && position < length) {
+			await once(stream, "drain");
 		}
-	}
+	} while (position < length);
 	// stream.end(cb) calls cb on 'finish'; cb has no arg. Separate 'error'
 	// listener handles any late write errors so we don't hang on failure.
 	await new Promise((resolve, reject) => {

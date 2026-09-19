@@ -29,6 +29,7 @@ const defaults = {
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -68,10 +69,24 @@ const optionSchema = {
 		cacheKey: { type: "string" },
 		cacheKeyExpiry: {
 			type: "object",
-			additionalProperties: { type: "number", minimum: -1 },
+			additionalProperties: {
+				type: "number",
+				minimum: -1,
+				maximum: Number.MAX_SAFE_INTEGER,
+			},
 		},
-		cacheExpiry: { type: "number", minimum: -1 },
+		cacheExpiry: {
+			type: "number",
+			minimum: -1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
+		cacheMaxSize: {
+			type: "integer",
+			minimum: 1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -120,18 +135,21 @@ const dynamodbMiddleware = (opts = {}) => {
 		client = createPrefetchClient(options);
 		processCache(options, fetchRequest);
 	}
-	const dynamodbMiddlewareBefore = async (request) => {
-		if (!client) {
-			clientInit ??= createClient(options, request);
-			client = await clientInit;
-		}
+	const dynamodbMiddlewareFetch = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: equivalent. assignSetToContext returns either undefined (sync path) or a Promise; `await undefined` is a no-op, so guarding with `if (pending)` vs always awaiting is observationally identical.
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
+	};
+
+	const dynamodbMiddlewareBefore = (request) => {
+		if (client) return dynamodbMiddlewareFetch(request);
+		clientInit ??= createClient(options, request);
+		return clientInit.then((resolvedClient) => {
+			client = resolvedClient;
+			return dynamodbMiddlewareFetch(request);
+		});
 	};
 	return {
 		before: dynamodbMiddlewareBefore,

@@ -32,6 +32,8 @@ const setupHandler = () =>
 			price: 0.001,
 			payTo: "0xpayto",
 			asset: "0xasset",
+			// "unsupported version" reject.
+			versions: [1, 2],
 			FacilitatorClient: MockFacilitatorClient,
 		}),
 	);

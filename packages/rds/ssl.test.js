@@ -1,119 +1,130 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import { ok, strictEqual } from "node:assert/strict";
-import { test } from "node:test";
+import { EventEmitter } from "node:events";
+import { describe, mock, test } from "node:test";
+import tls, { checkServerIdentity } from "node:tls";
+import pg from "pg";
 import getSsl from "./ssl.js";
 
 const ca = "-----BEGIN CERTIFICATE-----\nMIID...\n-----END CERTIFICATE-----";
+const servername = "db.cluster-id.us-east-1.rds.amazonaws.com";
+const cname = "db.example.com";
 
-const setRegion = (value) => {
-	if (value === undefined) {
-		Reflect.deleteProperty(process.env, "AWS_REGION");
-	} else {
-		process.env.AWS_REGION = value;
-	}
-};
+describe("@middy/rds/ssl", () => {
+	test("ssl does not include sslmode", () => {
+		strictEqual("sslmode" in getSsl(ca), false);
+	});
 
-test("ssl does not include sslmode", () => {
-	strictEqual("sslmode" in getSsl(ca), false);
-});
+	test("ssl returns rejectUnauthorized true", () => {
+		strictEqual(getSsl(ca).ssl.rejectUnauthorized, true);
+	});
 
-test("ssl returns rejectUnauthorized true", () => {
-	strictEqual(getSsl(ca).ssl.rejectUnauthorized, true);
-});
+	test("ssl passes ca through", () => {
+		strictEqual(getSsl(ca).ssl.ca, ca);
+	});
 
-test("ssl passes ca through", () => {
-	strictEqual(getSsl(ca).ssl.ca, ca);
-});
+	test("ssl does not override checkServerIdentity", () => {
+		strictEqual("checkServerIdentity" in getSsl(ca).ssl, false);
+	});
 
-test("ssl exposes checkServerIdentity function", () => {
-	strictEqual(typeof getSsl(ca).ssl.checkServerIdentity, "function");
-});
+	test("ssl omits servername when not provided", () => {
+		strictEqual("servername" in getSsl(ca).ssl, false);
+	});
 
-test("checkServerIdentity returns undefined when TLS check passes", () => {
-	const { checkServerIdentity } = getSsl(ca).ssl;
-	const cert = {
-		subject: { CN: "db.cluster.us-east-1.rds.amazonaws.com" },
-		subjectaltname: "DNS:db.cluster.us-east-1.rds.amazonaws.com",
+	test("ssl omits servername when options are empty", () => {
+		strictEqual("servername" in getSsl(ca, {}).ssl, false);
+	});
+
+	test("ssl returns servername when provided", () => {
+		strictEqual(getSsl(ca, { servername }).ssl.servername, servername);
+	});
+
+	test("ssl keeps rejectUnauthorized and ca when servername is provided", () => {
+		const { ssl } = getSsl(ca, { servername });
+		strictEqual(ssl.rejectUnauthorized, true);
+		strictEqual(ssl.ca, ca);
+	});
+
+	// Node's tls verifies the peer certificate against `servername`, so a
+	// certificate issued to a different RDS instance in the same region no
+	// longer passes when connecting through a CNAME.
+	test("tls.checkServerIdentity rejects a certificate for another RDS instance", () => {
+		const cert = {
+			subject: { CN: "other.cluster-id.us-east-1.rds.amazonaws.com" },
+			subjectaltname: "DNS:other.cluster-id.us-east-1.rds.amazonaws.com",
+		};
+		ok(checkServerIdentity(servername, cert) instanceof Error);
+	});
+
+	test("tls.checkServerIdentity accepts a certificate whose SAN matches servername", () => {
+		const cert = {
+			subject: { CN: servername },
+			subjectaltname: `DNS:${servername}`,
+		};
+		strictEqual(checkServerIdentity(servername, cert), undefined);
+	});
+
+	// pg's Connection#upgradeToSSL overwrites `servername` with the connection
+	// host after merging the ssl object (node_modules/pg/lib/connection.js), so
+	// the explicit name is never what Node verifies the certificate against. The
+	// identity check must be pinned to `servername` instead.
+	const upgradePgConnection = (ssl, host) => {
+		const captured = [];
+		mock.method(tls, "connect", (options) => {
+			captured.push(options);
+			return new EventEmitter();
+		});
+		try {
+			const connection = new pg.Connection({ ssl, stream: new EventEmitter() });
+			connection.upgradeToSSL(host, () => {});
+		} finally {
+			mock.restoreAll();
+		}
+		strictEqual(captured.length, 1);
+		return captured[0];
 	};
-	const result = checkServerIdentity(
-		"db.cluster.us-east-1.rds.amazonaws.com",
-		cert,
-	);
-	strictEqual(result, undefined);
-});
 
-test("checkServerIdentity suppresses TLS error for an in-region RDS endpoint (custom DNS)", () => {
-	const previousRegion = process.env.AWS_REGION;
-	setRegion("us-east-1");
-	try {
-		const { checkServerIdentity } = getSsl(ca).ssl;
-		// No subjectaltname so node:tls falls back to CN check, which fails (host mismatch).
-		// The cert is for an RDS endpoint in the configured region, so the error is suppressed
-		// to support a custom DNS name / CNAME in front of the in-region instance.
-		const cert = { subject: { CN: "db.cluster.us-east-1.rds.amazonaws.com" } };
-		const result = checkServerIdentity("custom.db.example.com", cert);
-		strictEqual(result, undefined);
-	} finally {
-		setRegion(previousRegion);
-	}
-});
+	test("pg overwrites servername with the connection host", () => {
+		const options = upgradePgConnection(getSsl(ca, { servername }).ssl, cname);
+		strictEqual(options.servername, cname);
+	});
 
-test("checkServerIdentity returns TLS error for an out-of-region RDS endpoint", () => {
-	const previousRegion = process.env.AWS_REGION;
-	setRegion("us-east-1");
-	try {
-		const { checkServerIdentity } = getSsl(ca).ssl;
-		// Cert is a valid RDS endpoint but in a different region than configured, so the
-		// host-mismatch error must NOT be suppressed (prevents redirection to another
-		// account's/region's RDS instance).
-		const cert = { subject: { CN: "db.cluster.eu-west-1.rds.amazonaws.com" } };
-		const result = checkServerIdentity("custom.db.example.com", cert);
-		ok(result instanceof Error);
-	} finally {
-		setRegion(previousRegion);
-	}
-});
+	test("pg verifies the certificate against the configured servername", () => {
+		const options = upgradePgConnection(getSsl(ca, { servername }).ssl, cname);
+		const cert = {
+			subject: { CN: servername },
+			subjectaltname: `DNS:${servername}`,
+		};
+		strictEqual(
+			options.checkServerIdentity(options.servername, cert),
+			undefined,
+		);
+	});
 
-test("checkServerIdentity falls back to the bare RDS suffix when AWS_REGION is unset", () => {
-	const previousRegion = process.env.AWS_REGION;
-	setRegion(undefined);
-	try {
-		const { checkServerIdentity } = getSsl(ca).ssl;
-		const cert = { subject: { CN: "db.cluster.us-east-1.rds.amazonaws.com" } };
-		const result = checkServerIdentity("custom.db.example.com", cert);
-		strictEqual(result, undefined);
-	} finally {
-		setRegion(previousRegion);
-	}
-});
+	test("pg rejects a certificate issued to the CNAME host, not the servername", () => {
+		const options = upgradePgConnection(getSsl(ca, { servername }).ssl, cname);
+		const cert = {
+			subject: { CN: cname },
+			subjectaltname: `DNS:${cname}`,
+		};
+		ok(options.checkServerIdentity(options.servername, cert) instanceof Error);
+	});
 
-test("checkServerIdentity returns TLS error when cert CN is not an RDS endpoint", () => {
-	const { checkServerIdentity } = getSsl(ca).ssl;
-	const cert = { subject: { CN: "evil.example.com" } };
-	const result = checkServerIdentity(
-		"db.cluster.us-east-1.rds.amazonaws.com",
-		cert,
-	);
-	ok(result instanceof Error);
-});
+	test("pg rejects a certificate for another RDS instance", () => {
+		const options = upgradePgConnection(getSsl(ca, { servername }).ssl, cname);
+		const cert = {
+			subject: { CN: "other.cluster-id.us-east-1.rds.amazonaws.com" },
+			subjectaltname: "DNS:other.cluster-id.us-east-1.rds.amazonaws.com",
+		};
+		ok(options.checkServerIdentity(options.servername, cert) instanceof Error);
+	});
 
-test("checkServerIdentity returns TLS error without throwing when cert has no subject", () => {
-	// Exercises the optional chain on cert.subject?.CN: a cert lacking `subject`
-	// must surface the TLS error, not throw a TypeError reading .CN of undefined.
-	const { checkServerIdentity } = getSsl(ca).ssl;
-	const cert = {};
-	const result = checkServerIdentity(
-		"db.cluster.us-east-1.rds.amazonaws.com",
-		cert,
-	);
-	ok(result instanceof Error);
-});
-
-test("checkServerIdentity returns TLS error without throwing when cert has no CN", () => {
-	const { checkServerIdentity } = getSsl(ca).ssl;
-	const cert = { subject: {} };
-	const result = checkServerIdentity(
-		"db.cluster.us-east-1.rds.amazonaws.com",
-		cert,
-	);
-	ok(result instanceof Error);
+	test("pg keeps Node's default identity check without servername", () => {
+		const options = upgradePgConnection(getSsl(ca).ssl, servername);
+		strictEqual(options.servername, servername);
+		strictEqual("checkServerIdentity" in options, false);
+		strictEqual(options.rejectUnauthorized, true);
+		strictEqual(options.ca, ca);
+	});
 });

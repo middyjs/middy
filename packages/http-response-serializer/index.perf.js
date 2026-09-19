@@ -34,7 +34,7 @@ const setupHandler = () => {
 					serializer: ({ body }) => body,
 				},
 			],
-			default: "application/json",
+			defaultContentType: "application/json",
 		}),
 	);
 };

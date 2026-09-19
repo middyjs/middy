@@ -4,6 +4,7 @@ import type { Context as LambdaContext } from "aws-lambda";
 import { expect, test } from "tstyche";
 import secretsManagerExtension, {
 	type Context,
+	type SecretsManagerExtensionOptions,
 	secretsManagerExtensionParam,
 } from "./index.js";
 
@@ -77,5 +78,51 @@ test("chain of multiple middleware", () => {
 			const data = await getInternal(["accessToken", "dbParams"], request);
 			expect(data.accessToken).type.toBe<string>();
 			expect(data.dbParams).type.toBe<{ user: string; pass: string }>();
+		});
+});
+
+test("use with contextKey", () => {
+	handler
+		.use(
+			secretsManagerExtension({
+				fetchData: {
+					dbParams: secretsManagerExtensionParam<{ user: string }>(
+						"prod/service/database",
+					),
+				},
+				setToContext: true,
+				contextKey: "secrets" as const,
+			}),
+		)
+		.before(async (request) => {
+			expect(request.context.middyContext.secrets.dbParams).type.toBe<{
+				user: string;
+			}>();
+		});
+});
+
+test("options declare contextKey", () => {
+	expect<SecretsManagerExtensionOptions["contextKey"]>().type.toBe<
+		string | undefined
+	>();
+});
+
+test("contextKey literal narrows middyContext without as const", () => {
+	handler
+		.use(
+			secretsManagerExtension({
+				fetchData: {
+					dbParams: secretsManagerExtensionParam<{ user: string }>(
+						"prod/service/database",
+					),
+				},
+				setToContext: true,
+				contextKey: "custom",
+			}),
+		)
+		.before(async (request) => {
+			expect(request.context.middyContext.custom.dbParams).type.toBe<{
+				user: string;
+			}>();
 		});
 });

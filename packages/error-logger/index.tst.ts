@@ -30,3 +30,21 @@ test("Options logger is optional", () => {
 	const noLogger: Options = {};
 	expect(noLogger).type.toBeAssignableTo<Options>();
 });
+
+test("Options logger rejects false", () => {
+	expect(errorLogger({ logger: false })).type.toRaiseError(2322);
+	expect<false>().type.not.toBeAssignableTo<NonNullable<Options["logger"]>>();
+	expect<boolean>().type.not.toBeAssignableTo<NonNullable<Options["logger"]>>();
+});
+
+test("Options omitPaths and mask", () => {
+	const options: Options = {
+		omitPaths: ["error.cause.data.body"],
+		mask: "***",
+	};
+	expect(options).type.toBeAssignableTo<Options>();
+	expect<number[]>().type.not.toBeAssignableTo<
+		NonNullable<Options["omitPaths"]>
+	>();
+	expect<boolean>().type.not.toBeAssignableTo<NonNullable<Options["mask"]>>();
+});

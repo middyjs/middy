@@ -1,10 +1,10 @@
 {
 	"name": "@middy/core",
-	"version": "7.9.2",
+	"version": "8.0.0-alpha.0",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda (core package)",
 	"type": "module",
 	"engines": {
-		"node": ">=22"
+		"node": ">=24"
 	},
 	"engineStrict": true,
 	"publishConfig": {
@@ -113,10 +113,10 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.9.2"
+		"@middy/util": "8.0.0-alpha.0"
 	},
 	"peerDependencies": {
-		"@aws/durable-execution-sdk-js": "^2.0.0"
+		"@aws/durable-execution-sdk-js": "^2.3.1"
 	},
 	"peerDependenciesMeta": {
 		"@aws/durable-execution-sdk-js": {
@@ -124,10 +124,10 @@
 		}
 	},
 	"devDependencies": {
-		"@aws/durable-execution-sdk-js": "^2.0.0",
+		"@aws/durable-execution-sdk-js": "^2.3.1",
 		"@aws/durable-execution-sdk-js-testing": "^1.0.0",
 		"@datastream/core": "0.7.1",
 		"@types/aws-lambda": "^8.0.0",
-		"@types/node": "^22.0.0"
+		"@types/node": "^24.0.0"
 	}
 }

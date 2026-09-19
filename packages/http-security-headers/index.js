@@ -86,7 +86,11 @@ const optionSchema = {
 		strictTransportSecurity: booleanOr({
 			type: "object",
 			properties: {
-				maxAge: { type: "number", minimum: 0 },
+				maxAge: {
+					type: "number",
+					minimum: 0,
+					maximum: Number.MAX_SAFE_INTEGER,
+				},
 				includeSubDomains: { type: "boolean" },
 				preload: { type: "boolean" },
 			},
@@ -150,10 +154,8 @@ const defaults = {
 	crossOriginResourcePolicy: {
 		policy: "same-origin",
 	},
-	// Stryker disable next-line ObjectLiteral: {allow:false} and {} both yield config.allow falsy -> "off"; observationally equivalent
-	dnsPrefetchControl: {
-		allow: false,
-	},
+	// `allow` is off unless set to true.
+	dnsPrefetchControl: {},
 	downloadOptions: {
 		action: "noopen",
 	},
@@ -306,7 +308,7 @@ helmet.reportTo = (headers, config) => {
 					? `, "include_subdomains": ${includeSubDomains}`
 					: "";
 			return config[group]
-				? `{ "group": "default", "max_age": ${config.maxAge}, "endpoints": [ { "url": "${config[group]}" } ]${subdomains} }`
+				? `{ "group": "${group}", "max_age": ${config.maxAge}, "endpoints": [ { "url": "${config[group]}" } ]${subdomains} }`
 				: "";
 		})
 		.filter((str) => str)
@@ -402,12 +404,11 @@ const httpSecurityHeadersMiddleware = (opts = {}) => {
 		const headers = request.response.headers;
 		Object.assign(headers, precomputedHeaders);
 		if (options.poweredBy) {
-			// Guard `delete` to avoid V8 hidden-class transitions when the key
-			// was never set (the typical Lambda handler case).
-			// Stryker disable next-line ConditionalExpression: `in` guard is a perf-only hidden-class optimization; forcing true still deletes a possibly-absent key with identical observable output
-			if ("Server" in headers) delete headers.Server;
-			// Stryker disable next-line ConditionalExpression: `in` guard is a perf-only hidden-class optimization; forcing true still deletes a possibly-absent key with identical observable output
-			if ("X-Powered-By" in headers) delete headers["X-Powered-By"];
+			// Deleting an absent key is a no-op for V8's hidden classes; only a
+			// present one drops the object into dictionary mode, and that cost is
+			// unavoidable when the handler did set it.
+			delete headers.Server;
+			delete headers["X-Powered-By"];
 		}
 	};
 	const httpSecurityHeadersMiddlewareOnError = (request) => {

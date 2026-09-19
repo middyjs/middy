@@ -130,7 +130,7 @@ Evidence links point to files in this repository unless otherwise noted.
 | V2.4.11 | 2 | IaC scanner on latest version | :no_entry_sign: | N/A |
 | V2.4.12 | 2 | IaC scanner updated at least monthly | :no_entry_sign: | N/A |
 | V2.4.13 | 2 | IaC tools enforce security policies | :no_entry_sign: | N/A |
-| V2.4.14 | 2 | Third-party libraries scanned for known vulns | :white_check_mark: | Trivy SCA in [test-sast.yml](../.github/workflows/test-sast.yml); Dependabot vulnerability alerts |
+| V2.4.14 | 2 | Third-party libraries scanned for known vulns | :white_check_mark: | Trivy SCA in [test-sast.yml](../.github/workflows/test-sast.yml) over the root lockfile; Dependabot vulnerability alerts are pending enablement on the repository |
 | V2.4.15 | 2 | Third-party libraries updated promptly | :white_check_mark: | Dependabot weekly with `develop` target branch per [dependabot.yml](../.github/dependabot.yml) |
 | V2.4.16 | - | Pre-commit security scans detect issues before commit | :white_check_mark: | husky pre-commit hook runs lint + unit tests (`git:pre-commit` in [package.json](../package.json)); commitlint + DCO sign-off enforced at commit time |
 
@@ -138,7 +138,7 @@ Evidence links point to files in this repository unless otherwise noted.
 
 | ID | Level | Requirement | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| V2.5.1 | 2 | No hardcoded credentials in code or pipeline config | :white_check_mark: | Enforced by TruffleHog (`--only-verified --results=verified,unknown`) and gitleaks in [test-sast.yml](../.github/workflows/test-sast.yml) |
+| V2.5.1 | 2 | No hardcoded credentials in code or pipeline config | :white_check_mark: | Enforced by TruffleHog (`--only-verified`) and gitleaks in [test-sast.yml](../.github/workflows/test-sast.yml) |
 
 ### V2.6 Third-Party Library Audit
 
@@ -152,7 +152,7 @@ Evidence links point to files in this repository unless otherwise noted.
 | ID | Level | Requirement | Status | Evidence |
 | --- | --- | --- | --- | --- |
 | V2.7.1 | 2 | Security unit tests in development process | :white_check_mark: | Property-based fuzz tests via `fast-check` in [test-dast.yml](../.github/workflows/test-dast.yml); type tests via `tstyche` in [test-types.yml](../.github/workflows/test-types.yml) |
-| V2.7.2 | 2 | Unit tests automated, run on every change | :white_check_mark: | [test-unit.yml](../.github/workflows/test-unit.yml) on every PR, Node 22 + 24 matrix |
+| V2.7.2 | 2 | Unit tests automated, run on every change | :white_check_mark: | [test-unit.yml](../.github/workflows/test-unit.yml) on every PR, Node 24 + 26 matrix |
 
 ---
 
@@ -307,7 +307,7 @@ The 1.6 control set (`1.6/OWASP_SPVS_1.6_-en_Requirements.csv`) is incident-deri
 | --- | --- | --- | --- | --- |
 | V2.1.1 | High | No plaintext secrets in local environment files | :shield: | Maintainer attestation; anything committed is blocked by TruffleHog + gitleaks ([test-sast.yml](../.github/workflows/test-sast.yml)) |
 | V2.2.1 | Critical | Install scripts off by default; enabled only for reviewed packages | :white_check_mark: | `npm ci --ignore-scripts` in every workflow; npm v12 (pinned via `packageManager`) disables install scripts by default locally |
-| V2.2.2 | Critical | New packages screened for risk signals; minimum publish-age enforced | :white_check_mark: | 14-day cooldown enforced twice: Dependabot ([dependabot.yml](../.github/dependabot.yml)) and `min-release-age=14` in [.npmrc](../.npmrc) at local resolution time; `Dependency Review` required check fails PRs introducing known-malicious or vulnerable packages ([test-sast.yml](../.github/workflows/test-sast.yml)); risk-signal screening documented in [SECURITY.md OSS Component Policy](../SECURITY.md#oss-component-policy) |
+| V2.2.2 | Critical | New packages screened for risk signals; minimum publish-age enforced | :white_check_mark: | Publish-age gating enforced twice: a 14-day Dependabot cooldown ([dependabot.yml](../.github/dependabot.yml)) and `min-release-age=3` in [.npmrc](../.npmrc) at local resolution time; `Dependency Review` required check fails PRs introducing known-malicious or vulnerable packages ([test-sast.yml](../.github/workflows/test-sast.yml)); risk-signal screening documented in [SECURITY.md OSS Component Policy](../SECURITY.md#oss-component-policy) |
 | V2.2.3 | High | Lockfile integrity-checked against manifest before build; fail on mismatch | :white_check_mark: | `npm ci` fails on manifest/lockfile mismatch; `lockfile-lint` host/HTTPS gate; `npm audit signatures` in the release build |
 | V2.2.4 | Medium | Dependency inventory (incl. transitive depth) reviewed on cadence with recorded justification | :white_check_mark: | [DEPENDENCIES.md](DEPENDENCIES.md) records the full runtime inventory with per-dependency justification; reviewed quarterly per [GOVERNANCE.md](GOVERNANCE.md) and updated in the same PR as any dependency change |
 | V2.2.5 | High | Package names screened for typosquats/slopsquats before first resolution | :white_check_mark: | Exact-name verification before first install documented in [SECURITY.md](../SECURITY.md#oss-component-policy); `Dependency Review` required check flags known-malicious packages on every PR |
