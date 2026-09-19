@@ -11,7 +11,7 @@ feature/*  -->  develop  -->  main  -->  npm
 | Branch | Purpose | Merge gate |
 | --- | --- | --- |
 | `feature/*` | All work originates from a feature branch off `develop`. | PR into `develop`; the `develop` ruleset blocks the merge until `Tests (lint)`, `Tests (unit) (24.x)` and `Tests (unit) (26.x)` pass. Review is recommended but not ruleset-enforced |
-| `develop` | Integration branch. CI checks (lint, unit, types, SAST, perf, DAST, DCO) run on every PR. Version-bump PRs are opened by a maintainer after running `npm run release:sync` (see [RELEASE.md](RELEASE.md)). | Ruleset ([rulesets/develop.json](../.github/rulesets/develop.json)): deletion + non-fast-forward + signed commits + required status checks `Tests (lint)`, `Tests (unit) (24.x)` and `Tests (unit) (26.x)`. PR review is policy (CONTRIBUTING.md) but not enforced by the `develop` ruleset |
+| `develop` | Integration branch. CI checks (lint, unit, types, SAST, bench, DAST, DCO) run on every PR. Version-bump PRs are opened by a maintainer after running `npm run release:sync` (see [RELEASE.md](RELEASE.md)). | Ruleset ([rulesets/develop.json](../.github/rulesets/develop.json)): deletion + non-fast-forward + signed commits + required status checks `Tests (lint)`, `Tests (unit) (24.x)` and `Tests (unit) (26.x)`. PR review is policy (CONTRIBUTING.md) but not enforced by the `develop` ruleset |
 | `main` | Release branch. Merging a `develop -> main` PR triggers [release.yml](../.github/workflows/release.yml). | Ruleset enforces: deletion + non-fast-forward + signed commits + PR with 2 approvals + CODEOWNERS review + all required status checks defined in [rulesets/main.json](../.github/rulesets/main.json) + CodeQL/zizmor code-scanning gates. `release.yml` additionally waits on the `npm-publish` GitHub Environment for explicit human approval before `npm stage publish` |
 
 DCO sign-off is required on every commit ([test-dco.yml](../.github/workflows/test-dco.yml)).
@@ -41,7 +41,7 @@ These run on every PR and (where noted) on a weekly cron.
 | [test-lint.yml](../.github/workflows/test-lint.yml) | PR | Biome lint + format check | V2.2.1 - V2.2.4 |
 | [test-unit.yml](../.github/workflows/test-unit.yml) | PR | `node --test` with 100% lines/branches/functions coverage gate; Node 24 + Node 26 matrix | V2.2.5, V2.7.2 |
 | [test-types.yml](../.github/workflows/test-types.yml) | PR | `tstyche` type tests | V2.7.1 |
-| [test-perf.yml](../.github/workflows/test-perf.yml) | PR | `tinybench` performance regression check | Defence-in-depth |
+| [test-bench.yml](../.github/workflows/test-bench.yml) | PR | `node:bench` performance regression check | Defence-in-depth |
 | [test-dast.yml](../.github/workflows/test-dast.yml) | PR | Property-based fuzz tests via `fast-check` | V3.3.14 |
 | [test-dco.yml](../.github/workflows/test-dco.yml) | PR | Developer Certificate of Origin sign-off | V1.3.5 |
 | [test-sast.yml](../.github/workflows/test-sast.yml) | PR + weekly cron | Trivy SCA (vuln) + Trivy license + lockfile-lint + CodeQL (javascript + actions) + semgrep + actionlint + zizmor (online audits incl. impostor-commit) + dependency-review + TruffleHog + gitleaks + license headers | V2.4.1-6, V2.4.7-9, V2.4.14, V2.5.1, V2.6.1, V3.1.5, V3.3.1-9 |

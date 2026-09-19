@@ -197,7 +197,7 @@ Evidence links point to files in this repository unless otherwise noted.
 | V3.3.12 | 1 | IaC scanner updated monthly | :no_entry_sign: | N/A |
 | V3.3.13 | 1 | IaC policies enforced | :no_entry_sign: | N/A |
 | V3.3.14 | 1 | DAST scans running app | :white_check_mark: | Property-based fuzz tests via `fast-check` exercise middleware request/response paths under random input in [test-dast.yml](../.github/workflows/test-dast.yml) |
-| V3.3.15 | 2 | Automated security scans on new code integration | :white_check_mark: | Every PR triggers lint, unit, types, SAST, perf, DAST |
+| V3.3.15 | 2 | Automated security scans on new code integration | :white_check_mark: | Every PR triggers lint, unit, types, SAST, bench, DAST |
 | V3.3.16 | 2 | Integration tests include security test cases | :white_check_mark: | Fuzz suites validate behaviour under malformed events |
 | V3.3.17 | 2 | Security testing integrated into CI | :white_check_mark: | `test-sast.yml` is a required PR check |
 | V3.3.18 | 3 | Branch protection rules enforced | :white_check_mark: | Rulesets-as-code in [.github/rulesets/](../.github/rulesets/) (one JSON per branch/tag scope, applied via `gh api`); the default branch (`main`) enforces deletion + non-fast-forward + signed commits + 2-approval PR + CODEOWNERS + all required status checks defined in the ruleset + CodeQL/zizmor code-scanning gates. OSSF Scorecard `Branch-Protection` check (scoped to the default branch) passes with a perfect score, continuously verified weekly by [ossf-scorecard.yml](../.github/workflows/ossf-scorecard.yml). `develop` and tag rulesets are less strict and serve as integration / tag-protection scopes |
@@ -219,7 +219,7 @@ Evidence links point to files in this repository unless otherwise noted.
 
 | ID | Level | Requirement | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| V4.1.1 | 1 | Comprehensive security assessment on release candidate | :white_check_mark: | The full `develop -> main` PR runs lint, unit (matrix), types, SAST (CodeQL, semgrep, Trivy, TruffleHog, gitleaks, actionlint, zizmor, lockfile-lint), perf, and DAST as gating checks |
+| V4.1.1 | 1 | Comprehensive security assessment on release candidate | :white_check_mark: | The full `develop -> main` PR runs lint, unit (matrix), types, SAST (CodeQL, semgrep, Trivy, TruffleHog, gitleaks, actionlint, zizmor, lockfile-lint), bench, and DAST as gating checks |
 
 ### V4.2 Compliance Checks
 
@@ -381,7 +381,7 @@ Not applicable. middy ships no AI/ML pipeline; no model artefacts, no training p
 | Cadence | Activity | Owner |
 | --- | --- | --- |
 | Weekly | OSSF Scorecard scan; Dependabot updates; review SAST/secret-scan findings | Maintainers |
-| Per release | All gating checks (lint, unit, types, SAST, perf, DAST) pass; provenance attestation + signature verification before publish | CI |
+| Per release | All gating checks (lint, unit, types, SAST, bench, DAST) pass; provenance attestation + signature verification before publish | CI |
 | Quarterly | Audit GitHub org admins (V1.1.7); review `harden-runner` egress audit logs and tighten policy where stable | Maintainers |
 | Annually | Re-attest this document against the latest SPVS revision; review known-gaps list and close where feasible | Maintainers |
 

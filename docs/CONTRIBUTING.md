@@ -74,7 +74,8 @@ before reaching this packages inputs.
 
 ### Performance benchmarks
 
-We use `tinybench` to ensure there are no performance regressions.
+We use `node:bench` to ensure there are no performance regressions. It is experimental and only available on Node.js
+26+, so `npm run test:bench` needs a Node.js 26 runtime even though the packages themselves support Node.js 24+.
 
 ## 5. Committing
 

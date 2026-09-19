@@ -1,0 +1,57 @@
+import { bench } from "node:bench";
+import middy from "../core/index.js";
+import middleware from "./index.js";
+
+global.fetch = () =>
+	Promise.resolve(
+		new Response(JSON.stringify({ option: "value" }), {
+			status: 200,
+			statusText: "OK",
+			headers: new Headers({
+				"Content-Type": "application/json; charset=UTF-8",
+			}),
+		}),
+	);
+
+const operations = 1_000;
+
+const context = {
+	getRemainingTimeInMillis: () => 30000,
+};
+const setupHandler = (options = {}) => {
+	const baseHandler = () => {};
+	return middy(baseHandler).use(
+		middleware({
+			fetchData: {
+				key: { application: "app", environment: "dev", configuration: "cfg" },
+			},
+			disablePrefetch: true,
+			...options,
+		}),
+	);
+};
+
+const coldHandler = setupHandler({ cacheExpiry: 0 });
+const warmHandler = setupHandler({ cacheExpiry: -1 });
+
+const event = {};
+
+bench("appconfig-extension: without cache", async (b) => {
+	b.start();
+	for (let i = 0; i < operations; i++) {
+		try {
+			await coldHandler(event, context);
+		} catch (_e) {}
+	}
+	b.end(operations);
+});
+
+bench("appconfig-extension: with cache", async (b) => {
+	b.start();
+	for (let i = 0; i < operations; i++) {
+		try {
+			await warmHandler(event, context);
+		} catch (_e) {}
+	}
+	b.end(operations);
+});
