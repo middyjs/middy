@@ -291,6 +291,7 @@ jobs:
           [ -n "$DIST_TAG" ] || { echo "::error::dist_tag not set by the Build job"; exit 1; }
           mkdir -p staged
           count=0
+          failed=()
           for f in ./*.tgz; do
             out="staged/$(basename "$f" .tgz).json"
             # --json writes the stage record to stdout, notices and errors to stderr
@@ -305,8 +306,12 @@ jobs:
             # must step over them rather than start again from nothing.
             case "$err" in
               *E409*) echo "::notice::$(basename "$f" .tgz) already staged" ;;
-              *) echo "$err" >&2; exit 1 ;;
+              # Carry on rather than bail. A trusted publisher is configured per
+              # package on npmjs.com, so one missing one 401s on its own while
+              # the rest are fine: name every offender in a single run.
+              *) echo "$err" >&2; failed+=("$(basename "$f" .tgz)") ;;
             esac
           done
           echo "${count} newly staged"
           [ "$count" -eq 0 ] || jq -s -r 'map(to_entries[].value) | .[] | "\(.name)@\(.version) staged with id \(.stageId)"' staged/*.json
+          [ "${#failed[@]}" -eq 0 ] || { echo "::error::failed to stage: ${failed[*]}"; exit 1; }
