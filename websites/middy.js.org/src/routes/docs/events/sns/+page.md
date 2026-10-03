@@ -5,6 +5,25 @@ description: "Process Amazon SNS notifications on AWS Lambda with Middy: per-rec
 
 Process SNS notifications in a Lambda subscribed to an SNS topic.
 
+## Event flow
+
+```mermaid
+flowchart LR
+  accTitle: SNS to Lambda
+  accDescr: SNS to Lambda; SNS to SQS to Lambda; SQS to EventBridge Pipes to Lambda.
+  src@{ icon: "logos:aws-sns", label: "SNS", pos: "b", h: 48 }
+  fn@{ icon: "logos:aws-lambda", label: "Lambda", pos: "b", h: 48 }
+  sqs@{ icon: "logos:aws-sqs", label: "SQS", pos: "b", h: 48 }
+  pipes@{ icon: "logos:aws-eventbridge", label: "EventBridge Pipes", pos: "b", h: 48 }
+  src --> fn
+  src --> sqs
+  sqs --> fn
+  sqs --> pipes
+  pipes --> fn
+```
+
+Every hop through SNS, SQS, EventBridge, or EventBridge Pipes wraps the event Lambda receives in that service's envelope. [`@middy/event-normalizer`](/docs/middlewares/event-normalizer) unwraps the SNS and SQS envelopes.
+
 ## AWS documentation
 
 - [Using AWS Lambda with Amazon SNS](https://docs.aws.amazon.com/lambda/latest/dg/with-sns.html)

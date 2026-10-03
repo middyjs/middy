@@ -14,6 +14,17 @@ This page is a work in progress. If you want to help us to make this page better
 
 We recommend using `@middy/http-event-normalizer` if you place to use any of the following: `@middy/http-json-body-parser`, `@middy/http-multipart-body-parser`, `@middy/http-urlencode-body-parser`, `@middy/http-partial-response`
 
+## Event flow
+
+```mermaid
+flowchart LR
+  accTitle: VPC Lattice to Lambda
+  accDescr: VPC Lattice to Lambda.
+  src@{ icon: "logos:aws-vpc", label: "VPC Lattice", pos: "b", h: 48 }
+  fn@{ icon: "logos:aws-lambda", label: "Lambda", pos: "b", h: 48 }
+  src --> fn
+```
+
 ## AWS Documentation
 
 - [Using AWS Lambda with Amazon VPC Lattice](https://docs.aws.amazon.com/lambda/latest/dg/services-vpc-lattice.html)

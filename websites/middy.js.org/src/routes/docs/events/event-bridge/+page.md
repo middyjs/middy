@@ -5,6 +5,23 @@ description: "Process Amazon EventBridge events on AWS Lambda with Middy: rule t
 
 Process EventBridge events in a Lambda set as a rule target. Used for scheduled invocations, AWS service events (CloudTrail, S3, etc.), partner events, and custom bus events.
 
+## Event flow
+
+```mermaid
+flowchart LR
+  accTitle: EventBridge to Lambda
+  accDescr: EventBridge to Lambda; EventBridge to SQS to Lambda; EventBridge to SNS to Lambda.
+  eb@{ icon: "logos:aws-eventbridge", label: "EventBridge", pos: "b", h: 48 }
+  fn@{ icon: "logos:aws-lambda", label: "Lambda", pos: "b", h: 48 }
+  sqs@{ icon: "logos:aws-sqs", label: "SQS", pos: "b", h: 48 }
+  sns@{ icon: "logos:aws-sns", label: "SNS", pos: "b", h: 48 }
+  eb --> fn
+  eb --> sqs
+  sqs --> fn
+  eb --> sns
+  sns --> fn
+```
+
 ## AWS documentation
 
 - [Using AWS Lambda with Amazon EventBridge](https://docs.aws.amazon.com/lambda/latest/dg/services-cloudwatchevents.html)

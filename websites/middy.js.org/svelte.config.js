@@ -5,6 +5,7 @@ import tardisec from "./.tardisec.sveltekit.json" with { type: "json" };
 import { rehypeAddHeadingIds } from "./src/lib/rehype-add-heading-ids.js";
 import { rehypeCopyPre } from "./src/lib/rehype-copy-pre.js";
 import { remarkExtractHeadings } from "./src/lib/remark-extract-headings.js";
+import { remarkMermaid } from "./src/lib/remark-mermaid.js";
 
 const domain = process.env.ORIGIN ?? "middy.js.org";
 const origin = `https://${domain}`;
@@ -43,7 +44,7 @@ const config = {
 			layout: {
 				_: resolve("./src/components/docs/mdsvex-layout.svelte"),
 			},
-			remarkPlugins: [remarkExtractHeadings],
+			remarkPlugins: [remarkExtractHeadings, remarkMermaid],
 			rehypePlugins: [rehypeAddHeadingIds, rehypeCopyPre],
 		}),
 	],

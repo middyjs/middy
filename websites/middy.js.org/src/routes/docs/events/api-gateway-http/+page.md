@@ -5,6 +5,17 @@ description: "Build APIs on AWS Lambda with Middy and API Gateway HTTP API (v2):
 
 API Gateway HTTP API (v2) is the modern, cheaper, faster API Gateway flavour. Use this page when your Lambda is the integration target of an HTTP API.
 
+## Event flow
+
+```mermaid
+flowchart LR
+  accTitle: HTTP API to Lambda
+  accDescr: HTTP API to Lambda.
+  src@{ icon: "logos:aws-api-gateway", label: "HTTP API", pos: "b", h: 48 }
+  fn@{ icon: "logos:aws-lambda", label: "Lambda", pos: "b", h: 48 }
+  src --> fn
+```
+
 ## AWS documentation
 
 - [Using AWS Lambda with Amazon API Gateway](https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html)

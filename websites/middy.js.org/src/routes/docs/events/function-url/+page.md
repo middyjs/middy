@@ -5,6 +5,17 @@ description: "Use Middy with Lambda Function URL events, including response stre
 
 Same as API Gateway (HTTP), but with support for response streams.
 
+## Event flow
+
+```mermaid
+flowchart LR
+  accTitle: Client to Lambda
+  accDescr: Client to Lambda function URL.
+  client@{ icon: "logos:aws", label: "Client", pos: "b", h: 48 }
+  fn@{ icon: "logos:aws-lambda", label: "Lambda function URL", pos: "b", h: 48 }
+  client --> fn
+```
+
 ## AWS Documentation
 
 - [Using AWS Lambda with Amazon API Gateway](https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html)

@@ -5,6 +5,17 @@ description: "Build APIs on AWS Lambda with Middy and API Gateway REST API (v1):
 
 API Gateway REST API (v1) is the older, full-featured API Gateway flavour. Use this page when your Lambda is the proxy integration target of a REST API.
 
+## Event flow
+
+```mermaid
+flowchart LR
+  accTitle: REST API to Lambda
+  accDescr: REST API to Lambda.
+  src@{ icon: "logos:aws-api-gateway", label: "REST API", pos: "b", h: 48 }
+  fn@{ icon: "logos:aws-lambda", label: "Lambda", pos: "b", h: 48 }
+  src --> fn
+```
+
 ## AWS documentation
 
 - [Using AWS Lambda with Amazon API Gateway](https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html)

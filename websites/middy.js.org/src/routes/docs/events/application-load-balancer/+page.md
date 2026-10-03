@@ -13,6 +13,17 @@ Same as API Gateway (REST)
 This page is a work in progress. If you want to help us to make this page better, please consider contributing on GitHub.
 </Callout>
 
+## Event flow
+
+```mermaid
+flowchart LR
+  accTitle: Application Load Balancer to Lambda
+  accDescr: Application Load Balancer to Lambda.
+  src@{ icon: "logos:aws-elb", label: "Application Load Balancer", pos: "b", h: 48 }
+  fn@{ icon: "logos:aws-lambda", label: "Lambda", pos: "b", h: 48 }
+  src --> fn
+```
+
 ## AWS Documentation
 - [Using AWS Lambda with an Application Load Balancer](https://docs.aws.amazon.com/lambda/latest/dg/services-alb.html)
 

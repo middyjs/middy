@@ -12,6 +12,17 @@ import Callout from '@design-system/components/Callout.svelte'
 This page is a work in progress. If you want to help us to make this page better, please consider contributing on GitHub.
 </Callout>
 
+## Event flow
+
+```mermaid
+flowchart LR
+  accTitle: CloudFront to Lambda@Edge
+  accDescr: CloudFront to Lambda@Edge.
+  src@{ icon: "logos:aws-cloudfront", label: "CloudFront", pos: "b", h: 48 }
+  fn@{ icon: "logos:aws-lambda", label: "Lambda@Edge", pos: "b", h: 48 }
+  src --> fn
+```
+
 ## AWS Documentation
 - [Using AWS Lambda with CloudFront Lambda@Edge](https://docs.aws.amazon.com/lambda/latest/dg/lambda-edge.html)
 

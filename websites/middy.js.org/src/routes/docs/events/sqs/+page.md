@@ -5,6 +5,22 @@ description: "Process Amazon SQS messages on AWS Lambda with Middy: per-record h
 
 Process SQS messages in a Lambda triggered by an SQS event source mapping. Middy handles per-record parsing, business logic, and partial-batch failure reporting.
 
+## Event flow
+
+```mermaid
+flowchart LR
+  accTitle: SQS to Lambda
+  accDescr: SQS to Lambda; SQS to EventBridge Pipes to Lambda.
+  src@{ icon: "logos:aws-sqs", label: "SQS", pos: "b", h: 48 }
+  fn@{ icon: "logos:aws-lambda", label: "Lambda", pos: "b", h: 48 }
+  pipes@{ icon: "logos:aws-eventbridge", label: "EventBridge Pipes", pos: "b", h: 48 }
+  src --> fn
+  src --> pipes
+  pipes --> fn
+```
+
+Every hop through SNS, SQS, EventBridge, or EventBridge Pipes wraps the event Lambda receives in that service's envelope. [`@middy/event-normalizer`](/docs/middlewares/event-normalizer) unwraps the SNS and SQS envelopes.
+
 ## AWS documentation
 
 - [Using AWS Lambda with Amazon SQS](https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html)

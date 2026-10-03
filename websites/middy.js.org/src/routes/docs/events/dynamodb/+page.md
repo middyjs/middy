@@ -5,6 +5,22 @@ description: "Process Amazon DynamoDB Streams on AWS Lambda with Middy: change r
 
 Process DynamoDB Streams (table change-data-capture) in a Lambda triggered by a stream event source mapping.
 
+## Event flow
+
+```mermaid
+flowchart LR
+  accTitle: DynamoDB Streams to Lambda
+  accDescr: DynamoDB Streams to Lambda; DynamoDB Streams to EventBridge Pipes to Lambda.
+  src@{ icon: "logos:aws-dynamodb", label: "DynamoDB Streams", pos: "b", h: 48 }
+  fn@{ icon: "logos:aws-lambda", label: "Lambda", pos: "b", h: 48 }
+  pipes@{ icon: "logos:aws-eventbridge", label: "EventBridge Pipes", pos: "b", h: 48 }
+  src --> fn
+  src --> pipes
+  pipes --> fn
+```
+
+Every hop through SNS, SQS, EventBridge, or EventBridge Pipes wraps the event Lambda receives in that service's envelope. [`@middy/event-normalizer`](/docs/middlewares/event-normalizer) unwraps the SNS and SQS envelopes.
+
 ## AWS documentation
 
 - [Using AWS Lambda with Amazon DynamoDB](https://docs.aws.amazon.com/lambda/latest/dg/with-ddb.html)
