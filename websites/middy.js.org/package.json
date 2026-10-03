@@ -38,6 +38,6 @@
 		"vite": "^8.0.0",
 		"vite-plugin-mkcert": "^2.0.0",
 		"vite-plugin-sri": "^0.0.2",
-		"wrangler": "^4.0.0"
+		"wrangler": "^4.134.0"
 	}
 }

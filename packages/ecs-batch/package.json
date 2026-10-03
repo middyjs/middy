@@ -120,7 +120,7 @@
 	},
 	"peerDependencies": {
 		"@aws-sdk/client-sqs": "^3.0.0",
-		"@aws-sdk/client-kinesis": "^3.0.0",
+		"@aws-sdk/client-kinesis": "^3.1135.0",
 		"@aws-sdk/client-dynamodb-streams": "^3.0.0",
 		"kafkajs": "^2.0.0",
 		"stompit": "^1.0.0",
@@ -152,7 +152,7 @@
 	},
 	"devDependencies": {
 		"@aws-sdk/client-dynamodb-streams": "^3.0.0",
-		"@aws-sdk/client-kinesis": "^3.0.0",
+		"@aws-sdk/client-kinesis": "^3.1135.0",
 		"@aws-sdk/client-sqs": "^3.0.0",
 		"@middy/core": "8.0.0-alpha.1",
 		"@types/aws-lambda": "^8.0.0",
