@@ -74,6 +74,11 @@ const optionSchema = {
 			minimum: -1,
 			maximum: Number.MAX_SAFE_INTEGER,
 		},
+		cacheMaxSize: {
+			type: "integer",
+			minimum: 1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		setToContext: { type: "boolean" },
 		contextKey: { type: "string" },
 	},
@@ -94,15 +99,18 @@ const dsqlSignerMiddleware = (opts = {}) => {
 		hostname: process.env.PGHOST ?? process.env.DBHOST,
 		username: process.env.PGUSER ?? process.env.DBUSER,
 	};
+	// Build a new object so the caller's fetchData is left untouched.
+	const fetchData = {};
 	for (const key of Object.keys(options.fetchData)) {
-		options.fetchData[key] = { ...defaultFetchData, ...options.fetchData[key] };
-		if (!options.fetchData[key].hostname) {
+		fetchData[key] = { ...defaultFetchData, ...options.fetchData[key] };
+		if (!fetchData[key].hostname) {
 			throw new Error(
 				`fetchData.${key}.hostname is required; set PGHOST, DBHOST, or pass hostname explicitly`,
 				{ cause: { package: pkg } },
 			);
 		}
 	}
+	options.fetchData = fetchData;
 
 	const fetchDataKeys = Object.keys(options.fetchData);
 	const contextSpec = buildSetToContextSpec(options);

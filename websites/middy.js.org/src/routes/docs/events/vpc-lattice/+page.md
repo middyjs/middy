@@ -38,8 +38,9 @@ import httpResponseSerializerMiddleware from '@middy/http-response-serializer'
 import httpSecurityHeadersMiddleware from '@middy/http-security-headers'
 import httpUrlencodeBodyParserMiddleware from '@middy/http-urlencode-body-parser'
 import httpUrlencodePathParametersParserMiddleware from '@middy/http-urlencode-path-parser'
-import validatorMiddleware from 'validator'
-import warmupMiddleware from 'warmup'
+import validatorMiddleware from '@middy/validator'
+import { transpileSchema } from '@middy/validator/transpile'
+import warmupMiddleware from '@middy/warmup'
 
 import eventSchema from './eventSchema.json' with { type: 'json' }
 import responseSchema from './responseSchema.json' with { type: 'json' }
@@ -77,11 +78,16 @@ export const handler = middy({
           serializer: ({ body }) => JSON.stringify(body)
         }
       ],
-      default: 'application/json'
+      defaultContentType: 'application/json'
     })
   )
   .use(httpPartialResponseMiddleware())
-  .use(validatorMiddleware({ eventSchema, responseSchema }))
+  .use(
+    validatorMiddleware({
+      eventSchema: transpileSchema(eventSchema),
+      responseSchema: transpileSchema(responseSchema)
+    })
+  )
   .use(httpErrorHandlerMiddleware())
   .handler((event, context, { signal }) => {
     // ...

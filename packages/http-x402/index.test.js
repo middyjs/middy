@@ -1,6 +1,8 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { describe, test } from "node:test";
 import middy from "../core/index.js";
+import httpCors from "../http-cors/index.js";
+import httpSecurityHeaders from "../http-security-headers/index.js";
 import httpX402, { httpX402ValidateOptions } from "./index.js";
 
 const defaultOptions = {
@@ -464,6 +466,283 @@ describe("@middy/http-x402", () => {
 		strictEqual(mockSettle.mock.callCount(), 1);
 	});
 
+	// A refused settlement must not leak anything the handler produced for the
+	// paid resource: headers, multi-value headers or v2 cookies.
+	const paidResponse = () => ({
+		statusCode: 200,
+		body: "paid secret",
+		isBase64Encoded: true,
+		headers: {
+			Location: "https://example.com/paid",
+			"Set-Cookie": "session=paid",
+			"Content-Type": "application/octet-stream",
+		},
+		multiValueHeaders: { "Set-Cookie": ["a=paid", "b=paid"] },
+		cookies: ["c=paid"],
+	});
+
+	test("settle throws - replaces the whole handler response", async (t) => {
+		class MockFacilitatorClient {
+			verify() {
+				return defaultVerifyResult;
+			}
+			settle() {
+				throw new Error("down");
+			}
+		}
+		const handler = middy(paidResponse).use(
+			httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+		);
+
+		const response = await handler(
+			{ headers: { "payment-signature": makePaymentHeader(testPayload) } },
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			statusCode: 402,
+			headers: {
+				"Content-Type": "application/json",
+				"PAYMENT-RESPONSE": response.headers["PAYMENT-RESPONSE"],
+			},
+			body: JSON.stringify({
+				x402Version: 2,
+				error: "unexpected_settle_error",
+			}),
+			isBase64Encoded: false,
+		});
+	});
+
+	test("settle fails - replaces the whole handler response", async (t) => {
+		const failedSettleResult = {
+			success: false,
+			errorReason: "insufficient_funds",
+			transaction: "",
+			network: "eip155:8453",
+		};
+		const { MockFacilitatorClient } = makeMockClient(
+			t,
+			defaultVerifyResult,
+			failedSettleResult,
+		);
+		const handler = middy(paidResponse).use(
+			httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+		);
+
+		const response = await handler(
+			{ headers: { "payment-signature": makePaymentHeader(testPayload) } },
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			statusCode: 402,
+			headers: {
+				"Content-Type": "application/json",
+				"PAYMENT-RESPONSE": response.headers["PAYMENT-RESPONSE"],
+			},
+			body: JSON.stringify({ x402Version: 2, error: "insufficient_funds" }),
+			isBase64Encoded: false,
+		});
+	});
+
+	// http-cors and http-security-headers run their after hook before this one
+	// when .use()d after it; their headers must survive the refused settlement,
+	// or a browser cannot read the 402 at all.
+	test("settle fails - keeps CORS and security headers set by earlier after hooks", async (t) => {
+		const failedSettleResult = {
+			success: false,
+			errorReason: "insufficient_funds",
+			transaction: "",
+			network: "eip155:8453",
+		};
+		const { MockFacilitatorClient } = makeMockClient(
+			t,
+			defaultVerifyResult,
+			failedSettleResult,
+		);
+		const handler = middy(paidResponse)
+			.use(
+				httpX402({
+					...defaultOptions,
+					FacilitatorClient: MockFacilitatorClient,
+				}),
+			)
+			.use(
+				httpCors({
+					origins: ["https://app.example.com"],
+					credentials: true,
+					exposeHeaders: "PAYMENT-RESPONSE",
+				}),
+			)
+			.use(httpSecurityHeaders());
+
+		const response = await handler(
+			{
+				headers: {
+					origin: "https://app.example.com",
+					"payment-signature": makePaymentHeader(testPayload),
+				},
+			},
+			defaultContext,
+		);
+
+		strictEqual(response.statusCode, 402);
+		strictEqual(
+			response.headers["Access-Control-Allow-Origin"],
+			"https://app.example.com",
+		);
+		strictEqual(response.headers["Access-Control-Allow-Credentials"], "true");
+		strictEqual(
+			response.headers["Access-Control-Expose-Headers"],
+			"PAYMENT-RESPONSE",
+		);
+		strictEqual(response.headers.Vary, "Origin");
+		strictEqual(response.headers["X-Content-Type-Options"], "nosniff");
+		ok(response.headers["Content-Security-Policy"]);
+		strictEqual(response.headers.Location, undefined);
+		strictEqual(response.headers["Set-Cookie"], undefined);
+		strictEqual(response.multiValueHeaders, undefined);
+		strictEqual(response.cookies, undefined);
+		strictEqual(response.headers["Content-Type"], "application/json");
+	});
+
+	// An ALB target group with multi-value headers enabled sends
+	// `multiValueHeaders` and expects them back: "You must use multiValueHeaders
+	// if you have enabled multi-value headers and headers otherwise."
+	// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+	const albMultiValueEvent = (multiValueHeaders = {}) => ({
+		requestContext: { elb: { targetGroupArn: "arn" } },
+		httpMethod: "GET",
+		path: "/api/data",
+		multiValueHeaders,
+	});
+
+	test("ALB multi-value: the unpaid challenge is written to multiValueHeaders", async (t) => {
+		const { MockFacilitatorClient } = makeMockClient(
+			t,
+			defaultVerifyResult,
+			defaultSettleResult,
+		);
+		const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
+			httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+		);
+
+		const response = await handler(albMultiValueEvent(), defaultContext);
+
+		strictEqual(response.statusCode, 402);
+		strictEqual(response.headers, undefined);
+		deepStrictEqual(response.multiValueHeaders["Content-Type"], [
+			"application/json",
+		]);
+		strictEqual(response.multiValueHeaders["PAYMENT-REQUIRED"].length, 1);
+	});
+
+	test("ALB multi-value: a v2 rejection is written to multiValueHeaders", async (t) => {
+		const { MockFacilitatorClient } = makeMockClient(
+			t,
+			defaultVerifyResult,
+			defaultSettleResult,
+		);
+		const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
+			httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+		);
+
+		const response = await handler(
+			albMultiValueEvent({ "payment-signature": ["not-base64-json"] }),
+			defaultContext,
+		);
+
+		strictEqual(response.statusCode, 402);
+		strictEqual(response.headers, undefined);
+		strictEqual(response.multiValueHeaders["PAYMENT-REQUIRED"].length, 1);
+	});
+
+	test("ALB multi-value: a v1-only challenge is written to multiValueHeaders", async (t) => {
+		const { MockFacilitatorClient } = makeMockClient(
+			t,
+			defaultVerifyResult,
+			defaultSettleResult,
+		);
+		const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
+			httpX402({
+				...defaultOptions,
+				versions: [1],
+				FacilitatorClient: MockFacilitatorClient,
+			}),
+		);
+
+		const response = await handler(albMultiValueEvent(), defaultContext);
+
+		strictEqual(response.statusCode, 402);
+		strictEqual(response.headers, undefined);
+		deepStrictEqual(response.multiValueHeaders, {
+			"Content-Type": ["application/json"],
+		});
+	});
+
+	test("ALB multi-value: a refused settlement is written to multiValueHeaders", async (t) => {
+		const { MockFacilitatorClient } = makeMockClient(t, defaultVerifyResult, {
+			success: false,
+			errorReason: "insufficient_funds",
+			transaction: "",
+			network: "eip155:8453",
+		});
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: "paid",
+			multiValueHeaders: {
+				"Set-Cookie": ["a=paid"],
+				"Access-Control-Allow-Origin": ["https://app.example.com"],
+			},
+		})).use(
+			httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+		);
+
+		const response = await handler(
+			albMultiValueEvent({
+				"payment-signature": [makePaymentHeader(testPayload)],
+			}),
+			defaultContext,
+		);
+
+		strictEqual(response.statusCode, 402);
+		strictEqual(response.headers, undefined);
+		deepStrictEqual(Object.keys(response.multiValueHeaders).sort(), [
+			"Access-Control-Allow-Origin",
+			"Content-Type",
+			"PAYMENT-RESPONSE",
+		]);
+		deepStrictEqual(response.multiValueHeaders["Content-Type"], [
+			"application/json",
+		]);
+	});
+
+	test("ALB multi-value: a settled payment reports PAYMENT-RESPONSE in multiValueHeaders", async (t) => {
+		const { MockFacilitatorClient } = makeMockClient(
+			t,
+			defaultVerifyResult,
+			defaultSettleResult,
+		);
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: "ok",
+			multiValueHeaders: { "Content-Type": ["text/plain"] },
+		})).use(
+			httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+		);
+
+		const response = await handler(
+			albMultiValueEvent({
+				"payment-signature": [makePaymentHeader(testPayload)],
+			}),
+			defaultContext,
+		);
+
+		strictEqual(response.statusCode, 200);
+		strictEqual(response.headers["PAYMENT-RESPONSE"], undefined);
+		strictEqual(response.multiValueHeaders["PAYMENT-RESPONSE"].length, 1);
+	});
+
 	test("verify and settle pass - adds PAYMENT-RESPONSE header", async (t) => {
 		const { MockFacilitatorClient, mockVerify, mockSettle } = makeMockClient(
 			t,
@@ -890,6 +1169,48 @@ describe("@middy/http-x402", () => {
 				...defaultOptions,
 				FacilitatorClient: MockFacilitatorClient,
 				human: () => false,
+			}),
+		);
+
+		const response = await handler({ headers: {} }, defaultContext);
+		strictEqual(response.statusCode, 402);
+	});
+
+	test("human returning a promise throws instead of skipping payment", async (t) => {
+		const { MockFacilitatorClient, mockVerify } = makeMockClient(
+			t,
+			defaultVerifyResult,
+			defaultSettleResult,
+		);
+		const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
+			httpX402({
+				...defaultOptions,
+				FacilitatorClient: MockFacilitatorClient,
+				human: async () => false,
+			}),
+		);
+
+		try {
+			await handler({ headers: {} }, defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			strictEqual(e.cause?.package, "@middy/http-x402");
+		}
+		strictEqual(mockVerify.mock.callCount(), 0);
+	});
+
+	test("human returning a truthy non-boolean does not skip payment", async (t) => {
+		const { MockFacilitatorClient } = makeMockClient(
+			t,
+			defaultVerifyResult,
+			defaultSettleResult,
+		);
+		const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
+			httpX402({
+				...defaultOptions,
+				FacilitatorClient: MockFacilitatorClient,
+				human: () => "yes",
 			}),
 		);
 
@@ -1585,6 +1906,88 @@ describe("@middy/http-x402", () => {
 		}
 		ok(message?.includes("price has more fractional digits than decimals (6)"));
 	});
+
+	// VPC Lattice V2 events also carry `version: "2.0"` but have no
+	// `requestContext.http` or `domainName`.
+	// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html
+	test("VPC Lattice V2 event is challenged, not a 500", async (t) => {
+		const { MockFacilitatorClient } = makeMockClient(
+			t,
+			defaultVerifyResult,
+			defaultSettleResult,
+		);
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: "ok",
+			headers: {},
+		})).use(
+			httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+		);
+
+		const response = await handler(
+			{
+				version: "2.0",
+				path: "/api/data?a=1",
+				method: "GET",
+				headers: { host: ["attacker.example.com"] },
+				requestContext: { serviceArn: "arn" },
+			},
+			defaultContext,
+		);
+
+		strictEqual(response.statusCode, 402);
+		const challenge = decodeResponseHeader(
+			response.headers["PAYMENT-REQUIRED"],
+		);
+		// `path` carries the query string on Lattice; the resource drops it.
+		strictEqual(challenge.resource.url, "https://localhost/api/data");
+	});
+
+	// ALB and VPC Lattice give no trusted domain name (only the client's Host
+	// header), but do give the request path: ALB and Lattice V2 as `path`,
+	// Lattice V1 as `raw_path` with the query string.
+	// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html
+	// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html
+	for (const [label, event] of [
+		[
+			"ALB",
+			{
+				requestContext: { elb: { targetGroupArn: "arn" } },
+				httpMethod: "GET",
+				path: "/api/data",
+				headers: { host: "attacker.example.com" },
+			},
+		],
+		[
+			"VPC Lattice V1",
+			{
+				raw_path: "/api/data?a=1&b=2",
+				method: "GET",
+				headers: { host: "attacker.example.com" },
+			},
+		],
+	]) {
+		test(`${label} resource URL uses the request path, never the Host header`, async (t) => {
+			const { MockFacilitatorClient } = makeMockClient(
+				t,
+				defaultVerifyResult,
+				defaultSettleResult,
+			);
+			const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
+				httpX402({
+					...defaultOptions,
+					FacilitatorClient: MockFacilitatorClient,
+				}),
+			);
+
+			const response = await handler(event, defaultContext);
+
+			const challenge = decodeResponseHeader(
+				response.headers["PAYMENT-REQUIRED"],
+			);
+			strictEqual(challenge.resource.url, "https://localhost/api/data");
+		});
+	}
 
 	test("buildResource v1 falls back to localhost host when requestContext is absent", async (t) => {
 		const { MockFacilitatorClient } = makeMockClient(
@@ -2470,6 +2873,67 @@ describe("@middy/http-x402", () => {
 
 		const response = await handler(
 			{ headers: { "X-PAYMENT": makePaymentHeader(testPayloadV1) } },
+			defaultContext,
+		);
+
+		strictEqual(response.statusCode, 200);
+		strictEqual(mockVerify.mock.callCount(), 1);
+	});
+
+	test("payment headers are read in any casing (API Gateway REST passes the client's)", async (t) => {
+		const { MockFacilitatorClient, mockVerify } = makeMockClient(
+			t,
+			defaultVerifyResult,
+			defaultSettleResult,
+		);
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: "ok",
+			headers: {},
+		})).use(
+			httpX402({
+				...defaultOptions,
+				versions: [1, 2],
+				FacilitatorClient: MockFacilitatorClient,
+			}),
+		);
+
+		const v2 = await handler(
+			{ headers: { "payment-SIGNATURE": makePaymentHeader(testPayload) } },
+			defaultContext,
+		);
+		const v1 = await handler(
+			{ headers: { "x-PaYmEnT": makePaymentHeader(testPayloadV1) } },
+			defaultContext,
+		);
+
+		strictEqual(v2.statusCode, 200);
+		strictEqual(v1.statusCode, 200);
+		strictEqual(mockVerify.mock.callCount(), 2);
+	});
+
+	// ALB with multi-value headers enabled sends `multiValueHeaders` and no `headers`.
+	// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+	test("payment header is read from ALB multiValueHeaders", async (t) => {
+		const { MockFacilitatorClient, mockVerify } = makeMockClient(
+			t,
+			defaultVerifyResult,
+			defaultSettleResult,
+		);
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: "ok",
+			headers: {},
+		})).use(
+			httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+		);
+
+		const response = await handler(
+			{
+				multiValueHeaders: {
+					"payment-signature": [makePaymentHeader(testPayload)],
+				},
+			},
 			defaultContext,
 		);
 

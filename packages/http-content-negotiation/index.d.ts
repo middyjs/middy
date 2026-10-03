@@ -20,15 +20,17 @@ export interface Options {
 	contextKey?: string;
 }
 
+// A list is absent when its `parseX` option is off; the single preference is
+// also `undefined` when nothing matched and no default or 406 applied.
 export interface NegotiationResults {
-	preferredCharsets: string[];
-	preferredCharset: string;
-	preferredEncodings: string[];
-	preferredEncoding: string;
-	preferredLanguages: string[];
-	preferredLanguage: string;
-	preferredMediaTypes: string[];
-	preferredMediaType: string;
+	preferredCharsets?: string[];
+	preferredCharset?: string;
+	preferredEncodings?: string[];
+	preferredEncoding?: string;
+	preferredLanguages?: string[];
+	preferredLanguage?: string;
+	preferredMediaTypes?: string[];
+	preferredMediaType?: string;
 }
 
 export type Context<TOptions extends Options | undefined = undefined> =
@@ -39,12 +41,16 @@ declare function httpContentNegotiation<
 	TKey extends string = string,
 >(
 	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
-	// key narrows `middyContext` without `as const`.
-	options?: TOptions & { contextKey?: TKey },
+	// key narrows `middyContext` without `as const`. The `never` record rejects
+	// keys `Options` does not declare, which inference would otherwise accept.
+	options?: TOptions & { contextKey?: TKey } & Record<
+			Exclude<keyof TOptions, keyof Options>,
+			never
+		>,
 ): middy.MiddlewareObj<unknown, unknown, Error, Context<TOptions>>;
 
-export declare function httpContentNegotiationValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function httpContentNegotiationValidateOptions<
+	TOptions extends Options,
+>(options?: TOptions): TOptions;
 
 export default httpContentNegotiation;

@@ -153,7 +153,7 @@ export const pollSqs = (opts) => {
 		AttributeNames: ["All"],
 		MessageAttributeNames: ["All"],
 	};
-	if (opts.visibilityTimeout != null) {
+	if (opts.visibilityTimeout !== undefined) {
 		receiveParams.VisibilityTimeout = opts.visibilityTimeout;
 	}
 

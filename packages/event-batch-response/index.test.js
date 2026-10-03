@@ -3,6 +3,10 @@ import { describe, test } from "node:test";
 import createEvent from "@serverless/event-mocks";
 
 import middy from "../core/index.js";
+import eventBatchParser from "../event-batch-parser/index.js";
+import { parseAvro } from "../event-batch-parser/parseAvro.js";
+import { parseJson } from "../event-batch-parser/parseJson.js";
+import eventNormalizer from "../event-normalizer/index.js";
 import eventBatchResponse, { flattenBatchRecords } from "./index.js";
 
 const defaultContext = {
@@ -1013,6 +1017,135 @@ describe("@middy/event-batch-response", () => {
 			},
 		]);
 	});
+
+	// Stands in for event-batch-parser / event-normalizer, which replace each
+	// record's base64 `data` in place with the decoded value.
+	const decodeFirehoseData = () => ({
+		before: (request) => {
+			for (const record of request.event.records) {
+				record.data = JSON.parse(Buffer.from(record.data, "base64"));
+			}
+		},
+	});
+
+	test("Firehose: ProcessingFailed data stays base64 when a parser ran first", async () => {
+		const raw = Buffer.from('{"a":1}').toString("base64");
+		const event = firehoseEvent([{ recordId: "r", data: raw }]);
+		const handler = middy(async () =>
+			Promise.allSettled([Promise.reject(new Error("x"))]),
+		)
+			.use(decodeFirehoseData())
+			.use(eventBatchResponse());
+
+		const response = await handler(event, defaultContext);
+		deepStrictEqual(response.records, [
+			{ recordId: "r", result: "ProcessingFailed", data: raw },
+		]);
+	});
+
+	test("Firehose: echoes the original input bytes when registered before a parser", async () => {
+		const raw = Buffer.from('{ "a": 1 }').toString("base64");
+		const event = firehoseEvent([
+			{ recordId: "r-err", data: raw },
+			{ recordId: "r-ok", data: raw },
+		]);
+		const handler = middy(async () =>
+			Promise.allSettled([
+				Promise.reject(new Error("x")),
+				Promise.resolve(undefined),
+			]),
+		)
+			.use(eventBatchResponse())
+			.use(decodeFirehoseData());
+
+		const response = await handler(event, defaultContext);
+		deepStrictEqual(response.records, [
+			{ recordId: "r-err", result: "ProcessingFailed", data: raw },
+			{ recordId: "r-ok", result: "Ok", data: raw },
+		]);
+	});
+
+	// event-batch-parser and event-normalizer keep the value they replace under
+	// this registry symbol, so the original bytes survive any middleware order.
+	const rawDataKey = Symbol.for("@middy/raw-data");
+
+	test("Firehose: echoes the original input kept under the raw-data symbol by a parser that ran first", async () => {
+		const raw = Buffer.from('{ "a": 1 }').toString("base64");
+		const event = firehoseEvent([{ recordId: "r", data: raw }]);
+		const handler = middy(async () =>
+			Promise.allSettled([Promise.reject(new Error("x"))]),
+		)
+			.use({
+				before: (request) => {
+					for (const record of request.event.records) {
+						Object.defineProperty(record, rawDataKey, {
+							value: { data: record.data },
+						});
+						record.data = JSON.parse(Buffer.from(record.data, "base64"));
+					}
+				},
+			})
+			.use(eventBatchResponse());
+
+		const response = await handler(event, defaultContext);
+		deepStrictEqual(response.records, [
+			{ recordId: "r", result: "ProcessingFailed", data: raw },
+		]);
+	});
+
+	// Avro record { id: "a", name: "b" }: each string is a zigzag length then
+	// its bytes, so the payload is binary and cannot round-trip through JSON.
+	const avroSchema = {
+		type: "record",
+		name: "User",
+		fields: [
+			{ name: "id", type: "string" },
+			{ name: "name", type: "string" },
+		],
+	};
+	const firehoseMutators = [
+		{
+			name: "eventBatchParser parseJson",
+			raw: Buffer.from('{ "a": 1 }').toString("base64"),
+			use: () => eventBatchParser({ data: parseJson() }),
+		},
+		{
+			name: "eventBatchParser parseAvro",
+			raw: Buffer.from([0x02, 0x61, 0x02, 0x62]).toString("base64"),
+			use: () => eventBatchParser({ data: parseAvro({ schema: avroSchema }) }),
+		},
+		{
+			name: "eventNormalizer",
+			raw: Buffer.from('{ "a": 1 }').toString("base64"),
+			use: () => eventNormalizer(),
+		},
+	];
+	for (const { name, raw, use } of firehoseMutators) {
+		for (const responseFirst of [false, true]) {
+			test(`Firehose: echoes the original base64 with ${name} registered ${responseFirst ? "after" : "before"} eventBatchResponse`, async () => {
+				const event = firehoseEvent([
+					{ recordId: "r-err", data: raw },
+					{ recordId: "r-pass", data: raw },
+				]);
+				const handler = middy(async (e) => {
+					// The mutator really replaced `data` before the handler ran.
+					strictEqual(typeof e.records[0].data, "object");
+					return Promise.allSettled([
+						Promise.reject(new Error("x")),
+						Promise.resolve(undefined),
+					]);
+				});
+				if (responseFirst) handler.use(eventBatchResponse()).use(use());
+				else handler.use(use()).use(eventBatchResponse());
+
+				const response = await handler(event, defaultContext);
+				deepStrictEqual(response.records, [
+					{ recordId: "r-err", result: "ProcessingFailed", data: raw },
+					{ recordId: "r-pass", result: "Ok", data: raw },
+				]);
+			});
+		}
+	}
 
 	test("Firehose: fulfilled undefined transform result falls back to input data", async () => {
 		const event = firehoseEvent([{ recordId: "r", data: "fallback-input" }]);

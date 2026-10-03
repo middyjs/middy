@@ -1,4 +1,4 @@
-import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { describe, test } from "node:test";
 import { deflateSync } from "node:zlib";
 import { GetSchemaVersionCommand, GlueClient } from "@aws-sdk/client-glue";
@@ -7,8 +7,13 @@ import avro from "avro-js";
 import { mockClient } from "aws-sdk-client-mock";
 import protobuf from "protobufjs";
 import middy from "../core/index.js";
+import eventBatchHandler from "../event-batch-handler/index.js";
+import eventBatchResponse from "../event-batch-response/index.js";
 import glueSchemaRegistry from "../glue-schema-registry/index.js";
-import eventBatchParser, { eventBatchParserValidateOptions } from "./index.js";
+import eventBatchParser, {
+	eventBatchParserValidateOptions,
+	parseErrorKey,
+} from "./index.js";
 import { parseAvro } from "./parseAvro.js";
 import { parseJson } from "./parseJson.js";
 import { parseProtobuf } from "./parseProtobuf.js";
@@ -20,6 +25,17 @@ describe("@middy/event-batch-parser", () => {
 
 	const b64 = (s) => Buffer.from(s).toString("base64");
 	const plain = (v) => JSON.parse(JSON.stringify(v));
+
+	// A record that failed to parse carries its error instead of throwing.
+	const parseErrorOf = (event) => {
+		const records =
+			event.Records ??
+			event.messages ??
+			(Array.isArray(event.records)
+				? event.records
+				: Object.values(event.records).flat());
+		return records.find((r) => r[parseErrorKey])?.[parseErrorKey];
+	};
 
 	const AVRO_USER_SCHEMA = {
 		type: "record",
@@ -212,6 +228,88 @@ describe("@middy/event-batch-parser", () => {
 
 		const out = await handler(event, defaultContext);
 		deepStrictEqual(out.records[0].data, { f: 1 });
+	});
+
+	// @middy/event-batch-response reads the replaced value back from this
+	// registry symbol to echo a Firehose record's original base64 `data`.
+	const rawDataKey = Symbol.for("@middy/raw-data");
+
+	test("keeps the replaced Firehose data under the non-enumerable raw-data symbol", async () => {
+		const handler = middy().use(eventBatchParser({ data: parseJson() }));
+		handler.handler((event) => event);
+
+		const raw = b64('{ "f": 1 }');
+		const event = {
+			deliveryStreamArn: "arn:aws:firehose:us-east-1:123:deliverystream/x",
+			records: [{ recordId: "r-1", data: raw }],
+		};
+
+		const out = await handler(event, defaultContext);
+		const record = out.records[0];
+		deepStrictEqual(record.data, { f: 1 });
+		deepStrictEqual({ ...record[rawDataKey] }, { data: raw });
+		strictEqual(
+			Object.getOwnPropertyDescriptor(record, rawDataKey).enumerable,
+			false,
+		);
+		deepStrictEqual(JSON.parse(JSON.stringify(record)), {
+			recordId: "r-1",
+			data: { f: 1 },
+		});
+	});
+
+	test("keeps each replaced field under the raw-data symbol of the object that owns it", async () => {
+		const run = (event, opts) =>
+			middy()
+				.use(eventBatchParser(opts))
+				.handler((e) => e)(event, defaultContext);
+
+		const kinesis = await run(
+			{
+				Records: [{ eventSource: "aws:kinesis", kinesis: { data: b64("1") } }],
+			},
+			{ data: parseJson() },
+		);
+		deepStrictEqual(
+			{ ...kinesis.Records[0].kinesis[rawDataKey] },
+			{ data: b64("1") },
+		);
+
+		const kafka = await run(
+			{
+				eventSource: "aws:kafka",
+				records: { "t-0": [{ key: b64('"k"'), value: b64("2") }] },
+			},
+			{ key: parseJson(), value: parseJson() },
+		);
+		deepStrictEqual(
+			{ ...kafka.records["t-0"][0][rawDataKey] },
+			{ key: b64('"k"'), value: b64("2") },
+		);
+
+		const sqs = await run(
+			{ Records: [{ eventSource: "aws:sqs", body: "3" }] },
+			{ body: parseJson() },
+		);
+		deepStrictEqual({ ...sqs.Records[0][rawDataKey] }, { body: "3" });
+	});
+
+	test("keeps the first writer's raw value when the raw-data symbol is already set", async () => {
+		const record = { recordId: "r-1", data: b64("1") };
+		Object.defineProperty(record, rawDataKey, {
+			value: Object.assign(Object.create(null), { data: "original" }),
+		});
+		const event = {
+			deliveryStreamArn: "arn:aws:firehose:us-east-1:123:deliverystream/x",
+			records: [record],
+		};
+
+		await middy()
+			.use(eventBatchParser({ data: parseJson() }))
+			.handler((e) => e)(event, defaultContext);
+
+		strictEqual(record.data, 1);
+		strictEqual(record[rawDataKey].data, "original");
 	});
 
 	test("parseJson on SQS body (plain text per AWS contract)", async () => {
@@ -559,7 +657,7 @@ describe("@middy/event-batch-parser", () => {
 		strictEqual(caught.cause.package, "@middy/event-batch-parser");
 	});
 
-	test("Glue framing: decompressed payload over cap throws 413", async () => {
+	test("Glue framing: decompressed payload over cap marks the record with a 413", async () => {
 		const uuid = "11112222-1234-1234-1234-1234567890ab";
 		// 1 MiB of zeros deflates to ~1 KiB; with a 1 KiB cap it must reject.
 		const inner = Buffer.alloc(1024 * 1024, 0);
@@ -578,12 +676,8 @@ describe("@middy/event-batch-parser", () => {
 			records: { "t-0": [{ value: framed.toString("base64") }] },
 		};
 
-		let caught;
-		try {
-			await handler(event, defaultContext);
-		} catch (e) {
-			caught = e;
-		}
+		await handler(event, defaultContext);
+		const caught = parseErrorOf(event);
 		ok(caught);
 		strictEqual(caught.statusCode, 413);
 		strictEqual(caught.cause.package, "@middy/event-batch-parser");
@@ -633,12 +727,8 @@ describe("@middy/event-batch-parser", () => {
 			records: { "t-0": [{ value: framed.toString("base64") }] },
 		};
 
-		let caught;
-		try {
-			await handler(event, defaultContext);
-		} catch (e) {
-			caught = e;
-		}
+		await handler(event, defaultContext);
+		const caught = parseErrorOf(event);
 		ok(caught);
 		// Not an HTTP 413; the cap wasn't breached, the stream was malformed.
 		strictEqual(caught.statusCode, 422);
@@ -663,15 +753,11 @@ describe("@middy/event-batch-parser", () => {
 			records: { "t-0": [{ value: framed.toString("base64") }] },
 		};
 
-		await rejects(
-			() => handler(event, defaultContext),
-			(e) => {
-				strictEqual(e.statusCode, 422);
-				strictEqual(e.cause.data.reason, "Invalid record payload");
-				ok(!e.cause.data.message.includes("compression byte"));
-				return true;
-			},
-		);
+		await handler(event, defaultContext);
+		const e = parseErrorOf(event);
+		strictEqual(e.statusCode, 422);
+		strictEqual(e.cause.data.reason, "Invalid record payload");
+		ok(!e.cause.data.message.includes("compression byte"));
 	});
 
 	test("parseAvro() throws TypeError when no schema and no internalKey supplied", async () => {
@@ -740,7 +826,7 @@ describe("@middy/event-batch-parser", () => {
 		deepStrictEqual(out.records["t-0"][0].value, { id: "u-10", name: "Jay" });
 	});
 
-	test("parseProtobuf() throws when neither factory nor internal supplies root+messageType", async () => {
+	test("parseProtobuf() marks the record 422 when neither factory nor internal supplies root+messageType", async () => {
 		const root = buildProtobufRoot();
 		const Type = root.lookupType("test.User");
 		const buf = Type.encode(Type.create({ id: "u-11", name: "Kim" })).finish();
@@ -755,12 +841,8 @@ describe("@middy/event-batch-parser", () => {
 			records: { "t-0": [{ value: Buffer.from(buf).toString("base64") }] },
 		};
 
-		let caught;
-		try {
-			await handler(event, defaultContext);
-		} catch (e) {
-			caught = e;
-		}
+		await handler(event, defaultContext);
+		const caught = parseErrorOf(event);
 		ok(caught);
 		strictEqual(caught.statusCode, 422);
 		ok(caught.cause.data.message.includes("missing"));
@@ -919,7 +1001,7 @@ describe("@middy/event-batch-parser", () => {
 		deepStrictEqual(fnJson(Buffer.from('{"j":1}')), { j: 1 });
 	});
 
-	test("parseAvro({ internalKey }) async-throws when entry missing on request.internal", async () => {
+	test("parseAvro({ internalKey }) marks the record 422 when entry missing on request.internal", async () => {
 		const buf = buildAvroBuffer({ id: "u-na", name: "NA" });
 		const handler = middy().use(
 			eventBatchParser({ value: parseAvro({ internalKey: "missingSchema" }) }),
@@ -931,12 +1013,8 @@ describe("@middy/event-batch-parser", () => {
 			records: { "t-0": [{ value: buf.toString("base64") }] },
 		};
 
-		let caught;
-		try {
-			await handler(event, defaultContext);
-		} catch (e) {
-			caught = e;
-		}
+		await handler(event, defaultContext);
+		const caught = parseErrorOf(event);
 		ok(caught);
 		strictEqual(caught.statusCode, 422);
 		ok(caught.cause.data.message.includes("missingSchema"));
@@ -1007,7 +1085,7 @@ describe("@middy/event-batch-parser", () => {
 		deepStrictEqual(out, { id: "x", name: "X" });
 	});
 
-	test("parseProtobuf() with no internalKey and no static config async-throws", async () => {
+	test("parseProtobuf() with no internalKey and no static config marks the record 422", async () => {
 		const root = buildProtobufRoot();
 		const Type = root.lookupType("test.User");
 		const buf = Type.encode(Type.create({ id: "u-q", name: "Q" })).finish();
@@ -1020,12 +1098,8 @@ describe("@middy/event-batch-parser", () => {
 			records: { "t-0": [{ value: Buffer.from(buf).toString("base64") }] },
 		};
 
-		let caught;
-		try {
-			await handler(event, defaultContext);
-		} catch (e) {
-			caught = e;
-		}
+		await handler(event, defaultContext);
+		const caught = parseErrorOf(event);
 		ok(caught);
 		strictEqual(caught.statusCode, 422);
 	});
@@ -1152,7 +1226,7 @@ describe("@middy/event-batch-parser", () => {
 		});
 	});
 
-	test("Parser throw wraps in 422", async () => {
+	test("Parser throw is wrapped in a 422 on the record", async () => {
 		const handler = middy().use(
 			eventBatchParser({
 				value: () => {
@@ -1167,16 +1241,110 @@ describe("@middy/event-batch-parser", () => {
 			records: { "t-0": [{ value: b64("garbage") }] },
 		};
 
-		let caught;
-		try {
-			await handler(event, defaultContext);
-		} catch (e) {
-			caught = e;
-		}
+		await handler(event, defaultContext);
+		const caught = parseErrorOf(event);
 		ok(caught);
 		strictEqual(caught.statusCode, 422);
 		strictEqual(caught.cause.package, "@middy/event-batch-parser");
 		strictEqual(caught.cause.data.field, "value");
+	});
+
+	// ---------- per-record parse failures ----------
+
+	test("A bad record is marked failed on the record; the rest of the batch still parses", async () => {
+		const handler = middy().use(eventBatchParser({ body: parseJson() }));
+		handler.handler((event) => event);
+
+		const event = {
+			Records: [
+				{ eventSource: "aws:sqs", messageId: "a", body: '{"ok":1}' },
+				{ eventSource: "aws:sqs", messageId: "b", body: "{not json" },
+				{ eventSource: "aws:sqs", messageId: "c", body: '{"ok":3}' },
+			],
+		};
+		await handler(event, defaultContext);
+
+		deepStrictEqual(event.Records[0].body, { ok: 1 });
+		deepStrictEqual(event.Records[2].body, { ok: 3 });
+		strictEqual(event.Records[0][parseErrorKey], undefined);
+		strictEqual(event.Records[2][parseErrorKey], undefined);
+		// The failed record keeps its raw payload and carries the error.
+		strictEqual(event.Records[1].body, "{not json");
+		const err = event.Records[1][parseErrorKey];
+		strictEqual(err.statusCode, 422);
+		strictEqual(err.cause.data.field, "body");
+		strictEqual(parseErrorKey, Symbol.for("@middy/event-batch-parser/error"));
+	});
+
+	test("With event-batch-handler + event-batch-response only the bad record is reported", async () => {
+		const seen = [];
+		const handler = middy()
+			.use(eventBatchResponse())
+			.use(eventBatchParser({ body: parseJson() }))
+			.handler(
+				eventBatchHandler((record) => {
+					seen.push(record.messageId);
+					return record.body;
+				}),
+			);
+
+		const response = await handler(
+			{
+				Records: [
+					{ eventSource: "aws:sqs", messageId: "a", body: '{"ok":1}' },
+					{ eventSource: "aws:sqs", messageId: "b", body: "{not json" },
+					{ eventSource: "aws:sqs", messageId: "c", body: '{"ok":3}' },
+				],
+			},
+			defaultContext,
+		);
+		deepStrictEqual(response, { batchItemFailures: [{ itemIdentifier: "b" }] });
+		// The record handler is never called for the record that failed to parse.
+		deepStrictEqual(seen, ["a", "c"]);
+	});
+
+	test("FIFO SQS: a bad record stops processing there; it and every later record are reported", async () => {
+		const seen = [];
+		const arn = "arn:aws:sqs:us-east-1:123456789012:q.fifo";
+		const handler = middy()
+			.use(eventBatchResponse())
+			.use(eventBatchParser({ body: parseJson() }))
+			.handler(
+				eventBatchHandler((record) => {
+					seen.push(record.messageId);
+					return record.body;
+				}),
+			);
+
+		const response = await handler(
+			{
+				Records: [
+					{
+						eventSource: "aws:sqs",
+						eventSourceARN: arn,
+						messageId: "a",
+						body: "1",
+					},
+					{
+						eventSource: "aws:sqs",
+						eventSourceARN: arn,
+						messageId: "b",
+						body: "{",
+					},
+					{
+						eventSource: "aws:sqs",
+						eventSourceARN: arn,
+						messageId: "c",
+						body: "3",
+					},
+				],
+			},
+			defaultContext,
+		);
+		deepStrictEqual(response, {
+			batchItemFailures: [{ itemIdentifier: "b" }, { itemIdentifier: "c" }],
+		});
+		deepStrictEqual(seen, ["a"]);
 	});
 
 	// ---------- default decompression cap (10 MiB) ----------
@@ -1221,12 +1389,8 @@ describe("@middy/event-batch-parser", () => {
 			records: { "t-0": [{ value: framed.toString("base64") }] },
 		};
 
-		let caught;
-		try {
-			await handler(event, defaultContext);
-		} catch (e) {
-			caught = e;
-		}
+		await handler(event, defaultContext);
+		const caught = parseErrorOf(event);
 		ok(caught);
 		strictEqual(caught.statusCode, 413);
 		strictEqual(caught.cause.data.maxDecompressedBytes, 10 * 1024 * 1024);
@@ -1272,12 +1436,8 @@ describe("@middy/event-batch-parser", () => {
 			records: { "t-0": [{ value: b64("garbage") }] },
 		};
 
-		let caught;
-		try {
-			await handler(event, defaultContext);
-		} catch (e) {
-			caught = e;
-		}
+		await handler(event, defaultContext);
+		const caught = parseErrorOf(event);
 		ok(caught);
 		strictEqual(caught.message, "Unprocessable Entity");
 		strictEqual(caught.cause.data.reason, "Invalid record payload");
@@ -1298,12 +1458,8 @@ describe("@middy/event-batch-parser", () => {
 			records: { "t-0": [{ value: framed.toString("base64") }] },
 		};
 
-		let caught;
-		try {
-			await handler(event, defaultContext);
-		} catch (e) {
-			caught = e;
-		}
+		await handler(event, defaultContext);
+		const caught = parseErrorOf(event);
 		ok(caught);
 		strictEqual(caught.message, "Payload Too Large");
 		strictEqual(caught.cause.data.reason, "Decompressed payload exceeds cap");
@@ -1438,12 +1594,8 @@ describe("@middy/event-batch-parser", () => {
 			records: { "t-0": [{ value: b64("x") }] },
 		};
 
-		let caught;
-		try {
-			await handler(event, defaultContext);
-		} catch (e) {
-			caught = e;
-		}
+		await handler(event, defaultContext);
+		const caught = parseErrorOf(event);
 		strictEqual(caught.statusCode, 422);
 		strictEqual(caught.cause.data.reason, "Invalid record payload");
 		strictEqual(caught.cause.data.message, undefined);
@@ -1840,12 +1992,8 @@ describe("@middy/event-batch-parser", () => {
 			records: { "t-0": [{ value: b64('{"__proto__":{"polluted":1}}') }] },
 		};
 
-		let caught;
-		try {
-			await handler(event, defaultContext);
-		} catch (e) {
-			caught = e;
-		}
+		await handler(event, defaultContext);
+		const caught = parseErrorOf(event);
 		ok(caught);
 		strictEqual(caught.statusCode, 422);
 		strictEqual(caught.cause.package, "@middy/event-batch-parser");
@@ -1861,13 +2009,11 @@ describe("@middy/event-batch-parser", () => {
 
 		const sqs = (body) => ({ Records: [{ eventSource: "aws:sqs", body }] });
 
-		await rejects(
-			() =>
-				handler(sqs('{"constructor":{"prototype":{"x":1}}}'), defaultContext),
-			(e) =>
-				e.statusCode === 422 &&
-				e.cause.data.reason === "Forbidden key in JSON body",
-		);
+		const bad = sqs('{"constructor":{"prototype":{"x":1}}}');
+		await handler(bad, defaultContext);
+		const e = parseErrorOf(bad);
+		strictEqual(e.statusCode, 422);
+		strictEqual(e.cause.data.reason, "Forbidden key in JSON body");
 
 		const out = await handler(
 			sqs('{"safe":true,"nested":{"constructor":"ok"}}'),
@@ -1897,12 +2043,8 @@ describe("@middy/event-batch-parser", () => {
 			records: { "t-0": [{ value: { already: "parsed" } }] },
 		};
 
-		let caught;
-		try {
-			await handler(event, defaultContext);
-		} catch (e) {
-			caught = e;
-		}
+		await handler(event, defaultContext);
+		const caught = parseErrorOf(event);
 		ok(caught);
 		strictEqual(caught.statusCode, 422);
 		strictEqual(caught.cause.package, "@middy/event-batch-parser");
@@ -2037,16 +2179,12 @@ describe("@middy/event-batch-parser", () => {
 			records: { "t-0": [{ value: raw.toString("base64") }] },
 		};
 
-		await rejects(
-			() => handler(event, defaultContext),
-			(e) => {
-				strictEqual(e.statusCode, 422);
-				strictEqual(e.cause.data.reason, "Invalid record payload");
-				strictEqual(e.cause.data.field, "value");
-				ok(!e.cause.data.message.includes("compression byte"));
-				strictEqual(e.cause.data.message, expectedMessage);
-				return true;
-			},
-		);
+		await handler(event, defaultContext);
+		const e = parseErrorOf(event);
+		strictEqual(e.statusCode, 422);
+		strictEqual(e.cause.data.reason, "Invalid record payload");
+		strictEqual(e.cause.data.field, "value");
+		ok(!e.cause.data.message.includes("compression byte"));
+		strictEqual(e.cause.data.message, expectedMessage);
 	});
 });

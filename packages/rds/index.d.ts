@@ -30,14 +30,33 @@ export interface RdsOptions<
 	cacheKey?: string;
 	cacheKeyExpiry?: { [key: string]: number };
 	cacheExpiry?: number;
+	cacheMaxSize?: number;
 }
 
-declare function rdsMiddleware(
-	options: RdsOptions,
-): middy.MiddlewareObj<unknown, unknown, Error>;
+/**
+ * The Lambda context with the connected client under
+ * `context.middyContext[contextKey]` (`"rds"` by default). The Lambda context
+ * is read off `middy.Request` rather than imported from `aws-lambda`, which
+ * this package does not declare as a peer.
+ */
+export type Context<
+	TClient = unknown,
+	TKey extends string = "rds",
+> = middy.Request["context"] & { middyContext: { [Key in TKey]: TClient } };
 
-export declare function rdsValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+declare function rdsMiddleware<
+	TClient,
+	TConfig extends RdsBaseConfig = RdsBaseConfig,
+	TKey extends string = "rds",
+>(
+	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
+	// key narrows `middyContext` without `as const`; `TClient` comes from the
+	// adapter passed as `client`.
+	options: RdsOptions<TClient, TConfig> & { contextKey?: TKey },
+): middy.MiddlewareObj<unknown, unknown, Error, Context<TClient, TKey>>;
+
+export declare function rdsValidateOptions<
+	TOptions extends RdsOptions<any, any>,
+>(options?: TOptions): TOptions;
 
 export default rdsMiddleware;

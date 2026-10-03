@@ -52,12 +52,11 @@ const checkSchemaObject = (schema, options, path, fail) => {
 	}
 	for (const key of Object.keys(options)) {
 		if (!Object.hasOwn(schema, key)) {
-			fail(`Unknown option '${path ? `${path}.${key}` : key}'`);
+			fail(`Unknown option '${childPathOf(path, key)}'`);
 		}
 	}
 	for (const key of Object.keys(schema)) {
-		const childPath = path ? `${path}.${key}` : key;
-		checkRule(schema[key], options[key], childPath, fail);
+		checkRule(schema[key], options[key], childPathOf(path, key), fail);
 	}
 };
 
@@ -310,6 +309,7 @@ export const validateOptions = (packageName, schema, options = {}) => {
 	};
 	try {
 		if (isJsonSchemaForm(schema)) {
+			if (!isPlainObject(options)) fail("options must be an object");
 			checkRule(schema, options, "", fail);
 		} else {
 			checkSchemaObject(schema, options, "", fail);
@@ -358,6 +358,16 @@ export const createClient = async (options, request) => {
 			{ credentials: options.awsClientAssumeRole },
 			request,
 		);
+		// A mistyped key, or sts ordered after this middleware, resolves to
+		// undefined, which would equally fall back to the function's own role.
+		if (typeof awsClientCredentials.credentials === "undefined") {
+			throw new Error("Credentials missing for assumed role", {
+				cause: {
+					package: pkg,
+					data: { awsClientAssumeRole: options.awsClientAssumeRole },
+				},
+			});
+		}
 	}
 
 	awsClientCredentials = {
@@ -365,9 +375,11 @@ export const createClient = async (options, request) => {
 		...options.awsClientOptions,
 	};
 
+	// Runs inside the handler invocation, so X-Ray capture can apply.
 	return createPrefetchClient({
 		...options,
 		awsClientOptions: awsClientCredentials,
+		disablePrefetch: true,
 	});
 };
 
@@ -404,16 +416,34 @@ export const createClientInit = (options) => {
 	};
 };
 
+// Every fetch middleware calls this once at construction, so it also rejects
+// a cacheExpiry that can only be a mistyped duration: above 24h it is read as
+// a unix timestamp, and one before 2001-01-01 (~31 years of ms, older than
+// Lambda) is a duration over 24h (25h lands in 1970) that would silently
+// disable the cache. A real timestamp that has passed is just an expired
+// entry, so a deployment keeps booting after its configured date.
+const minTimestampCacheExpiry = 978307200000;
+
 export const canPrefetch = (options = {}) => {
+	const cacheExpiry =
+		options.cacheKeyExpiry?.[options.cacheKey] ?? options.cacheExpiry;
+	if (cacheExpiry > 86400000 && cacheExpiry < minTimestampCacheExpiry) {
+		throw new Error(
+			`Invalid cacheExpiry value: ${cacheExpiry}. Values above 86400000 (24h) are unix timestamps (ms), and one before 2001-01-01 (978307200000) is a duration over 24h; use at most 86400000, -1 (infinite) or a real timestamp`,
+			{ cause: { package: pkg } },
+		);
+	}
 	return (
 		!options.awsClientAssumeRole &&
 		!options.disablePrefetch &&
-		options.cacheExpiry !== 0
+		cacheExpiry !== 0
 	);
 };
 
 const safeGet = (obj, key) =>
-	obj != null && Object.hasOwn(obj, key) ? obj[key] : undefined;
+	obj !== undefined && obj !== null && Object.hasOwn(obj, key)
+		? obj[key]
+		: undefined;
 
 // `sanitizeKey` maps e.g. `a.b`, `a_b` and `a-b` all to `a_b`, so two
 // requested keys can land on the same output name and one value would
@@ -541,9 +571,12 @@ export const sanitizeKey = (key) => {
 
 // Resolve the API Gateway / VPC Lattice event "version" used by the HTTP
 // router and event normalizer to dispatch event-shape handling:
-//   - explicit `event.version` ("1.0" | "2.0") wins
-//   - otherwise a VPC Lattice event (identified by `event.method`) -> "vpc"
+//   - explicit `event.version` ("1.0" | "2.0") wins, so a VPC Lattice V2
+//     event (`version: "2.0"`, top-level `method`) resolves to "2.0" and
+//     consumers tell it apart by the missing `requestContext.http`
+//   - otherwise a VPC Lattice V1 event (identified by `event.method`) -> "vpc"
 //   - else default to "1.0" (the safer default)
+// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html
 export const resolveHttpEventVersion = (event) => {
 	// '1.0' is a safer default
 	return event.version ?? (event.method ? "vpc" : "1.0");
@@ -564,8 +597,26 @@ const contextRoot = (request) =>
 
 // Get-or-create the merge target for key/value data (`setToContext`), so two
 // middleware sharing one contextKey merge rather than clobber.
-export const contextNamespace = (request, contextKey) =>
-	(contextRoot(request)[contextKey] ??= Object.create(null));
+// Only an own namespace is merged into: a nested middy's middyContext inherits
+// the outer one, and writing into the inherited object would change the outer
+// request's namespace. A new one inherits the outer namespace when there is
+// one, so reads still see the outer values while writes stay on the inner.
+export const contextNamespace = (request, contextKey) => {
+	const root = contextRoot(request);
+	const current = root[contextKey];
+	if (
+		Object.hasOwn(root, contextKey) &&
+		current !== undefined &&
+		current !== null
+	) {
+		return current;
+	}
+	const namespace = Object.create(
+		typeof current === "object" && current !== null ? current : null,
+	);
+	root[contextKey] = namespace;
+	return namespace;
+};
 
 // Publish a single opaque value (a client, a pool, a verified payload).
 export const setContextNamespace = (request, contextKey, value) => {
@@ -607,18 +658,32 @@ export const buildSetToContextSpec = (options) => {
 	return { contextKey: options.contextKey, pairs };
 };
 
+// Rejections are collected into the same AggregateError `getInternal` throws.
+const assignSetToContextAsync = async (contextKey, pairs, value, request) => {
+	const settled = await Promise.allSettled(pairs.map((pair) => value[pair[0]]));
+	const errors = [];
+	for (const result of settled) {
+		if (result.status === "rejected") errors.push(result.reason);
+	}
+	if (errors.length) {
+		throw new AggregateError(errors, "Failed to resolve internal values", {
+			cause: { package: pkg },
+		});
+	}
+	const ctx = contextNamespace(request, contextKey);
+	for (let i = 0; i < pairs.length; i++) {
+		ctx[pairs[i][1]] = settled[i].value;
+	}
+};
+
 export const assignSetToContext = ({ contextKey, pairs }, value, request) => {
 	for (let i = 0; i < pairs.length; i++) {
 		const v = value[pairs[i][0]];
 		if (typeof v?.then === "function") {
-			// Cold path: at least one value still pending; defer to
-			// `getInternal` for the standard await+sanitize+assign flow.
-			return getInternal(
-				pairs.map((pair) => pair[0]),
-				request,
-			).then((data) => {
-				Object.assign(contextNamespace(request, contextKey), data);
-			});
+			// Cold path: at least one value still pending. Awaited straight from
+			// `value`, like the warm path reads it: a fetchData key such as
+			// `db.password` names one value, it is not an internal path.
+			return assignSetToContextAsync(contextKey, pairs, value, request);
 		}
 	}
 	const ctx = contextNamespace(request, contextKey);
@@ -631,11 +696,13 @@ export const assignSetToContext = ({ contextKey, pairs }, value, request) => {
 // Map keyed by cacheKey; value shape: { value:{fetchKey:Promise}, expiry, refresh?, modified? }
 // Map chosen over plain object so deletion is O(1), frees the key slot, and
 // avoids the `delete` operator (biome's performance/noDelete rule).
+// One cache for the process: `cacheMaxSize` caps it as a whole, so the caller
+// storing the entry past the cap may evict another middleware's entry.
 const cache = new Map();
 const defaultCacheMaxSize = 128;
 
 const validateCacheExpiry = (cacheExpiry) => {
-	if (cacheExpiry == null) return;
+	if (cacheExpiry === undefined || cacheExpiry === null) return;
 	if (!Number.isInteger(cacheExpiry) || cacheExpiry < -1) {
 		throw new Error(
 			`Invalid cacheExpiry value: ${cacheExpiry}. Must be -1 (infinite), 0 (disabled), or a positive integer (ms duration or unix timestamp)`,
@@ -667,23 +734,121 @@ const maxTimeoutDuration = 2147483647;
 
 // Module-scope so the warm cache-hit path allocates no closure; only the
 // scheduling paths (modified entry, miss) create the timer callback.
-const scheduleRefresh = (
-	duration,
-	options,
-	middlewareFetch,
-	middlewareFetchRequest,
-) =>
-	duration > 0 && duration <= maxTimeoutDuration
-		? setTimeout(
-				() => processCache(options, middlewareFetch, middlewareFetchRequest),
-				duration,
-			).unref()
+// A refresh runs outside any invocation, so the fetch gets no request, as on
+// prefetch: the one that stored the entry is stale by then and keeping it
+// would hold its event in memory for the entry's lifetime.
+// Under `awsClientAssumeRole` there is no refresh either: without a request
+// it cannot rebuild the client from the credentials sts refetched. The entry
+// still expires on time and the next invocation refetches with its own.
+const scheduleRefresh = (duration, options, middlewareFetch) =>
+	duration > 0 && duration <= maxTimeoutDuration && !options.awsClientAssumeRole
+		? setTimeout(() => processCache(options, middlewareFetch), duration).unref()
 		: undefined;
 
 // Absolute expiry learned for `cacheKey` (see setCacheKeyExpiry), or Infinity
 // when there is none.
 const learnedExpiry = (options, cacheKey) =>
 	options.cacheLearnedExpiry?.[cacheKey] ?? Number.POSITIVE_INFINITY;
+
+// Stable ids for values compared by identity (functions, class instances,
+// cycles), weakly held so an id never keeps its value alive.
+const identityIds = new WeakMap();
+let identityCount = 0;
+const identityOf = (value) => {
+	let id = identityIds.get(value);
+	if (id === undefined) {
+		identityCount += 1;
+		id = `#${identityCount}`;
+		identityIds.set(value, id);
+	}
+	return id;
+};
+
+// Deterministic form of what a middleware fetches: keys sorted, Map and Set
+// by entries (order-free), URL and Date by value, BigInt as a number. What has
+// no data form (a function such as a credential provider, a class instance, a
+// cycle) is compared by identity, so two different ones never pass as equal.
+const serializeFetchSource = (value, seen) => {
+	switch (typeof value) {
+		case "string":
+			return JSON.stringify(value);
+		case "bigint":
+			return `${value}n`;
+		case "function":
+			return identityOf(value);
+		case "object":
+			break;
+		default:
+			return String(value);
+	}
+	if (value === null) return "null";
+	if (value instanceof URL) return `URL(${JSON.stringify(value.href)})`;
+	if (value instanceof Date) return `Date(${value.getTime()})`;
+	if (seen.has(value)) return identityOf(value);
+	seen.add(value);
+	const each = (item) => serializeFetchSource(item, seen);
+	let out;
+	if (Array.isArray(value)) {
+		out = `[${value.map(each).join(",")}]`;
+	} else if (value instanceof Map) {
+		const pairs = [...value].map(([k, v]) => `${each(k)}:${each(v)}`);
+		out = `Map{${pairs.sort().join(",")}}`;
+	} else if (value instanceof Set) {
+		out = `Set{${[...value].map(each).sort().join(",")}}`;
+	} else if (isRecord(value)) {
+		const pairs = Object.keys(value)
+			.sort()
+			.map((key) => `${JSON.stringify(key)}:${each(value[key])}`);
+		out = `{${pairs.join(",")}}`;
+	} else {
+		out = identityOf(value);
+	}
+	seen.delete(value);
+	return out;
+};
+
+// Fingerprints are interned to small ids, and each options object is
+// fingerprinted once: a warm hit costs a WeakMap lookup, not a re-serialize
+// of a config that can hold a 170KB CA bundle.
+const fetchSourceIds = new Map();
+const optionsFetchSourceId = new WeakMap();
+const fetchSourceId = (options) => {
+	let id = optionsFetchSourceId.get(options);
+	if (id === undefined) {
+		const fingerprint = serializeFetchSource(
+			[
+				options.fetchData,
+				options.config,
+				options.awsClientOptions,
+				options.awsClientAssumeRole,
+				options.AwsClient,
+			],
+			new Set(),
+		);
+		id = fetchSourceIds.get(fingerprint);
+		if (id === undefined) {
+			id = fetchSourceIds.size;
+			fetchSourceIds.set(fingerprint, id);
+		}
+		optionsFetchSourceId.set(options, id);
+	}
+	return id;
+};
+
+// Two middleware instances sharing a cacheKey share one cache entry, so one
+// fetching different data would silently be served the other's values.
+// What is fetched is `fetchData`, or `config` for connection middleware
+// (rds, dsql), from where `awsClientOptions` points (region, endpoint,
+// credentials), as which role (`awsClientAssumeRole`) and with which client
+// (`AwsClient`, by identity). Instances with identical data keep sharing the
+// entry.
+const assertCacheKeyOwner = (entry, options) => {
+	if (entry.fetchSourceId === fetchSourceId(options)) return;
+	throw new TypeError(
+		`cacheKey "${options.cacheKey}" is already used by a middleware fetching different data; set a distinct cacheKey (and contextKey/internalKey) on each instance`,
+		{ cause: { package: pkg, data: { cacheKey: options.cacheKey } } },
+	);
+};
 
 export const processCache = (
 	options,
@@ -697,6 +862,7 @@ export const processCache = (
 	const now = Date.now();
 	if (cacheExpiry) {
 		const cached = getCache(cacheKey);
+		if (cached.expiry !== undefined) assertCacheKeyOwner(cached, options);
 		// A unix-timestamp cacheExpiry is re-read on every call so a changed
 		// option takes effect; a duration or -1 relies on the expiry stored with
 		// the entry. Either is capped by the learned expiry, which a fetch may
@@ -716,19 +882,17 @@ export const processCache = (
 					effectiveExpiry - now,
 					options,
 					middlewareFetch,
-					middlewareFetchRequest,
 				);
 				const entry = {
 					value: cached.value,
 					expiry: effectiveExpiry,
 					refresh,
 					middlewareFetch,
-					middlewareFetchRequest,
+					fetchSourceId: fetchSourceId(options),
 				};
 				cache.set(cacheKey, entry);
 				return entry;
 			}
-			cached.cache = true;
 			return cached;
 		}
 	}
@@ -764,12 +928,7 @@ export const processCache = (
 			options.cacheLearnedExpiry[cacheKey] = undefined;
 		}
 		clearTimeout(cache.get(cacheKey)?.refresh);
-		const refresh = scheduleRefresh(
-			expiry - now,
-			options,
-			middlewareFetch,
-			middlewareFetchRequest,
-		);
+		const refresh = scheduleRefresh(expiry - now, options, middlewareFetch);
 		// The fetch and request are kept so an expiry learned once the fetch
 		// resolves (see setCacheKeyExpiry) can reschedule this refresh.
 		cache.set(cacheKey, {
@@ -777,7 +936,7 @@ export const processCache = (
 			expiry,
 			refresh,
 			middlewareFetch,
-			middlewareFetchRequest,
+			fetchSourceId: fetchSourceId(options),
 		});
 		evictCache(cacheMaxSize);
 	}
@@ -862,7 +1021,6 @@ export const setCacheKeyExpiry = (options, expiryMs) => {
 			clamp - now,
 			options,
 			entry.middlewareFetch,
-			entry.middlewareFetchRequest,
 		);
 	}
 };
@@ -974,7 +1132,7 @@ export const isJsonStructured = (text) => {
 };
 
 export const jsonContentTypePattern =
-	/^application\/([a-z0-9.+-]+\+)?json(;|$)/i;
+	/^application\/([a-z0-9.+-]+\+)?json\s*(;|$)/i;
 
 // Decode a request body, transparently handling base64-encoded payloads.
 // Takes `body` and `isBase64Encoded` directly so callers (which already
@@ -982,7 +1140,7 @@ export const jsonContentTypePattern =
 // inside this helper. Returns `body` unchanged when it's nullish so callers
 // can decide whether absence is an error.
 export const decodeBody = (body, isBase64Encoded) => {
-	if (body == null) return body;
+	if (body === undefined || body === null) return body;
 	return isBase64Encoded ? Buffer.from(body, "base64").toString() : body;
 };
 
@@ -1005,6 +1163,10 @@ export const normalizeHttpResponse = (request) => {
 
 // Paths are dot-delimited and relative to the `request`, with `[]` for array
 // elements: `event.headers.authorization`, `error.cause.data.body`.
+// Segments match keys case-insensitively (HTTP field names are, RFC 9110
+// section 5.1, and REST API / ALB events do not normalize them), so the tree
+// holds them lower-cased. Over-redacting
+// a key that differs only by case is the safe direction.
 // Nodes are Maps: a segment is caller data, and a Map key can never resolve to
 // an inherited member the way `node[segment]` would, so building the tree needs
 // no own-property guard. The segments are still filtered, because `omit` reads
@@ -1014,7 +1176,9 @@ export const buildPathTree = (paths) => {
 	// Copy before sorting so the caller-provided array is never mutated. Reverse
 	// so a leaf path (`a.b`) overrides a longer one (`a.b.c`) when both are set.
 	for (let path of [...paths].sort().reverse()) {
-		if (!Array.isArray(path)) path = path.split(".");
+		path = (Array.isArray(path) ? path : path.split(".")).map((segment) =>
+			String(segment).toLowerCase(),
+		);
 		if (
 			path.includes("__proto__") ||
 			path.includes("constructor") ||
@@ -1123,14 +1287,35 @@ const omitArray = (arr, childTree, mask) => {
 	return clone;
 };
 
+// Every key of a visited node is matched case-insensitively (never
+// under-redact: `Authorization` next to `authorization` is folded too). To keep
+// a 1000-record batch cheap, a key is only lower-cased when its length equals
+// one of the node's segment lengths, which rejects almost every key with a
+// number compare.
+const segmentLengthsByNode = new WeakMap();
+const segmentLengths = (pathTree) => {
+	let lengths = segmentLengthsByNode.get(pathTree);
+	if (lengths === undefined) {
+		// Indexed by length: a holey-array read beats Set#has on this path.
+		lengths = [];
+		for (const segment of pathTree.keys()) lengths[segment.length] = true;
+		segmentLengthsByNode.set(pathTree, lengths);
+	}
+	return lengths;
+};
+
 const omitObject = (obj, pathTree, mask) => {
+	const lengths = segmentLengths(pathTree);
 	let clone = obj;
-	let dropped = false;
-	for (const [key, sub] of pathTree) {
+	let dropped;
+	for (const key of Object.keys(obj)) {
+		if (lengths[key.length] !== true) continue;
+		const sub = pathTree.get(key) ?? pathTree.get(key.toLowerCase());
+		if (sub === undefined) continue;
 		if (sub === true) {
-			if (!Object.hasOwn(obj, key)) continue;
 			if (mask === undefined) {
-				dropped = true;
+				dropped ??= new Set();
+				dropped.add(key);
 				continue;
 			}
 			if (clone === obj) clone = { ...obj };
@@ -1143,14 +1328,12 @@ const omitObject = (obj, pathTree, mask) => {
 			clone[key] = next;
 		}
 	}
-	if (!dropped) return clone;
+	if (dropped === undefined) return clone;
 	// Copying the survivors, not spread-then-delete: `delete` drops the object
 	// into dictionary mode, making the logger's later reads ~28x slower.
-	// `pathTree.get(key) === true` already identifies every dropped leaf, so no
-	// list of them is accumulated and the check stays a lookup, not a scan.
 	const survivors = {};
 	for (const key in clone) {
-		if (pathTree.get(key) !== true) survivors[key] = clone[key];
+		if (!dropped.has(key)) survivors[key] = clone[key];
 	}
 	return survivors;
 };

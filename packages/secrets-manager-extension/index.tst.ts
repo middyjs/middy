@@ -2,6 +2,7 @@ import middy from "@middy/core";
 import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import secretsManagerExtension, {
 	type Context,
 	type SecretsManagerExtensionOptions,
@@ -19,6 +20,7 @@ test("use with all options", () => {
 		disablePrefetch: true,
 		cacheKey: "some-key",
 		cacheExpiry: 60 * 60 * 1000,
+		cacheMaxSize: 100,
 		setToContext: false as const,
 	};
 	expect(secretsManagerExtension(options)).type.toBe<
@@ -125,4 +127,31 @@ test("contextKey literal narrows middyContext without as const", () => {
 				user: string;
 			}>();
 		});
+});
+
+test("accepts cacheMaxSize", () => {
+	expect(secretsManagerExtension).type.toBeCallableWith({ cacheMaxSize: 100 });
+});
+
+test("accepts an awsSessionToken provider", () => {
+	expect(secretsManagerExtension).type.toBeCallableWith({
+		awsSessionToken: async () => "token",
+	});
+	expect(secretsManagerExtension).type.not.toBeCallableWith({
+		awsSessionToken: "token",
+	});
+});
+
+test("rejects misspelled option alongside fetchData", () => {
+	expect(secretsManagerExtension).type.not.toBeCallableWith({
+		fetchData: { foo: "bar" },
+		cacheExpiery: 1000,
+	});
+});
+
+test("secretsManagerExtensionValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.SecretsManagerExtensionOptions;
+	expect(
+		indexModule.secretsManagerExtensionValidateOptions(options),
+	).type.toBe<indexModule.SecretsManagerExtensionOptions>();
 });

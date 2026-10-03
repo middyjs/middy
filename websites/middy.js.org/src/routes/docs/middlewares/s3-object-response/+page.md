@@ -20,7 +20,7 @@ npm install --save-dev @aws-sdk/client-s3
 
 - `AwsClient` (object) (default `S3Client`): S3Client class constructor (i.e. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-s3`.
 - `awsClientOptions` (object) (optional): Options to pass to S3Client class constructor.
-- `awsClientAssumeRole` (string) (optional): Internal key where temporary credentials are stored. See [@middy/sts](/docs/middlewares/sts) on how to set this.
+- `awsClientAssumeRole` (string) (optional): Internal key where temporary credentials are stored. See [@middy/sts](/docs/middlewares/sts) on how to set this. It fails the invocation with `Credentials missing for assumed role` when the credentials are not in `request.internal` (a mistyped key, or `@middy/sts` registered after this middleware), rather than falling back to the function's own role; register `sts` first.
 - `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSv3Client` from `aws-xray-sdk` in.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `contextKey` (string) (default `s3-object-response`): The key under `context.middyContext` where the pending `fetch` Promise for the source object is published. Override it to run two instances side by side.
@@ -41,6 +41,7 @@ NOTES:
 
 - The response from the handler is passed to [`WriteGetObjectResponse`](https://docs.aws.amazon.com/AmazonS3/latest/API/API_WriteGetObjectResponse.html): `Body` (or `body`) plus any other field it accepts, such as `StatusCode`, `ContentType`, `ContentEncoding`, `ContentLength`, `CacheControl`, `ETag`, `Metadata`, `ErrorCode` and `ErrorMessage`. `RequestRoute` and `RequestToken` are always taken from the event. A response that is not a plain object (a string, Buffer or stream) is sent as the `Body`.
 - `getObjectContext.inputS3Url` is checked against `allowedHosts` before it is fetched. An `http:` URL, an explicit port or a host outside the list fails the invocation with a 400 `HttpError` and nothing is fetched, so a crafted event cannot make the function GET an arbitrary URL.
+- The `inputS3Url` fetch (including reading its body) is aborted 500 ms before the invocation would time out (at least 1 s; 30 s outside Lambda), so a hung download rejects the promise instead of Lambda cutting the invocation off.
 - XRay doesn't support tracing of `fetch`, you will need a workaround, see https://github.com/aws/aws-xray-sdk-node/issues/531#issuecomment-1378562164
 - Lambda is required to have IAM permission for `s3-object-lambda:WriteGetObjectResponse`
 - `context.middyContext['s3-object-response']` is a pending `fetch` Promise kicked off in the `before` hook. **Your handler must `await` it**: otherwise a network/404/auth failure surfaces as an unhandled promise rejection rather than as a caught error in your handler. The samples below show the correct pattern.

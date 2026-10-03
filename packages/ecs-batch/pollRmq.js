@@ -123,10 +123,19 @@ export const pollRmq = (opts) => {
 	const pending = [];
 	const inflight = new WeakMap();
 	let resolveNext;
+	let failure;
 
 	const wakeReader = () => {
 		resolveNext?.();
 		resolveNext = undefined;
+	};
+
+	// A consumer that can no longer deliver would leave the loop parked
+	// forever. Fail the poll instead: the worker reports it through onError,
+	// exits 1 and the primary re-forks it.
+	const fail = (err) => {
+		failure = err;
+		wakeReader();
 	};
 
 	return {
@@ -147,10 +156,37 @@ export const pollRmq = (opts) => {
 			};
 			signal.addEventListener("abort", onAbort, { once: true });
 
+			// A channel emits "close" when it or its connection closes, after
+			// "error" when the server closed it with one; an unheard "error" would
+			// throw out of amqplib's socket handler instead of reaching onError.
+			// https://amqp-node.github.io/amqplib/channel_api.html#channel-events
+			let closeError;
+			channel.on("error", (err) => {
+				closeError = err;
+			});
+			channel.once("close", () =>
+				fail(
+					closeError ??
+						new Error("Channel closed", {
+							cause: { package: pkg, data: { queue: opts.queue } },
+						}),
+				),
+			);
+
 			await channel.consume(
 				opts.queue,
 				(msg) => {
-					if (!msg) return;
+					// RabbitMQ cancelled the consumer (queue deleted, node failover):
+					// amqplib then invokes the callback with null.
+					// https://amqp-node.github.io/amqplib/channel_api.html#channel_consume
+					if (msg === null) {
+						fail(
+							new Error("Consumer cancelled by RabbitMQ", {
+								cause: { package: pkg, data: { queue: opts.queue } },
+							}),
+						);
+						return;
+					}
 					pending.push(msg);
 					wakeReader();
 				},
@@ -158,6 +194,7 @@ export const pollRmq = (opts) => {
 			);
 
 			while (!signal.aborted) {
+				if (failure) throw failure;
 				if (pending.length === 0) {
 					await new Promise((r) => {
 						resolveNext = r;
@@ -183,6 +220,20 @@ export const pollRmq = (opts) => {
 				};
 				inflight.set(event, taken);
 				yield event;
+				// The runner resumes here after acknowledging the batch, or after the
+				// handler threw. A batch still in flight was never acknowledged:
+				// requeue every delivery so it redelivers instead of holding the
+				// prefetch window until the consumer stalls. On shutdown, closing the
+				// channel requeues unacknowledged deliveries instead, as does the
+				// worker exiting on a failure.
+				// https://www.rabbitmq.com/docs/confirms
+				if (signal.aborted) return;
+				if (failure) throw failure;
+				const unsettled = inflight.get(event);
+				if (unsettled) {
+					inflight.delete(event);
+					for (const msg of unsettled) channel.nack(msg, false, true);
+				}
 			}
 		},
 		async acknowledge(event, response) {

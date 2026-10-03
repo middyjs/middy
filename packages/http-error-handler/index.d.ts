@@ -2,8 +2,15 @@
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
 
+// Read off a method signature so the parameter is bivariant: a logger
+// annotated with a concrete event (`middy.Request<APIGatewayProxyEvent>`) is
+// accepted.
+type Logger = {
+	bivarianceHack(request: middy.Request): void;
+}["bivarianceHack"];
+
 export interface Options {
-	logger?: ((request: middy.Request) => void) | false;
+	logger?: Logger | false;
 	fallbackMessage?: string;
 	/**
 	 * Dot-delimited paths, relative to the `request`, to strip from the copy
@@ -19,8 +26,8 @@ declare function httpErrorHandler(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
-export declare function httpErrorHandlerValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function httpErrorHandlerValidateOptions<
+	TOptions extends Options,
+>(options?: TOptions): TOptions;
 
 export default httpErrorHandler;

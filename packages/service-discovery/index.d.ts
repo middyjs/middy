@@ -25,6 +25,7 @@ export interface ServiceDiscoveryOptions<
 		| "cacheKey"
 		| "cacheExpiry"
 		| "cacheKeyExpiry"
+		| "cacheMaxSize"
 		| "setToContext"
 		| "contextKey"
 	> {
@@ -56,8 +57,12 @@ declare function serviceDiscovery<
 	TKey extends string = string,
 >(
 	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
-	// key narrows `middyContext` without `as const`.
-	options?: TOptions & { contextKey?: TKey },
+	// key narrows `middyContext` without `as const`. The `never` record rejects
+	// keys `ServiceDiscoveryOptions` does not declare, which inference would otherwise accept.
+	options?: TOptions & { contextKey?: TKey } & Record<
+			Exclude<keyof TOptions, keyof ServiceDiscoveryOptions>,
+			never
+		>,
 ): middy.MiddlewareObj<
 	unknown,
 	unknown,
@@ -66,8 +71,8 @@ declare function serviceDiscovery<
 	Internal<TOptions>
 >;
 
-export declare function serviceDiscoveryValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function serviceDiscoveryValidateOptions<
+	TOptions extends ServiceDiscoveryOptions,
+>(options?: TOptions): TOptions;
 
 export default serviceDiscovery;

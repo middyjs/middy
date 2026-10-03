@@ -10,6 +10,24 @@ const defaultContext = {
 };
 
 describe("@middy/http-urlencode-body-parser", () => {
+	// VPC Lattice V2 delivers every header value as an array.
+	// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html
+	test("It should parse a VPC Lattice V2 event whose content-type is an array", async (t) => {
+		const handler = middy((event) => event.body).use(urlEncodeBodyParser());
+
+		const body = await handler(
+			{
+				version: "2.0",
+				method: "POST",
+				headers: { "content-type": ["application/x-www-form-urlencoded"] },
+				body: "a=1",
+			},
+			defaultContext,
+		);
+
+		deepStrictEqual(body, Object.assign(Object.create(null), { a: "1" }));
+	});
+
 	test("It should decode complex url encoded requests", async (t) => {
 		const handler = middy((event, context) => {
 			return event; // propagates the body as response
@@ -34,6 +52,47 @@ describe("@middy/http-urlencode-body-parser", () => {
 				"a[b][c][d]": "i",
 			}),
 		);
+	});
+
+	const formOf = (n) =>
+		Array.from({ length: n }, (_, i) => `f${i}=${i}`).join("&");
+	const formEvent = (body) => ({
+		headers: { "Content-Type": "application/x-www-form-urlencoded" },
+		body,
+	});
+
+	test("It should throw 413 when a form exceeds the default 1000 fields", async (t) => {
+		// Never truncated in silence, and never unbounded: a 6 MB body of empty
+		// pairs would otherwise build over a million keys.
+		const handler = middy((event) => event.body).use(urlEncodeBodyParser());
+
+		try {
+			await handler(formEvent(formOf(1001)), defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 413);
+			strictEqual(e.cause.package, "@middy/http-urlencode-body-parser");
+			deepStrictEqual(e.cause.data, { limit: "maxKeys", maxKeys: 1000 });
+		}
+	});
+
+	test("It should parse a form of exactly maxKeys fields", async (t) => {
+		const handler = middy((event) => event.body).use(urlEncodeBodyParser());
+
+		const parsed = await handler(formEvent(formOf(1000)), defaultContext);
+
+		strictEqual(Object.keys(parsed).length, 1000);
+	});
+
+	test("It should parse every field up to a raised maxKeys", async (t) => {
+		const handler = middy((event) => event.body).use(
+			urlEncodeBodyParser({ maxKeys: 1200 }),
+		);
+
+		const parsed = await handler(formEvent(formOf(1200)), defaultContext);
+
+		strictEqual(Object.keys(parsed).length, 1200);
+		strictEqual(parsed.f1199, "1199");
 	});
 
 	test("It should default when body is empty", async (t) => {
@@ -433,6 +492,18 @@ describe("@middy/http-urlencode-body-parser", () => {
 		} catch (e) {
 			ok(e instanceof TypeError);
 			strictEqual(e.cause.package, "@middy/http-urlencode-body-parser");
+		}
+	});
+
+	test("httpUrlencodeBodyParserValidateOptions accepts maxKeys and rejects a non-positive integer", () => {
+		httpUrlencodeBodyParserValidateOptions({ maxKeys: 5000 });
+		for (const maxKeys of [0, 1.5, "10"]) {
+			try {
+				httpUrlencodeBodyParserValidateOptions({ maxKeys });
+				ok(false, "expected throw");
+			} catch (e) {
+				ok(e instanceof TypeError);
+			}
 		}
 	});
 

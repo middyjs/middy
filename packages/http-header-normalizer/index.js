@@ -107,13 +107,19 @@ const httpHeaderNormalizerMiddleware = (opts = {}) => {
 	const defaultMultiValueHeaders = {};
 	for (const key of Object.keys(options.defaultHeaders)) {
 		const newKey = cachedNormalizeKey(key);
-		const isArray = Array.isArray(options.defaultHeaders[key]);
-		defaultHeaders[newKey] = isArray
-			? options.defaultHeaders[key].join(",")
-			: options.defaultHeaders[key];
-		defaultMultiValueHeaders[newKey] = isArray
-			? options.defaultHeaders[key]
-			: options.defaultHeaders[key].split(",");
+		const value = options.defaultHeaders[key];
+		// Cookie pairs are separated by "; " (RFC 6265 §5.4); every other
+		// repeated field by "," (RFC 9110 §5.3).
+		const isCookie = key.toLowerCase() === "cookie";
+		if (Array.isArray(value)) {
+			defaultHeaders[newKey] = value.join(isCookie ? "; " : ",");
+			defaultMultiValueHeaders[newKey] = value;
+		} else {
+			defaultHeaders[newKey] = value;
+			defaultMultiValueHeaders[newKey] = value
+				.split(isCookie ? ";" : ",")
+				.map((part) => part.trim());
+		}
 	}
 
 	const httpHeaderNormalizerMiddlewareBefore = (request) => {

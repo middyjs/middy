@@ -19,7 +19,8 @@ This page is a work in progress. If you want to help us to make this page better
 
 ```javascript
 import middy from '@middy/core'
-import eventBatchParser, { parseJson } from '@middy/event-batch-parser'
+import eventBatchParser from '@middy/event-batch-parser'
+import parseJson from '@middy/event-batch-parser/parseJson'
 import eventBatchResponse from '@middy/event-batch-response'
 import eventBatchHandler from '@middy/event-batch-handler'
 
@@ -29,7 +30,7 @@ const recordHandler = async (record, context) => {
 const lambdaHandler = eventBatchHandler(recordHandler)
 
 export const handler = middy()
-  .use(eventBatchParser({ body: parseJson() }))
+  .use(eventBatchParser({ data: parseJson() }))
   .use(eventBatchResponse())
   .handler(lambdaHandler)
 ```
@@ -38,7 +39,8 @@ export const handler = middy()
 
 ```javascript
 import middy from '@middy/core'
-import eventBatchParser, { parseAvro } from '@middy/event-batch-parser'
+import eventBatchParser from '@middy/event-batch-parser'
+import parseAvro from '@middy/event-batch-parser/parseAvro'
 import eventBatchResponse from '@middy/event-batch-response'
 import eventBatchHandler from '@middy/event-batch-handler'
 
@@ -53,7 +55,7 @@ const recordHandler = async (record, context) => {
 const lambdaHandler = eventBatchHandler(recordHandler)
 
 export const handler = middy()
-  .use(eventBatchParser({ body: parseAvro({ schema }) }))
+  .use(eventBatchParser({ data: parseAvro({ schema }) }))
   .use(eventBatchResponse())
   .handler(lambdaHandler)
 ```
@@ -62,12 +64,14 @@ For dynamic schemas resolved via [`@middy/glue-schema-registry`](/docs/middlewar
 
 ## Example Protobuf
 
-Per-record schemas are resolved dynamically from the [AWS Glue Schema Registry](/docs/middlewares/glue-schema-registry). Each Glue-framed record carries a `SchemaVersionId` that the registry middleware fetches (and caches) before `parseProtobuf` runs.
+`parseProtobuf` needs a loaded `protobuf.Root` and a message type, either as factory options or as a `{ root, messageType }` entry on `request.internal`. Here the `.proto` definition is fetched once from the [AWS Glue Schema Registry](/docs/middlewares/glue-schema-registry) by the `SchemaVersionId` set in `fetchData`, then loaded with `protobufjs` in a `before` hook. The registry middleware does not look up the `SchemaVersionId` carried in each Glue-framed record.
 
 ```javascript
+import protobuf from 'protobufjs'
 import middy from '@middy/core'
 import glueSchemaRegistry from '@middy/glue-schema-registry'
-import eventBatchParser, { parseProtobuf } from '@middy/event-batch-parser'
+import eventBatchParser from '@middy/event-batch-parser'
+import parseProtobuf from '@middy/event-batch-parser/parseProtobuf'
 import eventBatchResponse from '@middy/event-batch-response'
 import eventBatchHandler from '@middy/event-batch-handler'
 
@@ -77,8 +81,18 @@ const recordHandler = async (record, context) => {
 const lambdaHandler = eventBatchHandler(recordHandler)
 
 export const handler = middy()
-  .use(glueSchemaRegistry())
-  .use(eventBatchParser({ body: parseProtobuf(), glueSchemaRegistry: {} }))
+  .use(glueSchemaRegistry({
+    fetchData: { messageSchema: { SchemaVersionId: '...' } },
+  }))
+  .before(async (request) => {
+    // Load the fetched .proto definition into the entry parseProtobuf reads
+    const { schemaDefinition } = await request.internal.messageSchema
+    request.internal.messageProto = {
+      root: protobuf.parse(schemaDefinition).root,
+      messageType: 'example.Message',
+    }
+  })
+  .use(eventBatchParser({ data: parseProtobuf({ internalKey: 'messageProto' }) }))
   .use(eventBatchResponse())
   .handler(lambdaHandler)
 ```
@@ -90,7 +104,8 @@ Kinesis partial-batch retries replay every record at-or-after the lowest failed 
 ```javascript
 import { withDurableExecution } from '@aws/durable-execution-sdk-js'
 import middy from '@middy/core'
-import eventBatchParser, { parseJson } from '@middy/event-batch-parser'
+import eventBatchParser from '@middy/event-batch-parser'
+import parseJson from '@middy/event-batch-parser/parseJson'
 import eventBatchResponse from '@middy/event-batch-response'
 import eventBatchHandler from '@middy/event-batch-handler'
 
@@ -103,7 +118,7 @@ const lambdaHandler = eventBatchHandler(recordHandler)
 
 export const handler = withDurableExecution(
   middy()
-    .use(eventBatchParser({ body: parseJson() }))
+    .use(eventBatchParser({ data: parseJson() }))
     .use(eventBatchResponse())
     .handler(lambdaHandler)
 )

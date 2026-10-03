@@ -1,4 +1,6 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
+import { Readable, Writable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { ReadableStream } from "node:stream/web";
 import { describe, test } from "node:test";
 import {
@@ -681,6 +683,200 @@ describe("@middy/http-content-encoding", () => {
 	});
 
 	// Web API ReadableStream tests
+	// A source stream that fails must fail the encoded stream too. With .pipe()
+	// the error was dropped: the encoder never ended (the response hung) and the
+	// error surfaced as an uncaught exception.
+	test("It should propagate a Node stream source error to the encoded stream", async (t) => {
+		const source = new Readable({ read() {} });
+		const handler = middy(() => ({ statusCode: 200, body: source })).use(
+			contentEncodingStack(),
+		);
+
+		const response = await handler(
+			{ headers: {} },
+			{ ...defaultContext, preferredEncoding: "gzip" },
+		);
+		source.push(compressibleBody);
+		setImmediate(() => source.destroy(new Error("upstream failed")));
+
+		await rejects(
+			pipeline(response.body, new Writable({ write: (c, e, cb) => cb() })),
+			{ message: "upstream failed" },
+		);
+	});
+
+	test("It should propagate a Web stream source error to the encoded stream", async (t) => {
+		let controller;
+		const source = new ReadableStream({
+			start(c) {
+				controller = c;
+			},
+		});
+		const handler = middy(() => ({ statusCode: 200, body: source })).use(
+			contentEncodingStack(),
+		);
+
+		const response = await handler(
+			{ headers: {} },
+			{ ...defaultContext, preferredEncoding: "gzip" },
+		);
+		controller.enqueue(new TextEncoder().encode(compressibleBody));
+		setImmediate(() => controller.error(new Error("upstream failed")));
+
+		await rejects(
+			pipeline(response.body, new Writable({ write: (c, e, cb) => cb() })),
+			{ message: "upstream failed" },
+		);
+	});
+
+	// RFC 9110 8.6: Content-Length describes the unencoded body, so it goes.
+	// RFC 9110 8.8.3: a strong validator must change with the content coding,
+	// so a strong ETag is weakened; a weak one already allows it.
+	test("It should drop Content-Length and weaken a strong ETag when it compresses", async (t) => {
+		const body = compressibleBody;
+		const handler = middy(() => ({
+			statusCode: 200,
+			body,
+			headers: { "content-length": String(body.length), ETag: '"v1"' },
+		})).use(contentEncodingStack());
+
+		const response = await handler(
+			{ headers: {} },
+			{ ...defaultContext, preferredEncoding: "gzip" },
+		);
+
+		strictEqual(response.headers["Content-Encoding"], "gzip");
+		strictEqual(response.headers["content-length"], undefined);
+		strictEqual(response.headers.ETag, 'W/"v1"');
+	});
+
+	test("It should keep a weak ETag as it is when it compresses a stream", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: createReadableStream(compressibleBody),
+			headers: { "Content-Length": "401", etag: 'W/"v1"' },
+		})).use(contentEncodingStack());
+
+		const response = await handler(
+			{ headers: {} },
+			{ ...defaultContext, preferredEncoding: "gzip" },
+		);
+
+		strictEqual(response.headers["Content-Length"], undefined);
+		strictEqual(response.headers.etag, 'W/"v1"');
+	});
+
+	test("It should leave Content-Length and ETag when it does not compress", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: "x",
+			headers: { "Content-Length": "1", ETag: '"v1"' },
+		})).use(contentEncodingStack());
+
+		const response = await handler(
+			{ headers: {} },
+			{ ...defaultContext, preferredEncoding: "gzip" },
+		);
+
+		strictEqual(response.headers["Content-Length"], "1");
+		strictEqual(response.headers.ETag, '"v1"');
+	});
+
+	// ALB with multi-value headers enabled reads and writes `multiValueHeaders`
+	// only. https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+	test("It should respect Cache-Control no-transform in response multiValueHeaders", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: compressibleBody,
+			multiValueHeaders: { "Cache-Control": ["no-transform"] },
+		})).use(contentEncodingStack());
+
+		const response = await handler(
+			{ headers: {} },
+			{ ...defaultContext, preferredEncoding: "gzip" },
+		);
+
+		strictEqual(response.body, compressibleBody);
+		strictEqual(response.isBase64Encoded, undefined);
+	});
+
+	test("It should not re-encode a body whose multiValueHeaders carry Content-Encoding", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: compressibleBody,
+			multiValueHeaders: { "content-encoding": ["br"] },
+		})).use(contentEncodingStack());
+
+		const response = await handler(
+			{ headers: {} },
+			{ ...defaultContext, preferredEncoding: "gzip" },
+		);
+
+		strictEqual(response.body, compressibleBody);
+	});
+
+	test("It should write the encoding headers to multiValueHeaders when the response uses them", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: compressibleBody,
+			multiValueHeaders: {
+				"Content-Type": ["application/json"],
+				"Content-Length": [String(compressibleBody.length)],
+				ETag: ['"v1"'],
+			},
+		})).use(contentEncodingStack());
+
+		const response = await handler(
+			{ headers: {} },
+			{ ...defaultContext, preferredEncoding: "gzip" },
+		);
+
+		deepStrictEqual(response.multiValueHeaders, {
+			"Content-Type": ["application/json"],
+			ETag: ['W/"v1"'],
+			"Content-Encoding": ["gzip"],
+			Vary: ["Accept-Encoding"],
+		});
+		strictEqual(response.headers["Content-Encoding"], undefined);
+		strictEqual(response.isBase64Encoded, true);
+	});
+
+	test("It should append Accept-Encoding to an existing multiValueHeaders Vary", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: compressibleBody,
+			multiValueHeaders: { vary: ["Origin"] },
+		})).use(contentEncodingStack());
+
+		const response = await handler(
+			{ headers: {} },
+			{ ...defaultContext, preferredEncoding: "gzip" },
+		);
+
+		deepStrictEqual(response.multiValueHeaders.vary, [
+			"Origin",
+			"Accept-Encoding",
+		]);
+	});
+
+	test("It should honour a request no-transform sent in ALB multiValueHeaders", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: compressibleBody,
+			multiValueHeaders: { "Content-Type": ["application/json"] },
+		})).use(contentEncodingStack());
+
+		const response = await handler(
+			{ multiValueHeaders: { "cache-control": ["no-cache", "no-transform"] } },
+			{ ...defaultContext, preferredEncoding: "gzip" },
+		);
+
+		strictEqual(response.body, compressibleBody);
+		deepStrictEqual(response.multiValueHeaders["Cache-Control"], [
+			"no-transform",
+		]);
+	});
+
 	test("It should encode Web API ReadableStream using br", async (t) => {
 		const body = compressibleBody;
 		const handler = middy((event, context) => ({

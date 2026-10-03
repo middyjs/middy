@@ -1,6 +1,17 @@
-import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	ok,
+	rejects,
+	strictEqual,
+	throws,
+} from "node:assert/strict";
 import { describe, test } from "node:test";
-import { clearCache, processCache, setContextNamespace } from "@middy/util";
+import {
+	clearCache,
+	getCache,
+	processCache,
+	setContextNamespace,
+} from "@middy/util";
 import middy from "../core/index.js";
 import rdsSigner from "../rds-signer/index.js";
 import rdsMiddleware, { rdsValidateOptions } from "./index.js";
@@ -41,6 +52,37 @@ describe("@middy/rds", () => {
 		await handler(defaultEvent, newContext());
 		strictEqual(client.mock.callCount(), 1);
 		strictEqual(end.mock.callCount(), 1);
+	});
+
+	test("It should not end the outer request's client when a nested middy fails to connect", async (t) => {
+		const outerRds = buildClient(t);
+		const inner = middy(() => {}).use(
+			rdsMiddleware({
+				client: () => {
+					throw new Error("connect failed");
+				},
+				config: { host: validHost },
+				cacheExpiry: 0,
+				cacheKey: "rds-inner",
+				disablePrefetch: true,
+			}),
+		);
+		let endedDuringInner;
+		const handler = middy(async (event, context) => {
+			await rejects(inner(event, context), { message: "connect failed" });
+			endedDuringInner = outerRds.end.mock.callCount();
+		}).use(
+			rdsMiddleware({
+				client: outerRds.client,
+				config: { host: validHost },
+				cacheExpiry: 0,
+				disablePrefetch: true,
+			}),
+		);
+
+		await handler(defaultEvent, newContext());
+		strictEqual(endedDuringInner, 0);
+		strictEqual(outerRds.end.mock.callCount(), 1);
 	});
 
 	test("It should instantiate the client and attach it to context", async (t) => {
@@ -1553,5 +1595,70 @@ describe("@middy/rds", () => {
 			console.error = originalError;
 		}
 		deepStrictEqual(logged, []);
+	});
+
+	test("rdsValidateOptions accepts cacheMaxSize and rejects values below 1", () => {
+		const base = { client: () => ({}), config: { host: validHost } };
+		rdsValidateOptions({ ...base, cacheMaxSize: 10 });
+		try {
+			rdsValidateOptions({ ...base, cacheMaxSize: 0 });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("cacheMaxSize"));
+		}
+	});
+
+	test("It should reject a mistyped duration cacheExpiry at construction when internalKey is set", (t) => {
+		const client = t.mock.fn(() => ({}));
+		for (const opts of [
+			{ cacheExpiry: 90000000 },
+			{ cacheKeyExpiry: { "@middy/rds": 90000000 } },
+		]) {
+			throws(
+				() =>
+					rdsMiddleware({
+						client,
+						config: { host: validHost },
+						internalKey: "token",
+						...opts,
+					}),
+				/Invalid cacheExpiry value/,
+			);
+		}
+		// Validation only: with internalKey nothing is prefetched.
+		rdsMiddleware({
+			client,
+			config: { host: validHost },
+			internalKey: "token",
+			cacheExpiry: -1,
+		});
+		strictEqual(client.mock.callCount(), 0);
+	});
+
+	// The cache entry keeps its fetch for refreshes; it must not close over the
+	// request of the invocation that created it (holding that request, and its
+	// IAM token, for the entry's lifetime).
+	test("It should not retain the creating request in the cached fetch", async (t) => {
+		const client = t.mock.fn(() => ({ end: async () => {} }));
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.token = "token-a";
+			})
+			.use(
+				rdsMiddleware({
+					client,
+					config: { host: validHost },
+					internalKey: "token",
+					cacheExpiry: -1,
+				}),
+			);
+		await handler(defaultEvent, newContext());
+		strictEqual(client.mock.calls[0].arguments[0].password, "token-a");
+
+		await getCache("@middy/rds").middlewareFetch({
+			internal: { token: "token-b" },
+		});
+		strictEqual(client.mock.calls[1].arguments[0].password, "token-b");
 	});
 });

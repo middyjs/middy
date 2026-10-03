@@ -1,7 +1,7 @@
 import type middy from "@middy/core";
 import compile from "ajv-cmd/compile";
 import { expect, test } from "tstyche";
-import validator from "./index.js";
+import validator, * as indexModule from "./index.js";
 import { transpileSchema } from "./transpile.js";
 
 test("use with default options", () => {
@@ -40,4 +40,20 @@ test("rejects an Ajv instance where a compiled validator is expected", () => {
 	expect(validator).type.not.toBeCallableWith({
 		eventSchema: { compile: () => undefined },
 	});
+});
+
+test("rejects an $async validator, which throws at construction", () => {
+	expect(validator).type.not.toBeCallableWith({
+		eventSchema: transpileSchema({ $async: true, type: "object" }),
+	});
+	expect(validator).type.not.toBeCallableWith({
+		responseSchema: transpileSchema({ $async: true, type: "object" }),
+	});
+});
+
+test("validatorValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.Options;
+	expect(
+		indexModule.validatorValidateOptions(options),
+	).type.toBe<indexModule.Options>();
 });

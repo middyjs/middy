@@ -12,8 +12,8 @@ declare function cloudformationResponse(
 	options?: CloudformationResponseOptions,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
-export declare function cloudformationResponseValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function cloudformationResponseValidateOptions<
+	TOptions extends CloudformationResponseOptions,
+>(options?: TOptions): TOptions;
 
 export default cloudformationResponse;

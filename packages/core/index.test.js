@@ -8,6 +8,7 @@ import {
 import { AsyncLocalStorage } from "node:async_hooks";
 import { syncBuiltinESMExports } from "node:module";
 import { describe, test } from "node:test";
+import { contextNamespace } from "@middy/util";
 import middy, { middyValidateOptions } from "./index.js";
 
 const defaultEvent = {};
@@ -969,7 +970,100 @@ describe("@middy/core", () => {
 		}
 	});
 
-	test("Should preserve handler error when requestEnd hook also throws, attaching hook as .cause", async () => {
+	test("Should throw AggregateError of handler and hook errors when requestEnd hook also throws", async () => {
+		// Middy errors all carry cause:{package}, so attaching the hook error as
+		// `.cause` silently dropped it; both must survive.
+		const handlerErr = new Error("handler failed", {
+			cause: { package: "@middy/core" },
+		});
+		const hookErr = new Error("requestEnd failed");
+		const handler = middy(
+			() => {
+				throw handlerErr;
+			},
+			{
+				requestEnd: () => {
+					throw hookErr;
+				},
+			},
+		);
+		try {
+			await handler(defaultEvent, defaultContext);
+			throw new Error("Expected handler error to propagate");
+		} catch (e) {
+			ok(e instanceof AggregateError);
+			strictEqual(e.message, "Error thrown in requestEnd hook");
+			deepStrictEqual(e.errors, [handlerErr, hookErr]);
+			deepStrictEqual(e.cause, { package: "@middy/core" });
+			strictEqual(handlerErr.cause.package, "@middy/core");
+		}
+	});
+
+	test("Should throw AggregateError when a frozen handler error meets a throwing requestEnd hook", async () => {
+		const handlerErr = Object.freeze(new Error("handler failed"));
+		const hookErr = new Error("requestEnd failed");
+		const handler = middy(
+			() => {
+				throw handlerErr;
+			},
+			{
+				requestEnd: () => {
+					throw hookErr;
+				},
+			},
+		);
+		try {
+			await handler(defaultEvent, defaultContext);
+			throw new Error("Expected handler error to propagate");
+		} catch (e) {
+			ok(e instanceof AggregateError);
+			deepStrictEqual(e.errors, [handlerErr, hookErr]);
+		}
+	});
+
+	test("Should keep a primitive handler error in the AggregateError when requestEnd hook also throws", async () => {
+		const hookErr = new Error("requestEnd failed");
+		const handler = middy(
+			() => {
+				throw "boom";
+			},
+			{
+				requestEnd: () => {
+					throw hookErr;
+				},
+			},
+		);
+		try {
+			await handler(defaultEvent, defaultContext);
+			throw new Error("Expected handler error to propagate");
+		} catch (e) {
+			ok(e instanceof AggregateError);
+			deepStrictEqual(e.errors, ["boom", hookErr]);
+		}
+	});
+
+	test("Should keep a null handler error in the AggregateError when requestEnd hook also throws", async () => {
+		const hookErr = new Error("requestEnd failed");
+		const handler = middy(
+			() => {
+				throw null;
+			},
+			{
+				requestEnd: () => {
+					throw hookErr;
+				},
+			},
+		);
+		try {
+			await handler(defaultEvent, defaultContext);
+			throw new Error("Expected handler error to propagate");
+		} catch (e) {
+			ok(e instanceof AggregateError);
+			deepStrictEqual(e.errors, [null, hookErr]);
+		}
+	});
+
+	test("Should throw AggregateError when an async requestEnd hook rejects after the handler throws", async () => {
 		const handlerErr = new Error("handler failed");
 		const hookErr = new Error("requestEnd failed");
 		const handler = middy(
@@ -977,7 +1071,7 @@ describe("@middy/core", () => {
 				throw handlerErr;
 			},
 			{
-				requestEnd: () => {
+				requestEnd: async () => {
 					throw hookErr;
 				},
 			},
@@ -986,73 +1080,29 @@ describe("@middy/core", () => {
 			await handler(defaultEvent, defaultContext);
 			throw new Error("Expected handler error to propagate");
 		} catch (e) {
-			strictEqual(e, handlerErr);
-			strictEqual(e.cause, hookErr);
+			ok(e instanceof AggregateError);
+			deepStrictEqual(e.errors, [handlerErr, hookErr]);
 		}
 	});
 
-	test("Should not overwrite existing .cause when requestEnd hook throws", async () => {
-		const existingCause = { package: "@middy/core" };
-		const handlerErr = new Error("handler failed", { cause: existingCause });
-		const hookErr = new Error("requestEnd failed");
+	test("Should rethrow the handler error after an async requestEnd hook resolves", async () => {
+		const handlerErr = new Error("handler failed");
+		let hookDone = false;
 		const handler = middy(
 			() => {
 				throw handlerErr;
 			},
 			{
-				requestEnd: () => {
-					throw hookErr;
+				requestEnd: async () => {
+					hookDone = true;
 				},
 			},
 		);
-		try {
-			await handler(defaultEvent, defaultContext);
-			throw new Error("Expected handler error to propagate");
-		} catch (e) {
-			strictEqual(e, handlerErr);
-			strictEqual(e.cause, existingCause);
-		}
-	});
-
-	test("Should propagate a primitive handler error when requestEnd hook also throws", async () => {
-		const handler = middy(
-			() => {
-				throw "boom";
-			},
-			{
-				requestEnd: () => {
-					throw new Error("requestEnd failed");
-				},
-			},
+		await rejects(
+			handler(defaultEvent, defaultContext),
+			(e) => e === handlerErr,
 		);
-		try {
-			await handler(defaultEvent, defaultContext);
-			throw new Error("Expected handler error to propagate");
-		} catch (e) {
-			strictEqual(e, "boom");
-		}
-	});
-
-	test("Should propagate a null handler error when requestEnd hook also throws", async () => {
-		// `typeof null === "object"`, so only the explicit null check keeps the
-		// `cause` assignment off it; without that the hook error becomes a
-		// TypeError and replaces the handler error.
-		const handler = middy(
-			() => {
-				throw null;
-			},
-			{
-				requestEnd: () => {
-					throw new Error("requestEnd failed");
-				},
-			},
-		);
-		try {
-			await handler(defaultEvent, defaultContext);
-			throw new Error("Expected handler error to propagate");
-		} catch (e) {
-			strictEqual(e, null);
-		}
+		ok(hookDone);
 	});
 
 	test("Should propagate a null handler error instead of resolving", async () => {
@@ -1585,6 +1635,37 @@ describe("@middy/core", () => {
 		ok(!warnings.includes("TimeoutNegativeWarning"));
 	});
 
+	test("Should not abort early when remaining time exceeds the max timer delay", async (t) => {
+		// Real timers: an unclamped delay above 2^31-1 ms makes Node emit
+		// TimeoutOverflowWarning and fire the timer after 1ms, aborting the
+		// handler immediately (ECS hosts expose very large remaining times).
+		t.mock.timers.reset();
+		syncBuiltinESMExports();
+		const warnings = [];
+		const onWarning = (warning) => {
+			warnings.push(warning.name);
+		};
+		process.on("warning", onWarning);
+
+		const context = {
+			getRemainingTimeInMillis: () => 2 ** 32,
+		};
+		const handler = middy(
+			async () => {
+				await new Promise((resolve) => globalThis.setTimeout(resolve, 20));
+				return "response";
+			},
+			{ timeoutEarlyInMillis: 5 },
+		);
+
+		strictEqual(await handler(defaultEvent, context), "response");
+
+		await new Promise((resolve) => globalThis.setTimeout(resolve, 10));
+		process.removeListener("warning", onWarning);
+
+		ok(!warnings.includes("TimeoutOverflowWarning"));
+	});
+
 	test("Should not invoke timeoutEarlyResponse on error", async (t) => {
 		await withMockedCoreTimers(t, async () => {
 			let timeoutCalled = false;
@@ -1683,6 +1764,214 @@ describe("@middy/core", () => {
 		await handler(defaultEvent, context);
 
 		deepStrictEqual(seen, [undefined, undefined]);
+	});
+
+	test("pluginConfig executionMode: undefined falls back to the default", async (t) => {
+		const handler = middy(() => "ok", { executionMode: undefined });
+
+		strictEqual(await handler(defaultEvent, defaultContext), "ok");
+	});
+
+	test("pluginConfig timeoutEarlyResponse: undefined falls back to the default", async (t) => {
+		await withMockedCoreTimers(t, async () => {
+			const handler = middy(() => new Promise(() => {}), {
+				timeoutEarlyInMillis: 1,
+				timeoutEarlyResponse: undefined,
+			});
+
+			const pending = handler(defaultEvent, {
+				getRemainingTimeInMillis: () => 2,
+			});
+			t.mock.timers.tick(1);
+
+			await rejects(pending, { name: "TimeoutError" });
+		});
+	});
+
+	test("pluginConfig timeoutEarlyInMillis: undefined falls back to the default", async (t) => {
+		await withMockedCoreTimers(t, async () => {
+			// Resolves at 100ms, so a disabled early timeout yields "late"
+			// instead of hanging.
+			const handler = middy(
+				() => new Promise((resolve) => setTimeout(() => resolve("late"), 100)),
+				{ timeoutEarlyInMillis: undefined },
+			);
+
+			// Default 5ms reserve fires at 10 - 5 = 5ms.
+			const pending = handler(defaultEvent, {
+				getRemainingTimeInMillis: () => 10,
+			});
+			t.mock.timers.tick(100);
+
+			await rejects(pending, { name: "TimeoutError" });
+		});
+	});
+
+	test("pluginConfig timeoutEarlyInMillis: null disables the early timeout, as before", async (t) => {
+		await withMockedCoreTimers(t, async () => {
+			const handler = middy(
+				() => new Promise((resolve) => setTimeout(() => resolve("late"), 100)),
+				{ timeoutEarlyInMillis: null },
+			);
+
+			const pending = handler(defaultEvent, {
+				getRemainingTimeInMillis: () => 10,
+			});
+			t.mock.timers.tick(100);
+
+			strictEqual(await pending, "late");
+		});
+	});
+
+	test("context.middyContext of an outer middy survives a nested middy on the same context", async (t) => {
+		const seen = {};
+		const inner = middy((event, context) => {
+			seen.innerX = context.middyContext.x;
+		}).before((request) => {
+			request.context.middyContext.y = "inner";
+		});
+		const outer = middy(inner)
+			.before((request) => {
+				request.context.middyContext.x = "outer";
+			})
+			.after((request) => {
+				seen.outerX = request.context.middyContext.x;
+				seen.outerY = request.context.middyContext.y;
+			});
+
+		await outer(defaultEvent, { ...defaultContext });
+
+		deepStrictEqual(seen, {
+			innerX: "outer",
+			outerX: "outer",
+			outerY: undefined,
+		});
+	});
+
+	test("context.middyContext of concurrent sibling middys on one context stays isolated", async (t) => {
+		const inner = middy(async (event, context) => {
+			await new Promise((resolve) => setImmediate(resolve));
+			return context.middyContext.user;
+		}).before((request) => {
+			if (request.event.id === "A") request.context.middyContext.user = "A";
+		});
+		const outer = middy((event, context) =>
+			Promise.all([inner({ id: "A" }, context), inner({ id: "B" }, context)]),
+		);
+
+		deepStrictEqual(await outer(defaultEvent, { ...defaultContext }), [
+			"A",
+			undefined,
+		]);
+	});
+
+	test("context.middyContext of an outer middy is untouched by a nested middy that outlives it", async (t) => {
+		await withMockedCoreTimers(t, async () => {
+			let innerDone;
+			const inner = middy(
+				() => new Promise((resolve) => setTimeout(() => resolve("late"), 100)),
+				{ timeoutEarlyInMillis: 0 },
+			).after((request) => {
+				request.context.middyContext.late = true;
+				innerDone();
+			});
+			const innerFinished = new Promise((resolve) => {
+				innerDone = resolve;
+			});
+			const outer = middy(inner, {
+				timeoutEarlyInMillis: 1,
+				timeoutEarlyResponse: () => "early",
+			}).before((request) => {
+				request.context.middyContext.x = "outer";
+			});
+			const hostContext = { getRemainingTimeInMillis: () => 10 };
+
+			const pending = outer(defaultEvent, hostContext);
+			t.mock.timers.tick(9);
+			strictEqual(await pending, "early");
+			const outerNamespace = hostContext.middyContext;
+			t.mock.timers.tick(100);
+			await innerFinished;
+
+			strictEqual(hostContext.middyContext, outerNamespace);
+			deepStrictEqual({ ...outerNamespace }, { x: "outer" });
+			strictEqual("late" in outerNamespace, false);
+		});
+	});
+
+	test("A requestStart hook that throws leaves no in-flight namespace behind", async (t) => {
+		let seen;
+		let fail = true;
+		const handler = middy(() => {}, {
+			requestStart: (request) => {
+				if (fail) {
+					request.context.middyContext.stale = "leaked";
+					throw new Error("requestStart");
+				}
+			},
+		}).before((request) => {
+			seen = request.context.middyContext.stale;
+			request.context.middyContext.stale = true;
+		});
+		const context = { ...defaultContext };
+		const nested = middy((event, context) =>
+			handler(defaultEvent, context),
+		).before((request) => {
+			request.context.middyContext.stale = "outer";
+		});
+
+		await rejects(handler(defaultEvent, context));
+		fail = false;
+		await handler(defaultEvent, context);
+		strictEqual(seen, undefined);
+		// A nested call still sees the in-flight outer namespace.
+		await nested(defaultEvent, { ...defaultContext });
+		strictEqual(seen, "outer");
+	});
+
+	test("A nested middy publishing through util contextNamespace leaves the outer namespace object unchanged", async (t) => {
+		// Same shape as ssm/secrets-manager `setToContext`: each middleware merges
+		// its values into `context.middyContext[contextKey]` via contextNamespace.
+		const publish = (values) => ({
+			before: (request) => {
+				Object.assign(contextNamespace(request, "ssm"), values);
+			},
+		});
+		let innerSeen;
+		const inner = middy((event, context) => {
+			innerSeen = { ...context.middyContext.ssm };
+			innerSeen.a = context.middyContext.ssm.a;
+		}).use(publish({ b: "inner" }));
+		let outerNamespace;
+		const outer = middy(inner)
+			.use(publish({ a: "outer" }))
+			.after((request) => {
+				outerNamespace = request.context.middyContext.ssm;
+			});
+
+		await outer(defaultEvent, { ...defaultContext });
+
+		deepStrictEqual(innerSeen, { a: "outer", b: "inner" });
+		deepStrictEqual({ ...outerNamespace }, { a: "outer" });
+		strictEqual("b" in outerNamespace, false);
+	});
+
+	test("context.middyContext of an outer middy survives a nested middy that throws", async (t) => {
+		let outerIsOwn;
+		const inner = middy(() => {
+			throw new Error("inner");
+		});
+		const outer = middy(inner)
+			.before((request) => {
+				request.context.middyContext.x = "outer";
+			})
+			.onError((request) => {
+				outerIsOwn = Object.hasOwn(request.context.middyContext, "x");
+				return "handled";
+			});
+
+		strictEqual(await outer(defaultEvent, { ...defaultContext }), "handled");
+		strictEqual(outerIsOwn, true);
 	});
 
 	test("middyValidateOptions accepts valid options and rejects typos", () => {

@@ -70,7 +70,7 @@ These are narrow. If you find yourself reaching for one of them, double-check th
 
 - **A throwaway script or demo.** If it will never run on real traffic and never see real data, skip Middy. Once it gets either, add it.
 - **A handler that exposes nothing and processes nothing.** Pure CloudFormation custom resources that emit a static success response, for example. Even then [`@middy/cloudformation-response`](/docs/middlewares/cloudformation-response) is usually still the right move.
-- **A runtime that is not Node.js.** Middy is Node.js (>= 22) only. Other runtimes have their own ecosystems.
+- **A runtime that is not Node.js.** Middy is Node.js (>= 24) only. Other runtimes have their own ecosystems.
 
 That is the list. The "tiny single handler" exception is a trap: production handlers grow, and the first time you have to add validation under pressure is the moment you wish you had used a framework from day one.
 
@@ -89,6 +89,5 @@ A middyfied handler is a plain `async (event, context) => result` function. If y
 
 - [Getting started](/docs/intro/getting-started)
 - [How it works](/docs/intro/how-it-works)
-- [Middy vs Lambda Powertools](/docs/compare/powertools)
-- [Middy vs raw Lambda handlers](/docs/compare/raw-lambda)
+- [Middy with Lambda Powertools](/docs/integrations/lambda-powertools)
 - [Best practices](/docs/best-practices/intro)

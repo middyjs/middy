@@ -57,8 +57,12 @@ declare function s3Middleware<
 	TKey extends string = string,
 >(
 	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
-	// key narrows `middyContext` without `as const`.
-	options?: TOptions & { contextKey?: TKey },
+	// key narrows `middyContext` without `as const`. The `never` record rejects
+	// keys `S3Options` does not declare, which inference would otherwise accept.
+	options?: TOptions & { contextKey?: TKey } & Record<
+			Exclude<keyof TOptions, keyof S3Options>,
+			never
+		>,
 ): middy.MiddlewareObj<
 	unknown,
 	unknown,
@@ -67,8 +71,8 @@ declare function s3Middleware<
 	Internal<TOptions>
 >;
 
-export declare function s3ValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function s3ValidateOptions<TOptions extends S3Options>(
+	options?: TOptions,
+): TOptions;
 
 export default s3Middleware;

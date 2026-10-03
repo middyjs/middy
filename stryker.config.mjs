@@ -25,7 +25,7 @@ export default {
 	mutate: [
 		`${base}/**/*.js`,
 		`!${base}/**/*.test.js`,
-		`!${base}/**/*.perf.js`,
+		`!${base}/**/*.bench.js`,
 		`!${base}/**/*.fuzz.js`,
 	],
 	incremental: true,

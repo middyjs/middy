@@ -160,7 +160,11 @@ const parseHeader = (
 	context,
 ) => {
 	const desc = headerDescriptors[type];
-	const headerValue = event.headers[headerName] ?? event.headers[desc.lower];
+	const rawValue = event.headers[headerName] ?? event.headers[desc.lower];
+	// VPC Lattice V2 sends each header as an array of its values; repeated
+	// field lines combine with ", " (RFC 9110 §5.3).
+	// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html
+	const headerValue = Array.isArray(rawValue) ? rawValue.join(", ") : rawValue;
 
 	const results = parseFn[type](headerValue, availableValues);
 	context[desc.resultsName] = results;

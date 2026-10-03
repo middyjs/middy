@@ -3,6 +3,7 @@ import middy from "@middy/core";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import s3ObjectResponse, { type Context } from "./index.js";
 
 test("use with default options", () => {
@@ -51,4 +52,11 @@ test("contextKey literal narrows middyContext without as const", () => {
 				Promise<Response> | undefined
 			>();
 		});
+});
+
+test("s3ObjectResponseValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.S3ObjectResponseOptions;
+	expect(
+		indexModule.s3ObjectResponseValidateOptions(options),
+	).type.toBe<indexModule.S3ObjectResponseOptions>();
 });

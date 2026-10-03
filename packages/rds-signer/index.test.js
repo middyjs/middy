@@ -27,6 +27,17 @@ describe("@middy/rds-signer", () => {
 		getRemainingTimeInMillis: () => 1000,
 	};
 
+	test("It should not mutate the caller's fetchData", () => {
+		class AwsClient {
+			getAuthToken = async () => "token";
+		}
+		const entry = { region: "us-east-1" };
+		const fetchData = { token: entry };
+		rdsSigner({ AwsClient, fetchData, disablePrefetch: true });
+		strictEqual(fetchData.token, entry);
+		deepStrictEqual(entry, { region: "us-east-1" });
+	});
+
 	test("It should set token to internal storage (token)", async (t) => {
 		const getAuthToken = t.mock.fn(
 			async () => "https://rds.amazonaws.com?X-Amz-Security-Token=token",
@@ -902,5 +913,16 @@ describe("@middy/rds-signer", () => {
 		await handler(defaultEvent, defaultContext);
 
 		strictEqual(getAuthToken.mock.callCount(), 2);
+	});
+
+	test("rdsSignerValidateOptions accepts cacheMaxSize and rejects values below 1", () => {
+		rdsSignerValidateOptions({ cacheMaxSize: 10 });
+		try {
+			rdsSignerValidateOptions({ cacheMaxSize: 0 });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("cacheMaxSize"));
+		}
 	});
 });

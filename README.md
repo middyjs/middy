@@ -4,7 +4,7 @@
 <p>
   <a href="https://github.com/middyjs/middy/actions/workflows/test-unit.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-unit.yml/badge.svg" alt="GitHub Actions unit test status"></a>
   <a href="https://github.com/middyjs/middy/actions/workflows/test-dast.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-dast.yml/badge.svg" alt="GitHub Actions dast test status"></a>
-  <a href="https://github.com/middyjs/middy/actions/workflows/test-perf.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-perf.yml/badge.svg" alt="GitHub Actions perf test status"></a>
+  <a href="https://github.com/middyjs/middy/actions/workflows/test-bench.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-bench.yml/badge.svg" alt="GitHub Actions bench test status"></a>
   <a href="https://github.com/middyjs/middy/actions/workflows/test-sast.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-sast.yml/badge.svg" alt="GitHub Actions SAST test status"></a>
   <a href="https://github.com/middyjs/middy/actions/workflows/test-lint.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-lint.yml/badge.svg" alt="GitHub Actions lint test status"></a>
   <br/>
@@ -20,7 +20,7 @@
   <a href="https://github.com/middyjs/middy/blob/main/docs/CODE_OF_CONDUCT.md"><img src="https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg"></a>
   <a href="https://biomejs.dev"><img alt="Checked with Biome" src="https://img.shields.io/badge/Checked_with-Biome-60a5fa?style=flat&logo=biome"></a>
   <a href="https://conventionalcommits.org"><img alt="Conventional Commits" src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-%23FE5196?logo=conventionalcommits&logoColor=white"></a>
-  <a href="https://github.com/middyjs/middy/blob/main/package.json#L32">
+  <a href="https://github.com/middyjs/middy/blob/main/package.json">
   <img alt="code coverage" src="https://img.shields.io/badge/code%20coverage-100%25-brightgreen"></a>
 </p>
 <p>Full documentation: <a href="https://middy.js.org">https://middy.js.org</a> &middot; LLM-friendly: <a href="https://middy.js.org/llms.txt">llms.txt</a> / <a href="https://middy.js.org/llms-full.txt">llms-full.txt</a></p>
@@ -30,7 +30,7 @@
 
 Middy is a middleware engine for AWS Lambda on Node.js. It lets you keep your handler focused on business logic while attaching reusable steps for parsing, validation, auth, observability, error handling, and AWS service integration.
 
-- 52 official packages covering API Gateway, SQS, S3, DynamoDB, SNS, EventBridge, Kinesis, Kafka, WebSockets, and more
+- 56 official packages covering API Gateway, SQS, S3, DynamoDB, SNS, EventBridge, Kinesis, Kafka, WebSockets, and more
 - Built-in TypeScript types, Node.js >= 24, ESM
 - Tiny core (only `@middy/util`, plus an optional peer dependency for durable functions), no AWS SDK in core
 - Routers for HTTP, WebSocket, and CloudFormation custom resources
@@ -95,7 +95,7 @@ export const handler = middy()
 
 Middy is how you compose those without copy-pasting them into every handler. The "tiny single handler" exception is a trap - production handlers grow, and you do not want to add validation and error mapping under pressure later.
 
-See [When to use Middy](https://middy.js.org/docs/intro/when-to-use), [Middy vs raw Lambda](https://middy.js.org/docs/compare/raw-lambda), and [Middy + AWS Lambda Powertools](https://middy.js.org/docs/compare/powertools).
+See [When to use Middy](https://middy.js.org/docs/intro/when-to-use) and [Middy + AWS Lambda Powertools](https://middy.js.org/docs/integrations/lambda-powertools).
 
 ## Documentation
 
@@ -104,7 +104,6 @@ See [When to use Middy](https://middy.js.org/docs/intro/when-to-use), [Middy vs 
 - [Event types and event-source recipes](https://middy.js.org/docs/events/intro)
 - [Routers (HTTP, WebSocket, CloudFormation)](https://middy.js.org/docs/routers/http-router)
 - [Writing custom middlewares](https://middy.js.org/docs/writing-middlewares/intro)
-- [Recipes](https://middy.js.org/docs/recipes/jwt-auth)
 - [FAQ](https://middy.js.org/docs/faq)
 
 ## Sponsors

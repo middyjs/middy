@@ -10,12 +10,11 @@ import {
 	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
-	createClient,
+	createClientInit,
 	createPrefetchClient,
-	getCache,
+	evictCacheOnFailure,
 	jsonContentTypePattern,
 	jsonSafeParse,
-	modifyCache,
 	processCache,
 	validateOptions,
 } from "@middy/util";
@@ -24,6 +23,13 @@ const name = "appconfig";
 const pkg = `@middy/${name}`;
 
 const decoder = new TextDecoder();
+
+// Configuration tokens are "valid for up to 24 hours"; an expired one is a
+// BadRequestException. Age is counted from receipt, so the margin covers the
+// time the token spent in transit before it was stored and the next call's
+// own transit and SDK retries before it reaches the service.
+// https://docs.aws.amazon.com/appconfig/2019-10-09/APIReference/API_appconfigdata_GetLatestConfiguration.html
+const tokenValidityMs = 24 * 60 * 60 * 1000 - 5 * 60 * 1000;
 
 const defaults = {
 	AwsClient: AppConfigDataClient,
@@ -112,8 +118,10 @@ const appConfigMiddleware = (opts = {}) => {
 			.send(command)
 			.catch((e) => catchInvalidSignatureException(e, client, command))
 			.then((configResp) => {
-				configurationTokenCache[internalKey] =
-					configResp.NextPollConfigurationToken;
+				configurationTokenCache[internalKey] = {
+					token: configResp.NextPollConfigurationToken,
+					expiry: Date.now() + tokenValidityMs,
+				};
 
 				if (!configResp.Configuration?.length) {
 					return configurationCache[internalKey];
@@ -127,53 +135,59 @@ const appConfigMiddleware = (opts = {}) => {
 				return value;
 			})
 			.catch((e) => {
-				// Copy rather than mutate the cached object in place, matching the
-				// session-command catch below: the cache must be updated through
-				// `modifyCache` so the refresh timer is rescheduled with it.
-				const value = { ...getCache(options.cacheKey).value };
-				value[internalKey] = undefined;
-				modifyCache(options.cacheKey, value);
+				// Tokens are single-use and expire after 24 hours, so the one just
+				// used cannot be retried; the next fetch starts a new session.
+				configurationTokenCache[internalKey] = undefined;
 				throw e;
 			});
 	}
 
 	const fetchDataKeys = Object.keys(options.fetchData);
 	const contextSpec = buildSetToContextSpec(options);
+	const fetchConfigurationRequest = (internalKey) => {
+		const cachedToken = configurationTokenCache[internalKey];
+		if (
+			typeof cachedToken === "undefined" ||
+			cachedToken.expiry <= Date.now()
+		) {
+			const command = new StartConfigurationSessionCommand(
+				options.fetchData[internalKey],
+			);
+			return client
+				.send(command)
+				.catch((e) => catchInvalidSignatureException(e, client, command))
+				.then((configSessionResp) =>
+					fetchLatestConfigurationRequest(
+						configSessionResp.InitialConfigurationToken,
+						internalKey,
+					),
+				);
+		}
+		return fetchLatestConfigurationRequest(cachedToken.token, internalKey);
+	};
+
+	// A configuration token is single-use, so concurrent invocations share the
+	// in-flight fetch instead of each spending the same token.
+	const inflight = Object.create(null);
 	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};
 		for (const internalKey of fetchDataKeys) {
 			if (cachedValues[internalKey]) continue;
-			if (typeof configurationTokenCache[internalKey] === "undefined") {
-				const command = new StartConfigurationSessionCommand(
-					options.fetchData[internalKey],
-				);
-				values[internalKey] = client
-					.send(command)
-					.catch((e) => catchInvalidSignatureException(e, client, command))
-					.then((configSessionResp) =>
-						fetchLatestConfigurationRequest(
-							configSessionResp.InitialConfigurationToken,
-							internalKey,
-						),
-					)
-					.catch((e) => {
-						const value = { ...getCache(options.cacheKey).value };
-						value[internalKey] = undefined;
-						modifyCache(options.cacheKey, value);
-						throw e;
-					});
-
-				continue;
-			}
-			values[internalKey] = fetchLatestConfigurationRequest(
-				configurationTokenCache[internalKey],
-				internalKey,
+			inflight[internalKey] ??= fetchConfigurationRequest(internalKey).finally(
+				() => {
+					inflight[internalKey] = undefined;
+				},
+			);
+			// Each caller evicts only its own promise, so a shared fetch failing
+			// after a newer cycle replaced the entry leaves the fresh value.
+			values[internalKey] = inflight[internalKey].catch(
+				evictCacheOnFailure(options.cacheKey, internalKey, values),
 			);
 		}
 		return values;
 	};
 	let client;
-	let clientInit;
+	const clientInit = createClientInit(options);
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
 		processCache(options, fetchRequest);
@@ -187,9 +201,12 @@ const appConfigMiddleware = (opts = {}) => {
 	};
 
 	const appConfigMiddlewareBefore = (request) => {
-		if (client) return appConfigMiddlewareFetch(request);
-		clientInit ??= createClient(options, request);
-		return clientInit.then((resolvedClient) => {
+		// With `awsClientAssumeRole` the client is rebuilt when sts refetches the
+		// credentials, so it is resolved on every invocation.
+		if (client && !options.awsClientAssumeRole) {
+			return appConfigMiddlewareFetch(request);
+		}
+		return clientInit(request).then((resolvedClient) => {
 			client = resolvedClient;
 			return appConfigMiddlewareFetch(request);
 		});

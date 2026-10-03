@@ -6,8 +6,10 @@ import { HttpError, validateOptions } from "@middy/util";
 const name = "http-multipart-body-parser";
 const pkg = `@middy/${name}`;
 
-const mimePattern =
-	/^multipart\/form-data; boundary=[a-zA-Z0-9-]{1,70}(; ?charset=[\w-]+)?$/i;
+// The media type only. Its parameters (RFC 9110 §5.6.6: optional whitespace
+// around `;`, quoted values; RFC 2046 §5.1.1: the boundary alphabet) are left to
+// busboy, which rejects a missing or malformed boundary as a 422.
+const mimePattern = /^multipart\/form-data[ \t]*(;|$)/i;
 
 const optionSchema = {
 	type: "object",
@@ -62,6 +64,14 @@ const defaultLimits = {
 	parts: 1000,
 };
 
+// VPC Lattice V2 delivers every header value as an array; Content-Type is
+// single-valued, so the first entry is the one used.
+// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html
+const readContentType = (headers) => {
+	const value = headers?.["content-type"] ?? headers?.["Content-Type"];
+	return Array.isArray(value) ? value[0] : value;
+};
+
 const httpMultipartBodyParserMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 	options.busboy = {
@@ -79,7 +89,7 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 	const httpMultipartBodyParserMiddlewareBefore = (request) => {
 		const { headers, body } = request.event;
 
-		const contentType = headers?.["content-type"] ?? headers?.["Content-Type"];
+		const contentType = readContentType(headers);
 
 		if (!options.disableContentTypeCheck && !mimePattern.test(contentType)) {
 			if (options.disableContentTypeError) {
@@ -105,7 +115,7 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 			});
 		}
 
-		return parseMultipartData(request.event, options)
+		return parseMultipartData(request.event, contentType, options)
 			.then((multipartData) => {
 				request.event.body = multipartData;
 			})
@@ -132,7 +142,7 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 	};
 };
 
-const parseMultipartData = (event, options) => {
+const parseMultipartData = (event, contentType, options) => {
 	const multipartData = Object.create(null);
 	const charset = event.isBase64Encoded ? "base64" : options.charset;
 	const fieldNameSize = options.busboy.limits.fieldNameSize;
@@ -142,10 +152,7 @@ const parseMultipartData = (event, options) => {
 		try {
 			busboy = BusBoy({
 				...options.busboy,
-				headers: {
-					"content-type":
-						event.headers?.["content-type"] ?? event.headers?.["Content-Type"],
-				},
+				headers: { "content-type": contentType },
 			});
 		} catch (error) {
 			reject(error);
@@ -254,25 +261,16 @@ const parseMultipartData = (event, options) => {
 					const openBracket = fieldname.endsWith("]")
 						? fieldname.lastIndexOf("[")
 						: -1;
-					if (openBracket < 1) {
-						const current = multipartData[fieldname];
-						if (Array.isArray(current)) {
-							// `a[]` followed by `a`: the mirror of the fold below.
-							current.push(value);
-						} else {
-							multipartData[fieldname] = value;
-						}
-						return;
-					}
-					const key = fieldname.slice(0, openBracket);
+					// A repeated field (`a`, `a`) folds into an array just as a
+					// repeated file field or a `a[]` field does, so no value is lost.
+					const bracketed = openBracket > 0;
+					const key = bracketed ? fieldname.slice(0, openBracket) : fieldname;
 					const current = multipartData[key];
 					if (current === undefined) {
-						multipartData[key] = [value];
+						multipartData[key] = bracketed ? [value] : value;
 					} else if (Array.isArray(current)) {
 						current.push(value);
 					} else {
-						// `a` followed by `a[]`: fold the scalar in, the same way a
-						// repeated file field becomes an array.
 						multipartData[key] = [current, value];
 					}
 				}),

@@ -394,8 +394,8 @@ describe("@middy/ws-response", () => {
 		strictEqual(constructions.length, 1);
 		// Configured option preserved on the per-request client config.
 		strictEqual(constructions[0].region, "ca-central-1");
-		// Endpoint derived from requestContext domainName/stage.
-		strictEqual(constructions[0].endpoint, "https://d.example.com/production");
+		// A custom domain maps to a stage itself, so no stage is appended.
+		strictEqual(constructions[0].endpoint, "https://d.example.com");
 	});
 
 	test("It does not derive an endpoint when requestContext is absent", async (t) => {
@@ -685,11 +685,11 @@ describe("@middy/ws-response", () => {
 		});
 
 		await handler(
-			eventFor("a.example.com", "production", "conn-a"),
+			eventFor("a.execute-api.region.amazonaws.com", "production", "conn-a"),
 			defaultContext,
 		);
 		await handler(
-			eventFor("b.example.com", "staging", "conn-b"),
+			eventFor("a.execute-api.region.amazonaws.com", "staging", "conn-b"),
 			defaultContext,
 		);
 
@@ -697,17 +697,162 @@ describe("@middy/ws-response", () => {
 		// built for the first request's domainName/stage.
 		deepStrictEqual(
 			constructions.map((c) => c.endpoint),
-			["https://a.example.com/production", "https://b.example.com/staging"],
+			[
+				"https://a.execute-api.region.amazonaws.com/production",
+				"https://a.execute-api.region.amazonaws.com/staging",
+			],
 		);
 		strictEqual(sends.length, 2);
 
 		// A repeat of the first endpoint reuses its client instead of rebuilding it.
 		await handler(
-			eventFor("a.example.com", "production", "conn-a2"),
+			eventFor("a.execute-api.region.amazonaws.com", "production", "conn-a2"),
 			defaultContext,
 		);
 		strictEqual(constructions.length, 2);
 		strictEqual(sends.length, 3);
+	});
+
+	// "If you use a custom domain name for your WebSocket API, remove the
+	// `stage` variable from your function code."
+	// docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-how-to-call-websocket-api-connections.html
+	test("It derives the endpoint without the stage for a custom domain", async (t) => {
+		const { FakeClient, constructions } = makeFakeClientFactory();
+		const handler = middy(() => "string").use(
+			wsResponse({ AwsClient: FakeClient }),
+		);
+		await handler(
+			{
+				requestContext: {
+					domainName: "ws.example.com",
+					stage: "production",
+					connectionId: "conn-1",
+				},
+			},
+			defaultContext,
+		);
+		strictEqual(constructions[0].endpoint, "https://ws.example.com");
+	});
+
+	test("It does not derive an endpoint when requestContext has no domainName", async (t) => {
+		const { FakeClient, constructions } = makeFakeClientFactory();
+		const handler = middy(() => "string").use(
+			wsResponse({ AwsClient: FakeClient }),
+		);
+		await handler(
+			{ requestContext: { connectionId: "conn-1" } },
+			defaultContext,
+		);
+		strictEqual(constructions[0].endpoint, undefined);
+	});
+
+	test("It derives the endpoint with the stage for the default execute-api domain", async (t) => {
+		const { FakeClient, constructions } = makeFakeClientFactory();
+		const handler = middy(() => "string").use(
+			wsResponse({ AwsClient: FakeClient }),
+		);
+		await handler(
+			{
+				requestContext: {
+					domainName: "abc123.execute-api.us-east-1.amazonaws.com",
+					stage: "production",
+					connectionId: "conn-1",
+				},
+			},
+			defaultContext,
+		);
+		strictEqual(
+			constructions[0].endpoint,
+			"https://abc123.execute-api.us-east-1.amazonaws.com/production",
+		);
+	});
+
+	test("It derives the endpoint with the stage for an execute-api domain in another partition", async (t) => {
+		const { FakeClient, constructions } = makeFakeClientFactory();
+		const handler = middy(() => "string").use(
+			wsResponse({ AwsClient: FakeClient }),
+		);
+		await handler(
+			{
+				requestContext: {
+					domainName: "abc123.execute-api.cn-north-1.amazonaws.com.cn",
+					stage: "production",
+					connectionId: "conn-1",
+				},
+			},
+			defaultContext,
+		);
+		strictEqual(
+			constructions[0].endpoint,
+			"https://abc123.execute-api.cn-north-1.amazonaws.com.cn/production",
+		);
+	});
+
+	test("It treats a domain that only starts with execute-api as a custom domain", async (t) => {
+		const { FakeClient, constructions } = makeFakeClientFactory();
+		const handler = middy(() => "string").use(
+			wsResponse({ AwsClient: FakeClient }),
+		);
+		await handler(
+			{
+				requestContext: {
+					domainName: "execute-api.example.com",
+					stage: "production",
+					connectionId: "conn-1",
+				},
+			},
+			defaultContext,
+		);
+		strictEqual(constructions[0].endpoint, "https://execute-api.example.com");
+	});
+
+	// "Until execution of the integration associated with the `$connect` route
+	// is completed, the upgrade request is pending and the actual connection
+	// will not be established."
+	// docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-websocket-api-route-keys-connect-disconnect.html
+	test("It does not post on $connect and leaves the handler response untouched", async (t) => {
+		const { FakeClient, constructions, sends } = makeFakeClientFactory();
+		const handler = middy(() => ({ statusCode: 200 })).use(
+			wsResponse({ AwsClient: FakeClient }),
+		);
+		const response = await handler(
+			{
+				requestContext: {
+					domainName: "abc123.execute-api.us-east-1.amazonaws.com",
+					stage: "production",
+					connectionId: "conn-1",
+					eventType: "CONNECT",
+					routeKey: "$connect",
+				},
+			},
+			defaultContext,
+		);
+		deepStrictEqual(response, { statusCode: 200 });
+		strictEqual(sends.length, 0);
+		strictEqual(constructions.length, 0);
+	});
+
+	// "As the connection is already closed when it is executed, `$disconnect`
+	// is a best-effort event." (same page)
+	test("It does not post on $disconnect and leaves the handler response untouched", async (t) => {
+		const { FakeClient, sends } = makeFakeClientFactory();
+		const handler = middy(() => ({ statusCode: 200 })).use(
+			wsResponse({ AwsClient: FakeClient }),
+		);
+		const response = await handler(
+			{
+				requestContext: {
+					domainName: "abc123.execute-api.us-east-1.amazonaws.com",
+					stage: "production",
+					connectionId: "conn-1",
+					eventType: "DISCONNECT",
+					routeKey: "$disconnect",
+				},
+			},
+			defaultContext,
+		);
+		deepStrictEqual(response, { statusCode: 200 });
+		strictEqual(sends.length, 0);
 	});
 
 	test("It should evict the oldest derived client once more than 8 endpoints are seen", async (t) => {
@@ -735,7 +880,7 @@ describe("@middy/ws-response", () => {
 		// The oldest endpoint was evicted when the ninth arrived, so it is rebuilt.
 		await handler(eventFor(0), defaultContext);
 		strictEqual(constructions.length, 10);
-		strictEqual(constructions[9].endpoint, "https://d0.example.com/production");
+		strictEqual(constructions[9].endpoint, "https://d0.example.com");
 	});
 
 	test("It should resolve with 410 when the connection is gone", async (t) => {
@@ -812,7 +957,7 @@ describe("@middy/ws-response", () => {
 		// The ninth endpoint evicts the oldest client, whose keep-alive sockets
 		// would otherwise stay open for the life of the container.
 		await handler(eventFor(8), defaultContext);
-		deepStrictEqual(destroyed, ["https://d0.example.com/production"]);
+		deepStrictEqual(destroyed, ["https://d0.example.com"]);
 	});
 
 	test("It should rebuild a derived client when the assumed-role credentials are refetched", async (t) => {
@@ -844,9 +989,9 @@ describe("@middy/ws-response", () => {
 		deepStrictEqual(
 			constructions.map((c) => [c.endpoint, c.credentials]),
 			[
-				["https://d.example.com/production", { accessKeyId: "a" }],
-				["https://d.example.com/production", { accessKeyId: "b" }],
-				["https://d.example.com/production", { accessKeyId: "c" }],
+				["https://d.example.com", { accessKeyId: "a" }],
+				["https://d.example.com", { accessKeyId: "b" }],
+				["https://d.example.com", { accessKeyId: "c" }],
 			],
 		);
 	});

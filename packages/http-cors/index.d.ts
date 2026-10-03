@@ -4,7 +4,7 @@ import type middy from "@middy/core";
 
 export interface Options {
 	getOrigin?: (
-		incomingOrigin: string,
+		incomingOrigin: string | undefined,
 		options: Options,
 	) => string | null | undefined;
 	credentials?: boolean | string;
@@ -25,8 +25,8 @@ declare function httpCors(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
-export declare function httpCorsValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function httpCorsValidateOptions<TOptions extends Options>(
+	options?: TOptions,
+): TOptions;
 
 export default httpCors;

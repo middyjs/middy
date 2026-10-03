@@ -11,10 +11,10 @@ export declare function dsqlSignerParam<T>(name: string): ParamType<T>;
 export type DsqlSignerFetchConfig = DsqlSignerConfig & { username?: string };
 
 // The signer is constructed directly rather than through `createClient`, so
-// assume-role, X-Ray capture and the shared cache size are not honoured.
+// assume-role and X-Ray capture are not honoured.
 export type DsqlSignerOptions<AwsSigner = DsqlSigner> = Omit<
 	MiddyOptions<AwsSigner, DsqlSignerFetchConfig>,
-	"fetchData" | "awsClientAssumeRole" | "awsClientCapture" | "cacheMaxSize"
+	"fetchData" | "awsClientAssumeRole" | "awsClientCapture"
 > & {
 	fetchData?: {
 		[key: string]: DsqlSignerFetchConfig;
@@ -46,8 +46,12 @@ declare function dsqlSigner<
 	TKey extends string = string,
 >(
 	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
-	// key narrows `middyContext` without `as const`.
-	options?: TOptions & { contextKey?: TKey },
+	// key narrows `middyContext` without `as const`. The `never` record rejects
+	// keys `DsqlSignerOptions` does not declare, which inference would otherwise accept.
+	options?: TOptions & { contextKey?: TKey } & Record<
+			Exclude<keyof TOptions, keyof DsqlSignerOptions>,
+			never
+		>,
 ): middy.MiddlewareObj<
 	unknown,
 	unknown,
@@ -56,8 +60,8 @@ declare function dsqlSigner<
 	Internal<TOptions>
 >;
 
-export declare function dsqlSignerValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function dsqlSignerValidateOptions<
+	TOptions extends DsqlSignerOptions,
+>(options?: TOptions): TOptions;
 
 export default dsqlSigner;

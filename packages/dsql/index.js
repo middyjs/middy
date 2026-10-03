@@ -50,6 +50,11 @@ const optionSchema = {
 			minimum: -1,
 			maximum: Number.MAX_SAFE_INTEGER,
 		},
+		cacheMaxSize: {
+			type: "integer",
+			minimum: 1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 	},
 	required: ["client", "config"],
 	additionalProperties: false,
@@ -195,15 +200,18 @@ const dsqlMiddleware = (opts = {}) => {
 		return pending;
 	};
 
-	if (!options.internalKey && canPrefetch({ ...options, cacheExpiry })) {
+	// canPrefetch runs first so a past cacheExpiry timestamp is rejected at
+	// construction even when internalKey rules out prefetching.
+	if (canPrefetch({ ...options, cacheExpiry }) && !options.internalKey) {
 		processCache(options, fetch);
 	}
 
-	// Under `internalKey` a background refresh could only reconnect with the
-	// token of the invocation that stored the entry, stale by then. Let the
-	// entry expire instead; the next invocation reconnects with its own token.
+	// Under `internalKey` a background refresh has no invocation to take a
+	// fresh token from. Let the entry expire instead; the next invocation
+	// reconnects with its own token. `fetch` is passed directly (not closed
+	// over `request`) so the cached entry does not retain the request.
 	const connectCached = (request) => {
-		const entry = processCache(options, () => fetch(request), request);
+		const entry = processCache(options, fetch, request);
 		if (options.internalKey) clearTimeout(getCache(options.cacheKey).refresh);
 		return entry;
 	};
@@ -232,8 +240,10 @@ const dsqlMiddleware = (opts = {}) => {
 	};
 	const dsqlMiddlewareAfter = async (request) => {
 		try {
+			// End only the client this request leased: the namespace can
+			// inherit an outer middy's client when this request never connected.
 			if (cacheExpiry === 0) {
-				await request.context.middyContext?.[options.contextKey]?.end();
+				await holders.get(request)?.end();
 			}
 		} catch (e) {
 			console.error("%s: cleanup error: %s", pkg, e.message);

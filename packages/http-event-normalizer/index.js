@@ -37,8 +37,10 @@ const formDecode = (value) => {
 	}
 };
 
+// Null prototype: a key that decodes to `__proto__` must stay an own property
+// rather than replace the prototype of the map.
 const formDecodeParameters = (params) => {
-	const decoded = {};
+	const decoded = Object.create(null);
 	for (const key of Object.keys(params)) {
 		const value = params[key];
 		decoded[formDecode(key)] = Array.isArray(value)
@@ -46,6 +48,30 @@ const formDecodeParameters = (params) => {
 			: formDecode(value);
 	}
 	return decoded;
+};
+
+// ALB with multi-value headers enabled sends `multiValueHeaders` and
+// `multiValueQueryStringParameters` in place of the single-value maps.
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+// Repeated header lines combine with ", " (RFC 9110 5.3), except Cookie, whose
+// pairs are separated by "; " (RFC 6265 5.4). A query parameter keeps its last
+// value, which is what ALB itself sends when multi-value is off.
+const joinMultiValueHeaders = (multiValueHeaders) => {
+	const headers = {};
+	for (const key of Object.keys(multiValueHeaders)) {
+		headers[key] = multiValueHeaders[key].join(
+			key.toLowerCase() === "cookie" ? "; " : ", ",
+		);
+	}
+	return headers;
+};
+
+const lastQueryValues = (multiValueQueryStringParameters) => {
+	const params = {};
+	for (const key of Object.keys(multiValueQueryStringParameters)) {
+		params[key] = multiValueQueryStringParameters[key].at(-1);
+	}
+	return params;
 };
 
 const httpEventNormalizerMiddleware = () => {
@@ -62,6 +88,17 @@ const httpEventNormalizerMiddleware = () => {
 		} else if (version === "vpc") {
 			event.queryStringParameters = event.query_string_parameters;
 			event.isBase64Encoded = event.is_base64_encoded;
+		}
+
+		if (
+			event.requestContext?.elb &&
+			typeof event.headers === "undefined" &&
+			event.multiValueHeaders
+		) {
+			event.headers = joinMultiValueHeaders(event.multiValueHeaders);
+			event.queryStringParameters ??= lastQueryValues(
+				event.multiValueQueryStringParameters,
+			);
 		}
 
 		// event.headers ??= {} // Will always have at least one header

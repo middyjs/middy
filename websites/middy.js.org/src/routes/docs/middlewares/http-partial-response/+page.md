@@ -29,6 +29,8 @@ The selector is checked in the `before` phase, so a refused selector answers `40
 
 A selector `json-mask` cannot apply is refused with the same `400` in the `after` phase. The reason is in `cause.data.reason`. A missing or empty selector leaves the response untouched.
 
+Only a plain object or array body, or a JSON string body, is filtered. `Buffer` and stream bodies pass through untouched.
+
 VPC Lattice V2 delivers every query string value as an array, one entry per occurrence. The last entry is the selector, as the last occurrence of a repeated parameter wins on the other event formats; an empty array is no selector.
 
 ## Sample usage

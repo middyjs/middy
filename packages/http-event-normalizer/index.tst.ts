@@ -10,6 +10,7 @@ import type {
 	APIGatewayProxyEventV2,
 } from "aws-lambda";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import httpEventNormalizer, { type VPCLatticeEvent } from "./index.js";
 
 test("use with default options", () => {
@@ -101,4 +102,18 @@ test("VPCLatticeEvent type is exported", () => {
 		queryStringParameters: {},
 	};
 	expect(event).type.toBe<VPCLatticeEvent>();
+});
+
+test("httpEventNormalizerValidateOptions accepts only an empty options object", () => {
+	const options = {};
+	expect(
+		indexModule.httpEventNormalizerValidateOptions(options),
+	).type.toBe<{}>();
+	expect(
+		indexModule.httpEventNormalizerValidateOptions,
+	).type.not.toBeCallableWith({ key: "value" });
+});
+
+test("takes no options", () => {
+	expect(httpEventNormalizer).type.not.toBeCallableWith({ key: "value" });
 });

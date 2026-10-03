@@ -12,7 +12,7 @@ const defaultContext = {
 
 const secret = "super-secret-key-for-fuzz-testing-1234";
 const validToken = await new SignJWT({ sub: "fuzz" })
-	.setProtectedHeader({ alg: "HS256" })
+	.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 	.setIssuedAt()
 	.setExpirationTime("1h")
 	.sign(Buffer.from(secret));

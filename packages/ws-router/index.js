@@ -57,6 +57,11 @@ const wsRouteHandler = (opts = {}) => {
 				cause: { package: pkg, data: { routeKey } },
 			});
 		}
+		if (routeKey in routesStatic) {
+			throw new Error("Duplicate route", {
+				cause: { package: pkg, data: { routeKey } },
+			});
+		}
 
 		// Static
 		routesStatic[routeKey] = handler;

@@ -4,9 +4,8 @@ import {
 	assignSetToContext,
 	buildSetToContextSpec,
 	canPrefetch,
-	getCache,
+	evictCacheOnFailure,
 	jsonSafeParse,
-	modifyCache,
 	processCache,
 	validateOptions,
 } from "@middy/util";
@@ -43,14 +42,39 @@ const optionSchema = {
 			minimum: -1,
 			maximum: Number.MAX_SAFE_INTEGER,
 		},
+		cacheMaxSize: {
+			type: "integer",
+			minimum: 1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		setToContext: { type: "boolean" },
 		contextKey: { type: "string" },
+		awsSessionToken: { instanceof: "Function" },
 	},
 	additionalProperties: false,
 };
 
 export const ssmExtensionValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
+
+// A fetch that hangs past the invocation would be cut off by Lambda; abort it
+// 500 ms early instead so the failure surfaces and the cache entry is evicted.
+// Outside an invocation (prefetch) allow 30 s.
+const fetchTimeoutSignal = (request) =>
+	AbortSignal.timeout(
+		Math.max(
+			1000,
+			(request?.context?.getRemainingTimeInMillis?.() ?? 30_000) - 500,
+		),
+	);
+
+// Matches @middy/ssm: a StringList is split into an array.
+const parseValue = (param) => {
+	if (param?.Type === "StringList") {
+		return param.Value.split(",");
+	}
+	return jsonSafeParse(param?.Value);
+};
 
 const ssmExtensionMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
@@ -61,19 +85,37 @@ const ssmExtensionMiddleware = (opts = {}) => {
 	const contextSpec = buildSetToContextSpec(options);
 
 	const fetchRequest = (request, cachedValues = {}) => {
-		const headers = {
-			"X-Aws-Parameters-Secrets-Token": process.env.AWS_SESSION_TOKEN,
-		};
+		// Lambda does not set AWS_SESSION_TOKEN in every initialization mode
+		// (e.g. SnapStart); AWS recommends reading the session token from an
+		// AWS SDK credential provider chain, which `awsSessionToken` supplies.
+		// The extension rejects a request without it.
+		// https://docs.aws.amazon.com/systems-manager/latest/userguide/ps-integration-lambda-extensions.html
+		let token;
 		const values = {};
 		for (const internalKey of fetchDataKeys) {
 			if (cachedValues[internalKey]) continue;
-			values[internalKey] = fetch(
-				baseUrl +
-					encodeURIComponent(options.fetchData[internalKey])
-						.replaceAll("%2F", "/")
-						.replaceAll("%3A", ":"),
-				{ headers },
-			)
+			token ??= Promise.try(
+				() => options.awsSessionToken?.() ?? process.env.AWS_SESSION_TOKEN,
+			);
+			values[internalKey] = token
+				.then((token) => {
+					if (typeof token === "undefined") {
+						throw new Error(
+							`${pkg} requires AWS_SESSION_TOKEN or the awsSessionToken option`,
+							{ cause: { package: pkg } },
+						);
+					}
+					return fetch(
+						baseUrl +
+							encodeURIComponent(options.fetchData[internalKey])
+								.replaceAll("%2F", "/")
+								.replaceAll("%3A", ":"),
+						{
+							headers: { "X-Aws-Parameters-Secrets-Token": token },
+							signal: fetchTimeoutSignal(request),
+						},
+					);
+				})
 				.then((res) => {
 					if (!res.ok) {
 						throw new Error(`${pkg} ${res.status} ${res.statusText}`, {
@@ -82,13 +124,8 @@ const ssmExtensionMiddleware = (opts = {}) => {
 					}
 					return res.json();
 				})
-				.then((res) => jsonSafeParse(res.Parameter?.Value))
-				.catch((e) => {
-					const value = getCache(options.cacheKey).value ?? {};
-					value[internalKey] = undefined;
-					modifyCache(options.cacheKey, value);
-					throw e;
-				});
+				.then((res) => parseValue(res.Parameter))
+				.catch(evictCacheOnFailure(options.cacheKey, internalKey, values));
 		}
 		return values;
 	};

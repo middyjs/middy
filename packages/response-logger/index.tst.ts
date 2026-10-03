@@ -1,5 +1,7 @@
 import type middy from "@middy/core";
+import type { APIGatewayProxyEvent } from "aws-lambda";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import responseLogger, { type Options } from "./index.js";
 
 test("use with default options", () => {
@@ -14,6 +16,7 @@ test("use with all options", () => {
 		},
 		omitPaths: ["response.headers.set-cookie"],
 		mask: "***",
+		maxBodyBytes: 1024,
 	});
 	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
@@ -48,4 +51,31 @@ test("Options omitPaths accepts string array", () => {
 test("Options mask accepts string", () => {
 	expect<string>().type.toBeAssignableTo<NonNullable<Options["mask"]>>();
 	expect<boolean>().type.not.toBeAssignableTo<NonNullable<Options["mask"]>>();
+});
+
+test("Options maxBodyBytes accepts number", () => {
+	expect<number>().type.toBeAssignableTo<
+		NonNullable<Options["maxBodyBytes"]>
+	>();
+	expect<string>().type.not.toBeAssignableTo<
+		NonNullable<Options["maxBodyBytes"]>
+	>();
+});
+
+test("responseLoggerValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.Options;
+	expect(
+		indexModule.responseLoggerValidateOptions(options),
+	).type.toBe<indexModule.Options>();
+});
+
+test("logger may annotate a concrete event type", () => {
+	const logger = (request: middy.Request<APIGatewayProxyEvent>) => {
+		console.log(request.event.path);
+	};
+	expect(responseLogger).type.toBeCallableWith({ logger });
+});
+
+test("rejects misspelled option", () => {
+	expect(responseLogger).type.not.toBeCallableWith({ loger: () => {} });
 });

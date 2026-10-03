@@ -1,4 +1,4 @@
-import { equal, ok, strictEqual } from "node:assert/strict";
+import { equal, ok, rejects, strictEqual } from "node:assert/strict";
 import { describe, test } from "node:test";
 import { clearCache, getInternal, modifyCache } from "@middy/util";
 import middy from "../core/index.js";
@@ -44,6 +44,10 @@ mockFetch(`${baseUrl}rds_login`, {
 	SecretString: JSON.stringify({ username: "admin", password: "secret" }),
 });
 
+// Lambda sets AWS_SESSION_TOKEN in the default initialization mode; the
+// extension requires it as X-Aws-Parameters-Secrets-Token.
+process.env.AWS_SESSION_TOKEN = "session-token-123";
+
 let fetchCount = 0;
 let event = {};
 let context = {};
@@ -77,6 +81,42 @@ describe("@middy/secrets-manager-extension", () => {
 			});
 
 		await handler(event, context);
+	});
+
+	test("It should keep a fresh value when a superseded fetch fails late", async (t) => {
+		let rejectStale;
+		const staleFetch = t.mock.method(globalThis, "fetch");
+		staleFetch.mock.mockImplementationOnce(
+			() =>
+				new Promise((resolve, reject) => {
+					rejectStale = reject;
+				}),
+		);
+		staleFetch.mock.mockImplementation(async () =>
+			Response.json({ SecretString: "token" }),
+		);
+
+		const handler = middy(() => {})
+			.use(
+				secretsManagerExtension({
+					cacheExpiry: -1,
+					fetchData: { token: "api_key" },
+				}),
+			)
+			.before(async (request) => {
+				const values = await getInternal(["token"], request);
+				equal(values.token, "token");
+			});
+
+		// Prefetch in flight, entry cleared, refetch succeeds.
+		await new Promise((resolve) => setImmediate(resolve));
+		clearCache();
+		await handler(event, context);
+		rejectStale(new Error("stale"));
+		await new Promise((resolve) => setImmediate(resolve));
+
+		await handler(event, context);
+		strictEqual(staleFetch.mock.callCount(), 2);
 	});
 
 	test("It should set multiple secrets to internal storage", async (_t) => {
@@ -367,24 +407,109 @@ describe("@middy/secrets-manager-extension", () => {
 	});
 
 	test("It should send the secrets extension auth token header", async (_t) => {
-		process.env.AWS_SESSION_TOKEN = "session-token-123";
+		const handler = middy(() => {}).use(
+			secretsManagerExtension({
+				cacheExpiry: 0,
+				fetchData: { token: "api_key" },
+				disablePrefetch: true,
+			}),
+		);
+		await handler(event, context);
+		ok(lastFetchOptions);
+		equal(
+			lastFetchOptions.headers["X-Aws-Parameters-Secrets-Token"],
+			"session-token-123",
+		);
+	});
+
+	// Lambda does not set AWS_SESSION_TOKEN in every initialization mode
+	// (e.g. SnapStart); sending the literal "undefined" hides the cause.
+	// https://docs.aws.amazon.com/systems-manager/latest/userguide/ps-integration-lambda-extensions.html
+	// Under SnapStart Lambda does not set AWS_SESSION_TOKEN; AWS recommends
+	// reading the token from an AWS SDK credential provider chain instead.
+	// https://docs.aws.amazon.com/systems-manager/latest/userguide/ps-integration-lambda-extensions.html
+	test("It should send the token from the awsSessionToken option", async (_t) => {
+		const token = process.env.AWS_SESSION_TOKEN;
+		delete process.env.AWS_SESSION_TOKEN;
 		try {
 			const handler = middy(() => {}).use(
 				secretsManagerExtension({
 					cacheExpiry: 0,
 					fetchData: { token: "api_key" },
 					disablePrefetch: true,
+					awsSessionToken: async () => "provided-token",
+					setToContext: true,
 				}),
 			);
 			await handler(event, context);
-			ok(lastFetchOptions);
-			equal(
+			strictEqual(
 				lastFetchOptions.headers["X-Aws-Parameters-Secrets-Token"],
-				"session-token-123",
+				"provided-token",
 			);
 		} finally {
-			delete process.env.AWS_SESSION_TOKEN;
+			process.env.AWS_SESSION_TOKEN = token;
 		}
+	});
+
+	test("It should reject without calling the extension when AWS_SESSION_TOKEN is unset", async (_t) => {
+		const token = process.env.AWS_SESSION_TOKEN;
+		delete process.env.AWS_SESSION_TOKEN;
+		try {
+			const handler = middy(() => {}).use(
+				secretsManagerExtension({
+					cacheExpiry: 0,
+					fetchData: { token: "api_key" },
+					disablePrefetch: true,
+					setToContext: true,
+				}),
+			);
+			await rejects(
+				() => handler(event, context),
+				(e) =>
+					e.errors[0].message ===
+					"@middy/secrets-manager-extension requires AWS_SESSION_TOKEN or the awsSessionToken option",
+			);
+			strictEqual(fetchCount, 0);
+		} finally {
+			process.env.AWS_SESSION_TOKEN = token;
+		}
+	});
+
+	test("It should abort the fetch 500 ms before the invocation times out", async (t) => {
+		const timeout = t.mock.method(AbortSignal, "timeout");
+		const handler = middy(() => {}).use(
+			secretsManagerExtension({
+				cacheExpiry: 0,
+				fetchData: { token: "api_key" },
+				disablePrefetch: true,
+			}),
+		);
+		await handler(event, { getRemainingTimeInMillis: () => 5000 });
+		strictEqual(timeout.mock.calls[0].arguments[0], 4500);
+		ok(lastFetchOptions.signal instanceof AbortSignal);
+	});
+
+	test("It should allow the fetch 30 s outside an invocation (prefetch)", async (t) => {
+		const timeout = t.mock.method(AbortSignal, "timeout");
+		secretsManagerExtension({
+			fetchData: { token: "api_key" },
+		});
+		// The fetch starts once the session token has resolved.
+		await Promise.resolve();
+		strictEqual(timeout.mock.calls[0].arguments[0], 29500);
+	});
+
+	test("It should allow at least 1 s for the fetch", async (t) => {
+		const timeout = t.mock.method(AbortSignal, "timeout");
+		const handler = middy(() => {}).use(
+			secretsManagerExtension({
+				cacheExpiry: 0,
+				fetchData: { token: "api_key" },
+				disablePrefetch: true,
+			}),
+		);
+		await handler(event, { getRemainingTimeInMillis: () => 100 });
+		strictEqual(timeout.mock.calls[0].arguments[0], 1000);
 	});
 
 	test("It should skip cached keys when re-running fetch against a modified cache", async (t) => {
@@ -444,6 +569,8 @@ describe("@middy/secrets-manager-extension", () => {
 			cacheKey: "sm-ext-prefetch",
 			fetchData: { token: "api_key" },
 		});
+		// The fetch starts once the session token has resolved.
+		await Promise.resolve();
 		equal(fetchCount, 1);
 		equal(fetchUrls.includes(`${baseUrl}api_key`), true);
 	});
@@ -666,5 +793,27 @@ describe("@middy/secrets-manager-extension", () => {
 				equal(values.val, undefined);
 			});
 		await handler(event, context);
+	});
+
+	test("secretsManagerExtensionValidateOptions accepts cacheMaxSize and rejects values below 1", () => {
+		secretsManagerExtensionValidateOptions({ cacheMaxSize: 10 });
+		try {
+			secretsManagerExtensionValidateOptions({ cacheMaxSize: 0 });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("cacheMaxSize"));
+		}
+	});
+
+	test("secretsManagerExtensionValidateOptions validates awsSessionToken as a function", () => {
+		secretsManagerExtensionValidateOptions({ awsSessionToken: () => "token" });
+		try {
+			secretsManagerExtensionValidateOptions({ awsSessionToken: "token" });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("awsSessionToken"));
+		}
 	});
 });

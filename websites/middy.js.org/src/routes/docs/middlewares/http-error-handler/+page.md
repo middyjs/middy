@@ -20,7 +20,7 @@ npm install --save @middy/http-error-handler
 
 ## Options
 
-- `logger` function (default logs `request.error` via `console.error`): logging function that receives the [request object](/docs/writing-middlewares/request-object). Set to `false` to disable.
+- `logger` function (default logs `request.error` via `console.error`): logging function that receives the [request object](/docs/writing-middlewares/intro). Set to `false` to disable.
 - `fallbackMessage` (default `undefined`) - When non-http errors (those without `statusCode`) occur you can set a fallback message to be used. These will be returned with a 500 status code.
 - `omitPaths` string[] (default `[]`): paths to remove from the copy handed to `logger`. Paths are dot-delimited and relative to the `request`, with `[]` to descend into arrays. This is the simple way to keep sensitive data out of your logs. Examples: `event.headers.authorization`, `error.cause`, `internal.DB_PASSWORD`
 - `mask` string: string to replace omitted values with, instead of removing the key. Example: `***omitted***`
@@ -74,4 +74,3 @@ To log the untouched error before this middleware replaces it, use the `logger` 
 ## See also
 
 - [`http-errors`](https://www.npmjs.com/package/http-errors) - `createError(400, 'message')` style error constructors.
-- [CORS and error handling recipe](/docs/recipes/cors-and-errors).

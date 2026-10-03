@@ -4,7 +4,13 @@ description: "Parse URL-encoded HTTP request bodies from form submissions in Lam
 ---
 
 This middleware automatically parses HTTP requests with URL-encoded body (typically the result
-of a form submit). Also handles gracefully broken URL encoding as _Unsupported Media Type_ (415 errors)
+of a form submit). A request whose `Content-Type` is not `application/x-www-form-urlencoded` is
+rejected as _Unsupported Media Type_ (415 error). Decoding itself never fails: a malformed
+percent-escape is kept as literal text, and invalid UTF-8 becomes U+FFFD, rather than rejected.
+
+A form with more than `maxKeys` fields is rejected as _Payload Too Large_ (413 error, with
+`cause.data` of `{ limit: "maxKeys", maxKeys }`) instead of being parsed, so it is never truncated in
+silence and never builds an unbounded number of keys.
 
 ## Install
 
@@ -18,6 +24,9 @@ npm install --save @middy/http-urlencode-body-parser
 
 - `disableContentTypeCheck` (`boolean`) (optional): Skip `Content-Type` check for Form URLEncoded. Default: `false`.
 - `disableContentTypeError` (`boolean`) (optional): Skip throwing 415 when `Content-Type` is invalid. Default: `false`.
+- `maxKeys` (`integer`) (optional): Maximum number of `&`-separated fields accepted. Default: `1000`.
+
+**Note**: ALB with [multi-value headers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers) enabled sends `multiValueHeaders` and no `headers`, so `Content-Type` is not found. Put [`http-event-normalizer`](/docs/middlewares/http-event-normalizer) in front.
 
 ## Sample usage
 

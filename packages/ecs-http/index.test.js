@@ -10,6 +10,7 @@ import {
 import nodeCluster from "node:cluster";
 import { EventEmitter } from "node:events";
 import http from "node:http";
+import net from "node:net";
 import { describe, mock, test } from "node:test";
 import {
 	buildContext,
@@ -937,8 +938,29 @@ describe("@middy/ecs-http", () => {
 		const res = await fetch(`${url}/p`, {
 			method: "POST",
 			body: "x".repeat(1024),
-		}).catch((e) => ({ status: 0, error: e }));
-		if (res.status !== 0) strictEqual(res.status, 413);
+		});
+		strictEqual(res.status, 413);
+		deepStrictEqual(await res.json(), { message: "Payload too large" });
+		await close();
+	});
+
+	test("integration: oversize streamed body returns 413", async () => {
+		const { url, close } = await startWith({ bodyLimit: 16 });
+		const res = await fetch(`${url}/p`, {
+			method: "POST",
+			// A stream sends no content-length, only chunked transfer-encoding.
+			body: new ReadableStream({
+				start(controller) {
+					for (let i = 0; i < 64; i++) {
+						controller.enqueue(new TextEncoder().encode("x".repeat(1024)));
+					}
+					controller.close();
+				},
+			}),
+			duplex: "half",
+		});
+		strictEqual(res.status, 413);
+		deepStrictEqual(await res.json(), { message: "Payload too large" });
 		await close();
 	});
 
@@ -1761,6 +1783,29 @@ describe("@middy/ecs-http", () => {
 		strictEqual(exited, 0);
 	});
 
+	// ECS sends SIGKILL stopTimeout (default 30s) after SIGTERM. A connection
+	// that is still open at the deadline is cut so the worker exits first.
+	// https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#container_definition_timeout
+	test("drainAndExit cuts the remaining connections and exits 1 at the deadline", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout"] });
+		const exits = [];
+		let closeAllCalls = 0;
+		const fakeServer = {
+			close() {},
+			closeAllConnections() {
+				closeAllCalls++;
+			},
+		};
+		const drained = drainAndExit(fakeServer, (code) => exits.push(code), 1000);
+		t.mock.timers.tick(999);
+		deepStrictEqual(exits, []);
+		strictEqual(closeAllCalls, 0);
+		t.mock.timers.tick(1);
+		await drained;
+		strictEqual(closeAllCalls, 1);
+		deepStrictEqual(exits, [1]);
+	});
+
 	test("runWorker onSigterm drains and exits via injected exit", async () => {
 		let exited;
 		const { server, onSigterm } = await runWorker(
@@ -1782,6 +1827,61 @@ describe("@middy/ecs-http", () => {
 		await onSigterm();
 		strictEqual(exited, 0);
 		strictEqual(server.listening, false);
+	});
+
+	// server.close() stops new connections and closes idle ones, but a
+	// connection busy at that moment would keep serving requests on its
+	// keep-alive socket, holding the drain open past ECS's stopTimeout.
+	// https://nodejs.org/api/http.html#serverclosecallback
+	test("runWorker closes a keep-alive connection that is busy when draining starts", async (t) => {
+		let exited;
+		let release;
+		let entered;
+		const handlerEntered = new Promise((r) => {
+			entered = r;
+		});
+		const { server, onSigterm } = await runWorker(
+			{
+				handler: async () => {
+					entered();
+					await new Promise((r) => {
+						release = r;
+					});
+					return { statusCode: 200, body: "ok" };
+				},
+				eventVersion: "2.0",
+				requestContext: {},
+				port: 0,
+				timeout: 1000,
+				bodyLimit: 1024,
+				gracefulShutdownMs: 5000,
+			},
+			{
+				exit: (code) => {
+					exited = code;
+				},
+			},
+		);
+		process.removeListener("SIGTERM", onSigterm);
+		const socket = net.connect(server.address().port, "127.0.0.1");
+		t.after(() => {
+			socket.destroy();
+			server.closeAllConnections();
+			server.close();
+		});
+		let received = "";
+		socket.on("data", (chunk) => {
+			received += chunk;
+		});
+		const socketClosed = new Promise((r) => socket.once("close", r));
+		socket.write("GET / HTTP/1.1\r\nHost: x\r\n\r\n");
+		await handlerEntered;
+		const drained = onSigterm();
+		release();
+		await socketClosed;
+		ok(/^connection: close$/im.test(received), received);
+		await drained;
+		strictEqual(exited, 0);
 	});
 
 	// --- createRequestHandler driven with a fake request -----------------------
@@ -1879,20 +1979,42 @@ describe("@middy/ecs-http", () => {
 		strictEqual(req.destroyed, false);
 	});
 
-	test("request handler: a body over bodyLimit is rejected with 413 and the socket destroyed", async () => {
+	test("request handler: a declared content-length over bodyLimit is rejected with 413 without reading the body", async () => {
 		const { seen, requestHandler } = capture({ bodyLimit: 16 });
 		const req = makeReq({
 			method: "POST",
 			headers: { "content-length": "17" },
 		});
-		// "end" still fires after the oversize chunk; the 413 already written wins.
-		const calls = await dispatch(requestHandler, req, ["x".repeat(17)]);
+		const calls = await dispatch(requestHandler, req, [], { end: false });
 		deepStrictEqual(calls.writeHead, {
 			code: 413,
 			headers: { "content-type": "application/json" },
 		});
 		deepStrictEqual(calls.endArgs, ['{"message":"Payload too large"}']);
-		strictEqual(req.destroyed, true);
+		strictEqual(req.listenerCount("data"), 0, "body is not buffered");
+		strictEqual(req.destroyed, false, "the 413 must reach the client");
+		strictEqual(seen.event, undefined, "handler is not invoked");
+	});
+
+	test("request handler: a streamed body over bodyLimit stops buffering and is rejected with 413", async () => {
+		const { seen, requestHandler } = capture({ bodyLimit: 16 });
+		const req = makeReq({
+			method: "POST",
+			headers: { "transfer-encoding": "chunked" },
+		});
+		const calls = await dispatch(
+			requestHandler,
+			req,
+			["x".repeat(10), "x".repeat(7)],
+			{ end: false },
+		);
+		deepStrictEqual(calls.writeHead, {
+			code: 413,
+			headers: { "content-type": "application/json" },
+		});
+		deepStrictEqual(calls.endArgs, ['{"message":"Payload too large"}']);
+		strictEqual(req.listenerCount("data"), 0, "buffering stopped");
+		strictEqual(req.destroyed, false, "the 413 must reach the client");
 		strictEqual(seen.event, undefined, "handler is not invoked");
 	});
 
@@ -2202,6 +2324,34 @@ describe("@middy/ecs-http", () => {
 		}
 	});
 
+	test("ecsHttpRunner drains within gracefulShutdownMs, 25s by default", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout"] });
+		for (const [opts, deadlineMs] of [
+			[{}, 25_000],
+			[{ gracefulShutdownMs: 500 }, 500],
+		]) {
+			const exits = [];
+			const { http, server } = fakeHttp();
+			server.close = noop;
+			server.closeAllConnections = noop;
+			const { onSigterm } = await ecsHttpRunner(
+				{ handler: noop, ...opts },
+				{
+					cluster: { isPrimary: false },
+					http,
+					exit: (code) => exits.push(code),
+				},
+			);
+			process.removeListener("SIGTERM", onSigterm);
+			const drained = onSigterm();
+			t.mock.timers.tick(deadlineMs - 1);
+			deepStrictEqual(exits, [], JSON.stringify(opts));
+			t.mock.timers.tick(1);
+			await drained;
+			deepStrictEqual(exits, [1], JSON.stringify(opts));
+		}
+	});
+
 	test("ecsHttpRunner applies the documented defaults to the worker", async (t) => {
 		t.mock.timers.enable({ apis: ["Date"], now: 1_000 });
 		const seen = {};
@@ -2286,5 +2436,86 @@ describe("@middy/ecs-http", () => {
 		);
 		ok(process.listeners("SIGTERM").includes(onSigterm));
 		process.removeListener("SIGTERM", onSigterm);
+	});
+
+	test("writeResponse JSON-serializes a non-string body before writing headers", () => {
+		const res = fakeRes();
+		writeResponse(res, { statusCode: 201, body: { a: 1 } });
+		strictEqual(res._calls.writeHead.code, 201);
+		deepStrictEqual(res._calls.endArgs, ['{"a":1}']);
+		const num = fakeRes();
+		writeResponse(num, { statusCode: 200, body: 42 });
+		deepStrictEqual(num._calls.endArgs, ["42"]);
+	});
+
+	test("writeResponse passes a Buffer body through", () => {
+		const res = fakeRes();
+		const body = Buffer.from("raw");
+		writeResponse(res, { statusCode: 200, body });
+		strictEqual(res._calls.body, body);
+	});
+
+	test("createRequestHandler destroys the socket when writing fails after the headers were sent", async () => {
+		const requestHandler = createRequestHandler({
+			handler: async () => ({ statusCode: 200, body: "ok" }),
+			eventVersion: "2.0",
+			requestContext: {},
+			timeout: 1000,
+			bodyLimit: 1024,
+			trustedProxies: 1,
+		});
+		const res = fakeRes();
+		const writeHead = res.writeHead;
+		let writeHeads = 0;
+		res.writeHead = function (...args) {
+			writeHeads++;
+			if (this.headersSent) throw new Error("ERR_HTTP_HEADERS_SENT");
+			return writeHead.apply(this, args);
+		};
+		res.end = () => {
+			throw new Error("write failed");
+		};
+		await requestHandler(makeReq(), res);
+		strictEqual(writeHeads, 1);
+		strictEqual(res._calls.writeHead.code, 200);
+		strictEqual(res._calls.destroyed, true);
+	});
+
+	test("buildEventV2 combines duplicate query parameters with commas", () => {
+		const event = buildEventV2({
+			req: makeReq({
+				url: "/p?parameter1=value1&parameter1=value2&parameter2=value",
+			}),
+			body: Buffer.alloc(0),
+			isBase64Encoded: false,
+			requestContext: {},
+			sourceIp: "",
+			requestId: "r",
+		});
+		deepStrictEqual(
+			event.queryStringParameters,
+			nullProto({ parameter1: "value1,value2", parameter2: "value" }),
+		);
+	});
+
+	test("writeResponse merges v1 multiValueHeaders into the response headers", () => {
+		const res = fakeRes();
+		writeResponse(res, {
+			statusCode: 200,
+			headers: { "Content-Type": "text/plain", "x-a": "1", "x-b": "2" },
+			multiValueHeaders: {
+				"set-cookie": ["a=1", "b=2"],
+				"content-type": ["text/plain"],
+				"X-B": ["3"],
+			},
+			body: "ok",
+		});
+		// A key-value pair in both appears once; differing values are merged.
+		deepStrictEqual(res._calls.writeHead.headers, {
+			"Content-Type": ["text/plain"],
+			"x-a": "1",
+			"x-b": ["3", "2"],
+			"set-cookie": ["a=1", "b=2"],
+		});
 	});
 });

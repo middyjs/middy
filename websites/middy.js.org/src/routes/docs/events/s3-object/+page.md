@@ -29,8 +29,7 @@ captureFetchGlobal()
 
 export const handler = middy()
   .use(s3ObjectResponseMiddleware({
-    awsClientCapture: captureAWSv3Client,
-    bodyType: 'promise'
+    awsClientCapture: captureAWSv3Client
   }))
   .handler((event, context, {signal}) => {
     // ...

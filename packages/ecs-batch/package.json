@@ -76,8 +76,7 @@
 	"scripts": {
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --test",
-		"test:fuzz": "node --test index.fuzz.js",
-		"test:perf": "node --test index.perf.js"
+		"test:fuzz": "node --test index.fuzz.js"
 	},
 	"license": "MIT",
 	"keywords": [
@@ -125,7 +124,8 @@
 		"@aws-sdk/client-dynamodb-streams": "^3.0.0",
 		"kafkajs": "^2.0.0",
 		"stompit": "^1.0.0",
-		"amqplib": "^2.0.0"
+		"amqplib": "^2.0.0",
+		"@types/aws-lambda": "^8.0.0"
 	},
 	"peerDependenciesMeta": {
 		"@aws-sdk/client-sqs": {
@@ -144,6 +144,9 @@
 			"optional": true
 		},
 		"amqplib": {
+			"optional": true
+		},
+		"@types/aws-lambda": {
 			"optional": true
 		}
 	},

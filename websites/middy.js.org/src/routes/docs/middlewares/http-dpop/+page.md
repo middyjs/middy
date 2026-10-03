@@ -23,6 +23,7 @@ There is no peer dependency: verification uses `node:crypto` only.
 ## Options
 
 - `payloadKey` (string) (default `jwt`): Key on `request.internal` holding the verified token payload. Set it to `paseto` when pairing with `@middy/http-paseto`, or to whatever `payloadKey` you configured on the verifier.
+- `tokenKey` (string) (default `` `${payloadKey}Token` ``): Key on `request.internal` holding the token the verifier checked, which `@middy/http-jwt` and `@middy/http-paseto` publish there. The token in the `DPoP` `Authorization` header must be that same token, or the request is a `401`: `ath` binds the proof to the access token presented with it ([RFC 9449 §4.3](https://www.rfc-editor.org/rfc/rfc9449#section-4.3), check 11), and a token verified from a cookie or query string is not the one the proof is for. A verifier that publishes nothing leaves the `Authorization` header as the only source.
 - `proofKey` (string) (default `dpop`): Key under which the verified proof claims are stored.
 - `confirmationClaim` (string) (default `cnf`): Claim holding `{ jkt }`. Only change this if your authorization server puts the thumbprint somewhere non-standard.
 - `origin` (string) (optional): The `https://host` the proof's `htu` must name. When omitted it is derived from `requestContext.domainName`, which API Gateway sets from the domain that served the request. Set it explicitly behind a CDN, a custom proxy, or an ALB. It may carry a base path (`https://api.example.com/v1`), which is what a custom domain's API mapping needs; see the note below. A trailing slash is trimmed, and a value that is not a URL throws at construction rather than failing every request.
@@ -36,9 +37,9 @@ NOTES:
 
 - Every rejection is a `401 Unauthorized` carrying `WWW-Authenticate: DPoP algs="..."`, so a client learns which proofs you accept (RFC 9449 §7.1). Pair with [`http-error-handler`](/docs/middlewares/http-error-handler) to turn it into a response; it copies the header across for you.
 - The `htu` is built from `origin` and the request path, **never** from the `Host` header. A client controls `Host`, so trusting it would let anyone mint a proof for an origin of their choosing.
-- The request method comes from `requestContext.http.method` (HTTP API), then `httpMethod` (REST API, ALB). An event with neither is a `500 Internal Server Error`, not a 401: the proof's `htm` is required by RFC 9449 §4.2 and there is nothing to hold it against. The standalone `verifyDpopProof` export takes `method` as a required option for the same reason.
-- The request path comes from `rawPath` (HTTP API), then `requestContext.path` (REST API), then `path` (ALB). REST is read from `requestContext.path` because API Gateway strips the stage from `event.path`, and the client signs the URL it actually called.
-- **On a REST API or an ALB, put [`http-header-normalizer`](/docs/middlewares/http-header-normalizer) in front.** Those two pass the client's header casing through verbatim, so a client sending `DPOP:` instead of `DPoP:` is refused for the wrong reason. HTTP APIs already lower-case everything.
+- The request method comes from `requestContext.http.method` (HTTP API), then `httpMethod` (REST API, ALB), then `method` ([VPC Lattice](https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html)). An event with none of them is a `500 Internal Server Error`, not a 401: the proof's `htm` is required by RFC 9449 §4.2 and there is nothing to hold it against. The standalone `verifyDpopProof` export takes `method` as a required option for the same reason.
+- The request path comes from `rawPath` (HTTP API), then `requestContext.path` (REST API), then `path` (ALB, VPC Lattice V2), then `raw_path` (VPC Lattice V1). The query string Lattice includes in the path is dropped, as `htu` requires. REST is read from `requestContext.path` because API Gateway strips the stage from `event.path`, and the client signs the URL it actually called.
+- `Authorization` and `DPoP` are looked up case-insensitively (RFC 9110 §5.1), since REST APIs and ALBs pass the client's casing through verbatim. Two `DPoP` values, whether repeated or under two casings, are refused. ALB with [multi-value headers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers) enabled sends only `multiValueHeaders`, which is read when `headers` is absent.
 - **Behind a custom domain with an API mapping, put the base path on `origin`.** AWS does not include the mapping in `rawPath`, so a request to `https://api.example.com/v1/orders` arrives as `/orders`; `origin: 'https://api.example.com/v1'` restores it.
 - The `htu` comparison ignores the query string and fragment, per RFC 9449 §4.3, so a client does not have to reproduce your query serialization.
 - Only asymmetric algorithms are accepted. `none` and the `HS*` family have no public half, so there is nothing a proof could demonstrate possession of.
@@ -70,6 +71,7 @@ export const handler = middy()
           audience: 'https://api.example.com',
         },
       },
+      algorithm: 'RS256',
     }),
   )
   // After the verifier: only it can turn the token into the `cnf` claim.

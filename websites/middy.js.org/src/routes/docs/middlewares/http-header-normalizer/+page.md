@@ -25,7 +25,7 @@ npm install --save @middy/http-header-normalizer
 ## Options
 
 - `canonical` (bool) (optional): if true, modifies the headers to canonical format, otherwise the headers are normalized to lowercase (default `false`)
-- `defaultHeaders` (object) (optional): Default headers to used if any are missing. i.e. `Content-Type` (default `{}`)
+- `defaultHeaders` (object) (optional): Default headers to used if any are missing. i.e. `Content-Type` (default `{}`). A value may be a string or an array. An array is joined with `,` for `headers`, except `Cookie`, which is joined with `; ` (RFC 6265 §5.4). A string is split into trimmed values for `multiValueHeaders`, on `,`, or on `;` for `Cookie`.
 - `normalizeHeaderKey` (function) (optional): a function that accepts an header name as a parameter and returns its
   canonical representation.
 

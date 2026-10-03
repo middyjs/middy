@@ -5,6 +5,7 @@ import type {
 	ALBEvent,
 	APIGatewayEvent,
 	APIGatewayProxyEventV2,
+	Context as LambdaContext,
 } from "aws-lambda";
 
 export type DpopAlgorithm =
@@ -27,6 +28,11 @@ export interface DpopProofClaims {
 
 export interface Options {
 	payloadKey?: string;
+	/**
+	 * Key on `request.internal` holding the token the verifier checked.
+	 * @default `${payloadKey}Token`
+	 */
+	tokenKey?: string;
 	proofKey?: string;
 	confirmationClaim?: string;
 	origin?: string;
@@ -39,14 +45,59 @@ export interface Options {
 
 export type RequestEvent = APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent;
 
+// The claims are written only for a DPoP-bound token, so they are absent for a
+// bearer token unless `required` rejects those.
+type ProofClaims<TOptions extends Options | undefined> = TOptions extends {
+	required: true;
+}
+	? DpopProofClaims
+	: DpopProofClaims | undefined;
+
+/**
+ * What the middleware writes to `request.internal`: the verified proof claims
+ * under `proofKey`.
+ */
+export type Internal<
+	TOptions extends Options | undefined = Options,
+	TProofKey extends string = "dpop",
+> = { [Key in TProofKey]: ProofClaims<TOptions> };
+
+/**
+ * The Lambda context, with the verified proof claims under
+ * `context.middyContext[proofKey]` when `setToContext` is `true`.
+ */
+export type Context<
+	TOptions extends Options | undefined,
+	TProofKey extends string = "dpop",
+> = TOptions extends { setToContext: true }
+	? LambdaContext & {
+			middyContext: { [Key in TProofKey]: ProofClaims<TOptions> };
+		}
+	: LambdaContext;
+
 declare function httpDpop<
 	TOptions extends Options = Options,
 	EventType extends RequestEvent = RequestEvent,
->(options?: TOptions): middy.MiddlewareObj<EventType, unknown, Error>;
+	TProofKey extends string = "dpop",
+>(
+	// `TProofKey` keeps a `proofKey` literal from widening to `string`, so it
+	// narrows `request.internal` without `as const`. The `never` record rejects
+	// keys `Options` does not declare.
+	options?: TOptions & { proofKey?: TProofKey } & Record<
+			Exclude<keyof TOptions, keyof Options>,
+			never
+		>,
+): middy.MiddlewareObj<
+	EventType,
+	unknown,
+	Error,
+	Context<TOptions, TProofKey>,
+	Internal<TOptions, TProofKey>
+>;
 
-export declare function httpDpopValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function httpDpopValidateOptions<TOptions extends Options>(
+	options?: TOptions,
+): TOptions;
 
 export declare function jwkThumbprint(jwk: Record<string, unknown>): string;
 

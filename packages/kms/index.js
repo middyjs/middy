@@ -6,10 +6,9 @@ import {
 	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
-	createClient,
+	createClientInit,
 	createPrefetchClient,
-	getCache,
-	modifyCache,
+	evictCacheOnFailure,
 	processCache,
 	validateOptions,
 } from "@middy/util";
@@ -86,18 +85,13 @@ const kmsMiddleware = (opts = {}) => {
 				.send(command)
 				.catch((e) => catchInvalidSignatureException(e, client, command))
 				.then((resp) => ({ publicKey: resp.PublicKey, keySpec: resp.KeySpec }))
-				.catch((e) => {
-					const value = getCache(options.cacheKey).value ?? {};
-					value[internalKey] = undefined;
-					modifyCache(options.cacheKey, value);
-					throw e;
-				});
+				.catch(evictCacheOnFailure(options.cacheKey, internalKey, values));
 		}
 		return values;
 	};
 
 	let client;
-	let clientInit;
+	const clientInit = createClientInit(options);
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
 		processCache(options, fetchRequest);
@@ -112,9 +106,12 @@ const kmsMiddleware = (opts = {}) => {
 	};
 
 	const kmsMiddlewareBefore = (request) => {
-		if (client) return kmsMiddlewareFetch(request);
-		clientInit ??= createClient(options, request);
-		return clientInit.then((resolvedClient) => {
+		// With `awsClientAssumeRole` the client is rebuilt when sts refetches the
+		// credentials, so it is resolved on every invocation.
+		if (client && !options.awsClientAssumeRole) {
+			return kmsMiddlewareFetch(request);
+		}
+		return clientInit(request).then((resolvedClient) => {
 			client = resolvedClient;
 			return kmsMiddlewareFetch(request);
 		});

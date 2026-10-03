@@ -99,8 +99,6 @@ Use [`@middy/http-router`](/docs/routers/http-router) to dispatch by method + pa
 
 ## Recipes
 
-- [CORS and error handling](/docs/recipes/cors-and-errors)
-- [JWT authentication](/docs/recipes/jwt-auth)
 
 ## Common gotchas
 

@@ -254,6 +254,24 @@ describe("@middy/ws-router", () => {
 		});
 	});
 
+	test("It should throw at construction for a duplicate routeKey", async (t) => {
+		let thrown;
+		try {
+			wsRouter([
+				{ routeKey: "$connect", handler: () => {} },
+				{ routeKey: "$connect", handler: () => {} },
+			]);
+		} catch (e) {
+			thrown = e;
+		}
+		ok(thrown, "expected a duplicate routeKey to throw");
+		strictEqual(thrown.message, "Duplicate route");
+		deepStrictEqual(thrown.cause, {
+			package: "@middy/ws-router",
+			data: { routeKey: "$connect" },
+		});
+	});
+
 	test("wsRouterValidateOptions accepts valid options and rejects typos", () => {
 		wsRouterValidateOptions({ routes: [], notFoundResponse: () => {} });
 		wsRouterValidateOptions({});

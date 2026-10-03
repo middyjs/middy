@@ -57,6 +57,11 @@ const optionSchema = {
 			minimum: -1,
 			maximum: Number.MAX_SAFE_INTEGER,
 		},
+		cacheMaxSize: {
+			type: "integer",
+			minimum: 1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		setToContext: { type: "boolean" },
 		contextKey: { type: "string" },
 		fetchData: {
@@ -114,9 +119,15 @@ const stsMiddleware = (opts = {}) => {
 		for (const internalKey of fetchDataKeys) {
 			if (cachedValues[internalKey]) continue;
 			const assumeRoleOptions = options.fetchData[internalKey];
-			// Date cannot be used here to assign default session name, possibility of collision when > 1 role defined
-			assumeRoleOptions.RoleSessionName ??= `@middy-sts-${randomUUID()}`;
-			const command = new AssumeRoleCommand(assumeRoleOptions);
+			// Date cannot be used here to assign default session name, possibility of collision when > 1 role defined.
+			// The default goes on a copy: written into fetchData it would change
+			// the cache ownership fingerprint, so an identical instance could no
+			// longer share the cacheKey.
+			const command = new AssumeRoleCommand({
+				...assumeRoleOptions,
+				RoleSessionName:
+					assumeRoleOptions.RoleSessionName ?? `@middy-sts-${randomUUID()}`,
+			});
 			values[internalKey] = client
 				.send(command)
 				.catch((e) => catchInvalidSignatureException(e, client, command))

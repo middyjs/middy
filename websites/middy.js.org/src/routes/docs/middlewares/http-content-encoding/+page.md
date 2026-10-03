@@ -26,6 +26,9 @@ NOTES:
 
 - **Important** For `br` encoding NodeJS defaults to `11`. Levels `10` & `11` have been shown to have lower performance for the level of compression they apply. Testing is recommended to ensure the right balance of compression & performance.
 - When the client's preferred encoding is disabled with `false`, the next acceptable encoding from `Accept-Encoding` is used. If none remain, the body is sent unencoded.
+- When the body is encoded, `Content-Length` is removed, since it described the unencoded body (RFC 9110 §8.6), and a strong `ETag` is weakened to `W/"..."`, since a strong validator must change with the content coding (RFC 9110 §8.8.3). A weak `ETag` is left as it is. Neither is touched when the body is sent unencoded.
+- A streamed body is encoded with `stream.pipeline`, so a source stream that fails makes the encoded stream fail with the same error, instead of the response hanging.
+- ALB with [multi-value headers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers) enabled sends and expects `multiValueHeaders`. `Cache-Control: no-transform` and an existing `Content-Encoding` are honoured in `multiValueHeaders` (request and response), and a response that uses `multiValueHeaders` gets `Content-Encoding` and `Vary` written there.
 
 ## Sample usage
 

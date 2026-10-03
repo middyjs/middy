@@ -18,16 +18,16 @@ npm install --save-dev @aws-sdk/client-dynamodb @aws-sdk/util-dynamodb
 
 - `AwsClient` (object) (default `DynamoDBClient`): DynamoDBClient class constructor (i.e. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-dynamodb`.
 - `awsClientOptions` (object) (default `undefined`): Options to pass to DynamoDBClient class constructor.
-- `awsClientAssumeRole` (string) (default `undefined`): Internal key where secrets are stored. See [@middy/sts](/docs/middlewares/sts) on to set this.
+- `awsClientAssumeRole` (string) (default `undefined`): Internal key where secrets are stored. See [@middy/sts](/docs/middlewares/sts) on how to set this. With it set, cached entries are not refreshed in the background (a refresh has no invocation to take fresh credentials from); an expired entry is refetched by the next invocation. It fails the invocation with `Credentials missing for assumed role` when the credentials are not in `request.internal` (a mistyped key, or `@middy/sts` registered after this middleware), rather than falling back to the function's own role; register `sts` first.
 - `awsClientCapture` (function) (default `undefined`): Enable XRay by passing `captureAWSv3Client` from `aws-xray-sdk` in.
 - `fetchData` (object) (required): Mapping of internal key name to API request parameters.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
-- `cacheKey` (string) (default `dynamodb`): Cache key for the fetched data responses. Must be unique across all middleware.
+- `cacheKey` (string) (default `@middy/dynamodb`): Cache key for the fetched data responses. Each instance of this middleware needs its own `cacheKey`: reusing one with a different `fetchData`, `awsClientOptions`, `awsClientAssumeRole` or `AwsClient` throws a `TypeError`.
 - `cacheKeyExpiry` (object) (default `{}`): Per-`cacheKey` expiry override, `{ [cacheKey]: cacheExpiry }`; a unix timestamp in ms above 86400000 is treated as an absolute expiry.
 - `cacheMaxSize` (number) (default `128`): Maximum number of entries kept in the shared middleware cache; the oldest expiring entry is evicted when exceeded.
-- `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
+- `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms. Values above `86400000` are unix timestamps (ms): one before 2001-01-01 (`978307200000`) can only be a mistyped duration and throws at construction, while a real timestamp that has passed just leaves the entry expired.
 - `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext.dynamodb`.
-- `contextKey` (string) (default `dynamodb`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.
+- `contextKey` (string) (default `dynamodb`): The key under `context.middyContext` used when `setToContext` is `true`. To run two instances side by side, override it and set a distinct `cacheKey` on each.
 
 NOTES:
 

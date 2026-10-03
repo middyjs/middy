@@ -14,13 +14,27 @@ export type LocalizeFunction = (
 /**
  * Compiles a JSON Schema into an ajv validate function using the same plugin
  * set as `ajv-cmd/compile` (ajv-formats, @silverbucket/ajv-formats-draft2019,
- * ajv-keywords, ajv-errors). `ajvOptions.keywords` are registered after the
+ * ajv-keywords, ajv-errors). `allErrors` defaults to false, so validation
+ * stops at the first error and an untrusted body cannot produce one error
+ * object per item. ajv-errors is only registered with `allErrors: true`; a
+ * schema using `errorMessage` without it throws at compile time asking for
+ * `{ allErrors: true }`. `ajvOptions.keywords` are registered after the
  * plugins, so a user definition replaces a plugin keyword of the same name.
  */
 export function transpileSchema(
-	schema: object,
+	schema: { $async: true; [key: string]: unknown },
+	ajvOptions?: Partial<AjvOptions>,
+): AsyncValidateFunction;
+// `$async` widened to `boolean` (a JSON import, an unannotated const) could be
+// either kind, so the result is too.
+export function transpileSchema(
+	schema: { $async: boolean; [key: string]: unknown },
 	ajvOptions?: Partial<AjvOptions>,
 ): ValidateFunction | AsyncValidateFunction;
+export function transpileSchema(
+	schema: object,
+	ajvOptions?: Partial<AjvOptions>,
+): ValidateFunction;
 
 /**
  * Wraps a schema so it validates at `pointer` within a larger event, one

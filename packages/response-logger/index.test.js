@@ -126,6 +126,39 @@ describe("@middy/response-logger", () => {
 		strictEqual(await handler({ foo: "bar" }, defaultContext), "recovered");
 	});
 
+	// event-normalizer turns DynamoDB N values beyond 2^53 into BigInt, which
+	// JSON.stringify cannot serialize on its own.
+	test("It should log BigInt values as strings with the default logger", async (t) => {
+		const log = t.mock.method(console, "log", () => {});
+
+		const handler = middy(() => ({ id: 2n ** 64n })).use(responseLogger());
+
+		await handler({}, defaultContext);
+
+		strictEqual(log.mock.callCount(), 1);
+		deepStrictEqual(JSON.parse(log.mock.calls[0].arguments[0]), {
+			response: { id: "18446744073709551616" },
+		});
+	});
+
+	// A logger failure must not change the outcome of a successful invocation.
+	test("It should report a throwing logger via console.error and keep the response", async (t) => {
+		const loggerError = new Error("logger down");
+		const consoleError = t.mock.method(console, "error", () => {});
+
+		const handler = middy(() => "handler").use(
+			responseLogger({
+				logger: () => {
+					throw loggerError;
+				},
+			}),
+		);
+
+		strictEqual(await handler({ foo: "bar" }, defaultContext), "handler");
+		strictEqual(consoleError.mock.callCount(), 1);
+		strictEqual(consoleError.mock.calls[0].arguments[0], loggerError);
+	});
+
 	test("It should log the response when an error is handled", async (t) => {
 		const logger = t.mock.fn();
 
@@ -309,6 +342,110 @@ describe("@middy/response-logger", () => {
 			},
 			body: input,
 		});
+	});
+
+	test("It should cap the buffered body of a Node.js stream at maxBodyBytes", async (t) => {
+		const input = "abcdefghij";
+		const logger = t.mock.fn();
+		const handler = middy(
+			async (event, context, { signal }) => Readable.from(["abcdef", "ghij"]),
+			{
+				executionMode: executionModeStreamifyResponse,
+			},
+		).use(responseLogger({ logger, maxBodyBytes: 4 }));
+
+		let chunkResponse = "";
+		const responseStream = createWritableStream((chunk) => {
+			chunkResponse += chunk;
+		});
+		await handler({}, responseStream, defaultContext);
+		// The client still gets the whole body.
+		strictEqual(chunkResponse, input);
+		strictEqual(
+			logger.mock.calls[0].arguments[0].response,
+			"abcd...[truncated, logged 4 of 10 bytes]",
+		);
+	});
+
+	const webStreamOf = (...chunks) =>
+		new ReadableStream({
+			start(controller) {
+				for (const chunk of chunks) controller.enqueue(chunk);
+				controller.close();
+			},
+		});
+
+	const runWebStream = async (stream, options, collectSent = true) => {
+		const logged = [];
+		const handler = middy(async () => stream, {
+			executionMode: executionModeStreamifyResponse,
+		}).use(
+			responseLogger({ ...options, logger: (request) => logged.push(request) }),
+		);
+		const chunks = [];
+		const responseStream = createWritableStream((chunk) => {
+			if (collectSent) chunks.push(chunk);
+		});
+		await handler({}, responseStream, defaultContext);
+		const decoder = new TextDecoder();
+		const sent = chunks
+			.map((c) => (c instanceof Uint8Array ? decoder.decode(c) : String(c)))
+			.join("");
+		return { sent, logged: logged[0].response };
+	};
+
+	test("It should cap the buffered body of a Web stream of strings at maxBodyBytes", async () => {
+		const { sent, logged } = await runWebStream(webStreamOf("abcdef", "ghij"), {
+			maxBodyBytes: 4,
+		});
+		strictEqual(sent, "abcdefghij");
+		strictEqual(logged, "abcd...[truncated, logged 4 of 10 bytes]");
+	});
+
+	test("It should cap the buffered body of a Web stream of bytes at maxBodyBytes", async () => {
+		const encoder = new TextEncoder();
+		const { sent, logged } = await runWebStream(
+			webStreamOf(encoder.encode("abcdef"), encoder.encode("ghij")),
+			{ maxBodyBytes: 7 },
+		);
+		strictEqual(sent, "abcdefghij");
+		strictEqual(logged, "abcdefg...[truncated, logged 7 of 10 bytes]");
+	});
+
+	test("It should drop a multi-byte character cut by maxBodyBytes rather than mangle it", async () => {
+		// "é" is 2 bytes in UTF-8; the cap falls between them.
+		const { sent, logged } = await runWebStream(webStreamOf("abé", "cd"), {
+			maxBodyBytes: 3,
+		});
+		strictEqual(sent, "abécd");
+		strictEqual(logged, "ab...[truncated, logged 3 of 6 bytes]");
+	});
+
+	test("It should log a body over 1 MiB whole by default", async () => {
+		const input = "x".repeat(1024 * 1024 + 1);
+		const { logged } = await runWebStream(webStreamOf(input));
+		strictEqual(logged, input);
+	});
+
+	test("It should cap the logged body at the Lambda streamed response maximum (200 MiB) by default", async () => {
+		// One 1 MiB chunk enqueued repeatedly keeps the test's own memory small.
+		const mib = new Uint8Array(1024 * 1024).fill(120); // "x"
+		const chunks = Array.from({ length: 200 }, () => mib);
+		const { logged } = await runWebStream(
+			webStreamOf(...chunks, new Uint8Array([121])),
+			{},
+			false,
+		);
+		const marker = "...[truncated, logged 209715200 of 209715201 bytes]";
+		strictEqual(logged.length, 209715200 + marker.length);
+		ok(logged.endsWith(`x${marker}`));
+	});
+
+	test("It should log the whole body when it is exactly maxBodyBytes", async () => {
+		const { logged } = await runWebStream(webStreamOf("abcd"), {
+			maxBodyBytes: 4,
+		});
+		strictEqual(logged, "abcd");
 	});
 
 	test("It should log with Web Streams API using ReadableStream", async (t) => {
@@ -700,6 +837,7 @@ describe("@middy/response-logger", () => {
 			logger: () => {},
 			omitPaths: ["response.a.b"],
 			mask: "***",
+			maxBodyBytes: 1024,
 		});
 		responseLoggerValidateOptions({});
 		try {
@@ -729,6 +867,12 @@ describe("@middy/response-logger", () => {
 			ok(false, "expected throw");
 		} catch (e) {
 			ok(e.message.includes("mask"));
+		}
+		for (const maxBodyBytes of [0, 1.5, "1024"]) {
+			throws(
+				() => responseLoggerValidateOptions({ maxBodyBytes }),
+				(e) => e.message.includes("maxBodyBytes"),
+			);
 		}
 	});
 

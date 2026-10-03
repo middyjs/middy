@@ -4,8 +4,9 @@ description: "Parse multipart/form-data HTTP request bodies for file uploads in 
 ---
 
 Automatically parses HTTP requests with content type `multipart/form-data` and converts the body into an
-object. Also handles gracefully broken JSON as _Unsupported Media Type_ (415 errors)
-if used in combination with `httpErrorHandler`.
+object. A request whose `Content-Type` is not `multipart/form-data` is rejected as
+_Unsupported Media Type_ (415 error), and a malformed form (a missing boundary, a truncated body) as
+_Unprocessable Entity_ (422 error), when used in combination with `httpErrorHandler`.
 
 It can also be used in combination with validator so that the content can be validated.
 
@@ -26,9 +27,15 @@ npm install --save @middy/http-multipart-body-parser
 - `disableContentTypeCheck` (`boolean`) (optional): Skip `Content-Type` check for Form Data.. Default: `false`.
 - `disableContentTypeError` (`boolean`) (optional): Skip throwing 415 when `Content-Type` is invalid. Default: `false`.
 
+**Note**: only the media type is checked for the 415: any `Content-Type` of `multipart/form-data`, in any case, followed by `;` or nothing. Its parameters are left to busboy, so `boundary=abc` with or without a space after `;` (RFC 9110 §5.6.6), a quoted boundary, any character RFC 2046 §5.1.1 allows in a boundary, and a `charset` before or after the boundary are all accepted. A missing or malformed boundary is a `422 Unprocessable Entity`.
+
+**Note**: VPC Lattice V2 delivers header values as arrays ([event structure](https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html)); the first `Content-Type` value is used.
+
+**Note**: ALB with [multi-value headers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers) enabled sends `multiValueHeaders` and no `headers`, so `Content-Type` is not found. Put [`http-event-normalizer`](/docs/middlewares/http-event-normalizer) in front.
+
 **Note**: `busboy.limits` defaults to `{ fieldNameSize: 100, fields: 1000, parts: 1000 }`; set `fileSize` and `fieldSize` too when you know the sizes to expect. A part that exceeds `fileSize` or `fieldSize`, or a form that exceeds `fields`, `files` or `parts`, throws a `413 Payload Too Large` (with the offending `filename`, `fieldname`, or `limit` under `cause.data`) rather than being silently truncated or dropped. A field name longer than `fieldNameSize` throws the same `413` with `limit: "fieldNameSize"` under `cause.data`. A part whose `Content-Disposition` carries no `name`, or a body that ends before its closing boundary, throws a `422 Unprocessable Entity` with the reason under `cause.data.reason`.
 
-**Note**: bracketed fields (`a[]`) collect into an array under `a`, and a plain `a` part before or after them joins that array. A file field sent more than once becomes an array of attachments.
+**Note**: bracketed fields (`a[]`) collect into an array under `a`, and a plain `a` part before or after them joins that array. A plain field sent more than once also becomes an array, in request order (`a=1`, `a=2` gives `{ a: ['1', '2'] }`); a single occurrence stays a string. A file field sent more than once becomes an array of attachments.
 
 **Note**: this middleware will buffer all the data as it is processed internally by `busboy`, so, if you are using this approach to parse significantly big volumes of data, keep in mind that all the data will be allocated in memory. This is somewhat inevitable with Lambdas (as the data is already encoded into the JSON in memory as Base64), but it's good to keep this in mind and evaluate the impact on you application.
 If you really have to deal with big files, then you might also want to consider to allowing your users to [directly upload files to S3](https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-UsingHTTPPOST.html)

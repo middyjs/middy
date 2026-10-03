@@ -1,6 +1,6 @@
 import type middy from "@middy/core";
 import { expect, test } from "tstyche";
-import httpSecurityHeaders from "./index.js";
+import httpSecurityHeaders, * as indexModule from "./index.js";
 
 test("use with default options", () => {
 	const middleware = httpSecurityHeaders();
@@ -107,4 +107,15 @@ test("allow true options", () => {
 	});
 
 	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
+});
+
+test("httpSecurityHeadersValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.Options;
+	expect(
+		indexModule.httpSecurityHeadersValidateOptions(options),
+	).type.toBe<indexModule.Options>();
+});
+
+test("rejects misspelled option", () => {
+	expect(httpSecurityHeaders).type.not.toBeCallableWith({ frameOption: false });
 });

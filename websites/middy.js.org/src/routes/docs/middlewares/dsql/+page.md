@@ -28,9 +28,10 @@ npm install --save @middy/dsql @middy/dsql-signer postgres
 - `contextKey` (string) (default `dsql`): Key under `context.middyContext` where the client is published.
 - `internalKey` (string) (optional): Key in `request.internal` holding the auth token from `@middy/dsql-signer`. When set, the token is merged as `password` into the connection config. Prefetch is disabled when this is set. With a positive `cacheExpiry` the connection is not refreshed in the background, since that could only replay the token of the invocation that opened it; the entry expires and the next invocation reconnects with its own token.
 - `disablePrefetch` (boolean) (default `false`): On cold start, requests will trigger early if they can. Ignored when `internalKey` is set.
-- `cacheKey` (string) (default `@middy/dsql`): Cache key for the instantiated client. Must be unique across middleware.
+- `cacheKey` (string) (default `@middy/dsql`): Cache key for the instantiated client. Each instance of this middleware needs its own `cacheKey`: reusing one with a different `config` throws a `TypeError`.
 - `cacheKeyExpiry` (object) (default `{}`): Per-`cacheKey` expiry override, `{ [cacheKey]: cacheExpiry }`. The override replaces `cacheExpiry` entirely, including whether the connection is closed after each invocation.
-- `cacheExpiry` (number) (default `-1`): How long the client should be cached for. `-1`: cache forever (recommended for connection pooling), `0`: never cache (calls `client.end()` on `after` / `onError`), `n`: cache for n ms. A connection replaced by a refresh, or flagged broken by the adapter, is closed once the invocations using it finish; newer connections stay open.
+- `cacheExpiry` (number) (default `-1`): How long the client should be cached for. `-1`: cache forever (recommended for connection pooling), `0`: never cache (calls `client.end()` on `after` / `onError`, only on the client that invocation connected), `n`: cache for n ms. A connection replaced by a refresh, or flagged broken by the adapter, is closed once the invocations using it finish; newer connections stay open. Values above `86400000` are unix timestamps (ms): one before 2001-01-01 (`978307200000`) can only be a mistyped duration and throws at construction, while a real timestamp that has passed just leaves the entry expired.
+- `cacheMaxSize` (number) (default `128`): Maximum number of entries kept in the shared middleware cache; the oldest expiring entry is evicted when exceeded.
 
 NOTES:
 

@@ -12,8 +12,9 @@ import Callout from '@design-system/components/Callout.svelte'
 This page is a work in progress. If you want to help us to make this page better, please consider contributing on GitHub.
 </Callout>
 
-Always bundle the `@aws-sdk/*` with your project eventhough the Lambda runtime already includes it by default (Note: nodejs16.x does not have AWS SDK v3 included).
+Always bundle the `@aws-sdk/*` with your project even though the Lambda runtime already includes it by default.
 This gives you full control of when to update the SDK to prevent unexpected errors from a bad SDK version, allows you to ensure that you are running the latest version with the most up to date fixes and features, and has been shown to decrease cold start times.
+The `@aws-sdk/*` entries in the `external` lists below are only for when you choose to rely on the SDK provided by the runtime instead; leave them out to bundle the SDK.
 
 ## Compilers
 
@@ -29,7 +30,6 @@ node_modules/.bin/tsc
 ```json
 {
   "compilerOptions": {
-    "baseUrl": "./",
     "esModuleInterop": true,
     "preserveConstEnums": true,
     "strictNullChecks": true,
@@ -37,7 +37,8 @@ node_modules/.bin/tsc
     "target": "es2021",
     "typeRoots": ["node_modules/@types"],
     "resolveJsonModule": true,
-    "moduleResolution": "node"
+    "module": "nodenext",
+    "moduleResolution": "nodenext"
   }
 }
 ```
@@ -51,7 +52,7 @@ npm i -D esbuild
 
 # --banner:js hack from https://github.com/evanw/esbuild/pull/2067
 node_modules/.bin/esbuild index.js \
-    --platform=node --format=esm  --target=node18 --bundle --minify \
+    --platform=node --format=esm  --target=node24 --bundle --minify \
     --banner:js="import { createRequire } from 'module';const require = createRequire(import.meta.url);" \
     --legal-comments=external --sourcemap=external \
     --allow-overwrite --outfile=index.mjs
@@ -81,12 +82,17 @@ export default (input) => ({
   },
   plugins,
   external: [
-    // AWS SDK
+    // AWS SDK: only when using the SDK provided by the Lambda runtime instead of bundling it
     '@aws-sdk/client-apigatewaymanagementapi', // @middy/ws-response
+    '@aws-sdk/client-appconfigdata', // @middy/appconfig
+    '@aws-sdk/client-dynamodb', // @middy/dynamodb
+    '@aws-sdk/util-dynamodb', // @middy/dynamodb
+    '@aws-sdk/client-glue', // @middy/glue-schema-registry
+    '@aws-sdk/client-kms', // @middy/kms
     '@aws-sdk/dsql-signer', // @middy/dsql-signer
-    '@aws-sdk/client-rds', // @middy/rds-signer
-    '@aws-sdk/client-s3', // @middy/s3-object-response
-    '@aws-sdk/client-secretsmanager', // @middy/sercrets-manager
+    '@aws-sdk/rds-signer', // @middy/rds-signer
+    '@aws-sdk/client-s3', // @middy/s3 @middy/s3-object-response
+    '@aws-sdk/client-secrets-manager', // @middy/secrets-manager
     '@aws-sdk/client-servicediscovery', // @middy/service-discovery
     '@aws-sdk/client-ssm', // @middy/ssm
     '@aws-sdk/client-sts' // @middy/sts
@@ -139,12 +145,17 @@ export default {
     'stream', // @middy/http-content-encoding @middy/s3-object-response
     'util', // @middy/http-content-encoding
     'zlib', // @middy/http-content-encoding
-    // AWS SDK
+    // AWS SDK: only when using the SDK provided by the Lambda runtime instead of bundling it
     '@aws-sdk/client-apigatewaymanagementapi', // @middy/ws-response
+    '@aws-sdk/client-appconfigdata', // @middy/appconfig
+    '@aws-sdk/client-dynamodb', // @middy/dynamodb
+    '@aws-sdk/util-dynamodb', // @middy/dynamodb
+    '@aws-sdk/client-glue', // @middy/glue-schema-registry
+    '@aws-sdk/client-kms', // @middy/kms
     '@aws-sdk/dsql-signer', // @middy/dsql-signer
-    '@aws-sdk/client-rds', // @middy/rds-signer
-    '@aws-sdk/client-s3', // @middy/s3-object-response
-    '@aws-sdk/client-secretsmanager', // @middy/sercrets-manager
+    '@aws-sdk/rds-signer', // @middy/rds-signer
+    '@aws-sdk/client-s3', // @middy/s3 @middy/s3-object-response
+    '@aws-sdk/client-secrets-manager', // @middy/secrets-manager
     '@aws-sdk/client-servicediscovery', // @middy/service-discovery
     '@aws-sdk/client-ssm', // @middy/ssm
     '@aws-sdk/client-sts' // @middy/sts
@@ -158,7 +169,7 @@ export default {
 
 ```bash
 npm i -D @babel/cli @babel/core @babel/preset-env
-node_modules/.bin/babel index.js --out-file index.transpile.babel.cjs
+node_modules/.bin/babel index.js --out-file index.transpile.babel.mjs
 ```
 
 #### babel.config.json
@@ -170,8 +181,9 @@ node_modules/.bin/babel index.js --out-file index.transpile.babel.cjs
       "@babel/preset-env",
       {
         "targets": {
-          "node": "16"
-        }
+          "node": "24"
+        },
+        "modules": false
       }
     ]
   ]
@@ -182,14 +194,14 @@ node_modules/.bin/babel index.js --out-file index.transpile.babel.cjs
 
 ```bash
 npm i -D esbuild
-node_modules/.bin/esbuild --platform=node --target=node16 --format=cjs index.js --outfile=index.cjs
+node_modules/.bin/esbuild --platform=node --target=node24 --format=esm index.js --outfile=index.mjs
 ```
 
 ### swc
 
 ```bash
 npm i -D @swc/cli @swc/core
-node_modules/.bin/swc index.js --out-file index.transpile.swc.cjs
+node_modules/.bin/swc index.js --out-file index.transpile.swc.mjs
 ```
 
 #### .swcrc
@@ -203,7 +215,7 @@ node_modules/.bin/swc index.js --out-file index.transpile.swc.cjs
     "target": "es2021"
   },
   "module": {
-    "type": "commonjs"
+    "type": "es6"
   }
 }
 ```

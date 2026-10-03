@@ -1,7 +1,6 @@
 import type middy from "@middy/core";
 import { expect, test } from "tstyche";
-
-import cloudformationResponse from "./index.js";
+import cloudformationResponse, * as indexModule from "./index.js";
 
 test("use with default options", () => {
 	const middleware = cloudformationResponse();
@@ -18,4 +17,11 @@ test("should not accept unknown or mistyped options", () => {
 	expect(cloudformationResponse).type.not.toBeCallableWith({
 		sendResponse: "no",
 	});
+});
+
+test("cloudformationResponseValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.CloudformationResponseOptions;
+	expect(
+		indexModule.cloudformationResponseValidateOptions(options),
+	).type.toBe<indexModule.CloudformationResponseOptions>();
 });

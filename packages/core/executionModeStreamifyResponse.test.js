@@ -108,6 +108,32 @@ describe("@middy/core/StreamifyResponse", () => {
 			strictEqual(chunkResponse(), input);
 		});
 
+		test("Should keep the outer middyContext intact under a nested executionModeStreamifyResponse", async (t) => {
+			const { responseStream } = createResponseStreamMockAndCapture();
+			const seen = {};
+			const inner = middy({
+				executionMode: executionModeStreamifyResponse,
+			}).handler((event, context) => {
+				seen.innerX = context.middyContext.x;
+				return "";
+			});
+			const outer = middy((event, context) =>
+				inner(event, responseStream, context),
+			)
+				.before((request) => {
+					request.context.middyContext.x = "outer";
+				})
+				.after((request) => {
+					seen.outerX = request.context.middyContext.x;
+					seen.outerIsOwn = Object.hasOwn(request.context.middyContext, "x");
+				});
+
+			await outer(event, { ...context });
+			strictEqual(seen.innerX, "outer");
+			strictEqual(seen.outerX, "outer");
+			strictEqual(seen.outerIsOwn, true);
+		});
+
 		test("Should throw with executionMode:executionModeStreamifyResponse using object", async (t) => {
 			const input = {};
 			const handler = middy(
@@ -125,9 +151,68 @@ describe("@middy/core/StreamifyResponse", () => {
 			} catch (e) {
 				strictEqual(
 					e.message,
-					"handler response not a Readable or ReadableStream",
+					"handler response not a string, Buffer, TypedArray, DataView, Readable or ReadableStream",
 				);
 			}
+		});
+
+		test("Should return with executionMode:executionModeStreamifyResponse using body Buffer", async (t) => {
+			const input = "x".repeat(1024);
+			const handler = middy(
+				(event, context, { signal }) => {
+					return {
+						statusCode: 200,
+						headers: { "Content-Type": "application/octet-stream" },
+						body: Buffer.from(input),
+					};
+				},
+				{
+					executionMode: executionModeStreamifyResponse,
+				},
+			);
+
+			const { responseStream, content } = createResponseStreamMockAndCapture();
+
+			const response = await handler(event, responseStream, context);
+			strictEqual(response, undefined);
+			strictEqual(content(), input);
+		});
+
+		test("Should return with executionMode:executionModeStreamifyResponse using Uint8Array", async (t) => {
+			const input = "x".repeat(1024);
+			const handler = middy(
+				(event, context, { signal }) => {
+					return new TextEncoder().encode(input);
+				},
+				{
+					executionMode: executionModeStreamifyResponse,
+				},
+			);
+
+			const { responseStream, chunkResponse } =
+				createResponseStreamMockAndCapture();
+
+			const response = await handler(event, responseStream, context);
+			strictEqual(response, undefined);
+			strictEqual(chunkResponse(), input);
+		});
+
+		test("Should return with executionMode:executionModeStreamifyResponse using a DataView over part of a buffer", async (t) => {
+			const bytes = new TextEncoder().encode("__payload__");
+			const handler = middy(
+				(event, context, { signal }) => {
+					return new DataView(bytes.buffer, 2, 7);
+				},
+				{
+					executionMode: executionModeStreamifyResponse,
+				},
+			);
+
+			const { responseStream, chunkResponse } =
+				createResponseStreamMockAndCapture();
+
+			await handler(event, responseStream, context);
+			strictEqual(chunkResponse(), "payload");
 		});
 
 		test("Should return with executionMode:executionModeStreamifyResponse using body undefined", async (t) => {
@@ -516,7 +601,7 @@ describe("@middy/core/StreamifyResponse", () => {
 			} catch (e) {
 				strictEqual(
 					e.message,
-					"handler response not a Readable or ReadableStream",
+					"handler response not a string, Buffer, TypedArray, DataView, Readable or ReadableStream",
 				);
 				strictEqual(e.cause.package, "@middy/core");
 			}
@@ -610,8 +695,8 @@ describe("@middy/core/StreamifyResponse", () => {
 			strictEqual(writes[0], "");
 		});
 
-		// The `handlerError` these guards protect is a *stream write* failure, not
-		// the handler's throw, so it can only be a primitive if the response stream
+		// The request error in these tests is a *stream write* failure, not the
+		// handler's throw, so it can only be a primitive if the response stream
 		// itself throws one.
 		const throwingStream = (thrown) => ({
 			write: () => {
@@ -622,7 +707,7 @@ describe("@middy/core/StreamifyResponse", () => {
 			on: () => {},
 		});
 
-		test("Should keep a primitive stream error when requestEnd also throws in streamify mode", async (t) => {
+		test("Should throw AggregateError for a primitive stream error when requestEnd also throws in streamify mode", async (t) => {
 			const handler = middy(async () => "ok", {
 				executionMode: executionModeStreamifyResponse,
 				requestEnd: () => {
@@ -634,11 +719,12 @@ describe("@middy/core/StreamifyResponse", () => {
 				await handler(event, throwingStream("write boom"), context);
 				throw new Error("Expected stream error to propagate");
 			} catch (e) {
-				strictEqual(e, "write boom");
+				ok(e instanceof AggregateError);
+				strictEqual(e.errors[0], "write boom");
 			}
 		});
 
-		test("Should keep a null stream error when requestEnd also throws in streamify mode", async (t) => {
+		test("Should throw AggregateError for a null stream error when requestEnd also throws in streamify mode", async (t) => {
 			const handler = middy(async () => "ok", {
 				executionMode: executionModeStreamifyResponse,
 				requestEnd: () => {
@@ -650,13 +736,12 @@ describe("@middy/core/StreamifyResponse", () => {
 				await handler(event, throwingStream(null), context);
 				throw new Error("Expected stream error to propagate");
 			} catch (e) {
-				strictEqual(e, null);
+				ok(e instanceof AggregateError);
+				strictEqual(e.errors[0], null);
 			}
 		});
 
-		test("Should keep a primitive handler error when requestEnd also throws in streamify mode", async (t) => {
-			// Primitives cannot carry a `cause`; assigning one throws in strict mode,
-			// so the guard must skip it and let the handler error propagate.
+		test("Should throw AggregateError for a primitive handler error when requestEnd also throws in streamify mode", async (t) => {
 			const handler = middy(
 				async () => {
 					throw "boom";
@@ -674,13 +759,12 @@ describe("@middy/core/StreamifyResponse", () => {
 				await handler(event, responseStream, context);
 				throw new Error("Expected handler error to propagate");
 			} catch (e) {
-				strictEqual(e, "boom");
+				ok(e instanceof AggregateError);
+				strictEqual(e.errors[0], "boom");
 			}
 		});
 
-		test("Should keep a null handler error when requestEnd also throws in streamify mode", async (t) => {
-			// `typeof null === "object"`, so only the explicit null check keeps the
-			// `cause` assignment off it.
+		test("Should throw AggregateError for a null handler error when requestEnd also throws in streamify mode", async (t) => {
 			const handler = middy(
 				async () => {
 					throw null;
@@ -698,7 +782,8 @@ describe("@middy/core/StreamifyResponse", () => {
 				await handler(event, responseStream, context);
 				throw new Error("Expected handler error to propagate");
 			} catch (e) {
-				strictEqual(e, null);
+				ok(e instanceof AggregateError);
+				strictEqual(e.errors[0], null);
 			}
 		});
 
@@ -741,7 +826,7 @@ describe("@middy/core/StreamifyResponse", () => {
 			}
 		});
 
-		test("Should preserve pipeline error when requestEnd hook also throws in streamify mode", async (t) => {
+		test("Should throw AggregateError of pipeline and hook errors when requestEnd hook also throws in streamify mode", async (t) => {
 			const pipelineErr = new Error("pipeline failed");
 			const hookErr = new Error("requestEnd failed");
 			const handler = middy(
@@ -764,8 +849,9 @@ describe("@middy/core/StreamifyResponse", () => {
 				await handler(event, responseStream, context);
 				throw new Error("Expected pipeline error to propagate");
 			} catch (e) {
-				strictEqual(e, pipelineErr);
-				strictEqual(e.cause, hookErr);
+				ok(e instanceof AggregateError);
+				strictEqual(e.errors[0], pipelineErr);
+				strictEqual(e.errors[1], hookErr);
 			}
 		});
 
@@ -806,8 +892,10 @@ describe("@middy/core/StreamifyResponse", () => {
 			strictEqual(requestEnd.mock.callCount(), 1);
 		});
 
-		test("Should attach requestEnd error as cause when both handler and requestEnd throw in streamify mode", async (t) => {
-			const handlerErr = new Error("handler failed");
+		test("Should throw AggregateError when both handler and requestEnd throw in streamify mode", async (t) => {
+			const handlerErr = new Error("handler failed", {
+				cause: { package: "@middy/core" },
+			});
 			const hookErr = new Error("requestEnd failed");
 			const handler = middy(
 				async () => {
@@ -824,8 +912,33 @@ describe("@middy/core/StreamifyResponse", () => {
 			const { responseStream } = createResponseStreamMockAndCapture();
 			await rejects(
 				() => handler(event, responseStream, context),
-				(e) => e === handlerErr && e.cause === hookErr,
+				(e) =>
+					e instanceof AggregateError &&
+					e.errors[0] === handlerErr &&
+					e.errors[1] === hookErr &&
+					handlerErr.cause.package === "@middy/core",
 			);
+		});
+
+		test("Should not write the HTTP prelude when the body type is invalid", async (t) => {
+			// The prelude commits a 200 to the client; writing it before the body
+			// check left an unterminated stream behind the thrown error.
+			const handler = middy({
+				executionMode: executionModeStreamifyResponse,
+			}).handler(() => {
+				return { statusCode: 200, body: { data: "not a stream" } };
+			});
+
+			const { responseStream, chunkResponse } =
+				createResponseStreamMockAndCapture();
+			await rejects(
+				() => handler(event, responseStream, context),
+				(e) =>
+					e.message ===
+						"handler response not a string, Buffer, TypedArray, DataView, Readable or ReadableStream" &&
+					e.cause.package === "@middy/core",
+			);
+			strictEqual(chunkResponse(), "");
 		});
 
 		// L49 - invalid (non-stream, non-string) handler response must throw
@@ -844,7 +957,7 @@ describe("@middy/core/StreamifyResponse", () => {
 				threw = true;
 				strictEqual(
 					e.message,
-					"handler response not a Readable or ReadableStream",
+					"handler response not a string, Buffer, TypedArray, DataView, Readable or ReadableStream",
 				);
 				strictEqual(e.cause.package, "@middy/core");
 			}

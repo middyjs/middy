@@ -6,6 +6,7 @@ import type {
 	SQSEvent,
 } from "aws-lambda";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import ecsBatchRunner, {
 	ecsBatchValidateOptions,
 	type Poller,
@@ -104,7 +105,20 @@ test("ecsBatchRunner returns Promise", () => {
 	expect(result).type.toBe<Promise<unknown>>();
 });
 
-test("ecsBatchValidateOptions accepts a record", () => {
-	expect(ecsBatchValidateOptions).type.toBeCallableWith({});
+test("ecsBatchValidateOptions rejects options missing required keys", () => {
+	expect(ecsBatchValidateOptions).type.not.toBeCallableWith({});
 	expect(ecsBatchValidateOptions).type.toBeCallableWith();
+});
+
+test("Poller.poll takes an optional reporter for failures that do not end the poll", () => {
+	expect<Parameters<Poller<SQSEvent>["poll"]>[1]>().type.toBe<
+		((error: Error, event?: SQSEvent) => void) | undefined
+	>();
+});
+
+test("ecsBatchValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.RunnerOptions;
+	expect(
+		indexModule.ecsBatchValidateOptions(options),
+	).type.toBe<indexModule.RunnerOptions>();
 });

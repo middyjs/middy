@@ -31,14 +31,33 @@ export interface DsqlOptions<
 	cacheKey?: string;
 	cacheKeyExpiry?: { [key: string]: number };
 	cacheExpiry?: number;
+	cacheMaxSize?: number;
 }
 
-declare function dsqlMiddleware(
-	options: DsqlOptions,
-): middy.MiddlewareObj<unknown, unknown, Error>;
+/**
+ * The Lambda context with the connected client under
+ * `context.middyContext[contextKey]` (`"dsql"` by default). The Lambda context
+ * is read off `middy.Request` rather than imported from `aws-lambda`, which
+ * this package does not declare as a peer.
+ */
+export type Context<
+	TClient = unknown,
+	TKey extends string = "dsql",
+> = middy.Request["context"] & { middyContext: { [Key in TKey]: TClient } };
 
-export declare function dsqlValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+declare function dsqlMiddleware<
+	TClient,
+	TConfig extends DsqlBaseConfig = DsqlBaseConfig,
+	TKey extends string = "dsql",
+>(
+	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
+	// key narrows `middyContext` without `as const`; `TClient` comes from the
+	// adapter passed as `client`.
+	options: DsqlOptions<TClient, TConfig> & { contextKey?: TKey },
+): middy.MiddlewareObj<unknown, unknown, Error, Context<TClient, TKey>>;
+
+export declare function dsqlValidateOptions<
+	TOptions extends DsqlOptions<any, any>,
+>(options?: TOptions): TOptions;
 
 export default dsqlMiddleware;

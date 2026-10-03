@@ -116,11 +116,6 @@ jobs:
           npm ci --ignore-scripts
       # allowed-endpoints: >
       #   registry.npmjs.org:443
-      - name: Build
-        run: |
-          npm run build --if-present
-      # allowed-endpoints: >
-      #   registry.npmjs.org:443
       - name: Mutation tests
         env:
           MUTATE_PACKAGE: ${{ matrix.package }}

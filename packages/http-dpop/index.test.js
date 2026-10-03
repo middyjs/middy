@@ -1,7 +1,9 @@
 import { deepEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { constants, generateKeyPairSync, sign } from "node:crypto";
 import { describe, test } from "node:test";
+import { SignJWT } from "jose";
 import middy from "../core/index.js";
+import httpJwt from "../http-jwt/index.js";
 import realHttpDpop, {
 	accessTokenHash,
 	httpDpopValidateOptions,
@@ -596,6 +598,196 @@ describe("@middy/http-dpop", () => {
 			);
 			strictEqual(result.dpop.jti, "proof-1");
 		}
+	});
+
+	test("It should read headers in any casing API Gateway REST passes through", async () => {
+		// Field names are case-insensitive (RFC 9110 5.1), and API Gateway REST
+		// hands the Lambda the client's own casing.
+		const key = keyFor();
+		const handler = makeHandler(boundPayload(key));
+
+		const result = await handler(
+			{
+				path: PATH,
+				httpMethod: "GET",
+				headers: {
+					AUTHORIZATION: `DPoP ${TOKEN}`,
+					DPOP: proofFor(key),
+				},
+				requestContext: { domainName: DOMAIN },
+			},
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.dpop.jti, "proof-1");
+	});
+
+	test("It should reject two DPoP headers that differ only in casing", async () => {
+		const key = keyFor();
+		const handler = makeHandler(boundPayload(key));
+
+		const result = await handler(
+			makeEvent({
+				dpop: proofFor(key),
+				headers: { DPoP: proofFor(key, { jti: "proof-2" }) },
+			}),
+			{ ...defaultContext },
+		).catch((e) => e);
+
+		strictEqual(result.statusCode, 401);
+	});
+
+	// ALB with multi-value headers enabled sends `multiValueHeaders` and no `headers`.
+	// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+	test("It should read headers from ALB multiValueHeaders", async () => {
+		const key = keyFor();
+		const handler = makeHandler(boundPayload(key), {
+			origin: `https://${DOMAIN}`,
+		});
+
+		const result = await handler(
+			{
+				httpMethod: "GET",
+				path: PATH,
+				multiValueHeaders: {
+					authorization: [`DPoP ${TOKEN}`],
+					dpop: [proofFor(key)],
+				},
+				requestContext: { elb: { targetGroupArn: "arn" } },
+			},
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.dpop.jti, "proof-1");
+	});
+
+	// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html
+	test("It should read the method and path of a VPC Lattice V2 event", async () => {
+		const key = keyFor();
+		const handler = makeHandler(boundPayload(key), {
+			origin: `https://${DOMAIN}`,
+		});
+
+		const result = await handler(
+			{
+				version: "2.0",
+				path: `${PATH}?a=1`,
+				method: "GET",
+				headers: {
+					authorization: [`DPoP ${TOKEN}`],
+					dpop: [proofFor(key)],
+				},
+				requestContext: { serviceArn: "arn" },
+			},
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.dpop.jti, "proof-1");
+	});
+
+	test("It should read the method and path of a VPC Lattice V1 event", async () => {
+		const key = keyFor();
+		const handler = makeHandler(boundPayload(key), {
+			origin: `https://${DOMAIN}`,
+		});
+
+		const result = await handler(
+			{
+				raw_path: `${PATH}?a=1`,
+				method: "GET",
+				headers: {
+					authorization: `DPoP ${TOKEN}`,
+					dpop: proofFor(key),
+				},
+			},
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.dpop.jti, "proof-1");
+	});
+
+	// RFC 9449 §4.3 check 11: `ath` is checked against the access token that was
+	// presented, and §7.1 requires that token in the DPoP Authorization header.
+	// The verifier publishes the token it verified; the Authorization token must
+	// be that same token, or the proof could be bound to one token while another
+	// (from a cookie, say) was verified.
+	test("It should accept when the Authorization token is the one the verifier verified", async () => {
+		const key = keyFor();
+		const handler = middy((event, context) => context.middyContext)
+			.before((request) => {
+				request.internal.jwt = boundPayload(key);
+				request.internal.jwtToken = TOKEN;
+			})
+			.use(httpDpop({ setToContext: true }));
+
+		const result = await handler(makeEvent({ dpop: proofFor(key) }), {
+			...defaultContext,
+		});
+
+		strictEqual(result.dpop.jti, "proof-1");
+	});
+
+	test("It should reject when the Authorization token is not the one the verifier verified", async () => {
+		const key = keyFor();
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.jwt = boundPayload(key);
+				request.internal.jwtToken = "a.different.token";
+			})
+			.use(httpDpop());
+
+		const result = await handler(makeEvent({ dpop: proofFor(key) }), {
+			...defaultContext,
+		}).catch((e) => e);
+
+		strictEqual(result.statusCode, 401);
+		ok(result.cause.data.reason.includes("verified"));
+	});
+
+	test("It should read the verified token from a custom tokenKey", async () => {
+		const key = keyFor();
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.paseto = boundPayload(key);
+				request.internal.raw = "a.different.token";
+			})
+			.use(httpDpop({ payloadKey: "paseto", tokenKey: "raw" }));
+
+		const result = await handler(makeEvent({ dpop: proofFor(key) }), {
+			...defaultContext,
+		}).catch((e) => e);
+
+		strictEqual(result.statusCode, 401);
+	});
+
+	test("It should reject a proof for the Authorization token when http-jwt verified a cookie token", async () => {
+		const key = keyFor();
+		const secret = "super-secret-key-for-testing-1234";
+		const cookieToken = await new SignJWT({ cnf: { jkt: key.jkt } })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
+			.setExpirationTime("1h")
+			.sign(Buffer.from(secret));
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.hmac = secret;
+			})
+			.use(
+				httpJwt({
+					internalKey: "hmac",
+					algorithm: "HS256",
+					tokenCookieName: "session",
+				}),
+			)
+			.use(httpDpop());
+
+		// The proof binds TOKEN, sent under the DPoP scheme; the bound token that
+		// was verified came from the cookie.
+		const event = makeEvent({ dpop: proofFor(key) });
+		event.headers.cookie = `session=${cookieToken}`;
+		const result = await handler(event, { ...defaultContext }).catch((e) => e);
+
+		strictEqual(result.statusCode, 401);
+		ok(result.cause.data.reason.includes("verified"));
 	});
 
 	test("It should ignore headers that are not strings", async () => {
@@ -1444,8 +1636,8 @@ describe("@middy/http-dpop", () => {
 	});
 
 	test("It should throw a 500 when the event carries no method", async () => {
-		// A VPC Lattice event, or anything else without `requestContext.http.method`
-		// or `httpMethod`, gives the verifier nothing to hold `htm` against. That
+		// An event without `requestContext.http.method`, `httpMethod` or
+		// `method` gives the verifier nothing to hold `htm` against. That
 		// is a shape the operator has to act on, not a proof the caller got wrong.
 		const key = keyFor();
 		const handler = makeHandler(boundPayload(key));

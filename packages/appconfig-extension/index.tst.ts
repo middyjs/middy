@@ -2,6 +2,7 @@ import middy from "@middy/core";
 import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import appConfigExtension, {
 	type AppConfigExtensionOptions,
 	appConfigExtensionParam,
@@ -19,6 +20,7 @@ test("use with all options", () => {
 		disablePrefetch: true,
 		cacheKey: "some-key",
 		cacheExpiry: 60 * 60 * 1000,
+		cacheMaxSize: 100,
 		setToContext: false as const,
 	};
 	expect(appConfigExtension(options)).type.toBe<
@@ -141,4 +143,24 @@ test("contextKey literal narrows middyContext without as const", () => {
 				field1: string;
 			}>();
 		});
+});
+
+test("accepts cacheMaxSize", () => {
+	expect(appConfigExtension).type.toBeCallableWith({ cacheMaxSize: 100 });
+});
+
+test("rejects misspelled option alongside fetchData", () => {
+	expect(appConfigExtension).type.not.toBeCallableWith({
+		fetchData: {
+			lorem: { application: "app", environment: "dev", configuration: "c" },
+		},
+		cacheExpiery: 1000,
+	});
+});
+
+test("appConfigExtensionValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.AppConfigExtensionOptions;
+	expect(
+		indexModule.appConfigExtensionValidateOptions(options),
+	).type.toBe<indexModule.AppConfigExtensionOptions>();
 });

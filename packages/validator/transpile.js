@@ -40,7 +40,24 @@ const instance = ({ keywords = [], ...options } = {}) => {
 	ajvFormats(ajv);
 	ajvFormatsDraft2019(ajv);
 	ajvKeywords(ajv);
-	ajvErrors(ajv);
+	// ajv-errors throws unless allErrors is on; with allErrors off, validation
+	// bails on the first error instead of collecting one per failing item.
+	if (ajv.opts.allErrors) {
+		ajvErrors(ajv);
+	} else {
+		// Stand-in so a schema using `errorMessage` fails with a pointer to the
+		// fix, rather than ajv's "unknown keyword" (or, with strict: false, the
+		// keyword being silently ignored).
+		ajv.addKeyword({
+			keyword: "errorMessage",
+			compile: () => {
+				throw new Error(
+					`${pkg} errorMessage requires ajvOptions { allErrors: true }`,
+					{ cause: { package: pkg, data: { keyword: "errorMessage" } } },
+				);
+			},
+		});
+	}
 	// The plugins above register their keyword sets with `addKeyword`, which
 	// throws on a name that is already defined. The caller's `keywords` are
 	// held back from the constructor and added last, so a user definition
@@ -96,7 +113,7 @@ export const nestedSchema = (pointer, schema) => {
 const ajvDefaults = {
 	strict: true,
 	coerceTypes: "array", // important for query string params
-	allErrors: true, // required for ajvErrors
+	allErrors: false, // bounded errors on untrusted input; errorMessage needs true
 	useDefaults: "empty",
 	messages: true, // needs to be true to allow multi-locale errorMessage to work
 };

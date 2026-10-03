@@ -7,6 +7,15 @@ import { executionModeStandard } from "./executionModeStandard.js";
 const name = "core";
 const pkg = `@middy/${name}`;
 
+// Marks the context whose middleware/handler stack is running, pointing at
+// that request's namespace. A middy invoked from inside it (a router's route
+// handler, a batch record handler) gets a context derived from the outer one,
+// so reads fall through to the outer values while its own writes, and those of
+// concurrent siblings, never touch the outer context. The mark is cleared when
+// the stack settles, so a reused context starts fresh on the next invocation.
+// A symbol on the context costs ~nothing; a WeakSet added ~80ns/invocation.
+const inFlight = Symbol("middy.inFlight");
+
 const defaultLambdaHandler = () => {};
 const noop = () => {};
 const defaultPluginConfig = {
@@ -58,10 +67,16 @@ export const middy = (setupLambdaHandler, pluginConfig) => {
 	// Allow base handler to be set using .handler()
 	if (typeof setupLambdaHandler === "function") {
 		lambdaHandler = setupLambdaHandler;
-		plugin = { ...defaultPluginConfig, ...pluginConfig };
+		plugin = { ...pluginConfig };
 	} else {
 		lambdaHandler = defaultLambdaHandler;
-		plugin = { ...defaultPluginConfig, ...setupLambdaHandler };
+		plugin = { ...setupLambdaHandler };
+	}
+	// Per-key rather than a defaults spread, so an explicit `undefined` still
+	// falls back to the default. `null` is kept: `timeoutEarlyInMillis: null`
+	// disables the early timeout, as it always has.
+	for (const key in defaultPluginConfig) {
+		if (plugin[key] === undefined) plugin[key] = defaultPluginConfig[key];
 	}
 	plugin.timeoutEarly = plugin.timeoutEarlyInMillis > 0;
 
@@ -77,7 +92,13 @@ export const middy = (setupLambdaHandler, pluginConfig) => {
 	const onErrorMiddlewares = [];
 
 	const middyRequest = (event = {}, context = {}) => {
-		context.middyContext = Object.create(null);
+		const parent = context.middyContext;
+		if (parent !== undefined && context[inFlight] === parent) {
+			context = Object.create(context);
+			context.middyContext = Object.create(parent);
+		} else {
+			context.middyContext = Object.create(null);
+		}
 		return {
 			event,
 			context,
@@ -158,6 +179,9 @@ const runRequest = async (
 	const timeoutEarly = plugin.timeoutEarly && getRemainingTimeInMillis;
 	const beforeMiddlewareHook = plugin.beforeMiddleware;
 	const afterMiddlewareHook = plugin.afterMiddleware;
+	// Captured now, so the mark is cleared on this request's own context.
+	const { context } = request;
+	context[inFlight] = context.middyContext;
 
 	try {
 		for (let i = 0, len = beforeMiddlewares.length; i < len; i++) {
@@ -207,14 +231,19 @@ const runRequest = async (
 							}
 						};
 					});
-					// Clamp to >= 0: when remaining Lambda time is below
+					// Clamp to [0, 2^31-1]: when remaining Lambda time is below
 					// timeoutEarlyInMillis the raw delay is negative, which would emit
-					// a TimeoutNegativeWarning. A 0ms delay fires on the next tick.
+					// a TimeoutNegativeWarning (a 0ms delay fires on the next tick).
+					// Above 2^31-1 Node emits TimeoutOverflowWarning and fires after
+					// 1ms; non-Lambda hosts (ECS) can report remaining times that large.
 					timeoutID = setTimeout(
 						timeoutResolve,
-						Math.max(
-							0,
-							getRemainingTimeInMillis() - plugin.timeoutEarlyInMillis,
+						Math.min(
+							2147483647,
+							Math.max(
+								0,
+								getRemainingTimeInMillis() - plugin.timeoutEarlyInMillis,
+							),
 						),
 					);
 					request.response = await Promise.race([
@@ -290,6 +319,8 @@ const runRequest = async (
 		}
 		// Catch if onError stack hasn't handled the error
 		if (typeof request.response === "undefined") throw request.error;
+	} finally {
+		context[inFlight] = undefined;
 	}
 
 	return request.response;

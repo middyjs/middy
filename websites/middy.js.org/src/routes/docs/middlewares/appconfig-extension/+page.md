@@ -30,17 +30,19 @@ npm install --save @middy/appconfig-extension
   - `configuration` (string) (required): Configuration profile name or ID.
   - `flag` (string | string[]) (optional): One or more feature flag keys to filter the response.
 - `disablePrefetch` (boolean) (default `false`): Disable prefetching on cold start.
-- `cacheKey` (string) (default `@middy/appconfig-extension`): Cache key for the fetched data. Must be unique across middleware.
-- `cacheKeyExpiry` (object) (default `{}`): Per-`fetchData`-key cache expiry overrides (ms; `-1` = forever, `0` = no cache).
-- `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
+- `cacheKey` (string) (default `@middy/appconfig-extension`): Cache key for the fetched data. Each instance of this middleware needs its own `cacheKey`: reusing one with a different `fetchData` throws a `TypeError`.
+- `cacheKeyExpiry` (object) (default `{}`): Per-`cacheKey` expiry override, `{ [cacheKey]: cacheExpiry }` (ms; `-1` = forever, `0` = no cache); a unix timestamp in ms above 86400000 is treated as an absolute expiry. It is keyed by the middleware's `cacheKey`, not by `fetchData` key.
+- `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached. `-1`: cache forever, `0`: never cache, `n`: cache for n ms. Values above `86400000` are unix timestamps (ms): one before 2001-01-01 (`978307200000`) can only be a mistyped duration and throws at construction, while a real timestamp that has passed just leaves the entry expired.
+- `cacheMaxSize` (number) (default `128`): Maximum number of entries kept in the shared middleware cache; the oldest expiring entry is evicted when exceeded.
 - `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext['appconfig-extension']`.
-- `contextKey` (string) (default `appconfig-extension`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.
+- `contextKey` (string) (default `appconfig-extension`): The key under `context.middyContext` used when `setToContext` is `true`. To run two instances side by side, override it and set a distinct `cacheKey` on each.
 
 ## Notes
 
 - Lambda is required to have IAM permission for `appconfig:StartConfigurationSession` and `appconfig:GetLatestConfiguration`.
 - The extension polls AppConfig on a schedule controlled by `AWS_APPCONFIG_EXTENSION_POLL_INTERVAL_SECONDS`. Set `cacheExpiry` to match this interval to avoid serving stale configuration.
 - The extension listens on port `2772` by default. Override with the `AWS_APPCONFIG_EXTENSION_HTTP_PORT` environment variable.
+- Each request to the extension is aborted 500 ms before the invocation would time out (at least 1 s; 30 s during prefetch), so a hung call fails and its cache entry is cleared instead of Lambda cutting the invocation off.
 
 ## Troubleshooting
 

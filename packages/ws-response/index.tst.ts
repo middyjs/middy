@@ -2,7 +2,7 @@ import { ApiGatewayManagementApiClient } from "@aws-sdk/client-apigatewaymanagem
 import type middy from "@middy/core";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expect, test } from "tstyche";
-import wsResponse from "./index.js";
+import wsResponse, * as indexModule from "./index.js";
 
 test("use with default options", () => {
 	const middleware = wsResponse();
@@ -18,4 +18,15 @@ test("use with all options", () => {
 		disablePrefetch: true,
 	});
 	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
+});
+
+test("wsResponseValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.Options;
+	expect(
+		indexModule.wsResponseValidateOptions(options),
+	).type.toBe<indexModule.Options>();
+});
+
+test("rejects misspelled option", () => {
+	expect(wsResponse).type.not.toBeCallableWith({ awsClientOption: {} });
 });

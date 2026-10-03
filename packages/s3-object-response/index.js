@@ -151,7 +151,19 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
 		const { inputS3Url } = request.event.getObjectContext ?? {};
 
 		if (inputS3Url) assertAllowedInputUrl(inputS3Url);
-		const s3ObjectFetch = inputS3Url ? fetch(inputS3Url) : undefined;
+		// A GET that hangs past the invocation would be cut off by Lambda; abort
+		// it 500 ms early instead so the failure surfaces. Outside Lambda (no
+		// remaining-time budget) allow 30 s.
+		const s3ObjectFetch = inputS3Url
+			? fetch(inputS3Url, {
+					signal: AbortSignal.timeout(
+						Math.max(
+							1000,
+							(request.context.getRemainingTimeInMillis?.() ?? 30_000) - 500,
+						),
+					),
+				})
+			: undefined;
 		// Suppress an unhandledRejection without swallowing the error: a consumer
 		// that awaits context.middyContext[contextKey] still observes the real rejection.
 		s3ObjectFetch?.catch(() => {});

@@ -5,6 +5,7 @@ import type {
 	APIGatewayProxyEventV2,
 } from "aws-lambda";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import multipartBodyParser, { type Event } from "./index.js";
 
 test("use with default options", () => {
@@ -64,4 +65,15 @@ test("allow specifying the event type", () => {
 	expect(albMiddleware).type.toBe<
 		middy.MiddlewareObj<Event<ALBEvent>, unknown, Error>
 	>();
+});
+
+test("httpMultipartBodyParserValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.Options;
+	expect(
+		indexModule.httpMultipartBodyParserValidateOptions(options),
+	).type.toBe<indexModule.Options>();
+});
+
+test("rejects misspelled option", () => {
+	expect(multipartBodyParser).type.not.toBeCallableWith({ charSet: "utf-8" });
 });

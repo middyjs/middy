@@ -4,7 +4,15 @@ import type { Context as LambdaContext } from "aws-lambda";
 
 export interface Poller<TEvent, TResponse = unknown> {
 	source: string;
-	poll: (signal: AbortSignal) => AsyncIterable<TEvent>;
+	/**
+	 * `onError` reports a failure that does not end the poll, such as a batch
+	 * discarded after its retry limit. A throw ends it; an error named
+	 * `SourceClosedError` (a closed shard) stops the task with exit code 2.
+	 */
+	poll: (
+		signal: AbortSignal,
+		onError?: (error: Error, event?: TEvent) => void,
+	) => AsyncIterable<TEvent>;
 	acknowledge: (event: TEvent, response: TResponse) => Promise<void> | void;
 }
 
@@ -29,8 +37,11 @@ export interface RunnerOptions<TEvent = unknown, TResult = unknown> {
 	gracefulShutdownMs?: number;
 	/**
 	 * Called when the handler or `acknowledge` throws for a batch (`event` is
-	 * that batch), or when the poller itself fails (`event` is undefined; the
-	 * worker then exits with code 1 and the primary re-forks it with backoff).
+	 * that batch), when a poller gives up on records and keeps polling
+	 * ("Retry attempts exhausted", "Records trimmed from the stream"), or when
+	 * the poller itself fails (`event` is undefined; the worker then exits
+	 * with code 1 and the primary re-forks it with backoff, or with code 2 for
+	 * a `SourceClosedError` and the primary stops the task).
 	 */
 	onError?: (error: Error, event?: TEvent) => void;
 	contextOverride?: {
@@ -45,9 +56,9 @@ declare function ecsBatchRunner<TEvent = unknown, TResult = unknown>(
 
 export { ecsBatchRunner };
 
-export declare function ecsBatchValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function ecsBatchValidateOptions<
+	TOptions extends RunnerOptions<any, any>,
+>(options?: TOptions): TOptions;
 
 export declare function fetchEcsMetadata(
 	uri?: string,

@@ -15,6 +15,10 @@ const defaults = {
 	timeout: 60_000,
 	bodyLimit: 10 * 1024 * 1024,
 	trustedProxies: 1,
+	// ECS sends SIGKILL stopTimeout (default 30s) after SIGTERM; 5s is left for
+	// the primary to see its workers exit and exit itself.
+	// https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#container_definition_timeout
+	gracefulShutdownMs: 25_000,
 };
 
 const optionSchema = {
@@ -28,6 +32,7 @@ const optionSchema = {
 		timeout: { type: "integer", minimum: 0 },
 		bodyLimit: { type: "integer", minimum: 0 },
 		trustedProxies: { type: "integer", minimum: 0 },
+		gracefulShutdownMs: { type: "integer", minimum: 0 },
 		contextOverride: {
 			type: "object",
 			properties: {
@@ -62,7 +67,10 @@ export const fetchEcsMetadata = async (
 			region: arnParts[3],
 			taskArn: arn || undefined,
 			family: task.Family,
-			revision: task.Revision != null ? String(task.Revision) : undefined,
+			revision:
+				task.Revision !== undefined && task.Revision !== null
+					? String(task.Revision)
+					: undefined,
 		};
 	} catch {
 		return {};
@@ -71,7 +79,7 @@ export const fetchEcsMetadata = async (
 
 const writeEcsEnv = (meta, env = process.env) => {
 	for (const key of ecsEnvKeys) {
-		if (meta[key] != null)
+		if (meta[key] !== undefined && meta[key] !== null)
 			env[`${ecsEnvPrefix}${key.toUpperCase()}`] = meta[key];
 	}
 };
@@ -80,7 +88,7 @@ export const readEcsEnv = (env = process.env) => {
 	const out = {};
 	for (const key of ecsEnvKeys) {
 		const v = env[`${ecsEnvPrefix}${key.toUpperCase()}`];
-		if (v != null) out[key] = v;
+		if (v !== undefined && v !== null) out[key] = v;
 	}
 	return out;
 };
@@ -176,13 +184,15 @@ const splitUrl = (rawUrl) => {
 };
 
 // Only v1 carries multiValueQueryStringParameters; v2 would otherwise
-// allocate the multi-value map on every request and discard it.
+// allocate the multi-value map on every request and discard it. Format 2.0
+// combines duplicate query strings with commas instead.
+// https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html
 const collectQuery = (queryString) => {
 	const single = Object.create(null);
 	const params = new URLSearchParams(queryString);
 	let size = 0;
 	for (const [k, v] of params.entries()) {
-		single[k] = v;
+		single[k] = k in single ? `${single[k]},${v}` : v;
 		size++;
 	}
 	return { single, size };
@@ -345,6 +355,21 @@ export const buildContext = ({
 		Math.max(0, timeout - (Date.now() - requestStart)),
 });
 
+// API Gateway REST (format 1.0) and ALB multi-value responses carry repeated
+// headers such as set-cookie in multiValueHeaders. With both maps set, API
+// Gateway merges them per header, listing a value found in both only once.
+// https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-output-format
+const mergeMultiValueHeaders = (headers, multiValueHeaders) => {
+	const keys = new Map(Object.keys(headers).map((k) => [k.toLowerCase(), k]));
+	for (const [name, values] of Object.entries(multiValueHeaders)) {
+		const key = keys.get(name.toLowerCase()) ?? name;
+		const merged = [...values];
+		const single = headers[key];
+		if (single !== undefined && !merged.includes(single)) merged.push(single);
+		headers[key] = merged;
+	}
+};
+
 export const writeResponse = (res, result) => {
 	let statusCode = 200;
 	let headers = {};
@@ -366,6 +391,9 @@ export const writeResponse = (res, result) => {
 		const r = result ?? {};
 		statusCode = r.statusCode ?? 200;
 		headers = { ...(r.headers ?? {}) };
+		if (r.multiValueHeaders) {
+			mergeMultiValueHeaders(headers, r.multiValueHeaders);
+		}
 		body = r.body;
 		isBase64Encoded = r.isBase64Encoded ?? false;
 		cookies = r.cookies;
@@ -374,19 +402,35 @@ export const writeResponse = (res, result) => {
 	if (Array.isArray(cookies) && cookies.length > 0) {
 		headers["set-cookie"] = cookies;
 	}
+	// Settle the payload before writeHead: anything that throws here still
+	// reaches writeError with the headers unsent. res.end only takes a string
+	// or bytes, so any other body is sent as JSON.
+	let payload;
+	if (body === undefined || body === null || body === "") {
+		payload = undefined;
+	} else if (isBase64Encoded) {
+		payload = Buffer.from(body, "base64");
+	} else if (typeof body === "string" || body instanceof Uint8Array) {
+		payload = body;
+	} else {
+		payload = JSON.stringify(body);
+	}
 	res.writeHead(statusCode, headers);
-	if (body == null || body === "") {
+	if (payload === undefined) {
 		res.end();
 		return;
 	}
-	if (isBase64Encoded) {
-		res.end(Buffer.from(body, "base64"));
-		return;
-	}
-	res.end(body);
+	res.end(payload);
 };
 
 const writeError = (res, err) => {
+	// A failure after writeHead cannot become an error response; writeHead
+	// would throw ERR_HTTP_HEADERS_SENT out of the request handler. Drop the
+	// connection so the client sees the response was cut short.
+	if (res.headersSent) {
+		res.destroy();
+		return;
+	}
 	const statusCode =
 		typeof err?.statusCode === "number" && err.statusCode >= 400
 			? err.statusCode
@@ -404,26 +448,43 @@ const writeError = (res, err) => {
 // avoids the Promise + listener registrations + Buffer.concat per request.
 const requestHasBody = (headers) => {
 	const cl = headers["content-length"];
-	if (cl != null && cl !== "0" && cl !== "") return true;
-	if (headers["transfer-encoding"] != null) return true;
+	if (cl !== undefined && cl !== null && cl !== "0" && cl !== "") return true;
+	const te = headers["transfer-encoding"];
+	if (te !== undefined && te !== null) return true;
 	return false;
+};
+
+// An oversize body is answered with a 413 at once, without buffering the
+// rest. The connection stays up while node:http reads and discards what the
+// client is still sending (bounded by server.requestTimeout): destroying the
+// request, or closing the socket with body bytes unread, resets it and the
+// client never sees the 413.
+// https://www.rfc-editor.org/rfc/rfc9112#section-9.6
+const payloadTooLarge = () => {
+	const err = new Error("Payload too large");
+	err.statusCode = 413;
+	return err;
 };
 
 const readBody = (req, limit) =>
 	new Promise((resolve, reject) => {
+		if (Number(req.headers["content-length"]) > limit) {
+			return reject(payloadTooLarge());
+		}
 		const chunks = [];
 		let size = 0;
-		req.on("data", (chunk) => {
+		const onData = (chunk) => {
 			size += chunk.length;
 			if (size > limit) {
-				const err = new Error("Payload too large");
-				err.statusCode = 413;
-				req.destroy();
-				reject(err);
+				// Removing the listener stops buffering; the stream keeps flowing.
+				// https://nodejs.org/api/stream.html#event-data
+				req.removeListener("data", onData);
+				reject(payloadTooLarge());
 				return;
 			}
 			chunks.push(chunk);
-		});
+		};
+		req.on("data", onData);
 		req.once("end", () => resolve(Buffer.concat(chunks)));
 		req.once("error", reject);
 	});
@@ -437,9 +498,17 @@ export const createRequestHandler = ({
 	trustedProxies,
 	invokedFunctionArn,
 	contextOverride,
+	isDraining = () => false,
 }) => {
 	const buildEvent = eventBuilders[eventVersion];
 	const requestIdOverride = contextOverride?.awsRequestId;
+	// server.close() only closes idle connections; one busy when draining
+	// starts would otherwise keep serving requests on its keep-alive socket.
+	// Without keep-alive node:http sends `Connection: close` and closes the
+	// socket once the response is written.
+	const closeIfDraining = (res) => {
+		if (isDraining()) res.shouldKeepAlive = false;
+	};
 	return async (req, res) => {
 		const requestStart = Date.now();
 		try {
@@ -475,16 +544,33 @@ export const createRequestHandler = ({
 				invokedFunctionArn,
 			});
 			const result = await handler(event, context);
+			closeIfDraining(res);
 			writeResponse(res, result);
 		} catch (err) {
+			closeIfDraining(res);
 			writeError(res, err);
 		}
 	};
 };
 
-export const drainAndExit = (server, exitImpl = process.exit) =>
+// server.close() stops new connections and closes idle ones; busy ones close
+// after their response (see closeIfDraining). A connection still open at the
+// deadline (a slow request, or one that never sent a request, which node:http
+// does not count as idle) is cut so the worker exits before ECS's SIGKILL.
+// https://nodejs.org/api/http.html#serverclosecallback
+export const drainAndExit = (
+	server,
+	exitImpl = process.exit,
+	gracefulShutdownMs = defaults.gracefulShutdownMs,
+) =>
 	new Promise((resolve) => {
+		const deadline = setTimeout(() => {
+			server.closeAllConnections();
+			exitImpl(1);
+			resolve();
+		}, gracefulShutdownMs);
 		server.close(() => {
+			clearTimeout(deadline);
 			exitImpl(0);
 			resolve();
 		});
@@ -496,6 +582,7 @@ export const runWorker = async (options, deps = {}) => {
 	const ecs = readEcsEnv();
 	const requestContext = { ...ecs, ...options.requestContext };
 	const invokedFunctionArn = composeInvokedFunctionArn(ecs);
+	let draining = false;
 	const requestHandler = createRequestHandler({
 		handler: options.handler,
 		eventVersion: options.eventVersion,
@@ -505,6 +592,7 @@ export const runWorker = async (options, deps = {}) => {
 		trustedProxies: options.trustedProxies,
 		invokedFunctionArn,
 		contextOverride: options.contextOverride,
+		isDraining: () => draining,
 	});
 	const server = httpImpl.createServer(requestHandler);
 	// Tune keep-alive so behind-ALB sockets aren't recycled prematurely. ALB's
@@ -518,7 +606,10 @@ export const runWorker = async (options, deps = {}) => {
 	// `getRemainingTimeInMillis` budget we expose to handlers.
 	server.requestTimeout = options.timeout;
 	await new Promise((resolve) => server.listen(options.port, resolve));
-	const onSigterm = () => drainAndExit(server, exitImpl);
+	const onSigterm = () => {
+		draining = true;
+		return drainAndExit(server, exitImpl, options.gracefulShutdownMs);
+	};
 	process.once("SIGTERM", onSigterm);
 	return { server, onSigterm };
 };

@@ -230,10 +230,53 @@ describe("@middy/event-normalizer", () => {
 				Message: "New item!",
 				Id: 101,
 			}),
-			OldImage: Object.create(null),
+			// Absent in the fixture, so it stays absent rather than becoming {}.
 			SequenceNumber: "111",
 			SizeBytes: 26,
 			StreamViewType: "NEW_AND_OLD_IMAGES",
+		});
+	});
+
+	// Keys, NewImage and OldImage are all optional on a StreamRecord and which
+	// are present depends on StreamViewType and the event name.
+	// docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_streams_StreamRecord.html
+	test("It should leave absent DynamoDB images absent (REMOVE with KEYS_ONLY)", async (t) => {
+		const handler = middy((event) => event).use(eventNormalizer());
+
+		const event = {
+			Records: [
+				{
+					eventSource: "aws:dynamodb",
+					eventName: "REMOVE",
+					dynamodb: {
+						Keys: { Id: { N: "101" } },
+						SequenceNumber: "222",
+						StreamViewType: "KEYS_ONLY",
+					},
+				},
+				{
+					eventSource: "aws:dynamodb",
+					eventName: "MODIFY",
+					dynamodb: {
+						SequenceNumber: "333",
+						StreamViewType: "OLD_IMAGE",
+						OldImage: { Id: { N: "102" } },
+					},
+				},
+			],
+		};
+
+		const response = await handler(event, defaultContext);
+
+		deepStrictEqual(response.Records[0].dynamodb, {
+			Keys: Object.assign(Object.create(null), { Id: 101 }),
+			SequenceNumber: "222",
+			StreamViewType: "KEYS_ONLY",
+		});
+		deepStrictEqual(response.Records[1].dynamodb, {
+			OldImage: Object.assign(Object.create(null), { Id: 102 }),
+			SequenceNumber: "333",
+			StreamViewType: "OLD_IMAGE",
 		});
 	});
 
@@ -257,7 +300,6 @@ describe("@middy/event-normalizer", () => {
 				Message: "New item!",
 				Id: { value: "101" },
 			}),
-			OldImage: Object.create(null),
 			SequenceNumber: "111",
 			SizeBytes: 26,
 			StreamViewType: "NEW_AND_OLD_IMAGES",
@@ -1153,79 +1195,145 @@ describe("@middy/event-normalizer", () => {
 		);
 	});
 
-	// Prototype-pollution protection (matches http-json-body-parser).
-	// Attacker-controlled record payloads carrying a forbidden key must be
-	// rejected with a 422 instead of silently parsed.
-	test("It should reject an SQS body containing a __proto__ key with 422", async (t) => {
+	// Prototype-pollution protection (matches http-json-body-parser). A record
+	// payload carrying a forbidden key is never parsed into an object; it is
+	// left as its raw value for that record only, so one producer cannot fail
+	// the whole batch.
+	test("It should leave an SQS body containing a __proto__ key as its raw string", async (t) => {
 		const handler = middy((event) => event).use(eventNormalizer());
 
-		const event = createEvent.default("aws:sqs");
-		event.Records[0].body =
-			'{ "__proto__": { "polluted": true }, "foo": "bar" }';
+		const poisoned = '{ "__proto__": { "polluted": true }, "foo": "bar" }';
+		const event = {
+			Records: [
+				{ eventSource: "aws:sqs", body: poisoned },
+				{ eventSource: "aws:sqs", body: '{"a":1}' },
+			],
+		};
+		const response = await handler(event, defaultContext);
 
-		let thrown = false;
-		try {
-			await handler(event, defaultContext);
-		} catch (e) {
-			thrown = true;
-			strictEqual(e.statusCode, 422);
-			strictEqual(e.message, "Unprocessable Entity");
-			strictEqual(e.cause.data.reason, "Forbidden key in JSON body");
-			strictEqual(e.cause.package, "@middy/event-normalizer");
-			strictEqual(e.cause.data.key, "__proto__");
-		}
-		ok(thrown, "expected handler to reject a __proto__ SQS body");
+		strictEqual(response.Records[0].body, poisoned);
+		deepStrictEqual(response.Records[1].body, { a: 1 });
 		// Object.prototype must be untouched.
 		strictEqual({}.polluted, undefined);
 	});
 
-	test("It should reject a Kinesis (base64) payload containing a __proto__ key with 422", async (t) => {
+	test("It should leave a Kinesis payload containing a __proto__ key as its raw base64", async (t) => {
 		const handler = middy((event) => event).use(eventNormalizer());
 
-		const event = createEvent.default("aws:kinesis");
-		event.Records[0].kinesis.data = Buffer.from(
+		const poisoned = Buffer.from(
 			'{ "__proto__": { "polluted": true }, "foo": "bar" }',
 			"utf-8",
 		).toString("base64");
+		const event = {
+			Records: [
+				{ eventSource: "aws:kinesis", kinesis: { data: poisoned } },
+				{
+					eventSource: "aws:kinesis",
+					kinesis: { data: Buffer.from('{"a":1}').toString("base64") },
+				},
+			],
+		};
+		const response = await handler(event, defaultContext);
 
-		let thrown = false;
-		try {
-			await handler(event, defaultContext);
-		} catch (e) {
-			thrown = true;
-			strictEqual(e.statusCode, 422);
-			strictEqual(e.message, "Unprocessable Entity");
-			strictEqual(e.cause.data.reason, "Forbidden key in JSON body");
-			strictEqual(e.cause.package, "@middy/event-normalizer");
-			strictEqual(e.cause.data.key, "__proto__");
-		}
-		ok(thrown, "expected handler to reject a __proto__ Kinesis payload");
+		strictEqual(response.Records[0].kinesis.data, poisoned);
+		deepStrictEqual(response.Records[1].kinesis.data, { a: 1 });
 		strictEqual({}.polluted, undefined);
 	});
 
-	test("It should reject an SNS message containing a constructor.prototype key with 422", async (t) => {
+	test("It should leave an SNS message containing a constructor.prototype key as its raw string", async (t) => {
 		const handler = middy((event) => event).use(eventNormalizer());
 
-		const event = createEvent.default("aws:sns");
-		event.Records[0].Sns.Message =
+		const poisoned =
 			'{ "constructor": { "prototype": { "polluted": true } }, "foo": "bar" }';
+		const event = createEvent.default("aws:sns");
+		event.Records[0].Sns.Message = poisoned;
+		const response = await handler(event, defaultContext);
 
-		let thrown = false;
-		try {
-			await handler(event, defaultContext);
-		} catch (e) {
-			thrown = true;
-			strictEqual(e.statusCode, 422);
-			strictEqual(e.message, "Unprocessable Entity");
-			strictEqual(e.cause.data.reason, "Forbidden key in JSON body");
-			strictEqual(e.cause.package, "@middy/event-normalizer");
-			strictEqual(e.cause.data.key, "constructor");
-		}
-		ok(
-			thrown,
-			"expected handler to reject a constructor.prototype SNS message",
-		);
+		strictEqual(response.Records[0].Sns.Message, poisoned);
 		strictEqual({}.polluted, undefined);
+	});
+
+	test("It should leave every record-level payload rejected by the prototype guard as its raw value", async (t) => {
+		const handler = middy((event) => event).use(eventNormalizer());
+
+		const text = '{"__proto__":{"polluted":true}}';
+		const b64 = Buffer.from(text).toString("base64");
+		const ok = Buffer.from('{"a":1}').toString("base64");
+		const amq = {
+			eventSource: "aws:amq",
+			messages: [{ data: b64 }, { data: ok }],
+		};
+		const rmq = {
+			eventSource: "aws:rmq",
+			rmqMessagesByQueue: { q: [{ data: b64 }, { data: ok }] },
+		};
+		const kafka = {
+			eventSource: "aws:kafka",
+			records: {
+				"t-0": [
+					{ key: b64, value: b64 },
+					{ key: ok, value: ok },
+				],
+			},
+		};
+		const firehose = {
+			deliveryStreamArn: "arn:aws:firehose:us-east-1:1:deliverystream/x",
+			records: [{ data: b64 }, { data: ok }],
+		};
+		const snsSqs = {
+			Records: [
+				{
+					eventSource: "aws:sqs",
+					body: JSON.stringify({ Type: "Notification", Message: text }),
+				},
+			],
+		};
+
+		await handler(amq, defaultContext);
+		await handler(rmq, defaultContext);
+		await handler(kafka, defaultContext);
+		await handler(firehose, defaultContext);
+		await handler(snsSqs, defaultContext);
+
+		deepStrictEqual(amq.messages, [{ data: b64 }, { data: { a: 1 } }]);
+		deepStrictEqual(rmq.rmqMessagesByQueue.q, [
+			{ data: b64 },
+			{ data: { a: 1 } },
+		]);
+		deepStrictEqual(kafka.records["t-0"], [
+			{ key: b64, value: b64 },
+			{ key: { a: 1 }, value: { a: 1 } },
+		]);
+		deepStrictEqual(firehose.records, [{ data: b64 }, { data: { a: 1 } }]);
+		strictEqual(snsSqs.Records[0].body.Message, text);
+		strictEqual({}.polluted, undefined);
+	});
+
+	// @middy/event-batch-response reads the replaced value back from this
+	// registry symbol to echo a Firehose record's original base64 `data`.
+	const rawDataKey = Symbol.for("@middy/raw-data");
+
+	test("It should keep each replaced payload under the non-enumerable raw-data symbol", async (t) => {
+		const handler = middy((event) => event).use(eventNormalizer());
+
+		const raw = Buffer.from('{ "f": 1 }').toString("base64");
+		const event = {
+			deliveryStreamArn: "arn:aws:firehose:us-east-1:1:deliverystream/x",
+			records: [{ recordId: "r-1", data: raw }],
+		};
+		const response = await handler(event, defaultContext);
+
+		const record = response.records[0];
+		deepStrictEqual(record.data, { f: 1 });
+		deepStrictEqual({ ...record[rawDataKey] }, { data: raw });
+		strictEqual(
+			Object.getOwnPropertyDescriptor(record, rawDataKey).enumerable,
+			false,
+		);
+		deepStrictEqual(JSON.parse(JSON.stringify(record)), {
+			recordId: "r-1",
+			data: { f: 1 },
+		});
 	});
 
 	test("It should still parse a benign SQS body normally after the proto guard", async (t) => {
@@ -1472,12 +1580,71 @@ describe("@middy/event-normalizer", () => {
 		);
 	});
 
-	test("It should reject a nested S3 record without s3 with a 422", async (t) => {
-		const nested = { Records: [{ eventSource: "aws:s3" }] };
-		await expectMalformedRecord(
-			{ Records: [{ eventSource: "aws:sqs", body: JSON.stringify(nested) }] },
-			"aws:s3",
-		);
+	// An SQS body is producer-controlled: a body that merely looks like an AWS
+	// event must not fail the whole batch, so a nested normalization failure
+	// leaves that body as its parsed JSON.
+	test("It should leave an SQS body as parsed JSON when its nested event is malformed", async (t) => {
+		const handler = middy((event) => event).use(eventNormalizer());
+
+		const nested = { Records: [{ eventSource: "aws:dynamodb" }] };
+		const event = {
+			Records: [
+				{ eventSource: "aws:sqs", body: JSON.stringify(nested) },
+				{ eventSource: "aws:sqs", body: JSON.stringify({ a: 1 }) },
+			],
+		};
+		const response = await handler(event, defaultContext);
+
+		deepStrictEqual(response.Records[0].body, nested);
+		deepStrictEqual(response.Records[1].body, { a: 1 });
+	});
+
+	test("It should undo partial nested normalization when a later nested record fails", async (t) => {
+		const handler = middy((event) => event).use(eventNormalizer());
+
+		const nested = {
+			Records: [
+				{ eventSource: "aws:s3", s3: { object: { key: "a+b.jpg" } } },
+				{ eventSource: "aws:s3", s3: { object: { key: "100%" } } },
+			],
+		};
+		const event = {
+			Records: [{ eventSource: "aws:sqs", body: JSON.stringify(nested) }],
+		};
+		const response = await handler(event, defaultContext);
+
+		deepStrictEqual(response.Records[0].body, nested);
+	});
+
+	test("It should leave an SNS Message as parsed JSON when its nested event is malformed", async (t) => {
+		const handler = middy((event) => event).use(eventNormalizer());
+
+		const nested = { eventSource: "aws:kinesis", Records: [{}] };
+		const event = createEvent.default("aws:sns");
+		event.Records[0].Sns.Message = JSON.stringify(nested);
+		const response = await handler(event, defaultContext);
+
+		deepStrictEqual(response.Records[0].Sns.Message, nested);
+	});
+
+	test("It should leave an SNS -> SQS Message as parsed JSON when its nested event is malformed", async (t) => {
+		const handler = middy((event) => event).use(eventNormalizer());
+
+		const nested = { Records: [{ eventSource: "aws:dynamodb" }] };
+		const event = {
+			Records: [
+				{
+					eventSource: "aws:sqs",
+					body: JSON.stringify({
+						Type: "Notification",
+						Message: JSON.stringify(nested),
+					}),
+				},
+			],
+		};
+		const response = await handler(event, defaultContext);
+
+		deepStrictEqual(response.Records[0].body.Message, nested);
 	});
 
 	// decodeURIComponent throws a URIError on a key that is not valid

@@ -24,6 +24,8 @@ NOTES:
 
 - Errors should be handled as part of the router middleware stack **or** the lambdaHandler middleware stack. Handled errors in the later will trigger the `after` middleware stack of the former.
 - Shared middlewares, connected to the router middleware stack, can only be run before the lambdaHandler middleware stack.
+- Registering the same `routeKey` twice throws `Duplicate route` with `{ routeKey }` in `cause.data`.
+- A route handler wrapped in `middy()` reads the router stack's `context.middyContext` values. It runs on a context derived from the router's, so its own writes (to `middyContext` or the context root) never reach the router's middleware.
 
 ## Sample usage
 

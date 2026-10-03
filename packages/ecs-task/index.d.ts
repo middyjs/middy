@@ -23,9 +23,9 @@ declare function ecsTaskRunner<TEvent = unknown, TResult = unknown>(
 
 export { ecsTaskRunner };
 
-export declare function ecsTaskValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function ecsTaskValidateOptions<
+	TOptions extends EcsTaskRunnerOptions<any, any>,
+>(options?: TOptions): TOptions;
 
 export declare function fetchEcsMetadata(
 	uri?: string,

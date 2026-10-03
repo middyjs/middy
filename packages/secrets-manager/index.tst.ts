@@ -4,6 +4,7 @@ import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import secretsManager, { type Context, secretsManagerParam } from "./index.js";
 
 test("use with default options", () => {
@@ -144,4 +145,18 @@ test("contextKey literal narrows middyContext without as const", () => {
 				Password: string;
 			}>();
 		});
+});
+
+test("rejects misspelled option alongside fetchData", () => {
+	expect(secretsManager).type.not.toBeCallableWith({
+		fetchData: { foo: "bar" },
+		cacheExpiery: 1000,
+	});
+});
+
+test("secretsManagerValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.SecretsManagerOptions;
+	expect(
+		indexModule.secretsManagerValidateOptions(options),
+	).type.toBe<indexModule.SecretsManagerOptions>();
 });

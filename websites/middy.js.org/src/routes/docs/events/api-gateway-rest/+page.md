@@ -97,4 +97,3 @@ export const handler = middy({
 - [API Gateway HTTP (v2)](/docs/events/api-gateway-http)
 - [API Gateway WebSockets](/docs/events/api-gateway-ws)
 - [HTTP Router](/docs/routers/http-router)
-- [CORS and error handling recipe](/docs/recipes/cors-and-errors)

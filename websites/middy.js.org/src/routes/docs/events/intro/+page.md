@@ -14,8 +14,9 @@ import cloudWatchMetricsMiddleware from '@middy/cloudwatch-metrics'
 import errorLoggerMiddleware from '@middy/error-logger'
 import eventLoggerMiddleware from '@middy/event-logger'
 import responseLoggerMiddleware from '@middy/response-logger'
-import validatorMiddleware from 'validator'
-import warmupMiddleware from 'warmup'
+import validatorMiddleware from '@middy/validator'
+import { transpileSchema } from '@middy/validator/transpile'
+import warmupMiddleware from '@middy/warmup'
 
 import eventSchema from './eventSchema.json' with { type: 'json' }
 import responseSchema from './responseSchema.json' with { type: 'json' }
@@ -26,7 +27,12 @@ const handler = middy()
   .use(eventLoggerMiddleware())
   .use(responseLoggerMiddleware())
   .use(errorLoggerMiddleware())
-  .use(validatorMiddleware({ eventSchema, responseSchema }))
+  .use(
+    validatorMiddleware({
+      eventSchema: transpileSchema(eventSchema),
+      responseSchema: transpileSchema(responseSchema)
+    })
+  )
   .handler(async (event, context, { signal }) => {
     // ...
   })
@@ -101,10 +107,9 @@ export const handler = middy()
     appConfigMiddleware({
       fetchData: {
         appConfig: {
-          Application: '...',
-          ClientId: '...',
-          Configuration: '...',
-          Environment: '...'
+          ApplicationIdentifier: '...',
+          ConfigurationProfileIdentifier: '...',
+          EnvironmentIdentifier: '...'
         }
       }
     })
@@ -124,7 +129,7 @@ export const handler = middy()
       fetchData: {
         dynamodb: {
           TableName: '...',
-          Key: { '...' }
+          Key: { pk: '...' }
         }
       }
     })

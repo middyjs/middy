@@ -30,7 +30,8 @@ For dynamic schemas, also [`@middy/glue-schema-registry`](/docs/middlewares/glue
 
 ```javascript
 import middy from '@middy/core'
-import eventBatchParser, { parseJson } from '@middy/event-batch-parser'
+import eventBatchParser from '@middy/event-batch-parser'
+import parseJson from '@middy/event-batch-parser/parseJson'
 import eventBatchResponse from '@middy/event-batch-response'
 import eventBatchHandler from '@middy/event-batch-handler'
 
@@ -50,7 +51,8 @@ export const handler = middy()
 
 ```javascript
 import middy from '@middy/core'
-import eventBatchParser, { parseAvro } from '@middy/event-batch-parser'
+import eventBatchParser from '@middy/event-batch-parser'
+import parseAvro from '@middy/event-batch-parser/parseAvro'
 import eventBatchResponse from '@middy/event-batch-response'
 import eventBatchHandler from '@middy/event-batch-handler'
 
@@ -74,12 +76,14 @@ For dynamic schemas resolved via [`@middy/glue-schema-registry`](/docs/middlewar
 
 ## Protobuf example
 
-Per-record schemas are resolved dynamically from the [AWS Glue Schema Registry](/docs/middlewares/glue-schema-registry). Each Glue-framed record carries a `SchemaVersionId` that the registry middleware fetches (and caches) before `parseProtobuf` runs.
+`parseProtobuf` needs a loaded `protobuf.Root` and a message type, either as factory options or as a `{ root, messageType }` entry on `request.internal`. Here the `.proto` definition is fetched once from the [AWS Glue Schema Registry](/docs/middlewares/glue-schema-registry) by the `SchemaVersionId` set in `fetchData`, then loaded with `protobufjs` in a `before` hook. The registry middleware does not look up the `SchemaVersionId` carried in each Glue-framed record.
 
 ```javascript
+import protobuf from 'protobufjs'
 import middy from '@middy/core'
 import glueSchemaRegistry from '@middy/glue-schema-registry'
-import eventBatchParser, { parseProtobuf } from '@middy/event-batch-parser'
+import eventBatchParser from '@middy/event-batch-parser'
+import parseProtobuf from '@middy/event-batch-parser/parseProtobuf'
 import eventBatchResponse from '@middy/event-batch-response'
 import eventBatchHandler from '@middy/event-batch-handler'
 
@@ -89,15 +93,25 @@ const recordHandler = async (record, context) => {
 const lambdaHandler = eventBatchHandler(recordHandler)
 
 export const handler = middy()
-  .use(glueSchemaRegistry())
-  .use(eventBatchParser({ body: parseProtobuf(), glueSchemaRegistry: {} }))
+  .use(glueSchemaRegistry({
+    fetchData: { messageSchema: { SchemaVersionId: '...' } },
+  }))
+  .before(async (request) => {
+    // Load the fetched .proto definition into the entry parseProtobuf reads
+    const { schemaDefinition } = await request.internal.messageSchema
+    request.internal.messageProto = {
+      root: protobuf.parse(schemaDefinition).root,
+      messageType: 'example.Message',
+    }
+  })
+  .use(eventBatchParser({ body: parseProtobuf({ internalKey: 'messageProto' }) }))
   .use(eventBatchResponse())
   .handler(lambdaHandler)
 ```
 
 ## IaC: required event source mapping
 
-Enable `ReportBatchItemFailures` on the event source mapping. See the [SQS partial batch recipe](/docs/recipes/sqs-partial-batch) for CloudFormation/SAM/CDK snippets.
+Enable `ReportBatchItemFailures` on the event source mapping (`FunctionResponseTypes: [ReportBatchItemFailures]`).
 
 ## Common gotchas
 
@@ -109,7 +123,6 @@ Enable `ReportBatchItemFailures` on the event source mapping. See the [SQS parti
 
 ## Related
 
-- [SQS partial batch failures recipe](/docs/recipes/sqs-partial-batch)
 - [`@middy/sqs-partial-batch-failure`](/docs/middlewares/sqs-partial-batch-failure) (legacy; superseded by `event-batch-response`)
 - [`@middy/event-batch-handler`](/docs/handlers/event-batch-handler)
 - [Kinesis Streams](/docs/events/kinesis-streams)

@@ -10,7 +10,7 @@ Use this middleware instead of `@middy/ssm` when your Lambda function uses the P
 
 ## Prerequisites
 
-Add the [AWS Parameters and Secrets Lambda Extension layer](https://docs.aws.amazon.com/systems-manager/latest/userguide/ps-integration-lambda-extensions.html#ps-integration-lambda-extensions-add) to your Lambda function. The `AWS_SESSION_TOKEN` environment variable is injected automatically by the Lambda runtime.
+Add the [AWS Parameters and Secrets Lambda Extension layer](https://docs.aws.amazon.com/systems-manager/latest/userguide/ps-integration-lambda-extensions.html#ps-integration-lambda-extensions-add) to your Lambda function. The middleware sends the `AWS_SESSION_TOKEN` environment variable as the `X-Aws-Parameters-Secrets-Token` header. Lambda does not set it in every initialization mode: with SnapStart, credentials come from the container credential endpoint instead, and AWS recommends reading the session token from an AWS SDK credential provider chain. Pass that as the `awsSessionToken` option (see below). When neither is available, the fetch for each key rejects (the factory does not throw) with `requires AWS_SESSION_TOKEN or the awsSessionToken option`, and the extension is not called.
 
 **Incompatible with AWS Lambda Code Signing.** The extension is deployed as an AWS-published Lambda Layer. If your function has a Code Signing Configuration that restricts layers to your own approved signing profiles, this layer cannot be attached. In that case use `@middy/ssm` instead.
 
@@ -26,17 +26,21 @@ npm install --save @middy/ssm-extension
 
 - `fetchData` (object) (optional): Mapping of internal key name to SSM parameter path.
 - `disablePrefetch` (boolean) (default `false`): Disable prefetching on cold start.
-- `cacheKey` (string) (default `@middy/ssm-extension`): Cache key for the fetched data. Must be unique across middleware.
-- `cacheKeyExpiry` (object) (default `{}`): Per-`fetchData`-key cache expiry overrides (ms; `-1` = forever, `0` = no cache).
-- `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached. `-1`: cache forever, `0`: never cache, `n`: cache for n ms. Set this to match `PARAMETERS_SECRETS_EXTENSION_CACHE_EXPIRATION` to avoid stale reads.
+- `cacheKey` (string) (default `@middy/ssm-extension`): Cache key for the fetched data. Each instance of this middleware needs its own `cacheKey`: reusing one with a different `fetchData` throws a `TypeError`.
+- `cacheKeyExpiry` (object) (default `{}`): Per-`cacheKey` expiry override, `{ [cacheKey]: cacheExpiry }` (ms; `-1` = forever, `0` = no cache); a unix timestamp in ms above 86400000 is treated as an absolute expiry. It is keyed by the middleware's `cacheKey`, not by `fetchData` key.
+- `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached. `-1`: cache forever, `0`: never cache, `n`: cache for n ms. Set this to match `PARAMETERS_SECRETS_EXTENSION_CACHE_EXPIRATION` to avoid stale reads. Values above `86400000` are unix timestamps (ms): one before 2001-01-01 (`978307200000`) can only be a mistyped duration and throws at construction, while a real timestamp that has passed just leaves the entry expired.
+- `cacheMaxSize` (number) (default `128`): Maximum number of entries kept in the shared middleware cache; the oldest expiring entry is evicted when exceeded.
 - `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext['ssm-extension']`.
-- `contextKey` (string) (default `ssm-extension`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.
+- `contextKey` (string) (default `ssm-extension`): The key under `context.middyContext` used when `setToContext` is `true`. To run two instances side by side, override it and set a distinct `cacheKey` on each.
+- `awsSessionToken` (function) (optional): Returns the session token (or a Promise of it) sent as `X-Aws-Parameters-Secrets-Token`. Defaults to the `AWS_SESSION_TOKEN` environment variable. Set it for SnapStart, for example `awsSessionToken: async () => (await fromNodeProviderChain()()).sessionToken` with `fromNodeProviderChain` from `@aws-sdk/credential-providers`.
 
 ## Notes
 
 - Lambda is required to have IAM permission for `ssm:GetParameter` (and `kms:Decrypt` for SecureString parameters).
 - The extension listens on port `2773` by default. Override with the `PARAMETERS_SECRETS_EXTENSION_HTTP_PORT` environment variable.
 - String values containing JSON are automatically parsed into objects.
+- Each request to the extension is aborted 500 ms before the invocation would time out (at least 1 s; 30 s during prefetch), so a hung call fails and its cache entry is cleared instead of Lambda cutting the invocation off.
+- `StringList` parameters are split on `,` into an array, the same as `@middy/ssm`.
 
 ## Troubleshooting
 

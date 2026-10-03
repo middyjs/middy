@@ -1,14 +1,20 @@
 import {
+	rejects as assertRejects,
 	deepStrictEqual,
 	doesNotThrow,
 	ok,
-	rejects,
 	strictEqual,
 	throws,
 } from "node:assert/strict";
 import { describe, test } from "node:test";
 import { GetSchemaVersionCommand, GlueClient } from "@aws-sdk/client-glue";
-import { clearCache, getCache, getInternal, modifyCache } from "@middy/util";
+import {
+	clearCache,
+	getCache,
+	getInternal,
+	modifyCache,
+	processCache,
+} from "@middy/util";
 import { mockClient } from "aws-sdk-client-mock";
 import middy from "../core/index.js";
 import glueSchemaRegistry, {
@@ -75,6 +81,47 @@ describe("@middy/glue-schema-registry", () => {
 			});
 
 		await handler(defaultEvent, defaultContext);
+	});
+
+	test("It should keep a fresh value when a superseded fetch fails late", async (t) => {
+		let rejectStale;
+		const send = t.mock.fn();
+		send.mock.mockImplementationOnce(
+			() =>
+				new Promise((resolve, reject) => {
+					rejectStale = reject;
+				}),
+		);
+		send.mock.mockImplementation(async () => ({
+			SchemaVersionId: "uuid",
+			SchemaDefinition: AVRO_SCHEMA,
+			DataFormat: "AVRO",
+		}));
+		class FakeClient {
+			send = send;
+		}
+
+		const handler = middy(() => {})
+			.use(
+				glueSchemaRegistry({
+					AwsClient: FakeClient,
+					cacheExpiry: -1,
+					fetchData: { user: { SchemaVersionId: "uuid" } },
+				}),
+			)
+			.before(async (request) => {
+				const values = await getInternal(["user"], request);
+				strictEqual(values.user.schemaVersionId, "uuid");
+			});
+
+		// Prefetch in flight, entry cleared, refetch succeeds.
+		clearCache();
+		await handler(defaultEvent, defaultContext);
+		rejectStale(new Error("stale"));
+		await new Promise((resolve) => setImmediate(resolve));
+
+		await handler(defaultEvent, defaultContext);
+		strictEqual(send.mock.callCount(), 2);
 	});
 
 	test("It should populate request.internal entries keyed by fetchData", async () => {
@@ -222,7 +269,7 @@ describe("@middy/glue-schema-registry", () => {
 			}),
 		);
 
-		await rejects(
+		await assertRejects(
 			() => handler(defaultEvent, defaultContext),
 			(e) => {
 				strictEqual(e.message, "Failed to resolve internal values");
@@ -261,7 +308,7 @@ describe("@middy/glue-schema-registry", () => {
 			.rejects(new Error("dyn boom"));
 
 		const request = { internal: {}, context: {} };
-		await rejects(
+		await assertRejects(
 			() =>
 				resolveSchemaVersion(
 					"00000000-0000-0000-0000-00000000e001",
@@ -358,7 +405,7 @@ describe("@middy/glue-schema-registry", () => {
 		);
 
 		await new Promise((resolve) => setTimeout(resolve, 80));
-		clearCache(`glue-timer-refresh:${tmrId}`);
+		clearCache("glue-timer-refresh:schemaVersions");
 	});
 
 	test("resolveSchemaVersion: cacheKeyExpiry override (keyed on base cacheKey) takes effect", async () => {
@@ -404,7 +451,7 @@ describe("@middy/glue-schema-registry", () => {
 	});
 
 	test("resolveSchemaVersion rejects non-string schemaVersionId", async () => {
-		await rejects(
+		await assertRejects(
 			() =>
 				resolveSchemaVersion(
 					123,
@@ -433,7 +480,7 @@ describe("@middy/glue-schema-registry", () => {
 			SchemaDefinition: AVRO_SCHEMA,
 			DataFormat: "AVRO",
 		});
-		await rejects(
+		await assertRejects(
 			() =>
 				resolveSchemaVersion(
 					"not-a-uuid",
@@ -909,7 +956,7 @@ describe("@middy/glue-schema-registry", () => {
 		);
 	});
 
-	test("resolveSchemaVersion stores cache under composed cacheKey", async () => {
+	test("resolveSchemaVersion stores versions in one entry under cacheKey:schemaVersions", async () => {
 		const compId = "00000000-0000-0000-0000-00000000c0f1";
 		mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
 			SchemaVersionId: compId,
@@ -930,8 +977,8 @@ describe("@middy/glue-schema-registry", () => {
 		);
 
 		ok(
-			getCache(`glue-schema-registry:${compId}`).value,
-			"expected cache under composed cacheKey:schemaVersionId",
+			getCache("glue-schema-registry:schemaVersions").value[compId],
+			"expected the version keyed in the cacheKey:schemaVersions entry",
 		);
 	});
 
@@ -960,7 +1007,7 @@ describe("@middy/glue-schema-registry", () => {
 
 	test("resolveSchemaVersion reuses the client across timer-driven refreshes (single instantiation)", async () => {
 		const tmrReuseId = "00000000-0000-0000-0000-00000000a0f1";
-		mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
+		const mock = mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
 			SchemaVersionId: tmrReuseId,
 			SchemaDefinition: AVRO_SCHEMA,
 			DataFormat: "AVRO",
@@ -987,8 +1034,58 @@ describe("@middy/glue-schema-registry", () => {
 		);
 
 		await new Promise((resolve) => setTimeout(resolve, 90));
-		clearCache(`glue-timer-reuse:${tmrReuseId}`);
+		clearCache("glue-timer-reuse:schemaVersions");
+		// The background refresh refetched, through the same client.
+		ok(mock.commandCalls(GetSchemaVersionCommand).length > 1);
 		strictEqual(instantiations, 1);
+	});
+
+	test("resolveSchemaVersion reuses one client per options object across cache misses", async () => {
+		mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
+			SchemaDefinition: AVRO_SCHEMA,
+			DataFormat: "AVRO",
+		});
+
+		let instantiations = 0;
+		class CountingClient extends GlueClient {
+			constructor(options) {
+				super(options);
+				instantiations++;
+			}
+		}
+
+		const request = { internal: {}, context: {} };
+		const opts = {
+			AwsClient: CountingClient,
+			cacheKey: "glue-client-reuse",
+			cacheExpiry: -1,
+			disablePrefetch: true,
+		};
+		await resolveSchemaVersion(
+			"00000000-0000-0000-0000-00000000b0f1",
+			opts,
+			request,
+		);
+		await resolveSchemaVersion(
+			"00000000-0000-0000-0000-00000000b0f2",
+			opts,
+			request,
+		);
+		strictEqual(instantiations, 1);
+	});
+
+	test("resolveSchemaVersion accepts omitted options", async () => {
+		const id = "00000000-0000-0000-0000-00000000c0f1";
+		mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
+			SchemaVersionId: id,
+			SchemaDefinition: AVRO_SCHEMA,
+			DataFormat: "AVRO",
+		});
+		const result = await resolveSchemaVersion(id, undefined, {
+			internal: {},
+			context: {},
+		});
+		strictEqual(result.schemaVersionId, id);
 	});
 
 	test("resolveSchemaVersion assumes role: credentials reach the client (no-prefetch path)", async () => {
@@ -1047,7 +1144,7 @@ describe("@middy/glue-schema-registry", () => {
 	test("resolveSchemaVersion rejects an id with junk before the uuid", async () => {
 		// The pattern is anchored at both ends; without `^` a valid uuid preceded
 		// by junk would be accepted as a schema version id.
-		await rejects(
+		await assertRejects(
 			resolveSchemaVersion(
 				"junk00000000-0000-0000-0000-0000000000d1",
 				{ AwsClient: GlueClient, disablePrefetch: true },
@@ -1059,7 +1156,7 @@ describe("@middy/glue-schema-registry", () => {
 
 	test("resolveSchemaVersion rejects an id with junk after the uuid", async () => {
 		// Without `$` a valid uuid followed by junk would be accepted.
-		await rejects(
+		await assertRejects(
 			resolveSchemaVersion(
 				"00000000-0000-0000-0000-0000000000d1junk",
 				{ AwsClient: GlueClient, disablePrefetch: true },
@@ -1075,7 +1172,7 @@ describe("@middy/glue-schema-registry", () => {
 		const notAString = {
 			toString: () => "00000000-0000-0000-0000-0000000000d1",
 		};
-		await rejects(
+		await assertRejects(
 			resolveSchemaVersion(
 				notAString,
 				{ AwsClient: GlueClient, disablePrefetch: true },
@@ -1162,7 +1259,7 @@ describe("@middy/glue-schema-registry", () => {
 		};
 		const request = { internal: {}, context: {} };
 
-		await rejects(resolveSchemaVersion(id, opts, request));
+		await assertRejects(resolveSchemaVersion(id, opts, request));
 
 		// Without modifyCache the rejected promise stays cached and this second
 		// call fails again without ever reaching the client.
@@ -1170,5 +1267,242 @@ describe("@middy/glue-schema-registry", () => {
 		strictEqual(resolved.schemaVersionId, id);
 		strictEqual(mock.commandCalls(GetSchemaVersionCommand).length, 2);
 		clearCache();
+	});
+
+	test("It should retry client init after a rejected attempt", async (t) => {
+		let constructed = 0;
+		class FlakyClient {
+			constructor() {
+				constructed++;
+				if (constructed === 1) throw new Error("init boom");
+			}
+			send() {
+				return Promise.resolve({
+					SchemaVersionId: "00000000-0000-0000-0000-000000000001",
+					SchemaDefinition: AVRO_SCHEMA,
+					DataFormat: "AVRO",
+				});
+			}
+		}
+		const handler = middy(() => {}).use(
+			glueSchemaRegistry({
+				AwsClient: FlakyClient,
+				cacheExpiry: 0,
+				fetchData: {
+					key: { SchemaVersionId: "00000000-0000-0000-0000-000000000001" },
+				},
+				disablePrefetch: true,
+			}),
+		);
+
+		// A rejected init must not be memoized for the life of the container.
+		await assertRejects(
+			() => handler(defaultEvent, defaultContext),
+			/init boom/,
+		);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(constructed, 2);
+	});
+
+	test("It should rebuild the client when the assumed-role credentials are refetched", async (t) => {
+		const constructions = [];
+		class FakeClient {
+			constructor(awsClientOptions) {
+				constructions.push(awsClientOptions);
+			}
+			send() {
+				return Promise.resolve({
+					SchemaVersionId: "00000000-0000-0000-0000-000000000001",
+					SchemaDefinition: AVRO_SCHEMA,
+					DataFormat: "AVRO",
+				});
+			}
+		}
+		let credentials = Promise.resolve({ accessKeyId: "a" });
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.role = credentials;
+			})
+			.use(
+				glueSchemaRegistry({
+					AwsClient: FakeClient,
+					awsClientAssumeRole: "role",
+					cacheExpiry: 0,
+					fetchData: {
+						key: { SchemaVersionId: "00000000-0000-0000-0000-000000000001" },
+					},
+				}),
+			);
+
+		await handler(defaultEvent, defaultContext);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(constructions.length, 1);
+		deepStrictEqual(constructions[0].credentials, { accessKeyId: "a" });
+
+		credentials = Promise.resolve({ accessKeyId: "b" });
+		await handler(defaultEvent, defaultContext);
+		strictEqual(constructions.length, 2);
+		deepStrictEqual(constructions[1].credentials, { accessKeyId: "b" });
+	});
+
+	test("glueSchemaRegistryValidateOptions accepts cacheMaxSize and rejects values below 1", () => {
+		glueSchemaRegistryValidateOptions({ cacheMaxSize: 10 });
+		try {
+			glueSchemaRegistryValidateOptions({ cacheMaxSize: 0 });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("cacheMaxSize"));
+		}
+	});
+
+	// cacheMaxSize is one cap across every middleware's entries; resolving many
+	// schema versions must not evict another middleware's cached data.
+	test("resolveSchemaVersion keeps many schema versions out of other middlewares' cache slots", async () => {
+		mockClient(GlueClient)
+			.on(GetSchemaVersionCommand)
+			.callsFake(async (input) => ({
+				SchemaVersionId: input.SchemaVersionId,
+				SchemaDefinition: AVRO_SCHEMA,
+				DataFormat: "AVRO",
+			}));
+		processCache({ cacheKey: "other-middleware", cacheExpiry: -1 }, () => ({
+			secret: "value",
+		}));
+
+		const opts = { cacheKey: "glue-many", cacheExpiry: -1 };
+		const request = { internal: {}, context: {} };
+		for (let i = 0; i < 130; i++) {
+			const id = `00000000-0000-0000-0000-${i.toString(16).padStart(12, "0")}`;
+			const resolved = await resolveSchemaVersion(id, opts, request);
+			strictEqual(resolved.schemaVersionId, id);
+		}
+		strictEqual(getCache("other-middleware").value?.secret, "value");
+	});
+
+	test("resolveSchemaVersion keeps at most cacheMaxSize versions, dropping the oldest", async () => {
+		const mock = mockClient(GlueClient)
+			.on(GetSchemaVersionCommand)
+			.callsFake(async (input) => ({
+				SchemaVersionId: input.SchemaVersionId,
+				SchemaDefinition: AVRO_SCHEMA,
+				DataFormat: "AVRO",
+			}));
+		const opts = { cacheKey: "glue-capped", cacheExpiry: -1, cacheMaxSize: 2 };
+		const request = { internal: {}, context: {} };
+		const [a, b, c] = ["a", "b", "c"].map(
+			(n) => `00000000-0000-0000-0000-00000000000${n}`,
+		);
+		await resolveSchemaVersion(a, opts, request);
+		await resolveSchemaVersion(b, opts, request);
+		await resolveSchemaVersion(c, opts, request);
+		deepStrictEqual(Object.keys(getCache("glue-capped:schemaVersions").value), [
+			b,
+			c,
+		]);
+		// b and c are still cached; a was dropped and is fetched again.
+		await resolveSchemaVersion(c, opts, request);
+		await resolveSchemaVersion(a, opts, request);
+		deepStrictEqual(
+			mock
+				.commandCalls(GetSchemaVersionCommand)
+				.map((call) => call.args[0].input.SchemaVersionId),
+			[a, b, c, a],
+		);
+	});
+
+	test("resolveSchemaVersion stops refetching a version whose fetch failed", async () => {
+		const good = "00000000-0000-0000-0000-00000000900d";
+		const bad = "00000000-0000-0000-0000-000000000bad";
+		const mock = mockClient(GlueClient)
+			.on(GetSchemaVersionCommand)
+			.callsFake(async (input) => {
+				if (input.SchemaVersionId === bad) throw new Error("not found");
+				return {
+					SchemaVersionId: input.SchemaVersionId,
+					SchemaDefinition: AVRO_SCHEMA,
+					DataFormat: "AVRO",
+				};
+			});
+		const opts = { cacheKey: "glue-failed-id", cacheExpiry: -1 };
+		const request = { internal: {}, context: {} };
+		await resolveSchemaVersion(good, opts, request);
+		await assertRejects(resolveSchemaVersion(bad, opts, request));
+
+		const before = mock.commandCalls(GetSchemaVersionCommand).length;
+		for (let i = 0; i < 3; i++) {
+			await resolveSchemaVersion(good, opts, request);
+		}
+		// The cached good version is served without refetching the failed one.
+		strictEqual(mock.commandCalls(GetSchemaVersionCommand).length, before);
+	});
+
+	test("resolveSchemaVersion keeps tracking a version refreshed before its stale fetch failed", async () => {
+		const id = "00000000-0000-0000-0000-0000000057a1";
+		let call = 0;
+		mockClient(GlueClient)
+			.on(GetSchemaVersionCommand)
+			.callsFake(async () => {
+				call++;
+				if (call === 1) {
+					await new Promise((resolve) => setTimeout(resolve, 60));
+					throw new Error("stale failure");
+				}
+				return {
+					SchemaVersionId: id,
+					SchemaDefinition: AVRO_SCHEMA,
+					DataFormat: "AVRO",
+				};
+			});
+		const opts = { cacheKey: "glue-stale-failure", cacheExpiry: 40 };
+		await assertRejects(
+			resolveSchemaVersion(id, opts, { internal: {}, context: {} }),
+		);
+		// The refresh at 40 ms replaced the failing fetch before it failed at
+		// 60 ms, so later refreshes keep fetching this version.
+		await new Promise((resolve) => setTimeout(resolve, 70));
+		ok(getCache("glue-stale-failure:schemaVersions").value[id]);
+		clearCache("glue-stale-failure:schemaVersions");
+	});
+
+	// A background refresh has no invocation to rebuild the client from, so it
+	// would sign with the assumed-role credentials it started with. Under
+	// awsClientAssumeRole none is scheduled; the next invocation refetches.
+	test("It should not refresh in the background under awsClientAssumeRole", async (t) => {
+		t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+		let sends = 0;
+		class FakeClient {
+			send() {
+				sends++;
+				return Promise.resolve({
+					SchemaVersionId: "00000000-0000-0000-0000-000000000001",
+					SchemaDefinition: AVRO_SCHEMA,
+					DataFormat: "AVRO",
+				});
+			}
+		}
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.role = Promise.resolve({ accessKeyId: "a" });
+			})
+			.use(
+				glueSchemaRegistry({
+					AwsClient: FakeClient,
+					awsClientAssumeRole: "role",
+					cacheExpiry: 50,
+					fetchData: {
+						key: { SchemaVersionId: "00000000-0000-0000-0000-000000000001" },
+					},
+				}),
+			);
+
+		await handler(defaultEvent, defaultContext);
+		const afterFirst = sends;
+		t.mock.timers.tick(120);
+		await new Promise((resolve) => setImmediate(resolve));
+		strictEqual(sends, afterFirst);
+
+		await handler(defaultEvent, defaultContext);
+		ok(sends > afterFirst);
 	});
 });

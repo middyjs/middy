@@ -37,7 +37,7 @@ import httpResponseSerializerMiddleware from '@middy/http-response-serializer'
 import httpSecurityHeadersMiddleware from '@middy/http-security-headers'
 import httpUrlencodeBodyParserMiddleware from '@middy/http-urlencode-body-parser'
 import httpUrlencodePathParametersParserMiddleware from '@middy/http-urlencode-path-parser'
-import warmupMiddleware from 'warmup'
+import warmupMiddleware from '@middy/warmup'
 
 import { handler as getHandler } from './handlers/get-user.js'
 import { handler as postHandler } from './handlers/get-user.js'
@@ -88,7 +88,7 @@ export const handler = middy({
           serializer: ({ body }) => JSON.stringify(body)
         }
       ],
-      default: 'application/json'
+      defaultContentType: 'application/json'
     })
   )
   .use(httpPartialResponseMiddleware())

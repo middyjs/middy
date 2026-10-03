@@ -689,6 +689,21 @@ describe("@middy/validator", () => {
 		}
 	});
 
+	test("transpileSchema explains that errorMessage needs allErrors: true", () => {
+		const schema = {
+			type: "object",
+			properties: { foo: { type: "integer" } },
+			errorMessage: "must be an object with an integer property foo only",
+		};
+		try {
+			transpileSchema(schema);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.cause?.package, "@middy/validator");
+			ok(e.message.includes("allErrors: true"), e.message);
+		}
+	});
+
 	test("It should use out-of-the-box ajv-errors plugin", async (t) => {
 		const schema = {
 			type: "object",
@@ -703,10 +718,15 @@ describe("@middy/validator", () => {
 			return {};
 		});
 
-		handler.use(validator({ eventSchema: transpileSchema(schema) }));
+		handler.use(
+			validator({
+				eventSchema: transpileSchema(schema, { allErrors: true }),
+			}),
+		);
 
 		try {
 			await handler({ foo: "a" });
+			ok(false, "expected throw");
 		} catch (e) {
 			strictEqual(e.cause.package, "@middy/validator");
 			strictEqual(e.cause.data.reason, "Event object failed validation");
@@ -1069,6 +1089,28 @@ describe("@middy/validator", () => {
 		});
 		strictEqual(validate({ fn: () => {} }), true);
 		strictEqual(validate({ fn: "no" }), false);
+	});
+
+	test("transpileSchema stops at the first error by default", () => {
+		const schema = {
+			type: "array",
+			maxItems: 10,
+			items: { type: "object" },
+		};
+		const validate = transpileSchema(schema);
+		strictEqual(validate(new Array(5000).fill(0)), false);
+		strictEqual(validate.errors.length, 1);
+	});
+
+	test("transpileSchema honours allErrors: false and stops at the first error", () => {
+		const schema = {
+			type: "array",
+			maxItems: 10,
+			items: { type: "object" },
+		};
+		const validate = transpileSchema(schema, { allErrors: false });
+		strictEqual(validate(new Array(5000).fill(0)), false);
+		ok(validate.errors.length <= 1);
 	});
 
 	test("It should reject a hand-written async validator at setup rather than failing open", () => {

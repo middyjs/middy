@@ -104,6 +104,8 @@ export const handler = middy()
 
 Result defaults: fulfilled with a string/Buffer → `result: "Ok"` and the value is base64-encoded for you. Fulfilled with `{ result, data }` is passed through (use this for `Dropped`). Rejected → `result: "ProcessingFailed"` and the original input `data` is echoed back.
 
+The echoed `data` is always the record's original base64, even when [`@middy/event-batch-parser`](/docs/middlewares/event-batch-parser) or [`@middy/event-normalizer`](/docs/middlewares/event-normalizer) replaced the field first, so the middlewares can be registered in either order.
+
 ## Stream sources: checkpoints, replay, and Durable Functions
 
 > **Kinesis Data Streams and DynamoDB Streams.** A single reported failure will use its sequence number as the stream checkpoint. Multiple reported failures will use the lowest sequence number as the checkpoint.
@@ -114,6 +116,7 @@ When the handler is wrapped in `withDurableExecution(...)`, this middleware defe
 
 - **Success path** is unchanged: every record fulfills, the response is `{ batchItemFailures: [] }` (or all-`Succeeded` for S3 Batch / all-`Ok` for Firehose).
 - **Failure path is intentionally a no-op.** If the handler throws (because a step exhausted its durable retry policy), the middleware does **not** synthesize a partial-failure response, the unhandled error reaches Lambda, which retries the whole batch on a fresh invocation. This avoids stacking Lambda's batch-level retry on top of durable's per-step retry.
+- **Records that failed to parse** (via [`@middy/event-batch-parser`](/docs/middlewares/event-batch-parser)) are the exception: `event-batch-handler` returns them as rejections rather than throwing, so this middleware reports them in `batchItemFailures` as usual.
 
 Detection uses [`isExecutionModeDurable`](https://github.com/middyjs/middy/blob/main/packages/util/index.js) from `@middy/util`. Pair with [`@middy/event-batch-handler`](/docs/handlers/event-batch-handler), which wraps each record in `ctx.step("record-N", ...)` automatically when running under durable.
 
@@ -161,7 +164,7 @@ See [Amazon Data Firehose data transformation](https://docs.aws.amazon.com/fireh
 
 ## SQS: per-message redrive
 
-SQS does not have stream checkpoints. Each `itemIdentifier` is independently returned to the queue and redelivered up to `maxReceiveCount` times before going to the configured DLQ. There is no ordering caveat for standard queues; for FIFO queues, see the [SQS docs](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html) on partial-failure interaction with message-group ordering.
+SQS does not have stream checkpoints. Each `itemIdentifier` is independently returned to the queue and redelivered up to `maxReceiveCount` times before going to the configured DLQ. There is no ordering caveat for standard queues. For FIFO queues, AWS says your function "should stop processing messages after the first failure and return all failed and unprocessed messages in `batchItemFailures`" ([SQS docs](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html)). [`@middy/event-batch-handler`](/docs/handlers/event-batch-handler) does this for you: it processes FIFO records one at a time and settles every record after the first failure as rejected, so this middleware reports them all. If you build the settled array yourself, do the same.
 
 
 ## Pairs well with
@@ -172,5 +175,5 @@ SQS does not have stream checkpoints. Each `itemIdentifier` is independently ret
 
 ## See also
 
-- [SQS partial batch failures recipe](/docs/recipes/sqs-partial-batch).
-- [DynamoDB Streams processor recipe](/docs/recipes/dynamodb-stream-processor).
+- [SQS events](/docs/events/sqs).
+- [DynamoDB Streams events](/docs/events/dynamodb).

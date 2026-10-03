@@ -107,19 +107,15 @@ const httpCorsMiddleware = (opts = {}) => {
 			if (originStatic[incomingOrigin]) {
 				return incomingOrigin;
 			}
+			// Never reflected, even when a response allows credentials: a browser
+			// then refuses the "*", which is the safe failure.
 			if (originAny) {
-				if (options.credentials) {
-					return incomingOrigin;
-				}
 				return "*";
 			}
 			if (originDynamic.some((regExp) => regExp.test(incomingOrigin))) {
 				return incomingOrigin;
 			}
 		} else {
-			if (incomingOrigin && options.credentials && options.origin === "*") {
-				return incomingOrigin;
-			}
 			return options.origin;
 		}
 		return null;
@@ -187,35 +183,54 @@ const httpCorsMiddleware = (opts = {}) => {
 		originDynamic.push(new RegExp(`^${regExpStr}$`));
 	}
 
+	// Fetch standard, CORS protocol: `*` is never a valid origin for a
+	// credentialed request. Reflecting every Origin in its place would let any
+	// site make credentialed requests, so the pairing is a configuration error.
+	// https://fetch.spec.whatwg.org/#cors-protocol-and-credentials
+	if (originAny && String(options.credentials) === "true") {
+		throw new Error("A wildcard origin cannot be combined with credentials", {
+			cause: { package: pkg },
+		});
+	}
+
 	const getOriginOptions = { ...options };
 	const getOriginOptionsCredentials = { ...options, credentials: true };
 	const getOriginOptionsNoCredentials = { ...options, credentials: false };
 
+	const addPreflightVary = (headers) => {
+		if (options.requestMethods?.length) {
+			addHeaderPart(headers, "Vary", "Access-Control-Request-Method");
+		}
+		if (options.requestHeaders?.length) {
+			addHeaderPart(headers, "Vary", "Access-Control-Request-Headers");
+		}
+	};
+
 	const maxAge = options.maxAge ? String(options.maxAge) : options.maxAge;
 
 	const modifyHeaders = (headers, options, request) => {
-		let credentials = options.credentials;
-		if (Object.hasOwn(headers, "Access-Control-Allow-Credentials")) {
-			credentials = headers["Access-Control-Allow-Credentials"] === "true";
+		// Header names are case-insensitive (RFC 9110 §5.1): a handler-set header
+		// in any casing counts as set, so it wins and is never sent twice.
+		const present = new Map();
+		for (const key of Object.keys(headers)) {
+			present.set(key.toLowerCase(), key);
 		}
-		if (credentials) {
+		let credentials = options.credentials;
+		const credentialsKey = present.get("access-control-allow-credentials");
+		if (credentialsKey) {
+			credentials = headers[credentialsKey] === "true";
+		} else if (credentials) {
 			headers["Access-Control-Allow-Credentials"] = String(credentials);
 		}
-		if (
-			options.headers &&
-			!Object.hasOwn(headers, "Access-Control-Allow-Headers")
-		) {
+		if (options.headers && !present.has("access-control-allow-headers")) {
 			headers["Access-Control-Allow-Headers"] = options.headers;
 		}
-		if (
-			options.methods &&
-			!Object.hasOwn(headers, "Access-Control-Allow-Methods")
-		) {
+		if (options.methods && !present.has("access-control-allow-methods")) {
 			headers["Access-Control-Allow-Methods"] = options.methods;
 		}
 
 		let newOrigin;
-		if (!Object.hasOwn(headers, "Access-Control-Allow-Origin")) {
+		if (!present.has("access-control-allow-origin")) {
 			const eventHeaders = request.event.headers ?? {};
 			const incomingOrigin = headerValue(
 				eventHeaders.Origin ?? eventHeaders.origin,
@@ -249,21 +264,35 @@ const httpCorsMiddleware = (opts = {}) => {
 
 		if (
 			options.exposeHeaders &&
-			!Object.hasOwn(headers, "Access-Control-Expose-Headers")
+			!present.has("access-control-expose-headers")
 		) {
 			headers["Access-Control-Expose-Headers"] = options.exposeHeaders;
 		}
-		if (maxAge && !Object.hasOwn(headers, "Access-Control-Max-Age")) {
+		if (maxAge && !present.has("access-control-max-age")) {
 			headers["Access-Control-Max-Age"] = maxAge;
 		}
 		const httpMethod = readHttpMethod(request.event);
 		if (
 			httpMethod === "OPTIONS" &&
 			options.cacheControl &&
-			!Object.hasOwn(headers, "Cache-Control")
+			!present.has("cache-control")
 		) {
 			headers["Cache-Control"] = options.cacheControl;
 		}
+	};
+
+	// A rejected preflight still carries every Vary token its outcome depends
+	// on, so a shared cache never serves it to a request that would pass
+	// (RFC 9110 §12.5.5).
+	const rejectPreflight = (request) => {
+		const headers = {};
+		if (originVaries) {
+			addHeaderPart(headers, "Vary", "Origin");
+		}
+		addPreflightVary(headers);
+		request.response.statusCode = 204;
+		request.response.headers = headers;
+		return request.response;
 	};
 
 	const httpCorsMiddlewareBefore = (request) => {
@@ -280,9 +309,7 @@ const httpCorsMiddleware = (opts = {}) => {
 
 			if (options.requestMethods?.length && requestMethod) {
 				if (!options.requestMethods.includes(requestMethod)) {
-					request.response.statusCode = 204;
-					request.response.headers = {};
-					return request.response;
+					return rejectPreflight(request);
 				}
 			}
 
@@ -306,14 +333,13 @@ const httpCorsMiddleware = (opts = {}) => {
 					(h) => !options.requestHeaders.includes(h),
 				);
 				if (hasDisallowedHeader) {
-					request.response.statusCode = 204;
-					request.response.headers = {};
-					return request.response;
+					return rejectPreflight(request);
 				}
 			}
 
 			const headers = {};
 			modifyHeaders(headers, options, request);
+			addPreflightVary(headers);
 			request.response.headers = headers;
 			request.response.statusCode = 204;
 			return request.response;

@@ -4,7 +4,7 @@ import type middy from "@middy/core";
 import type { ContextNamespace } from "@middy/util";
 import type { MetricsLogger } from "aws-embedded-metrics";
 
-export { MetricsLogger } from "aws-embedded-metrics";
+export type { MetricsLogger };
 
 export interface Options {
 	namespace?: string;
@@ -28,12 +28,16 @@ declare function cloudwatchMetrics<
 	TKey extends string = string,
 >(
 	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
-	// key narrows `middyContext` without `as const`.
-	options?: TOptions & { contextKey?: TKey },
+	// key narrows `middyContext` without `as const`. The `never` record rejects
+	// keys `Options` does not declare, which inference would otherwise accept.
+	options?: TOptions & { contextKey?: TKey } & Record<
+			Exclude<keyof TOptions, keyof Options>,
+			never
+		>,
 ): middy.MiddlewareObj<unknown, unknown, Error, Context<TOptions>>;
 
-export declare function cloudwatchMetricsValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function cloudwatchMetricsValidateOptions<
+	TOptions extends Options,
+>(options?: TOptions): TOptions;
 
 export default cloudwatchMetrics;

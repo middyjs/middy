@@ -456,6 +456,88 @@ describe("@middy/http-router", () => {
 		ok(response);
 	});
 
+	// https://github.com/middyjs/middy/issues/1704
+	test("It should split a v2 event on rawPath, keeping %2F inside a path parameter", async (t) => {
+		const event = {
+			version: "2.0",
+			rawPath: "/items/gid%3A%2F%2Fshopify%2FDraftOrder%2F123",
+			requestContext: {
+				http: {
+					method: "GET",
+					path: "/items/gid://shopify/DraftOrder/123",
+				},
+			},
+		};
+		const handler = httpRouter([
+			{
+				method: "GET",
+				path: "/items/{id}",
+				handler: (event) => event.pathParameters,
+			},
+		]);
+		const response = await handler(event, defaultContext);
+		deepStrictEqual(response, { id: "gid://shopify/DraftOrder/123" });
+	});
+
+	test("It should route a v2 event on rawPath over requestContext.http.path", async (t) => {
+		const event = {
+			version: "2.0",
+			rawPath: "/raw",
+			requestContext: { http: { method: "GET", path: "/decoded" } },
+		};
+		const handler = httpRouter([
+			{ method: "GET", path: "/raw", handler: () => true },
+		]);
+		ok(await handler(event, defaultContext));
+	});
+
+	test("It should not double decode %25 in a v2 rawPath", async (t) => {
+		const event = {
+			version: "2.0",
+			rawPath: "/items/100%2525",
+			requestContext: { http: { method: "GET", path: "/items/100%25" } },
+		};
+		const handler = httpRouter([
+			{
+				method: "GET",
+				path: "/items/{id}",
+				handler: (event) => event.pathParameters,
+			},
+		]);
+		const response = await handler(event, defaultContext);
+		deepStrictEqual(response, { id: "100%25" });
+	});
+
+	test("It should match a decoded static route from a v2 rawPath", async (t) => {
+		const event = {
+			version: "2.0",
+			rawPath: "/caf%C3%A9",
+			requestContext: { http: { method: "GET", path: "/café" } },
+		};
+		const handler = httpRouter([
+			{ method: "GET", path: "/café", handler: () => true },
+		]);
+		ok(await handler(event, defaultContext));
+	});
+
+	test("It should throw 400 for a malformed v2 rawPath", async (t) => {
+		const event = {
+			version: "2.0",
+			rawPath: "/items/%E0%A4%A",
+			requestContext: { http: { method: "GET", path: "/items/x" } },
+		};
+		const handler = httpRouter([
+			{ method: "GET", path: "/items/{id}", handler: () => true },
+		]);
+		try {
+			await handler(event, defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 400);
+			strictEqual(e.cause.package, "@middy/http-router");
+		}
+	});
+
 	test("It should route to a VPC Lattice event", async (t) => {
 		const event = {
 			method: "GET",

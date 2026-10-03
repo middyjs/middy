@@ -1,14 +1,21 @@
 import cloudformationRouterHandler, {
+	type CloudFormationRouteResponse,
 	type Route,
+	type RouteContext,
 	type RouteHandler,
+	type RouterHandler,
 } from "@middy/cloudformation-router";
 import middy from "@middy/core";
 import type {
 	CloudFormationCustomResourceEvent,
 	CloudFormationCustomResourceHandler,
-	Context,
+	Handler as LambdaHandler,
 } from "aws-lambda";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
+
+// biome-ignore lint/suspicious/noConfusingVoidType: the default route result
+type Result = void | CloudFormationRouteResponse;
 
 const createLambdaHandler: CloudFormationCustomResourceHandler = async (
 	_event,
@@ -36,7 +43,7 @@ test("use with array form", () => {
 		},
 	]);
 	expect(middleware).type.toBe<
-		middy.MiddyfiedHandler<CloudFormationCustomResourceEvent, void>
+		RouterHandler<CloudFormationCustomResourceEvent, Result>
 	>();
 });
 
@@ -57,7 +64,7 @@ test("use with options form", () => {
 		},
 	});
 	expect(middlewareWithOptions).type.toBe<
-		middy.MiddyfiedHandler<CloudFormationCustomResourceEvent, void>
+		RouterHandler<CloudFormationCustomResourceEvent, Result>
 	>();
 });
 
@@ -72,7 +79,7 @@ test("use with returning notFoundResponse", () => {
 		notFoundResponse: ({ requestType }) => ({ Status: "SUCCESS" }),
 	});
 	expect(middlewareWithReturnResponse).type.toBe<
-		middy.MiddyfiedHandler<CloudFormationCustomResourceEvent, void>
+		RouterHandler<CloudFormationCustomResourceEvent, Result>
 	>();
 });
 
@@ -96,7 +103,7 @@ test("inline handler: event and context are contextually typed", () => {
 			requestType: "Create",
 			handler: async (event, context) => {
 				expect(event).type.toBe<CloudFormationCustomResourceEvent>();
-				expect(context).type.toBe<Context>();
+				expect(context).type.toBe<RouteContext>();
 			},
 		},
 		{
@@ -107,7 +114,7 @@ test("inline handler: event and context are contextually typed", () => {
 		},
 	]);
 	expect(router).type.toBe<
-		middy.MiddyfiedHandler<CloudFormationCustomResourceEvent, void>
+		RouterHandler<CloudFormationCustomResourceEvent, Result>
 	>();
 });
 
@@ -123,7 +130,7 @@ test("middyfied handler as a route handler", () => {
 		},
 	]);
 	expect(router).type.toBe<
-		middy.MiddyfiedHandler<CloudFormationCustomResourceEvent, void>
+		RouterHandler<CloudFormationCustomResourceEvent, Result>
 	>();
 });
 
@@ -135,5 +142,94 @@ test("RouteHandler type", () => {
 		middy<CloudFormationCustomResourceEvent, void>(),
 	).type.toBeAssignableTo<
 		RouteHandler<CloudFormationCustomResourceEvent, void>
+	>();
+});
+
+test("the router is a plain handler that middy() wraps", () => {
+	const router = cloudformationRouterHandler([
+		{ requestType: "Create", handler: async () => {} },
+	]);
+	expect(router).type.not.toHaveProperty("use");
+	expect(middy(router)).type.toBe<
+		middy.MiddyfiedHandler<CloudFormationCustomResourceEvent, Result>
+	>();
+});
+
+test("the router is assignable to the aws-lambda Handler type", () => {
+	const router = cloudformationRouterHandler([
+		{ requestType: "Create", handler: async () => {} },
+	]);
+	expect(router).type.toBeAssignableTo<
+		LambdaHandler<CloudFormationCustomResourceEvent, Result>
+	>();
+});
+
+test("cloudformationRouterValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.Options;
+	expect(
+		indexModule.cloudformationRouterValidateOptions(options),
+	).type.toBe<indexModule.Options>();
+});
+
+test("route handlers may return the custom resource response", () => {
+	const router = cloudformationRouterHandler([
+		{
+			requestType: "Create",
+			handler: async () => ({ PhysicalResourceId: "x", Data: {} }),
+		},
+	]);
+	expect(router).type.toBe<
+		RouterHandler<CloudFormationCustomResourceEvent, Result>
+	>();
+});
+
+test("routes returning a response and void mix", () => {
+	expect(cloudformationRouterHandler).type.toBeCallableWith({
+		routes: [
+			{
+				requestType: "Create",
+				handler: async () => ({ PhysicalResourceId: "x", Data: {} }),
+			},
+			{ requestType: "Delete", handler: deleteLambdaHandler },
+		],
+	});
+});
+
+test("route handler context carries middyContext", () => {
+	cloudformationRouterHandler([
+		{
+			requestType: "Create",
+			handler: async (_event, context) => {
+				expect(context.middyContext).type.toBe<Record<string, unknown>>();
+			},
+		},
+	]);
+});
+
+test("rejects misspelled option", () => {
+	expect(cloudformationRouterHandler).type.not.toBeCallableWith({
+		routes: [],
+		notFoundResponce: () => ({}),
+	});
+});
+
+test("route handlers must return a CloudFormation response shape", () => {
+	expect(cloudformationRouterHandler).type.not.toBeCallableWith([
+		{ requestType: "Create", handler: async () => ({ PhysicalResourceId: 1 }) },
+	]);
+});
+
+test("TResult may be given explicitly", () => {
+	const router = cloudformationRouterHandler<{ PhysicalResourceId: string }>([
+		{
+			requestType: "Create",
+			handler: async () => ({ PhysicalResourceId: "x" }),
+		},
+	]);
+	expect(router).type.toBe<
+		RouterHandler<
+			CloudFormationCustomResourceEvent,
+			{ PhysicalResourceId: string }
+		>
 	>();
 });

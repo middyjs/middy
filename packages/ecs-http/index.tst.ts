@@ -8,6 +8,7 @@ import type {
 	Handler as LambdaHandler,
 } from "aws-lambda";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import ecsHttpRunner, {
 	type EcsHttpRunnerOptions,
 	type EventVersion,
@@ -82,6 +83,7 @@ test("EcsHttpRunnerOptions accepts all optional fields", () => {
 		timeout: 30_000,
 		bodyLimit: 1024,
 		trustedProxies: 2,
+		gracefulShutdownMs: 20_000,
 	};
 	expect(options).type.toBeAssignableTo<EcsHttpRunnerOptions>();
 });
@@ -91,7 +93,14 @@ test("ecsHttpRunner returns Promise", () => {
 	expect(result).type.toBe<Promise<unknown>>();
 });
 
-test("ecsHttpValidateOptions accepts a record", () => {
-	expect(ecsHttpValidateOptions).type.toBeCallableWith({});
+test("ecsHttpValidateOptions rejects options missing required keys", () => {
+	expect(ecsHttpValidateOptions).type.not.toBeCallableWith({});
 	expect(ecsHttpValidateOptions).type.toBeCallableWith();
+});
+
+test("ecsHttpValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.EcsHttpRunnerOptions;
+	expect(
+		indexModule.ecsHttpValidateOptions(options),
+	).type.toBe<indexModule.EcsHttpRunnerOptions>();
 });

@@ -4,9 +4,8 @@ import {
 	assignSetToContext,
 	buildSetToContextSpec,
 	canPrefetch,
-	getCache,
+	evictCacheOnFailure,
 	jsonContentTypePattern,
-	modifyCache,
 	processCache,
 	validateOptions,
 } from "@middy/util";
@@ -61,6 +60,11 @@ const optionSchema = {
 			minimum: -1,
 			maximum: Number.MAX_SAFE_INTEGER,
 		},
+		cacheMaxSize: {
+			type: "integer",
+			minimum: 1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		setToContext: { type: "boolean" },
 		contextKey: { type: "string" },
 	},
@@ -69,6 +73,17 @@ const optionSchema = {
 
 export const appConfigExtensionValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
+
+// A fetch that hangs past the invocation would be cut off by Lambda; abort it
+// 500 ms early instead so the failure surfaces and the cache entry is evicted.
+// Outside an invocation (prefetch) allow 30 s.
+const fetchTimeoutSignal = (request) =>
+	AbortSignal.timeout(
+		Math.max(
+			1000,
+			(request?.context?.getRemainingTimeInMillis?.() ?? 30_000) - 500,
+		),
+	);
 
 const appConfigExtensionMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
@@ -91,7 +106,7 @@ const appConfigExtensionMiddleware = (opts = {}) => {
 						.join("&")}`;
 				}
 			}
-			values[internalKey] = fetch(url)
+			values[internalKey] = fetch(url, { signal: fetchTimeoutSignal(request) })
 				.then((res) => {
 					if (!res.ok) {
 						throw new Error(`${pkg} ${res.status} ${res.statusText}`, {
@@ -104,12 +119,7 @@ const appConfigExtensionMiddleware = (opts = {}) => {
 						? res.json()
 						: res.text();
 				})
-				.catch((e) => {
-					const value = { ...getCache(options.cacheKey).value };
-					value[internalKey] = undefined;
-					modifyCache(options.cacheKey, value);
-					throw e;
-				});
+				.catch(evictCacheOnFailure(options.cacheKey, internalKey, values));
 		}
 		return values;
 	};

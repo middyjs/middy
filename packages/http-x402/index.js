@@ -150,7 +150,7 @@ const httpX402Middleware = (opts = {}) => {
 		request.response.headers["PAYMENT-REQUIRED"] =
 			encodeHeader(paymentRequired);
 		request.response.body = JSON.stringify(paymentRequired);
-		return request.response;
+		return albMultiValueResponse(request);
 	};
 
 	// x402 v1 PaymentRequirements: every field is required by the v1 schema,
@@ -184,7 +184,7 @@ const httpX402Middleware = (opts = {}) => {
 		request.response.body = JSON.stringify(
 			buildPaymentRequiredV1(request.event, error),
 		);
-		return request.response;
+		return albMultiValueResponse(request);
 	};
 
 	const httpX402V2Before = async (request, paymentHeader) => {
@@ -254,22 +254,32 @@ const httpX402Middleware = (opts = {}) => {
 	};
 
 	const httpX402MiddlewareBefore = (request) => {
-		if (human?.(request)) return;
+		// Only a literal `true` bypasses payment. An async callback returns a
+		// Promise, which is always truthy, so it would skip payment for every
+		// request; reject it loudly instead of failing open.
+		const isHuman = human?.(request);
+		if (typeof isHuman?.then === "function") {
+			throw new TypeError(`${pkg} human must return a boolean, not a Promise`, {
+				cause: { package: pkg },
+			});
+		}
+		if (isHuman === true) return;
 
 		// A disabled version's payment header is not a payment header for this
 		// server; the client falls through and is re-challenged with the
 		// enabled formats only.
-		const headers = request.event.headers ?? {};
+		// ALB with multi-value headers enabled sends only `multiValueHeaders`.
+		// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+		const headers =
+			request.event.headers ?? request.event.multiValueHeaders ?? {};
 		const v2PaymentHeader = v2Enabled
-			? (headers["payment-signature"] ??
-				headers["Payment-Signature"] ??
-				headers["PAYMENT-SIGNATURE"])
+			? readHeader(headers, "payment-signature")
 			: undefined;
 		if (v2PaymentHeader) {
 			return httpX402V2Before(request, v2PaymentHeader);
 		}
 		const v1PaymentHeader = v1Enabled
-			? (headers["x-payment"] ?? headers["X-Payment"] ?? headers["X-PAYMENT"])
+			? readHeader(headers, "x-payment")
 			: undefined;
 		if (v1PaymentHeader) {
 			return httpX402V1Before(request, v1PaymentHeader);
@@ -296,7 +306,7 @@ const httpX402Middleware = (opts = {}) => {
 						)
 					: paymentRequired,
 			);
-			return request.response;
+			return albMultiValueResponse(request);
 		}
 		return respondPaymentRequiredV1(request, "X-PAYMENT header is required");
 	};
@@ -309,6 +319,9 @@ const httpX402Middleware = (opts = {}) => {
 		if (request.response.statusCode >= 400) return;
 
 		const { payload, requirements: storedRequirements } = stored;
+		// Decided by the event, not the handler's response: API Gateway REST
+		// accepts `headers` and `multiValueHeaders` side by side, ALB does not.
+		const multiValue = isAlbMultiValue(request.event);
 		// v1 settlements are reported in X-PAYMENT-RESPONSE, v2 in
 		// PAYMENT-RESPONSE.
 		const responseHeader =
@@ -326,29 +339,24 @@ const httpX402Middleware = (opts = {}) => {
 					typeof error?.transaction === "string" ? error.transaction : "",
 				network: storedRequirements.network,
 			};
-			request.response.statusCode = 402;
-			request.response.headers["Content-Type"] = "application/json";
-			request.response.headers[responseHeader] = encodeHeader(settleResponse);
-			request.response.body = JSON.stringify({
-				x402Version: payload.x402Version,
-				error: settleResponse.errorReason,
-			});
-			// The handler's response is replaced in place; a stale
-			// isBase64Encoded from a binary body would make API Gateway
-			// base64-decode this JSON.
-			request.response.isBase64Encoded = false;
+			request.response = settlementRefused(
+				payload,
+				responseHeader,
+				settleResponse,
+				request.response,
+				multiValue,
+			);
 			return;
 		}
 
 		if (!settleResult.success) {
-			request.response.statusCode = 402;
-			request.response.headers["Content-Type"] = "application/json";
-			request.response.headers[responseHeader] = encodeHeader(settleResult);
-			request.response.body = JSON.stringify({
-				x402Version: payload.x402Version,
-				error: settleResult.errorReason,
-			});
-			request.response.isBase64Encoded = false;
+			request.response = settlementRefused(
+				payload,
+				responseHeader,
+				settleResult,
+				request.response,
+				multiValue,
+			);
 			return;
 		}
 
@@ -358,13 +366,121 @@ const httpX402Middleware = (opts = {}) => {
 			transaction: settleResult.transaction,
 			network: settleResult.network,
 		};
-		request.response.headers[responseHeader] = encodeHeader(settleResult);
+		if (multiValue) {
+			request.response.multiValueHeaders ??= {};
+			request.response.multiValueHeaders[responseHeader] = [
+				encodeHeader(settleResult),
+			];
+		} else {
+			request.response.headers[responseHeader] = encodeHeader(settleResult);
+		}
 	};
 
 	return {
 		before: httpX402MiddlewareBefore,
 		after: httpX402MiddlewareAfter,
 	};
+};
+
+// Field names are case-insensitive (RFC 9110 §5.1) and API Gateway REST passes
+// the client's casing through. ALB multi-value and VPC Lattice V2 deliver
+// arrays; the first value is the one used.
+const readHeader = (headers, lowerName) => {
+	for (const key of Object.keys(headers)) {
+		if (key.toLowerCase() === lowerName) {
+			const value = headers[key];
+			return Array.isArray(value) ? value[0] : value;
+		}
+	}
+	return undefined;
+};
+
+// Response-policy headers, not content: CORS (so a browser can read the 402 at
+// all), `Vary`, and what http-security-headers sets. When those middlewares are
+// .use()d after this one, their after hooks have already run on the handler's
+// response, so they are carried over to the 402.
+const policyHeaderNames = new Set([
+	"vary",
+	"strict-transport-security",
+	"x-content-type-options",
+	"x-frame-options",
+	"x-dns-prefetch-control",
+	"x-download-options",
+	"x-permitted-cross-domain-policies",
+	"x-xss-protection",
+	"referrer-policy",
+	"permissions-policy",
+	"origin-agent-cluster",
+	"reporting-endpoints",
+	"report-to",
+	"content-security-policy",
+	"content-security-policy-report-only",
+]);
+const isPolicyHeader = (name) => {
+	const lower = name.toLowerCase();
+	return (
+		policyHeaderNames.has(lower) ||
+		lower.startsWith("access-control-") ||
+		lower.startsWith("cross-origin-")
+	);
+};
+
+// Payment was not taken, so nothing the handler produced for the paid resource
+// may reach the client: not its body, and not its content headers, multi-value
+// headers or v2 cookies (Location, Set-Cookie). The handler's response is
+// replaced whole rather than patched; only policy headers are kept.
+const settlementRefused = (
+	payload,
+	responseHeader,
+	settlement,
+	replaced,
+	multiValue,
+) => {
+	const headers = {};
+	for (const map of [replaced.headers, replaced.multiValueHeaders]) {
+		if (!map) continue;
+		for (const name of Object.keys(map)) {
+			if (isPolicyHeader(name)) headers[name] = map[name];
+		}
+	}
+	headers["Content-Type"] = "application/json";
+	headers[responseHeader] = encodeHeader(settlement);
+	const response = {
+		statusCode: 402,
+		headers,
+		body: JSON.stringify({
+			x402Version: payload.x402Version,
+			error: settlement.errorReason,
+		}),
+		isBase64Encoded: false,
+	};
+	return multiValue ? toMultiValueHeaders(response) : response;
+};
+
+// An ALB target group with multi-value headers enabled sends
+// `multiValueHeaders` and only reads them back: "You must use
+// multiValueHeaders if you have enabled multi-value headers and headers
+// otherwise." Its events are the only ones that carry `requestContext.elb`
+// together with `multiValueHeaders`.
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+const isAlbMultiValue = (event) =>
+	event.requestContext?.elb !== undefined &&
+	event.multiValueHeaders !== undefined;
+
+const toMultiValueHeaders = ({ headers, ...response }) => {
+	const multiValueHeaders = {};
+	for (const name of Object.keys(headers)) {
+		const value = headers[name];
+		multiValueHeaders[name] = Array.isArray(value) ? value : [value];
+	}
+	return { ...response, multiValueHeaders };
+};
+
+const albMultiValueResponse = (request) => {
+	if (isAlbMultiValue(request.event)) {
+		request.response = toMultiValueHeaders(request.response);
+	}
+	return request.response;
 };
 
 // Facilitator clients throw errors carrying `invalidReason` / `errorReason`
@@ -439,13 +555,25 @@ const toAtomicAmount = (price, decimals, amountOverride) => {
 	return String(BigInt(`${whole}${padded}`));
 };
 
+// The host comes only from API Gateway's `requestContext.domainName`; the Host
+// header is client-controlled and never used. ALB and VPC Lattice carry no
+// trusted domain, so they get `localhost`, with the request path from the
+// event: `path` (ALB, Lattice V2) or `raw_path` (Lattice V1). Lattice includes
+// the query string in both, which is not part of the resource. Lattice V2 also
+// sends `version: "2.0"`, but has no `requestContext.http`.
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html
+// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html
 const buildResource = (event) => {
-	if (event.version === "2.0") {
-		return `https://${event.requestContext.domainName}${event.requestContext.http.path}`;
+	const requestContext = event.requestContext;
+	if (event.version === "2.0" && requestContext?.http) {
+		return `https://${requestContext.domainName}${requestContext.http.path}`;
 	}
-	const host = event.requestContext?.domainName ?? "localhost";
-	const path = event.requestContext?.path ?? "/";
-	return `https://${host}${path}`;
+	if (requestContext?.domainName) {
+		return `https://${requestContext.domainName}${requestContext.path ?? "/"}`;
+	}
+	const rawPath = requestContext?.path ?? event.path ?? event.raw_path;
+	const path = typeof rawPath === "string" ? rawPath.split("?", 1)[0] : "";
+	return `https://localhost${path || "/"}`;
 };
 
 const encodeHeader = (obj) =>

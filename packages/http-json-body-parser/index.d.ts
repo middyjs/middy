@@ -19,8 +19,8 @@ declare function jsonBodyParser<EventType extends RequestEvent = RequestEvent>(
 	options?: Options,
 ): middy.MiddlewareObj<EventType, unknown, Error>;
 
-export declare function httpJsonBodyParserValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function httpJsonBodyParserValidateOptions<
+	TOptions extends Options,
+>(options?: TOptions): TOptions;
 
 export default jsonBodyParser;

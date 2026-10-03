@@ -4,7 +4,7 @@ description: "Verify PASETO v4.public tokens on incoming HTTP requests using a p
 status: alpha
 ---
 
-Verifies a [PASETO](https://paseto.io) `v4.public` token on incoming HTTP requests. The verified payload is written to `request.internal[payloadKey]` (and optionally to `request.context[payloadKey]` when `setToContext: true`).
+Verifies a [PASETO](https://paseto.io) `v4.public` token on incoming HTTP requests. The verified payload is written to `request.internal[payloadKey]` (and optionally to `context.middyContext[payloadKey]` when `setToContext: true`).
 
 The token is resolved from the first available source in this order: cookie, header, query string. When no source is configured the middleware falls back to the `Authorization: Bearer ...` header.
 
@@ -31,15 +31,18 @@ npm install --save paseto
 - `tokenQueryStringName` (string) (optional): Query-string parameter to read the token from.
 - `audience` (string) (optional): Expected `aud` claim.
 - `issuer` (string) (optional): Expected `iss` claim.
-- `clockTolerance` (string) (optional): Clock skew tolerance forwarded to `paseto`'s `V4.verify` (e.g. `"5 seconds"`). See the [paseto docs](https://github.com/panva/paseto) for accepted formats.
-- `maxTokenAge` (string) (optional): Maximum age of the token measured from its `iat` claim, forwarded to `paseto`'s `V4.verify`. Uses the same time-span format as `clockTolerance` (e.g. `"1 hour"`). Setting it also makes `iat` required, so tokens without one are rejected.
+- `clockTolerance` (number) (optional): Clock skew tolerance in seconds, forwarded to `paseto`'s `V4.verify` (e.g. `5`). Must be a finite, non-negative number; `paseto` v4 no longer accepts time-span strings such as `"5 seconds"`.
+- `maxTokenAge` (number) (optional): Maximum age of the token in seconds, measured from its `iat` claim, forwarded to `paseto`'s `V4.verify` (e.g. `3600` for one hour). Setting it also makes `iat` required, so tokens without one are rejected.
 - `expectedClaims` (object) (optional): Claims the payload must carry, compared with strict equality, e.g. `{ typ: 'access' }`. A claim that is absent fails the same way a claim with the wrong value does. Checked after the signature and before the payload is published, so nothing downstream can read a payload this rejected. Values must be a string, number, or boolean: an array or object could only match itself by reference, so it is refused at construction.
 - `payloadKey` (string) (default `paseto`): Key under which the decoded payload is stored.
+- `tokenKey` (string) (default `` `${payloadKey}Token` ``): Key on `request.internal` where the verified token is stored exactly as presented, whichever source it came from. [`@middy/http-dpop`](/docs/middlewares/http-dpop) reads it to hash the token that was actually verified (RFC 9449 §4.3).
 - `setToContext` (boolean) (default `false`): When `true`, the verified payload is also published to `request.context.middyContext[payloadKey]`. By default it is written only to `request.internal[payloadKey]` (matches `@middy/ssm` and `@middy/secrets-manager`). There is no separate `contextKey`: `payloadKey` names both.
 
 NOTES:
 
 - A missing or malformed token, an unsupported version/purpose, an invalid signature, or a failed claim check throws a `401 Unauthorized`. Pair with [`http-error-handler`](/docs/middlewares/http-error-handler) to convert it into a proper HTTP response.
+- Every `401` carries a `WWW-Authenticate` challenge on `error.headers`, which `http-error-handler` copies onto the response (RFC 6750 §3): `Bearer` when no token was found in any configured source, `Bearer error="invalid_token"` when a token was presented and refused.
+- ALB with [multi-value headers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers) enabled sends `multiValueHeaders` and no `headers`. The header and cookie sources read `multiValueHeaders` when `headers` is absent, so this works with or without [`http-event-normalizer`](/docs/middlewares/http-event-normalizer) in front.
 - The KMS key behind a PASETO `v4.public` deployment must be an Ed25519 key (`ECC_NIST_ED25519`).
 
 ## Sample usage
@@ -71,7 +74,7 @@ export const handler = middy()
       internalKey: 'pasetoKey',
       issuer: 'https://auth.example.com',
       audience: 'api.example.com',
-      clockTolerance: '5 seconds',
+      clockTolerance: 5,
     }),
   )
   .use(httpErrorHandler())

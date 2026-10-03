@@ -4,6 +4,7 @@ import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import s3, { type Context, type ParamType, s3Param } from "./index.js";
 
 const options = {
@@ -228,4 +229,18 @@ test("contextKey literal narrows middyContext without as const", () => {
 				param1: string;
 			}>();
 		});
+});
+
+test("rejects misspelled option alongside fetchData", () => {
+	expect(s3).type.not.toBeCallableWith({
+		fetchData: { obj: { Bucket: "b", Key: "k" } },
+		cacheExpiery: 1000,
+	});
+});
+
+test("s3ValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.S3Options;
+	expect(
+		indexModule.s3ValidateOptions(options),
+	).type.toBe<indexModule.S3Options>();
 });

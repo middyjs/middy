@@ -29,6 +29,16 @@ the `@middy/` scope, so `@middy/ssm` writes to `context.middyContext.ssm` and us
 point a second instance somewhere else with `contextKey: 'ssmAdmin'`. Only add
 the option if your middleware actually writes to the context.
 
+A second instance that fetches different data also needs its own `cacheKey`
+(`ssm({ ..., contextKey: 'ssmAdmin', cacheKey: 'ssm-admin' })`): instances share
+the cache entry under one `cacheKey`, and `processCache` throws a `TypeError`
+when one reuses it for different `fetchData`, `config` or `awsClientOptions`.
+
+In a nested `middy` (one invoked with the outer invocation's `context`),
+`contextNamespace` gives the inner request its own namespace that inherits the
+outer one for the same `contextKey`: reads see the outer values, writes stay on
+the inner request.
+
 `@middy/util` exports two helpers that create the namespace if it is missing:
 
 - `contextNamespace(request, contextKey)` returns the object to merge key/value data into, so two middleware sharing a key merge rather than clobber.
@@ -62,7 +72,7 @@ const customMiddleware = (opts = {}) => {
     const values = {}
     // Start your custom fetch
     for (const internalKey of Object.keys(options.fetchData)) {
-      values[internalKey] = fetchRequest('...', options.fetchData[internalKey]).then(
+      values[internalKey] = fetch('...', options.fetchData[internalKey]).then(
         (res) => res.text()
       )
     }

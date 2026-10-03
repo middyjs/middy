@@ -74,7 +74,7 @@ export const handler = withDurableExecution(
 
 ## IaC: required event source mapping
 
-See the [DynamoDB Streams recipe](/docs/recipes/dynamodb-stream-processor) for CloudFormation/SAM/CDK snippets.
+Set `FunctionResponseTypes: [ReportBatchItemFailures]` on the event source mapping.
 
 ## Common gotchas
 
@@ -85,7 +85,6 @@ See the [DynamoDB Streams recipe](/docs/recipes/dynamodb-stream-processor) for C
 
 ## Related
 
-- [DynamoDB Streams recipe](/docs/recipes/dynamodb-stream-processor)
 - [`@middy/event-normalizer`](/docs/middlewares/event-normalizer)
 - [`@middy/dynamodb`](/docs/middlewares/dynamodb) - fetch config from DynamoDB tables
 - [Kinesis Streams](/docs/events/kinesis-streams)

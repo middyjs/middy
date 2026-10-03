@@ -23,8 +23,10 @@ Each middleware should do a single task. We try to balance each to be as perform
 
 ## Request Transformation
 
+- [`event-batch-parser`](/docs/middlewares/event-batch-parser): Decodes batch records (Kafka, Kinesis, Firehose, SQS, MQ) with pluggable JSON, Avro, or Protobuf parsers and AWS Glue Schema Registry support.
 - [`event-normalizer`](/docs/middlewares/event-normalizer): Middleware for iterating through an AWS event records, parsing and normalizing nested events.
 - [`http-content-negotiation`](/docs/middlewares/http-content-negotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
+- [`http-dpop`](/docs/middlewares/http-dpop): Requires a DPoP (RFC 9449) proof of possession for sender-constrained access tokens. Runs after `http-jwt` or `http-paseto`.
 - [`http-event-normalizer`](/docs/middlewares/http-event-normalizer): Normalizes HTTP events by adding an empty object for `queryStringParameters`, `multiValueQueryStringParameters` or `pathParameters` if they are missing.
 - [`http-header-normalizer`](/docs/middlewares/http-header-normalizer): Normalizes HTTP header names to their canonical format
 - [`http-json-body-parser`](/docs/middlewares/http-json-body-parser): Automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
@@ -34,11 +36,13 @@ Each middleware should do a single task. We try to balance each to be as perform
 - [`http-paseto`](/docs/middlewares/http-paseto): Verifies a PASETO v4.public token on incoming HTTP requests using a public key fetched from `kms`.
 - [`http-urlencode-body-parser`](/docs/middlewares/http-urlencode-body-parser): Automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
 - [`http-urlencode-path-parser`](/docs/middlewares/http-urlencode-path-parser): Automatically parses HTTP requests with URL encoded path.
+- [`http-x402`](/docs/middlewares/http-x402): Gates HTTP endpoints behind x402 payments, verified and settled via a facilitator.
 - [`validator`](/docs/middlewares/validator): Automatically validates incoming events and outgoing responses against custom schemas.
 - [`ws-json-body-parser`](/docs/middlewares/ws-json-body-parser): Automatically parses WebSocket requests with JSON message and converts the message into an object.
 
 ## Response Transformation
 
+- [`cloudformation-response`](/docs/middlewares/cloudformation-response): Sends CloudFormation Custom Resource responses to the presigned `ResponseURL`.
 - [`http-content-encoding`](/docs/middlewares/http-content-encoding): Sets HTTP Content-Encoding header on response and compresses response body
 - [`http-cors`](/docs/middlewares/http-cors): Sets HTTP CORS headers on response
 - [`http-error-handler`](/docs/middlewares/http-error-handler): Creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
@@ -52,9 +56,12 @@ Each middleware should do a single task. We try to balance each to be as perform
 ## Fetch Data
 
 - [`appconfig`](/docs/middlewares/appconfig): Fetch JSON configurations from AppConfig.
+- [`dsql`](/docs/middlewares/dsql): Attaches an Aurora DSQL connection (`pg` or `postgres.js`) to `request.context`. Pair with `dsql-signer` for IAM auth tokens.
 - [`dsql-signer`](/docs/middlewares/dsql-signer): Fetches token for connecting to Aurora DSQL with IAM users.
 - [`dynamodb`](/docs/middlewares/dynamodb): Fetch configurations from DynamoDB.
+- [`glue-schema-registry`](/docs/middlewares/glue-schema-registry): Fetches and caches AWS Glue Schema Registry schemas (e.g. for `event-batch-parser`).
 - [`kms`](/docs/middlewares/kms): Fetches asymmetric public keys from AWS KMS for signature verification (e.g. `http-jwt`, `http-paseto`).
+- [`rds`](/docs/middlewares/rds): Attaches an RDS or Aurora connection (`pg` or `postgres.js`) to `request.context`, with TLS certificate support. Pair with `rds-signer` for IAM auth tokens.
 - [`rds-signer`](/docs/middlewares/rds-signer): Fetches token for connecting to RDS with IAM users.
 - [`s3`](/docs/middlewares/s3): Fetch JSON configurations from S3.
 - [`s3-object-response`](/docs/middlewares/s3-object-response): Gets and write S3 object response.

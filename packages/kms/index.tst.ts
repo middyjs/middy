@@ -2,6 +2,7 @@ import { KMSClient } from "@aws-sdk/client-kms";
 import middy from "@middy/core";
 import type { Context as LambdaContext } from "aws-lambda";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import kms, {
 	type Context,
 	type Internal,
@@ -86,4 +87,18 @@ test("contextKey literal narrows middyContext without as const", () => {
 				request.context.middyContext.custom.signingKey,
 			).type.toBe<KMSPublicKey>();
 		});
+});
+
+test("rejects misspelled option alongside fetchData", () => {
+	expect(kms).type.not.toBeCallableWith({
+		fetchData: { signingKey: "alias/k" },
+		cacheExpiery: 1000,
+	});
+});
+
+test("kmsValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.KMSOptions;
+	expect(
+		indexModule.kmsValidateOptions(options),
+	).type.toBe<indexModule.KMSOptions>();
 });

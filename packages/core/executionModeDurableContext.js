@@ -23,8 +23,9 @@ export const executionModeDurableContext = (
 		// Idea: Use Proxy instead of copying. Faster for common use case?
 		copyKeys(request.context, request.context.lambdaContext, lambdaContextKeys);
 
-		// See executionModeStandard for the .cause-chaining rationale.
-		let handlerError;
+		// Run requestEnd, then rethrow the request error. `hasError` (not
+		// truthiness) tracks the catch so thrown falsy primitives still reject.
+		let requestError;
 		let hasError = false;
 		let response;
 		try {
@@ -37,22 +38,24 @@ export const executionModeDurableContext = (
 				plugin,
 			);
 		} catch (err) {
-			handlerError = err;
+			requestError = err;
 			hasError = true;
 		}
 		try {
 			const requestEndResult = plugin.requestEnd(request);
 			if (requestEndResult instanceof Promise) await requestEndResult;
 		} catch (hookErr) {
-			if (hasError) {
-				if (typeof handlerError === "object" && handlerError !== null) {
-					handlerError.cause ??= hookErr;
-				}
-			} else {
-				throw hookErr;
-			}
+			if (!hasError) throw hookErr;
+			// Keep both errors: attaching the hook error as `.cause` was silently
+			// dropped for middy errors (they carry cause:{package}) and threw a
+			// TypeError on frozen errors.
+			throw new AggregateError(
+				[requestError, hookErr],
+				"Error thrown in requestEnd hook",
+				{ cause: { package: "@middy/core" } },
+			);
 		}
-		if (hasError) throw handlerError;
+		if (hasError) throw requestError;
 		return response;
 	});
 	middy.handler = (replaceLambdaHandler) => {

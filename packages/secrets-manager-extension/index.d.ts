@@ -16,8 +16,11 @@ export interface SecretsManagerExtensionOptions {
 	cacheKey?: string;
 	cacheKeyExpiry?: { [key: string]: number };
 	cacheExpiry?: number;
+	cacheMaxSize?: number;
 	setToContext?: boolean;
 	contextKey?: string;
+	/** Returns the session token sent to the extension; defaults to `AWS_SESSION_TOKEN`. */
+	awsSessionToken?: () => string | undefined | Promise<string | undefined>;
 }
 
 export type Context<
@@ -53,8 +56,12 @@ declare function secretsManagerExtension<
 	TKey extends string = string,
 >(
 	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
-	// key narrows `middyContext` without `as const`.
-	options?: TOptions & { contextKey?: TKey },
+	// key narrows `middyContext` without `as const`. The `never` record rejects
+	// keys `SecretsManagerExtensionOptions` does not declare, which inference would otherwise accept.
+	options?: TOptions & { contextKey?: TKey } & Record<
+			Exclude<keyof TOptions, keyof SecretsManagerExtensionOptions>,
+			never
+		>,
 ): middy.MiddlewareObj<
 	unknown,
 	any,
@@ -63,8 +70,8 @@ declare function secretsManagerExtension<
 	Internal<TOptions>
 >;
 
-export declare function secretsManagerExtensionValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function secretsManagerExtensionValidateOptions<
+	TOptions extends SecretsManagerExtensionOptions,
+>(options?: TOptions): TOptions;
 
 export default secretsManagerExtension;

@@ -1,4 +1,4 @@
-import { ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { after, before, describe, mock, test } from "node:test";
 
 // These tests mock `withDurableExecution` as a passthrough so the inner async
@@ -70,10 +70,33 @@ describe("@middy/core/DurableContext", () => {
 			strictEqual(captured.hasUndefinedKey, false);
 		});
 
-		// L46/L47 - when both handler and requestEnd hook throw, the handler error is
-		// thrown with the hook error attached as its (previously unset) cause.
-		test("executionModeDurableContext attaches hook error as cause of handler error", async () => {
-			const handlerErr = new Error("handler failed");
+		test("executionModeDurableContext keeps the outer middyContext intact under a nested request", async () => {
+			const seen = {};
+			const inner = middy({
+				executionMode: executionModeDurableContext,
+			}).handler((event, context) => {
+				seen.innerX = context.middyContext.x;
+				return "ok";
+			});
+			const outer = middy((event, context) => inner(event, context))
+				.before((request) => {
+					request.context.middyContext.x = "outer";
+				})
+				.after((request) => {
+					seen.outerIsOwn = Object.hasOwn(request.context.middyContext, "x");
+				});
+
+			await outer({}, baseContext());
+			strictEqual(seen.innerX, "outer");
+			strictEqual(seen.outerIsOwn, true);
+		});
+
+		// When both the handler and the requestEnd hook throw, both errors are
+		// kept in an AggregateError (a middy error's cause:{package} is untouched).
+		test("executionModeDurableContext throws AggregateError when handler and hook both throw", async () => {
+			const handlerErr = new Error("handler failed", {
+				cause: { package: "@middy/core" },
+			});
 			const hookErr = new Error("requestEnd failed");
 			const handler = middy({
 				executionMode: executionModeDurableContext,
@@ -91,12 +114,32 @@ describe("@middy/core/DurableContext", () => {
 			} catch (e) {
 				caught = e;
 			}
-			strictEqual(caught, handlerErr);
-			strictEqual(caught.cause, hookErr);
+			ok(caught instanceof AggregateError);
+			deepStrictEqual(caught.errors, [handlerErr, hookErr]);
+			deepStrictEqual(handlerErr.cause, { package: "@middy/core" });
 		});
 
-		// L49/L50 - when the handler succeeds but the requestEnd hook throws, the hook
-		// error is thrown directly (no handler error to attach it to).
+		test("executionModeDurableContext rethrows the handler error when requestEnd succeeds", async () => {
+			const handlerErr = new Error("handler failed");
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+				requestEnd: () => {},
+			}).handler(() => {
+				throw handlerErr;
+			});
+
+			let caught;
+			try {
+				await handler({}, baseContext());
+				throw new Error("Expected handler error to propagate");
+			} catch (e) {
+				caught = e;
+			}
+			strictEqual(caught, handlerErr);
+		});
+
+		// When the handler succeeds but the requestEnd hook throws, the hook
+		// error is thrown directly.
 		test("executionModeDurableContext throws requestEnd hook error when handler succeeds", async () => {
 			const hookErr = new Error("requestEnd failed");
 			const handler = middy({
@@ -116,7 +159,7 @@ describe("@middy/core/DurableContext", () => {
 			strictEqual(caught, hookErr);
 		});
 
-		// L46 true-arm - an async requestEnd hook returns a real Promise that must
+		// An async requestEnd hook returns a real Promise that must
 		// be awaited. This also runs in executionModeDurableContext.test.js against
 		// the real SDK; it is needed here too because this file's cache-busted
 		// `?mock=` import is a second module instance whose (query-stripped)
@@ -138,32 +181,6 @@ describe("@middy/core/DurableContext", () => {
 				caught = e;
 			}
 			strictEqual(caught, hookErr);
-		});
-
-		// L47 - `??=` must not overwrite an already-set cause when the hook also throws.
-		test("executionModeDurableContext preserves existing handler error cause when hook throws", async () => {
-			const existingCause = new Error("pre-existing");
-			const handlerErr = new Error("handler failed", { cause: existingCause });
-			const hookErr = new Error("requestEnd failed");
-			const handler = middy({
-				executionMode: executionModeDurableContext,
-				requestEnd: () => {
-					throw hookErr;
-				},
-			}).handler(() => {
-				throw handlerErr;
-			});
-
-			let caught;
-			try {
-				await handler({}, baseContext());
-				throw new Error("Expected handler error to propagate");
-			} catch (e) {
-				caught = e;
-			}
-			strictEqual(caught, handlerErr);
-			strictEqual(caught.cause, existingCause);
-			ok(caught.cause !== hookErr);
 		});
 	});
 });

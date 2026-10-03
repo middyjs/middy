@@ -15,7 +15,7 @@ npm install --save @middy/http-response-serializer
 
 ## Options
 
-- `defaultContentType` (optional): used if the request and handler don't specify what type is wanted. When it is unset and no media type was negotiated, no serializer runs and the response passes through.
+- `defaultContentType` (optional): used if the request and handler don't specify what type is wanted. When it is unset and no media type was negotiated, no serializer runs and the response passes through. It may carry parameters, e.g. `application/json; charset=utf-8` (RFC 9110 §8.3.1). A value that is not a well-formed media type, or that contains CR, LF or another control character, still selects a serializer but is not written to `Content-Type`.
 - `serializers` (array): Array for regex and serializer function.
 
 ```javascript
@@ -61,6 +61,8 @@ The content type is determined in the following order:
 
 All options allow for multiple types to be specified in your order of preference, and the first matching serializer will be executed.
 When planning to use `Accept`, an external input, it is recommended to validate that it is an expected value.
+
+Serialization is skipped when the handler already set `Content-Type` in `headers` or `multiValueHeaders`, in any casing (`Content-type`, `content-type`). A `Content-Type` key with an empty value also counts as set. A response that uses `multiValueHeaders` ([ALB multi-value headers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers)) gets `Content-Type` written there.
 
 ## Sample usage
 

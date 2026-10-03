@@ -25,8 +25,8 @@ declare function httpResponseSerializer(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
-export declare function httpResponseSerializerValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function httpResponseSerializerValidateOptions<
+	TOptions extends Options,
+>(options?: TOptions): TOptions;
 
 export default httpResponseSerializer;

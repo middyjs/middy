@@ -325,6 +325,13 @@ describe("@middy/util", () => {
 			}
 		});
 
+		test("null options uses the documented top-level message", () => {
+			throws(() => validateOptions("@middy/test", schema, null), {
+				name: "TypeError",
+				message: "options must be an object",
+			});
+		});
+
 		test("throws on unknown key when additionalProperties is false", () => {
 			try {
 				validateOptions("@middy/test", schema, { name: "foo", typo: 1 });

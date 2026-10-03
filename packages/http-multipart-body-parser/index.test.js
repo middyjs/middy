@@ -701,6 +701,77 @@ describe("@middy/http-multipart-body-parser", () => {
 		});
 	});
 
+	// RFC 9110 5.6.6 allows no whitespace around the parameter `;`, and a quoted
+	// value; RFC 2046 5.1.1 allows `_` (and more) in a boundary. The media type
+	// is all this middleware checks; busboy validates the parameters.
+	const formBody = (boundary) =>
+		`--${boundary}\r\nContent-Disposition: form-data; name="foo"\r\n\r\nbar\r\n--${boundary}--`;
+
+	for (const [contentType, boundary] of [
+		["multipart/form-data;boundary=abc", "abc"],
+		['multipart/form-data; boundary="3b0d-ab"', "3b0d-ab"],
+		["multipart/form-data; boundary=a_b'c", "a_b'c"],
+		["multipart/form-data; charset=utf-8; boundary=abc", "abc"],
+		["Multipart/Form-Data ; boundary=abc", "abc"],
+	]) {
+		test(`It should accept the valid content-type ${contentType}`, async (t) => {
+			const handler = middy((event) => event.body).use(
+				httpMultipartBodyParser(),
+			);
+
+			const response = await handler(
+				{
+					headers: { "content-type": contentType },
+					body: formBody(boundary),
+				},
+				defaultContext,
+			);
+
+			deepStrictEqual(
+				response,
+				Object.assign(Object.create(null), { foo: "bar" }),
+			);
+		});
+	}
+
+	// VPC Lattice V2 delivers every header value as an array.
+	// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html
+	test("It should parse a VPC Lattice V2 event whose content-type is an array", async (t) => {
+		const handler = middy((event) => event.body).use(httpMultipartBodyParser());
+
+		const response = await handler(
+			{
+				version: "2.0",
+				method: "POST",
+				headers: { "content-type": ["multipart/form-data; boundary=abc"] },
+				body: formBody("abc"),
+			},
+			defaultContext,
+		);
+
+		deepStrictEqual(
+			response,
+			Object.assign(Object.create(null), { foo: "bar" }),
+		);
+	});
+
+	test("It should reject multipart/form-data without a boundary as malformed", async (t) => {
+		const handler = middy((event) => event.body).use(httpMultipartBodyParser());
+
+		try {
+			await handler(
+				{
+					headers: { "content-type": "multipart/form-data" },
+					body: formBody("abc"),
+				},
+				defaultContext,
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 422);
+		}
+	});
+
 	test("It should reject a content-type with leading garbage before multipart/form-data", async (t) => {
 		const handler = middy((event, context) => {
 			return event.body;
@@ -726,7 +797,9 @@ describe("@middy/http-multipart-body-parser", () => {
 		}
 	});
 
-	test("It should reject a content-type with trailing garbage after the boundary", async (t) => {
+	test("It should leave a malformed trailing parameter to busboy", async (t) => {
+		// Only the media type is checked here; busboy skips a parameter with no
+		// `=` and still finds the boundary.
 		const handler = middy((event, context) => {
 			return event.body;
 		});
@@ -742,13 +815,11 @@ describe("@middy/http-multipart-body-parser", () => {
 			isBase64Encoded: true,
 		};
 
-		try {
-			await handler(event, defaultContext);
-			ok(false, "expected throw");
-		} catch (e) {
-			strictEqual(e.statusCode, 415);
-			strictEqual(e.message, "Unsupported Media Type");
-		}
+		const response = await handler(event, defaultContext);
+		deepStrictEqual(
+			response,
+			Object.assign(Object.create(null), { foo: "bar" }),
+		);
 	});
 
 	test("It should accept a content-type with charset and no space after the semicolon", async (t) => {
@@ -1378,6 +1449,27 @@ describe("@middy/http-multipart-body-parser", () => {
 		const event = {
 			headers: { "content-type": "multipart/form-data; boundary=TEST" },
 			body: `${part("a", "1")}${part("a[]", "2")}${part("a", "3")}--TEST--`,
+			isBase64Encoded: false,
+		};
+
+		const response = await handler(event, defaultContext);
+
+		deepStrictEqual(
+			response,
+			Object.assign(Object.create(null), { a: ["1", "2", "3"] }),
+		);
+	});
+
+	test("It should fold a repeated plain field into an array instead of keeping the last value", async (t) => {
+		const handler = middy((event) => event.body);
+
+		handler.use(httpMultipartBodyParser());
+
+		const part = (name, value) =>
+			`--TEST\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`;
+		const event = {
+			headers: { "content-type": "multipart/form-data; boundary=TEST" },
+			body: `${part("a", "1")}${part("a", "2")}${part("a", "3")}--TEST--`,
 			isBase64Encoded: false,
 		};
 

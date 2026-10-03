@@ -49,6 +49,35 @@ Note that when using TypeScript, you should use what we call the _Middleware-fir
 
 This approach makes sure that, as you attach middlewares, the type system understands how the `event` and the `context` arguments are augmented by the various middlewares and inside your handler code you can have a nice type-checking and auto-completion experience.
 
+The event and response types come from one of three places. Any of these works:
+
+```typescript
+import middy from '@middy/core'
+import type {
+  APIGatewayProxyEvent,
+  APIGatewayProxyHandler,
+  APIGatewayProxyResult,
+  SQSEvent,
+  SQSHandler
+} from 'aws-lambda'
+
+// 1. Annotate the exported handler
+export const sqsHandler: SQSHandler = middy().handler(async (event) => {
+  for (const record of event.Records) console.log(record.body)
+})
+
+// 2. Pass the types to middy()
+export const apiHandler: APIGatewayProxyHandler = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
+  .handler(async (event) => ({ statusCode: 200, body: event.path }))
+
+// 3. Pass the types to .handler()
+export const batchHandler = middy().handler<SQSEvent, void>(async (event) => {
+  console.log(event.Records.length)
+})
+```
+
+Annotating only the handler's parameter (`middy().handler(async (event: SQSEvent) => ...)`) is not used for inference; use one of the patterns above.
+
 You can also [write custom middlewares with TypeScript](/docs/writing-middlewares/intro).
 
 This is an example tsconfig.json file that can be used for typescript projects
@@ -58,12 +87,12 @@ This is an example tsconfig.json file that can be used for typescript projects
   "compilerOptions": {
     "incremental": true,
     "target": "es2020",
-    "module": "es2020",
+    "module": "nodenext",
     "declaration": true,
     "sourceMap": true,
     "composite": true,
     "strict": true,
-    "moduleResolution": "node",
+    "moduleResolution": "nodenext",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,

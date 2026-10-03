@@ -4,7 +4,12 @@ import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expect, test } from "tstyche";
-import ssm, { type Context, ssmParam } from "./index.js";
+import ssm, {
+	type Context,
+	type SSMOptions,
+	ssmParam,
+	ssmValidateOptions,
+} from "./index.js";
 
 test("use with default options", () => {
 	expect(ssm()).type.toBe<
@@ -110,4 +115,17 @@ test("contextKey literal narrows middyContext without as const", () => {
 				request.context.middyContext.custom.accessToken,
 			).type.toBe<string>();
 		});
+});
+
+test("rejects misspelled option alongside fetchData", () => {
+	expect(ssm).type.not.toBeCallableWith({
+		fetchData: { a: "/a" },
+		cacheExpiery: 1000,
+	});
+	expect(ssm).type.not.toBeCallableWith({ cacheExpiery: 1000 });
+});
+
+test("ssmValidateOptions accepts typed options and returns them", () => {
+	const options: SSMOptions = { cacheExpiry: 1000 };
+	expect(ssmValidateOptions(options)).type.toBe<SSMOptions>();
 });

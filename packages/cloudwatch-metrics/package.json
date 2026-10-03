@@ -29,7 +29,7 @@
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --experimental-test-module-mocks --test",
 		"test:fuzz": "node --experimental-test-module-mocks --test index.fuzz.js",
-		"test:perf": "node --test index.perf.js",
+		"test:bench": "node --experimental-bench --bench 'index.bench.js'",
 		"test:mutation": "cd ../.. && MUTATE_PACKAGE=\"$(basename \"$OLDPWD\")\" stryker run"
 	},
 	"license": "MIT",
@@ -68,6 +68,14 @@
 	"dependencies": {
 		"@middy/util": "8.0.0-alpha.1",
 		"aws-embedded-metrics": "4.2.1"
+	},
+	"peerDependencies": {
+		"@middy/core": "8.0.0-alpha.1"
+	},
+	"peerDependenciesMeta": {
+		"@middy/core": {
+			"optional": true
+		}
 	},
 	"devDependencies": {
 		"@middy/core": "8.0.0-alpha.1",

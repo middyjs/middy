@@ -3,7 +3,7 @@ import middy from "@middy/core";
 import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { expect, test } from "tstyche";
-import rdsSigner from "./index.js";
+import rdsSigner, * as indexModule from "./index.js";
 
 test("use with default options", () => {
 	const middleware = rdsSigner();
@@ -85,7 +85,10 @@ test("rejects options the middleware does not honour", () => {
 	expect(rdsSigner).type.not.toBeCallableWith({
 		awsClientCapture: (client: Signer) => client,
 	});
-	expect(rdsSigner).type.not.toBeCallableWith({ cacheMaxSize: 10 });
+});
+
+test("accepts cacheMaxSize", () => {
+	expect(rdsSigner).type.toBeCallableWith({ cacheMaxSize: 10 });
 });
 
 test("contextKey literal narrows middyContext without as const", () => {
@@ -100,4 +103,20 @@ test("contextKey literal narrows middyContext without as const", () => {
 		.before(async (request) => {
 			expect(request.context.middyContext.custom.foo).type.toBe<string>();
 		});
+});
+
+test("rejects misspelled option alongside fetchData", () => {
+	expect(rdsSigner).type.not.toBeCallableWith({
+		fetchData: {
+			foo: { region: "ca-central-1", hostname: "h", username: "u", port: 5432 },
+		},
+		cacheExpiery: 1000,
+	});
+});
+
+test("rdsSignerValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.RdsSignerOptions;
+	expect(
+		indexModule.rdsSignerValidateOptions(options),
+	).type.toBe<indexModule.RdsSignerOptions>();
 });

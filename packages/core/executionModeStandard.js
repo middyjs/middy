@@ -12,13 +12,9 @@ export const executionModeStandard = (
 	const middy = async (event, context) => {
 		const request = middyRequest(event, context);
 		plugin.requestStart(request);
-		// Run requestEnd without letting a throw in the hook replace the
-		// handler's original error. If only requestEnd throws, it propagates
-		// (same as a naive finally). If both throw, the hook error is attached
-		// as `.cause` on the handler error (only if no cause is already set).
-		// `hasError` (not truthiness) tracks the catch so thrown falsy
-		// primitives (null, "", 0) still reject instead of resolving.
-		let handlerError;
+		// Run requestEnd, then rethrow the request error. `hasError` (not
+		// truthiness) tracks the catch so thrown falsy primitives still reject.
+		let requestError;
 		let hasError = false;
 		let response;
 		try {
@@ -31,24 +27,24 @@ export const executionModeStandard = (
 				plugin,
 			);
 		} catch (err) {
-			handlerError = err;
+			requestError = err;
 			hasError = true;
 		}
 		try {
 			const requestEndResult = plugin.requestEnd(request);
 			if (requestEndResult instanceof Promise) await requestEndResult;
 		} catch (hookErr) {
-			if (hasError) {
-				// Primitives can't carry properties (assignment throws in strict
-				// mode); keep the handler error and drop the hook error.
-				if (typeof handlerError === "object" && handlerError !== null) {
-					handlerError.cause ??= hookErr;
-				}
-			} else {
-				throw hookErr;
-			}
+			if (!hasError) throw hookErr;
+			// Keep both errors: attaching the hook error as `.cause` was silently
+			// dropped for middy errors (they carry cause:{package}) and threw a
+			// TypeError on frozen errors.
+			throw new AggregateError(
+				[requestError, hookErr],
+				"Error thrown in requestEnd hook",
+				{ cause: { package: "@middy/core" } },
+			);
 		}
-		if (hasError) throw handlerError;
+		if (hasError) throw requestError;
 		return response;
 	};
 	middy.handler = (replaceLambdaHandler) => {

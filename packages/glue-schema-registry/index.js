@@ -6,9 +6,9 @@ import {
 	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
-	clearCache,
-	createClient,
+	createClientInit,
 	createPrefetchClient,
+	evictCacheOnFailure,
 	getCache,
 	modifyCache,
 	processCache,
@@ -16,6 +16,8 @@ import {
 } from "@middy/util";
 
 const name = "glue-schema-registry";
+// Matches the shared cache default in @middy/util.
+const defaultCacheMaxSize = 128;
 const pkg = `@middy/${name}`;
 
 const defaults = {
@@ -52,6 +54,11 @@ const optionSchema = {
 		cacheExpiry: {
 			type: "number",
 			minimum: -1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
+		cacheMaxSize: {
+			type: "integer",
+			minimum: 1,
 			maximum: Number.MAX_SAFE_INTEGER,
 		},
 		setToContext: { type: "boolean" },
@@ -125,21 +132,14 @@ const glueSchemaRegistryMiddleware = (opts = {}) => {
 					schemaDefinition: resp.SchemaDefinition,
 					dataFormat: resp.DataFormat,
 				}))
-				.catch((e) => {
-					// Copy rather than mutate in place, so the cache is only updated
-					// through `modifyCache` and its refresh timer is rescheduled with it.
-					const value = { ...getCache(options.cacheKey).value };
-					value[internalKey] = undefined;
-					modifyCache(options.cacheKey, value);
-					throw e;
-				});
+				.catch(evictCacheOnFailure(options.cacheKey, internalKey, values));
 		}
 
 		return values;
 	};
 
 	let client;
-	let clientInit;
+	const clientInit = createClientInit(options);
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
 		processCache(options, fetchRequest);
@@ -154,9 +154,12 @@ const glueSchemaRegistryMiddleware = (opts = {}) => {
 	};
 
 	const glueSchemaRegistryMiddlewareBefore = (request) => {
-		if (client) return glueSchemaRegistryMiddlewareFetch(request);
-		clientInit ??= createClient(options, request);
-		return clientInit.then((resolvedClient) => {
+		// With `awsClientAssumeRole` the client is rebuilt when sts refetches the
+		// credentials, so it is resolved on every invocation.
+		if (client && !options.awsClientAssumeRole) {
+			return glueSchemaRegistryMiddlewareFetch(request);
+		}
+		return clientInit(request).then((resolvedClient) => {
 			client = resolvedClient;
 			return glueSchemaRegistryMiddlewareFetch(request);
 		});
@@ -169,6 +172,16 @@ const glueSchemaRegistryMiddleware = (opts = {}) => {
 
 const schemaVersionIdPattern =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const resolveClientInits = new WeakMap();
+
+// Every schema version resolved under one cacheKey lives in a single entry of
+// the shared cache (`${cacheKey}:schemaVersions`, one key per version), so a
+// stream carrying many versions takes one slot of the global cacheMaxSize
+// instead of evicting other middlewares' entries. Per cacheKey this tracks the
+// ids held in that entry, oldest first (capped at cacheMaxSize), and the last
+// client, which a background refresh (it has no invocation) reuses.
+const resolveStates = new Map();
 
 export const resolveSchemaVersion = async (
 	schemaVersionId,
@@ -184,30 +197,60 @@ export const resolveSchemaVersion = async (
 		});
 	}
 	const merged = { ...defaults, ...options };
-	const cacheKey = `${merged.cacheKey}:${schemaVersionId}`;
-	// The entry is keyed per schema version; a per-key expiry set on the base
-	// cacheKey applies to every version resolved under it. processCache falls
-	// back to cacheExpiry when the override is undefined.
+	const cacheKey = `${merged.cacheKey}:schemaVersions`;
+	// A per-key expiry set on the base cacheKey applies to every version
+	// resolved under it. processCache falls back to cacheExpiry when the
+	// override is undefined.
 	const cacheOptions = {
 		cacheKey,
 		cacheExpiry: merged.cacheExpiry,
 		cacheKeyExpiry: { [cacheKey]: merged.cacheKeyExpiry?.[merged.cacheKey] },
 	};
 
-	// Without awsClientAssumeRole, createClient is createPrefetchClient with the
-	// same awsClientOptions, so one path serves both.
-	let clientInit;
-	const ensureClient = () => {
-		clientInit ??= createClient(merged, request);
-		return clientInit;
-	};
+	// One client per options object, shared across schema versions. Without
+	// awsClientAssumeRole, createClient is createPrefetchClient with the same
+	// awsClientOptions, so one path serves both.
+	// Calls without options all share the defaults, so they share a client.
+	const clientKey = options ?? defaults;
+	let clientInit = resolveClientInits.get(clientKey);
+	if (clientInit === undefined) {
+		clientInit = createClientInit(merged);
+		resolveClientInits.set(clientKey, clientInit);
+	}
 
-	const fetchRequest = () => {
-		const command = new GetSchemaVersionCommand({
-			SchemaVersionId: schemaVersionId,
-		});
-		return {
-			[schemaVersionId]: ensureClient()
+	const cached = getCache(cacheKey).value;
+	let state = resolveStates.get(cacheKey);
+	// Nothing cached (first call, cleared, or caching disabled): start over, so
+	// only this version is fetched.
+	if (state === undefined || cached === undefined) {
+		state = { ids: new Set(), client: undefined };
+		resolveStates.set(cacheKey, state);
+	}
+	if (!state.ids.has(schemaVersionId)) {
+		state.ids.add(schemaVersionId);
+		let value = cached;
+		if (state.ids.size > (merged.cacheMaxSize ?? defaultCacheMaxSize)) {
+			const [oldest] = state.ids;
+			state.ids.delete(oldest);
+			value = Object.fromEntries(
+				Object.entries(cached).filter(([id]) => id !== oldest),
+			);
+		}
+		// Flag the entry modified so processCache fetches the versions it does
+		// not hold yet, leaving the others cached.
+		if (cached !== undefined) modifyCache(cacheKey, value);
+	}
+
+	const { ids } = state;
+	const fetchRequest = (invocation, cachedValues = {}) => {
+		if (invocation.internal !== undefined || state.client === undefined) {
+			state.client = clientInit(invocation);
+		}
+		const values = {};
+		for (const id of ids) {
+			if (cachedValues[id]) continue;
+			const command = new GetSchemaVersionCommand({ SchemaVersionId: id });
+			values[id] = state.client
 				.then((c) =>
 					c
 						.send(command)
@@ -219,16 +262,16 @@ export const resolveSchemaVersion = async (
 					dataFormat: resp.DataFormat,
 				}))
 				.catch((e) => {
-					// This cacheKey is per schema version, so the entry holds only
-					// this id. Dropping it outright is equivalent to blanking the
-					// single key, and leaves nothing for the next call to reuse.
-					clearCache([cacheKey]);
-					throw e;
-				}),
-		};
+					// Stop tracking a version whose fetch failed, so later calls do
+					// not refetch it; only while the entry still holds this fetch.
+					if (getCache(cacheKey).value?.[id] === values[id]) ids.delete(id);
+					return evictCacheOnFailure(cacheKey, id, values)(e);
+				});
+		}
+		return values;
 	};
 
-	const { value } = processCache(cacheOptions, fetchRequest);
+	const { value } = processCache(cacheOptions, fetchRequest, request);
 	return value[schemaVersionId];
 };
 

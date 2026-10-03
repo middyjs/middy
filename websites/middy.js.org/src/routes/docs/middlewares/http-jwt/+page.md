@@ -4,7 +4,7 @@ description: "Verify JWTs on incoming HTTP requests. Supports JWKS endpoints (OI
 status: alpha
 ---
 
-Verifies a JSON Web Token (JWT) on incoming HTTP requests. The verified payload is written to `request.internal[payloadKey]` (and optionally to `request.context[payloadKey]` when `setToContext: true`).
+Verifies a JSON Web Token (JWT) on incoming HTTP requests. The verified payload is written to `request.internal[payloadKey]` (and optionally to `context.middyContext[payloadKey]` when `setToContext: true`).
 
 The token is resolved from the first available source in this order: cookie, header, query string. When no source is configured the middleware falls back to the `Authorization: Bearer ...` header.
 
@@ -24,19 +24,21 @@ npm install --save jose
 
 ## Options
 
-- `issuers` (object) (one of `issuers`/`internalKey` required): Map of issuer URL → `{ jwksUri, audience?, algorithm? }`. See [Issuers options](#issuers-options) for entry shape.
+- `issuers` (object) (one of `issuers`/`internalKey` required): Map of issuer URL → `{ jwksUri, audience?, algorithm?, typ? }`. See [Issuers options](#issuers-options) for entry shape.
 - `internalKey` (string) (one of `issuers`/`internalKey` required): Key on `request.internal` holding the verification key. Accepts a `{ publicKey: Uint8Array, keySpec }` shape from `@middy/kms`, a bare `Uint8Array` SPKI DER public key, an already-resolved `KeyObject` or `CryptoKey`, or a string symmetric secret. It may also hold an **array** of any of those; see [Key rotation](#key-rotation).
-- `algorithm` (string | string[]) (required for `issuers`; required for `internalKey` bare-key/HMAC shapes; auto-inferred for KMS shape): JWS algorithm allowlist. `'none'` is rejected. Empty arrays are rejected.
+- `algorithm` (string | string[]) (required): JWS algorithm allowlist, pinned at construction for both `issuers` and `internalKey`. With a KMS-shaped key the list is narrowed to the algorithms its `keySpec` can produce; no overlap is a `500`. `'none'` is rejected. Empty arrays are rejected.
 - `tokenCookieName` (string) (optional): Cookie name to read the token from. Looked up in the `Cookie` header first, then in `event.cookies` (HTTP API payload 2.0 delivers cookies there instead of in a header).
 - `tokenHeaderName` (string) (optional): Custom header to read the token from. When the name is `Authorization` (case-insensitive), the `Bearer ` scheme is stripped; any other scheme causes the source to fall through. Other header names return the raw value.
 - `tokenQueryStringName` (string) (optional): Query-string parameter to read the token from.
-- `audience` (string | string[]) (optional, ignored when `issuers` is used, per-entry audience is authoritative): Expected `aud` claim.
+- `audience` (string | string[]) (optional): Expected `aud` claim. With `issuers`, it is the default for any entry that sets no `audience` of its own; an entry's `audience` replaces it.
 - `issuer` (string | string[]) (optional, ignored when `issuers` is used): Expected `iss` claim.
+- `typ` (string | null) (default `'at+jwt'`): Expected JWS `typ` header, checked on both the `internalKey` and `issuers` paths ([RFC 9068 section 4](https://www.rfc-editor.org/rfc/rfc9068#section-4), [RFC 8725 section 3.11](https://www.rfc-editor.org/rfc/rfc8725#section-3.11)). `at+jwt`, `application/at+jwt` and case variants such as `AT+JWT` are accepted; a token with another `typ` (such as `JWT`) or none is a `401`. Pinning it stops a token of another type from the same issuer and key, such as an OIDC ID token, passing as an access token. Set it to the value your issuer uses, or `null` to disable the check for issuers that do not set `at+jwt`. Tokens you mint yourself for the `internalKey` path need `typ: 'at+jwt'` in their protected header under the default.
 - `clockTolerance` (number) (default `0`): Clock skew tolerance in seconds applied to `exp`/`nbf` checks.
 - `requireExp` (boolean) (default `false`): Reject tokens that carry no `exp` claim. Forwarded to jose's `requiredClaims`. Tokens without an expiry are otherwise accepted, so enable this when your issuer always sets one.
 - `maxTokenAge` (string | number) (optional): Maximum age of the token measured from its `iat` claim, forwarded to `jose.jwtVerify`'s `maxTokenAge`. A number is seconds; a string is a time span such as `'1h'` or `'30 minutes'`. Setting it also makes `iat` required, so tokens without one are rejected.
 - `expectedClaims` (object) (optional): Claims the payload must carry, compared with strict equality, e.g. `{ token_use: 'access' }`. A claim that is absent fails the same way a claim with the wrong value does. Checked after the signature and before the payload is published, so nothing downstream can read a payload this rejected. Distinct from jose's `requiredClaims`, which only asserts presence. Values must be a string, number, or boolean: an array or object could only match itself by reference, so it is refused at construction.
 - `payloadKey` (string) (default `jwt`): Key under which the decoded payload is stored.
+- `tokenKey` (string) (default `` `${payloadKey}Token` ``): Key on `request.internal` where the verified token is stored exactly as presented, whichever source it came from. [`@middy/http-dpop`](/docs/middlewares/http-dpop) reads it to hash the token that was actually verified (RFC 9449 §4.3).
 - `setToContext` (boolean) (default `false`): When `true`, the verified payload is also published to `request.context.middyContext[payloadKey]`. By default it is written only to `request.internal[payloadKey]` (matches `@middy/ssm` and `@middy/secrets-manager`). There is no separate `contextKey`: `payloadKey` names both.
 - `cacheExpiry` (number) (default `600000`, `issuers` only): JWKS cache TTL in ms.
 - `cooldownDuration` (number) (default `30000`, `issuers` only): Minimum interval in ms between JWKS fetches. Inside it a `kid` miss is answered from the cached document, and a failed fetch is answered with the same `502` or `504` without contacting the endpoint again.
@@ -46,6 +48,9 @@ npm install --save jose
 NOTES:
 
 - A missing or malformed token, an invalid signature, or a failed claim check throws `401 Unauthorized`. Pair with [`http-error-handler`](/docs/middlewares/http-error-handler) to convert it into a proper HTTP response.
+- Every `401` carries a `WWW-Authenticate` challenge on `error.headers`, which `http-error-handler` copies onto the response (RFC 6750 §3): `Bearer` when no token was found in any configured source, `Bearer error="invalid_token"` when a token was presented and refused.
+- Imported JWKS keys are cached against the key object of the fetched JWKS document, not against `kid`. A key the IdP rotates under the same `kid` is imported afresh once the JWKS is refetched (after `cacheExpiry`, or on a `kid` miss), so the retired key stops verifying. Each issuer has its own document, so two issuers that publish the same `kid` can never verify each other's tokens.
+- ALB with [multi-value headers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers) enabled sends `multiValueHeaders` and no `headers`. The header and cookie sources read `multiValueHeaders` when `headers` is absent, so this works with or without [`http-event-normalizer`](/docs/middlewares/http-event-normalizer) in front.
 - A JWKS endpoint that cannot be reached, answers with a non-2xx status, sends no body, serves a document over 1 MiB, or serves one that is not a JSON object with a `keys` array throws `502 Bad Gateway`; one that exceeds `jwksTimeoutMs` throws `504 Gateway Timeout`. Either way `cause.data.reason` carries the underlying failure (`JWKS fetch failed: HTTP 503`, `JWKS response has no body`, the timeout message, and so on), and the error is thrown with `expose: true` so [http-error-handler](/docs/middlewares/http-error-handler) sends the gateway status rather than its generic `500`. The token was not refused; it could not be checked, and a 401 would send the client off for a new token that the same outage would reject again. The failure is remembered for `cooldownDuration`: requests inside it get the same `502` or `504` immediately instead of each paying a fetch against the failing endpoint.
 - A JWKS key whose `use` is not `sig`, or whose `key_ops` leaves out `verify`, is never selected, so an encryption key published under a matching `kid` cannot verify a token.
 - HMAC secrets (HS256/HS384/HS512) work via `internalKey`. There is no top-level `secretKey` option; see [the HS256 example](#with-an-hmac-shared-secret-hs256) for the recommended shape. Asymmetric crypto (RS256/ES256) is strongly preferred for cross-service auth; HMAC is fine for webhook signatures and contained internal trust boundaries where you control both signer and verifier.
@@ -81,6 +86,7 @@ export const handler = middy()
         },
       },
       algorithm: 'RS256',
+      typ: null, // Cognito tokens carry no typ header
     }),
   )
   .use(httpErrorHandler())
@@ -108,6 +114,7 @@ httpJwt({
     },
   },
   algorithm: 'RS256',
+  typ: null, // Cognito tokens carry no typ header
 })
 ```
 
@@ -121,6 +128,7 @@ httpJwt({
     'https://cognito-idp.us-east-1.amazonaws.com/POOL': {
       jwksUri: '...',
       audience: 'client',
+      typ: null, // Cognito tokens carry no typ header
       // inherits algorithm: 'RS256'
     },
     'https://my-es256-idp.example.com': {
@@ -142,17 +150,18 @@ httpJwt({
 
 Top-level (see [Options](#options) for full details on each):
 
-- `issuers` (required), `algorithm` (required), `cacheExpiry`, `cooldownDuration`, `jwksTimeoutMs`, `disablePrefetch`, `clockTolerance`, `setToContext`, `payloadKey`, token-source options.
+- `issuers` (required), `algorithm` (required), `audience` (default for entries without one), `cacheExpiry`, `cooldownDuration`, `jwksTimeoutMs`, `disablePrefetch`, `clockTolerance`, `typ` (default for entries without one), `setToContext`, `payloadKey`, token-source options.
 
 Per entry:
 
 - `jwksUri` (string, required): JWKS document URL.
-- `audience` (string | string[], optional): Expected `aud` claim for tokens routed to this entry.
+- `audience` (string | string[], optional): Expected `aud` claim for tokens routed to this entry. Falls back to the top-level `audience` when omitted.
 - `algorithm` (string | string[], optional): Per-issuer override of the top-level allowlist. Replaces (does not merge with) the top-level for this entry.
+- `typ` (string | null, optional): Per-issuer override of the top-level `typ`; `null` disables the check for this issuer only.
 
 ### With a KMS-hosted public key
 
-Pair `@middy/kms` with `@middy/http-jwt` to verify tokens signed with an AWS KMS asymmetric key. The KMS middleware fetches the public key once per cold start and caches it; `http-jwt` reads it via `internalKey` and derives the algorithm from the key spec.
+Pair `@middy/kms` with `@middy/http-jwt` to verify tokens signed with an AWS KMS asymmetric key. The KMS middleware fetches the public key once per cold start and caches it; `http-jwt` reads it via `internalKey` and narrows the configured `algorithm` to what the key spec can produce.
 
 ```javascript
 import middy from '@middy/core'
@@ -175,7 +184,7 @@ export const handler = middy()
   .use(
     httpJwt({
       internalKey: 'jwtKey',
-      // algorithm omitted: inferred from the KMS keySpec carried on internal.
+      algorithm: 'RS256', // must be compatible with the KMS keySpec
       issuer: 'https://auth.example.com',
       audience: 'api.example.com',
     }),
@@ -230,6 +239,7 @@ httpJwt({
     [COGNITO_ISSUER]: { jwksUri: `${COGNITO_ISSUER}/.well-known/jwks.json`, audience: 'client' },
   },
   algorithm: 'RS256',
+  typ: null,
   tokenCookieName: 'session',
 })
 ```
@@ -244,6 +254,7 @@ httpJwt({
     [COGNITO_ISSUER]: { jwksUri: `${COGNITO_ISSUER}/.well-known/jwks.json`, audience: 'client' },
   },
   algorithm: 'RS256',
+  typ: null,
   tokenCookieName: 'session',
   tokenHeaderName: 'Authorization',
   tokenQueryStringName: 'id_token',
@@ -265,6 +276,7 @@ The patterns above are safe against the two classic JWT verification mistakes:
 
 ### Other notes for Cognito users
 
+- Cognito access and ID tokens carry only `kid` and `alg` in their header, no `typ` ([access token header](https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html#user-pool-access-token-header)), so the default `typ: 'at+jwt'` rejects them. Set `typ: null` and tell the token types apart with `expectedClaims: { token_use: 'access' }`.
 - Use `audience: COGNITO_CLIENT_ID` for **ID tokens**. **Access tokens** carry `client_id` instead of `aud`; either drop the `audience` check and validate `payload.client_id` in a follow-up middleware, or restrict the handler to one token type.
 - Cognito tokens also carry a `token_use` claim (`id` or `access`). To enforce which type your handler accepts, add a small middleware after `http-jwt` that reads `request.internal.jwt.token_use` and throws `new HttpError(401, ...)` on mismatch.
 
@@ -320,6 +332,7 @@ httpJwt({
     },
   },
   algorithm: 'RS256',
+  typ: null, // Cognito tokens carry no typ header; token_use tells them apart
   // An ID token from the same pool verifies perfectly. It is still not a token
   // for calling this API.
   expectedClaims: { token_use: 'access' },
@@ -369,6 +382,7 @@ export const handler = middy()
         [COGNITO_ISSUER]: { jwksUri: `${COGNITO_ISSUER}/.well-known/jwks.json`, audience: 'client' },
       },
       algorithm: 'RS256',
+      typ: null,
     }),
   )
   .use(requireRole('admin'))
@@ -392,4 +406,3 @@ Order matters: `requireRole` must run **after** `httpJwt` so the decoded payload
 ## See also
 
 - [`@middy/http-paseto`](/docs/middlewares/http-paseto) - same surface, PASETO v4.public tokens instead of JWT.
-- [JWT authentication recipe](/docs/recipes/jwt-auth).

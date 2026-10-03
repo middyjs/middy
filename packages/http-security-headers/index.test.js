@@ -845,4 +845,41 @@ describe("@middy/http-security-headers", () => {
 		ok(!("Server" in response.headers));
 		ok(!("X-Powered-By" in response.headers));
 	});
+	test("It should remove Server and X-Powered-By in any casing", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			headers: { server: "AMZN", "x-powered-by": "MiddyJS", "X-Keep": "1" },
+		}));
+
+		handler.use(httpSecurityHeaders({ poweredBy: true }));
+
+		const response = await handler({ httpMethod: "GET" }, defaultContext);
+
+		const names = Object.keys(response.headers).map((k) => k.toLowerCase());
+		ok(!names.includes("server"));
+		ok(!names.includes("x-powered-by"));
+		strictEqual(response.headers["X-Keep"], "1");
+	});
+
+	test("It should override a handler header set in another casing without duplicating it", async (t) => {
+		// The middleware's value has always won over the handler's; that holds
+		// whatever casing the handler used, and only one copy is sent.
+		const handler = middy(() => ({
+			statusCode: 200,
+			headers: {
+				"content-security-policy": "default-src *",
+				"x-frame-options": "SAMEORIGIN",
+			},
+		}));
+
+		handler.use(httpSecurityHeaders());
+
+		const response = await handler({ httpMethod: "GET" }, defaultContext);
+
+		const names = Object.keys(response.headers).map((k) => k.toLowerCase());
+		strictEqual(names.filter((n) => n === "content-security-policy").length, 1);
+		strictEqual(names.filter((n) => n === "x-frame-options").length, 1);
+		strictEqual(response.headers["X-Frame-Options"], "DENY");
+		ok(response.headers["Content-Security-Policy"] !== "default-src *");
+	});
 });

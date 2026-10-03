@@ -30,14 +30,15 @@ export interface Options {
 
 export declare function getContentEncodingStream(
 	preferredEncoding: ContentEncoding,
+	encoderOptions?: BrotliOptions | ZlibOptions | ZstdOptions,
 ): BrotliCompress | Deflate | Gzip | ZstdCompress;
 
 declare function httpContentEncoding(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
-export declare function httpContentEncodingValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function httpContentEncodingValidateOptions<
+	TOptions extends Options,
+>(options?: TOptions): TOptions;
 
 export default httpContentEncoding;

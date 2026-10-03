@@ -7,6 +7,7 @@ import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import serviceDiscovery, { type Context } from "./index.js";
 
 test("use with default options", () => {
@@ -103,4 +104,25 @@ test("contextKey literal narrows middyContext without as const", () => {
 				HttpInstanceSummary[]
 			>();
 		});
+});
+
+test("rejects misspelled option alongside fetchData", () => {
+	expect(serviceDiscovery).type.not.toBeCallableWith({
+		fetchData: { foo: { NamespaceName: "foo", ServiceName: "bar" } },
+		cacheExpiery: 1000,
+	});
+});
+
+test("accepts cacheMaxSize", () => {
+	expect(serviceDiscovery).type.toBeCallableWith({
+		fetchData: { foo: { NamespaceName: "foo", ServiceName: "bar" } },
+		cacheMaxSize: 10,
+	});
+});
+
+test("serviceDiscoveryValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.ServiceDiscoveryOptions;
+	expect(
+		indexModule.serviceDiscoveryValidateOptions(options),
+	).type.toBe<indexModule.ServiceDiscoveryOptions>();
 });

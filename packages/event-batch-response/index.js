@@ -4,6 +4,12 @@
 const name = "event-batch-response";
 const pkg = `@middy/${name}`;
 
+// Registry symbol shared without an import: @middy/event-batch-parser and
+// @middy/event-normalizer write it (non-enumerable, first writer wins) on an
+// object whose field they replace in place, as `{ [field]: originalValue }`;
+// this package reads it to echo a Firehose record's original base64 `data`.
+const rawDataKey = Symbol.for("@middy/raw-data");
+
 const buildBatchItemFailures = ({ records, source, settled }) => {
 	const batchItemFailures = [];
 	for (let idx = 0; idx < records.length; idx += 1) {
@@ -105,10 +111,15 @@ const toFirehoseRecord = (recordId, inputData, value, defaultResult) => {
 	};
 };
 
-const buildFirehoseResponse = ({ records, source, settled }) => {
+const buildFirehoseResponse = ({ records, source, settled, snapshot }) => {
 	const out = records.map((record, idx) => {
 		const entry = settled[idx];
-		const inputData = record?.data;
+		// Firehose requires base64 `data`, echoed as the original input. Prefer
+		// what the first in-place parser kept, then this middleware's own
+		// snapshot; re-encode only when neither holds the raw string.
+		const data = record?.[rawDataKey]?.data ?? snapshot[idx];
+		const inputData =
+			typeof data === "string" ? data : encodeFirehoseData(data);
 		const identifier = source.identify(record);
 		if (entry?.status === "fulfilled") {
 			return toFirehoseRecord(identifier, inputData, entry.value, "Ok");
@@ -159,6 +170,9 @@ const sources = Object.assign(Object.create(null), {
 	"aws:lambda:events": {
 		getRecords: (event) => asArray(event.records),
 		identify: (record) => record?.recordId,
+		// The input `data` is echoed back for failed and untransformed records;
+		// keep the raw base64 before a parser replaces it in place.
+		snapshot: (records) => records.map((record) => record?.data),
 		buildResponse: buildFirehoseResponse,
 	},
 });
@@ -194,9 +208,11 @@ const eventBatchResponseMiddleware = () => {
 		// Store records as-is; identifiers are derived lazily by buildResponse
 		// only for the entries that actually need them. Avoids the per-record
 		// `{ record, identifier }` allocation that dominated large-batch GC.
+		const records = source.getRecords(request.event);
 		request.internal[pkg] = {
 			source,
-			records: source.getRecords(request.event),
+			records,
+			snapshot: source.snapshot?.(records),
 		};
 	};
 
@@ -208,6 +224,7 @@ const eventBatchResponseMiddleware = () => {
 		request.response = cached.source.buildResponse({
 			records: cached.records,
 			source: cached.source,
+			snapshot: cached.snapshot,
 			settled: request.response,
 			request,
 		});

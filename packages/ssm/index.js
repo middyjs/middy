@@ -13,9 +13,7 @@ import {
 	createClientInit,
 	createPrefetchClient,
 	evictCacheOnFailure,
-	getCache,
 	jsonSafeParse,
-	modifyCache,
 	processCache,
 	sanitizeKey,
 	validateOptions,
@@ -84,7 +82,6 @@ const ssmMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
 	const fetchDataKeys = Object.keys(options.fetchData);
-	const fetchDataValues = Object.values(options.fetchData);
 	const contextSpec = buildSetToContextSpec(options);
 	const fetchRequest = (request, cachedValues) => {
 		const single = fetchSingleRequest(request, cachedValues);
@@ -98,9 +95,7 @@ const ssmMiddleware = (opts = {}) => {
 		const batchKeys = new Map();
 		const namedKeys = [];
 
-		const internalKeys = fetchDataKeys;
-		const fetchKeys = fetchDataValues;
-		for (const internalKey of internalKeys) {
+		for (const internalKey of fetchDataKeys) {
 			if (cachedValues[internalKey]) continue;
 			if (options.fetchData[internalKey].endsWith("/")) continue; // Skip path passed in
 			namedKeys.push(internalKey);
@@ -121,21 +116,15 @@ const ssmMiddleware = (opts = {}) => {
 				Names: Array.from(batchKeys.values()),
 				WithDecryption: true,
 			});
-			const currentBatchInternalKeys = Array.from(batchKeys.keys());
 			batchReq = client
 				.send(command)
 				.catch((e) => catchInvalidSignatureException(e, client, command))
 				.then((resp) => {
 					// Don't sanitize key, mapped to set value in options
 					const result = {};
+					// Every key naming an invalid parameter rejects, and so evicts
+					// itself below.
 					for (const fetchKey of resp.InvalidParameters ?? []) {
-						const internalKey = internalKeys[fetchKeys.indexOf(fetchKey)];
-						// Copy rather than mutate the cached object in place, so the
-						// cache is only updated through `modifyCache` and its refresh
-						// timer is rescheduled with it.
-						const value = { ...getCache(options.cacheKey).value };
-						value[internalKey] = undefined;
-						modifyCache(options.cacheKey, value);
 						result[fetchKey] = Promise.reject(
 							new Error(`InvalidParameter ${fetchKey}`, {
 								cause: { package: pkg },
@@ -146,31 +135,28 @@ const ssmMiddleware = (opts = {}) => {
 					// https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_GetParameters.html
 					if (resp.Parameters !== undefined) {
 						for (const param of resp.Parameters) {
-							result[param.Name] = parseValue(param);
+							// A `name:version` / `name:label` request comes back as the bare
+							// Name plus Selector (":version" / ":label").
+							// https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-labels.html
+							const selector = param.Selector ?? "";
+							const value = parseValue(param);
+							result[param.Name + selector] = value;
+							// Keyed by ARN too, for a request by ARN (required for a
+							// parameter shared from another account): the Name alone is
+							// the same for same-named parameters in different accounts.
+							// https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_Parameter.html
+							if (param.ARN !== undefined) result[param.ARN + selector] = value;
 						}
 					}
 					return result;
-				})
-				.catch((e) => {
-					const value = getCache(options.cacheKey).value ?? {};
-					for (const key of currentBatchInternalKeys) {
-						value[key] = undefined;
-					}
-					modifyCache(options.cacheKey, value);
-					throw e;
 				});
 
+			// Each key evicts itself, so a batch that fails after a newer cycle
+			// replaced its entry leaves the fresh values in place.
 			for (const [internalKey, fetchKey] of batchKeys.entries()) {
-				values[internalKey] = batchReq.then((params) => {
-					if (fetchKey.startsWith("arn:aws:ssm:")) {
-						const matchingParamName = Object.keys(params).find((key) =>
-							fetchKey.endsWith(`:parameter${key}`),
-						);
-						return params[matchingParamName] ?? params[fetchKey];
-					}
-
-					return params[options.fetchData[internalKey]];
-				});
+				values[internalKey] = batchReq
+					.then((params) => params[fetchKey])
+					.catch(evictCacheOnFailure(options.cacheKey, internalKey, values));
 			}
 
 			batchKeys.clear();

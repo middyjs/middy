@@ -29,6 +29,16 @@ const optionSchema = {
 export const httpPartialResponseValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
+// Only a plain object or an array is JSON data a selector can filter. A
+// Buffer, a Node Readable or a web ReadableStream is an object too, but
+// masking one would replace the payload with `{}`.
+const isJsonData = (value) => {
+	if (!value || typeof value !== "object") return false;
+	if (Array.isArray(value)) return true;
+	const proto = Object.getPrototypeOf(value);
+	return proto === Object.prototype || proto === null;
+};
+
 const httpPartialResponseMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 	const { filteringKeyName } = options;
@@ -85,7 +95,7 @@ const httpPartialResponseMiddleware = (opts = {}) => {
 		const bodyIsString = typeof body === "string";
 
 		const parsedBody = jsonSafeParse(body);
-		if (!parsedBody || typeof parsedBody !== "object") return;
+		if (!isJsonData(parsedBody)) return;
 
 		let filteredBody;
 		try {

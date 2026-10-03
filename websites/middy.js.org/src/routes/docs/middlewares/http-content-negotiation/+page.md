@@ -45,6 +45,8 @@ npm install --save @middy/http-content-negotiation
 - `failOnMismatch` (defaults to `true`) - If set to true it will throw an HTTP `NotAcceptable` (406) exception when the negotiation fails for one of the headers (e.g. none of the languages requested are supported by the app)
 - `contextKey` (defaults to `'http-content-negotiation'`) - The key under `context.middyContext` the results are published to
 
+**Note**: VPC Lattice V2 delivers each header as an array of its values ([event structure](https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html)); they are joined with `, ` before negotiation. ALB with [multi-value headers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers) enabled sends no `headers` at all, so put [`http-event-normalizer`](/docs/middlewares/http-event-normalizer) in front.
+
 ## Consumed by
 
 The results land on `context.middyContext['http-content-negotiation']` as `preferredCharsets`/`preferredCharset`, `preferredEncodings`/`preferredEncoding`, `preferredLanguages`/`preferredLanguage`, and `preferredMediaTypes`/`preferredMediaType`.

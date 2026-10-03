@@ -232,12 +232,15 @@ describe("@middy/http-event-normalizer", () => {
 			defaultContext,
 		);
 
-		deepStrictEqual(normalizedEvent.queryStringParameters, {
-			full_name: "Alex Taylor",
-			spaced: "Alex Taylor",
-			plus: "Alex+Taylor",
-			plain: "42",
-		});
+		deepStrictEqual(
+			{ ...normalizedEvent.queryStringParameters },
+			{
+				full_name: "Alex Taylor",
+				spaced: "Alex Taylor",
+				plus: "Alex+Taylor",
+				plain: "42",
+			},
+		);
 	});
 
 	test("It should form-decode an ALB query parameter made only of pluses", async (t) => {
@@ -249,7 +252,10 @@ describe("@middy/http-event-normalizer", () => {
 			defaultContext,
 		);
 
-		deepStrictEqual(normalizedEvent.queryStringParameters, { pad: "  " });
+		deepStrictEqual(
+			{ ...normalizedEvent.queryStringParameters },
+			{ pad: "  " },
+		);
 	});
 
 	test("It should form-decode ALB queryStringParameter keys", async (t) => {
@@ -259,10 +265,13 @@ describe("@middy/http-event-normalizer", () => {
 			defaultContext,
 		);
 
-		deepStrictEqual(normalizedEvent.queryStringParameters, {
-			"full name": "1",
-			"e-mail": "2",
-		});
+		deepStrictEqual(
+			{ ...normalizedEvent.queryStringParameters },
+			{
+				"full name": "1",
+				"e-mail": "2",
+			},
+		);
 	});
 
 	test("It should form-decode ALB multiValueQueryStringParameters", async (t) => {
@@ -275,9 +284,62 @@ describe("@middy/http-event-normalizer", () => {
 			defaultContext,
 		);
 
-		deepStrictEqual(normalizedEvent.multiValueQueryStringParameters, {
-			full_name: ["Alex Taylor", "Sam Lee"],
+		deepStrictEqual(
+			{ ...normalizedEvent.multiValueQueryStringParameters },
+			{
+				full_name: ["Alex Taylor", "Sam Lee"],
+			},
+		);
+	});
+
+	// With multi-value headers enabled on the target group, ALB sends only
+	// `multiValueHeaders` and `multiValueQueryStringParameters`.
+	// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+	test("It should derive headers from ALB multiValueHeaders", async (t) => {
+		const handler = middy((event) => event).use(httpEventNormalizer());
+		const normalizedEvent = await handler(
+			{
+				requestContext: {
+					elb: { targetGroupArn: "arn:aws:elasticloadbalancing:" },
+				},
+				httpMethod: "GET",
+				path: "/",
+				multiValueHeaders: {
+					accept: ["text/html", "application/json"],
+					cookie: ["name1=value1", "name2=value2"],
+					"content-type": ["application/json"],
+				},
+				multiValueQueryStringParameters: { myKey: ["val1", "val2"] },
+			},
+			defaultContext,
+		);
+
+		deepStrictEqual(normalizedEvent.headers, {
+			accept: "text/html, application/json",
+			cookie: "name1=value1; name2=value2",
+			"content-type": "application/json",
 		});
+		deepStrictEqual(
+			{ ...normalizedEvent.queryStringParameters },
+			{ myKey: "val2" },
+		);
+	});
+
+	test("It should keep a decoded __proto__ query key as an own property", async (t) => {
+		const handler = middy((event) => event).use(httpEventNormalizer());
+		const normalizedEvent = await handler(
+			albEvent(
+				{ "%5F%5Fproto%5F%5F": "x" },
+				{ "%5F%5Fproto%5F%5F": ["polluted"] },
+			),
+			defaultContext,
+		);
+
+		const multi = normalizedEvent.multiValueQueryStringParameters;
+		ok(!Array.isArray(Object.getPrototypeOf(multi)));
+		ok(Object.hasOwn(multi, "__proto__"));
+		deepStrictEqual(multi.__proto__, ["polluted"]);
+		strictEqual(normalizedEvent.queryStringParameters.__proto__, "x");
 	});
 
 	test("It should throw 400 on an ALB query parameter with invalid encoding", async (t) => {
@@ -323,15 +385,14 @@ describe("@middy/http-event-normalizer", () => {
 
 	test("httpEventNormalizerValidateOptions validates options as a JSON-Schema object", () => {
 		// The optionSchema is a JSON-Schema-shaped object ({ type: "object", ... }).
-		// A non-object option must be rejected with the schema-form message
-		// "Option '' must be object" rather than the flat-schema fallback
-		// "options must be an object".
+		// A non-object option must be rejected as a TypeError, with the same
+		// message the flat-schema form throws.
 		try {
 			httpEventNormalizerValidateOptions("not-an-object");
 			ok(false, "expected throw");
 		} catch (e) {
 			ok(e instanceof TypeError);
-			strictEqual(e.message, "Option '' must be object");
+			strictEqual(e.message, "options must be an object");
 			strictEqual(e.cause.package, "@middy/http-event-normalizer");
 		}
 	});

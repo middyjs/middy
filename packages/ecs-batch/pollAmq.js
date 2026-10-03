@@ -209,6 +209,18 @@ export const pollAmq = (opts) => {
 				};
 				inflight.set(event, taken);
 				yield event;
+				// The runner resumes here after acknowledging the batch, or after the
+				// handler threw. A batch still in flight was never acknowledged: NACK
+				// every message so the broker redelivers it instead of holding it
+				// against the subscription. On shutdown, disconnecting leaves the
+				// unacknowledged messages to the broker to redeliver instead.
+				// https://stomp.github.io/stomp-specification-1.2.html#NACK
+				if (signal.aborted) return;
+				const unsettled = inflight.get(event);
+				if (unsettled) {
+					inflight.delete(event);
+					for (const t of unsettled) client.nack(t.message);
+				}
 			}
 		},
 		async acknowledge(event, response) {

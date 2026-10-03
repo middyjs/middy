@@ -9,6 +9,18 @@ const pkg = `@middy/${name}`;
 // Cap on the decompressed size of any single Glue-framed record payload.
 // Bounds zlib decompression to defend against compression-bomb DoS, since
 // record payloads originate from external producers (Kafka/Kinesis/SQS/MQ).
+// Key under which a record that failed to parse carries its error.
+// @middy/event-batch-handler reads the same Symbol.for key to reject the
+// record without calling the record handler.
+export const parseErrorKey = Symbol.for("@middy/event-batch-parser/error");
+
+// Registry symbol shared without an import: this package and
+// @middy/event-normalizer write it on an object whose field they replace in
+// place, as `{ [field]: originalValue }`; @middy/event-batch-response reads it
+// to echo a Firehose record's original base64 `data` whatever the middleware
+// order. Non-enumerable, so it stays out of JSON, logs and spreads.
+const rawDataKey = Symbol.for("@middy/raw-data");
+
 const DEFAULT_MAX_DECOMPRESSED_BYTES = 10 * 1024 * 1024; // 10 MiB
 
 const optionSchema = {
@@ -109,21 +121,27 @@ const eventBatchParserMiddleware = (opts = {}) => {
 				} catch (err) {
 					// An error that already carries an HTTP status (the 413 cap
 					// breach, the 422 from the JSON prototype guard, a parser's own
-					// HttpError) is the intended response; only opaque failures
-					// (base64 decode, framing, zlib, decode, a parser rejecting
-					// with a non-error value) are wrapped.
-					if (typeof err?.statusCode === "number") throw err;
-					throw new HttpError(422, {
-						cause: {
-							package: pkg,
-							data: {
-								reason: "Invalid record payload",
-								source: eventSource,
-								field,
-								message: err?.message,
-							},
-						},
-					});
+					// HttpError) is kept as-is; only opaque failures (base64 decode,
+					// framing, zlib, decode, a parser rejecting with a non-error
+					// value) are wrapped. The error is attached to the record, not
+					// thrown, so one bad record doesn't fail the whole batch; the
+					// record keeps its raw payload and its remaining fields are
+					// skipped.
+					record[parseErrorKey] =
+						typeof err?.statusCode === "number"
+							? err
+							: new HttpError(422, {
+									cause: {
+										package: pkg,
+										data: {
+											reason: "Invalid record payload",
+											source: eventSource,
+											field,
+											message: err?.message,
+										},
+									},
+								});
+					break;
 				}
 				accessor.set(record, parsed);
 			}
@@ -152,35 +170,36 @@ const rmqRecords = (event) =>
 // on every source, undocumented, but accepted so users can use whichever name
 // reads naturally for their source. Accessors are fixed functions (not string
 // paths) to keep property access static and avoid dynamic-key pollution risks.
+// The first writer of a field keeps its value: a later in-place parser sees
+// an already-replaced value, not the original.
+const replaceField = (owner, field, value) => {
+	let raw = owner[rawDataKey];
+	if (!raw) {
+		raw = Object.create(null);
+		Object.defineProperty(owner, rawDataKey, { value: raw });
+	}
+	if (!Object.hasOwn(raw, field)) raw[field] = owner[field];
+	owner[field] = value;
+};
 const accKey = {
 	get: (r) => r.key,
-	set: (r, v) => {
-		r.key = v;
-	},
+	set: (r, v) => replaceField(r, "key", v),
 };
 const accValue = {
 	get: (r) => r.value,
-	set: (r, v) => {
-		r.value = v;
-	},
+	set: (r, v) => replaceField(r, "value", v),
 };
 const accBody = {
 	get: (r) => r.body,
-	set: (r, v) => {
-		r.body = v;
-	},
+	set: (r, v) => replaceField(r, "body", v),
 };
 const accData = {
 	get: (r) => r.data,
-	set: (r, v) => {
-		r.data = v;
-	},
+	set: (r, v) => replaceField(r, "data", v),
 };
 const accKinesisData = {
 	get: (r) => r.kinesis?.data,
-	set: (r, v) => {
-		r.kinesis.data = v;
-	},
+	set: (r, v) => replaceField(r.kinesis, "data", v),
 };
 
 // Each source declares its payload `encoding` so callers don't have to know

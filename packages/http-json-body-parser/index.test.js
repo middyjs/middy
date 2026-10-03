@@ -8,6 +8,24 @@ const defaultContext = {
 };
 
 describe("@middy/http-json-body-parser", () => {
+	// VPC Lattice V2 delivers every header value as an array.
+	// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html
+	test("It should parse a VPC Lattice V2 event whose content-type is an array", async (t) => {
+		const handler = middy((event) => event.body).use(jsonBodyParser());
+
+		const body = await handler(
+			{
+				version: "2.0",
+				method: "POST",
+				headers: { "content-type": ["application/json"] },
+				body: '{"a":1}',
+			},
+			defaultContext,
+		);
+
+		deepStrictEqual(body, { a: 1 });
+	});
+
 	test("It should parse a JSON request", async (t) => {
 		const handler = middy((event) => {
 			return event; // propagates the processed event as a response

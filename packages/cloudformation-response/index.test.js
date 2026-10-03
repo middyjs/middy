@@ -176,6 +176,26 @@ describe("@middy/cloudformation-response", () => {
 		});
 	});
 
+	test("It should not send an empty Reason when the thrown error has an empty message", async (t) => {
+		const handler = middy(() => {
+			throw new Error();
+		}).use(cloudformationResponse());
+
+		const response = await handler(defaultEvent, defaultContext);
+		strictEqual(response.Status, "FAILED");
+		strictEqual(response.Reason, "Error");
+	});
+
+	test("It should default an empty Reason on a FAILED response", async (t) => {
+		const handler = middy(() => ({ Status: "FAILED", Reason: "" })).use(
+			cloudformationResponse(),
+		);
+
+		const response = await handler(defaultEvent, defaultContext);
+		// Reason is required when Status is FAILED.
+		strictEqual(response.Reason, "See CloudWatch logs");
+	});
+
 	test("It should not override response values", async (t) => {
 		const handler = middy((event, context) => {
 			return {
@@ -222,16 +242,24 @@ describe("@middy/cloudformation-response", () => {
 	});
 
 	test("cloudformationResponseValidateOptions validates options as a typed object schema", () => {
-		// A non-object option must be rejected via the JSON-Schema object rule
-		// (message "Option '' must be object"), not the flat-schema fallback
-		// ("options must be an object") that an empty schema would produce.
+		// Read as a flat schema, `{ type: "object", properties, ... }` would make
+		// `type` an allowed option that must be an object, so `{ type: {} }` would
+		// pass. Only the JSON-Schema form treats `type` as a keyword, so here it
+		// is an unknown option.
+		try {
+			cloudformationResponseValidateOptions({ type: {} });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			strictEqual(e.message, "Unknown option 'type'");
+			strictEqual(e.cause.package, "@middy/cloudformation-response");
+		}
 		try {
 			cloudformationResponseValidateOptions("not-an-object");
 			ok(false, "expected throw");
 		} catch (e) {
 			ok(e instanceof TypeError);
-			strictEqual(e.message, "Option '' must be object");
-			strictEqual(e.cause.package, "@middy/cloudformation-response");
+			strictEqual(e.message, "options must be an object");
 		}
 	});
 

@@ -44,7 +44,8 @@ const cloudformationCustomResourceMiddleware = (opts = {}) => {
 		}
 		response.Status ??= "SUCCESS";
 		// Reason is required when Status is FAILED.
-		if (response.Status === "FAILED") response.Reason ??= "See CloudWatch logs";
+		// An empty string is no reason either.
+		if (response.Status === "FAILED") response.Reason ||= "See CloudWatch logs";
 		response.RequestId ??= request.event.RequestId;
 		response.LogicalResourceId ??= request.event.LogicalResourceId;
 		response.StackId ??= request.event.StackId;
@@ -69,7 +70,8 @@ const cloudformationCustomResourceMiddleware = (opts = {}) => {
 	const cloudformationCustomResourceMiddlewareOnError = async (request) => {
 		request.response = {
 			Status: "FAILED",
-			Reason: request.error?.message ?? String(request.error),
+			// `||` so an empty message (`new Error()`) falls back to the name.
+			Reason: request.error?.message || String(request.error),
 		};
 		await cloudformationCustomResourceMiddlewareAfter(request);
 	};

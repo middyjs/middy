@@ -25,8 +25,8 @@ declare function wsResponse(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
-export declare function wsResponseValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function wsResponseValidateOptions<TOptions extends Options>(
+	options?: TOptions,
+): TOptions;
 
 export default wsResponse;

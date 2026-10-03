@@ -17,8 +17,10 @@ const mockFetch = (
 ) => {
 	mockFetchCache[url] = { body, contentType, status };
 };
-global.fetch = (url) => {
+let lastFetchOptions;
+global.fetch = (url, options) => {
 	fetchCount += 1;
+	lastFetchOptions = options;
 	const cached = mockFetchCache[url];
 	const status = cached?.status ?? 404;
 	return Promise.resolve(
@@ -94,6 +96,77 @@ describe("@middy/appconfig-extension", () => {
 			});
 
 		await handler(event, context);
+	});
+
+	test("It should keep a fresh value when a superseded fetch fails late", async (t) => {
+		let rejectStale;
+		const staleFetch = t.mock.method(globalThis, "fetch");
+		staleFetch.mock.mockImplementationOnce(
+			() =>
+				new Promise((resolve, reject) => {
+					rejectStale = reject;
+				}),
+		);
+		staleFetch.mock.mockImplementation(async () =>
+			Response.json({ option: "value" }),
+		);
+
+		const handler = middy(() => {})
+			.use(
+				appConfigExtension({
+					cacheExpiry: -1,
+					fetchData: { config: fetchParam },
+				}),
+			)
+			.before(async (request) => {
+				const values = await getInternal(["config"], request);
+				strictEqual(values.config.option, "value");
+			});
+
+		// Prefetch in flight, entry cleared, refetch succeeds.
+		await new Promise((resolve) => setImmediate(resolve));
+		clearCache();
+		await handler(event, context);
+		rejectStale(new Error("stale"));
+		await new Promise((resolve) => setImmediate(resolve));
+
+		await handler(event, context);
+		strictEqual(staleFetch.mock.callCount(), 2);
+	});
+
+	test("It should abort the fetch 500 ms before the invocation times out", async (t) => {
+		const timeout = t.mock.method(AbortSignal, "timeout");
+		const handler = middy(() => {}).use(
+			appConfigExtension({
+				cacheExpiry: 0,
+				fetchData: { config: fetchParam },
+				disablePrefetch: true,
+			}),
+		);
+		await handler(event, { getRemainingTimeInMillis: () => 5000 });
+		strictEqual(timeout.mock.calls[0].arguments[0], 4500);
+		ok(lastFetchOptions.signal instanceof AbortSignal);
+	});
+
+	test("It should allow the fetch 30 s outside an invocation (prefetch)", async (t) => {
+		const timeout = t.mock.method(AbortSignal, "timeout");
+		appConfigExtension({
+			fetchData: { config: fetchParam },
+		});
+		strictEqual(timeout.mock.calls[0].arguments[0], 29500);
+	});
+
+	test("It should allow at least 1 s for the fetch", async (t) => {
+		const timeout = t.mock.method(AbortSignal, "timeout");
+		const handler = middy(() => {}).use(
+			appConfigExtension({
+				cacheExpiry: 0,
+				fetchData: { config: fetchParam },
+				disablePrefetch: true,
+			}),
+		);
+		await handler(event, { getRemainingTimeInMillis: () => 100 });
+		strictEqual(timeout.mock.calls[0].arguments[0], 1000);
 	});
 
 	test("It should set plain-text config value to internal storage", async (_t) => {
@@ -729,6 +802,17 @@ describe("@middy/appconfig-extension", () => {
 			ok(cached.config !== undefined);
 		} finally {
 			clearCache();
+		}
+	});
+
+	test("appConfigExtensionValidateOptions accepts cacheMaxSize and rejects values below 1", () => {
+		appConfigExtensionValidateOptions({ cacheMaxSize: 10 });
+		try {
+			appConfigExtensionValidateOptions({ cacheMaxSize: 0 });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("cacheMaxSize"));
 		}
 	});
 });

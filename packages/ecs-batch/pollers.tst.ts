@@ -38,6 +38,40 @@ test("poller factories return typed pollers", () => {
 	expect(pollRmq({ queue: "q" })).type.toBe<RmqPoller>();
 });
 
+test("stream and Kafka pollers take maxRetryAttempts and retryDelayMs", () => {
+	expect(
+		pollKinesis({
+			streamName: "s",
+			shardId: "0",
+			maxRetryAttempts: 3,
+			retryDelayMs: 500,
+		}),
+	).type.toBe<KinesisPoller>();
+	expect(
+		pollDynamoDBStreams({
+			streamArn: "arn",
+			shardId: "0",
+			maxRetryAttempts: -1,
+			retryDelayMs: 0,
+		}),
+	).type.toBe<DynamoDBStreamsPoller>();
+	expect(
+		pollKafka({
+			brokers: ["b"],
+			groupId: "g",
+			topics: ["t"],
+			maxRetryAttempts: 10,
+			retryDelayMs: 1000,
+		}),
+	).type.toBe<KafkaPoller>();
+	expect(pollKafka).type.not.toBeCallableWith({
+		brokers: ["b"],
+		groupId: "g",
+		topics: ["t"],
+		maxRetryAttempts: "3",
+	});
+});
+
 test("Kafka batch failures accept Lambda's object identifier and the legacy string", () => {
 	expect({
 		batchItemFailures: [{ itemIdentifier: { partition: "t-0", offset: 15 } }],

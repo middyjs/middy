@@ -1,4 +1,4 @@
-import { ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { createPrivateKey, createPublicKey } from "node:crypto";
 import { describe, test } from "node:test";
 import { PublicProtocol } from "paseto";
@@ -173,6 +173,41 @@ describe("@middy/http-paseto", () => {
 		strictEqual(ctx.middyContext.paseto.sub, "user-1");
 	});
 
+	// RFC 9449 §4.3 check 11: `ath` must hash the access token that was
+	// presented and verified; @middy/http-dpop reads it from here.
+	test('It should publish the verified token at payloadKey + "Token" by default', async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "user-1" }, privateKey, {
+			expiresIn: 3600,
+		});
+		let internal;
+		const handler = makeHandlerWithKey(publicKey).after((request) => {
+			internal = request.internal;
+		});
+
+		await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
+		strictEqual(internal.pasetoToken, token);
+	});
+
+	test("It should publish the verified token at a custom tokenKey", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "user-1" }, privateKey, {
+			expiresIn: 3600,
+		});
+		let internal;
+		const handler = makeHandlerWithKey(publicKey, { tokenKey: "raw" }).after(
+			(request) => {
+				internal = request.internal;
+			},
+		);
+
+		await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
+		strictEqual(internal.raw, token);
+		strictEqual(internal.pasetoToken, undefined);
+	});
+
 	test("It should use a custom payloadKey", async (t) => {
 		const privateKey = await V4.generateKey();
 		const publicKey = createPublicKey(privateKey);
@@ -269,7 +304,45 @@ describe("@middy/http-paseto", () => {
 		} catch (e) {
 			strictEqual(e.statusCode, 401);
 			strictEqual(e.cause.package, "@middy/http-paseto");
+			// RFC 6750 3.1: no token presented, so no error code.
+			deepStrictEqual(e.headers, { "WWW-Authenticate": "Bearer" });
 		}
+	});
+
+	// ALB with multi-value headers enabled sends `multiValueHeaders` and no `headers`.
+	// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+	test("It should read the Authorization header from ALB multiValueHeaders", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "alb-mv" }, privateKey, {
+			expiresIn: 3600,
+		});
+		const handler = makeHandlerWithKey(publicKey);
+
+		const result = await handler(
+			{ multiValueHeaders: { authorization: [`Bearer ${token}`] } },
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.paseto.sub, "alb-mv");
+	});
+
+	test("It should read the token cookie from ALB multiValueHeaders", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign({ sub: "alb-cookie" }, privateKey, {
+			expiresIn: 3600,
+		});
+		const handler = makeHandlerWithKey(publicKey, {
+			tokenCookieName: "session",
+		});
+
+		const result = await handler(
+			{ multiValueHeaders: { cookie: ["a=1", `session=${token}`] } },
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.paseto.sub, "alb-cookie");
 	});
 
 	test("It should throw 401 when Authorization scheme is not Bearer or DPoP", async (t) => {
@@ -324,6 +397,9 @@ describe("@middy/http-paseto", () => {
 			strictEqual(e.statusCode, 401);
 			strictEqual(e.message, "Unauthorized");
 			strictEqual(e.cause.package, "@middy/http-paseto");
+			deepStrictEqual(e.headers, {
+				"WWW-Authenticate": 'Bearer error="invalid_token"',
+			});
 			// The 401 message is a fixed reason phrase, so the underlying verify
 			// failure is only visible through cause.data.reason.
 			ok(typeof e.cause.data.reason === "string");
@@ -343,6 +419,9 @@ describe("@middy/http-paseto", () => {
 			ok(false, "expected throw");
 		} catch (e) {
 			strictEqual(e.statusCode, 401);
+			deepStrictEqual(e.headers, {
+				"WWW-Authenticate": 'Bearer error="invalid_token"',
+			});
 		}
 	});
 

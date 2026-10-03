@@ -1,7 +1,12 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import {
+	rejects as assertRejects,
+	deepStrictEqual,
+	ok,
+	strictEqual,
+} from "node:assert/strict";
 import { describe, test } from "node:test";
 import { DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
-import { clearCache, getInternal } from "@middy/util";
+import { clearCache, getCache, getInternal } from "@middy/util";
 import { mockClient } from "aws-sdk-client-mock";
 import middy from "../core/index.js";
 import dynamodb, { dynamodbValidateOptions } from "./index.js";
@@ -878,5 +883,139 @@ describe("@middy/dynamodb", () => {
 		} catch (e) {
 			ok(e.message.includes("contextKey"));
 		}
+	});
+
+	test("It should retry client init after a rejected attempt", async (t) => {
+		let constructed = 0;
+		class FlakyClient {
+			constructor() {
+				constructed++;
+				if (constructed === 1) throw new Error("init boom");
+			}
+			send() {
+				return Promise.resolve({ Item: { value: { S: "value" } } });
+			}
+		}
+		const handler = middy(() => {}).use(
+			dynamodb({
+				AwsClient: FlakyClient,
+				cacheExpiry: 0,
+				fetchData: { key: { TableName: "table", Key: { pk: "0000" } } },
+				disablePrefetch: true,
+			}),
+		);
+
+		// A rejected init must not be memoized for the life of the container.
+		await assertRejects(
+			() => handler(defaultEvent, defaultContext),
+			/init boom/,
+		);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(constructed, 2);
+	});
+
+	test("It should rebuild the client when the assumed-role credentials are refetched", async (t) => {
+		const constructions = [];
+		class FakeClient {
+			constructor(awsClientOptions) {
+				constructions.push(awsClientOptions);
+			}
+			send() {
+				return Promise.resolve({ Item: { value: { S: "value" } } });
+			}
+		}
+		let credentials = Promise.resolve({ accessKeyId: "a" });
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.role = credentials;
+			})
+			.use(
+				dynamodb({
+					AwsClient: FakeClient,
+					awsClientAssumeRole: "role",
+					cacheExpiry: 0,
+					fetchData: { key: { TableName: "table", Key: { pk: "0000" } } },
+				}),
+			);
+
+		await handler(defaultEvent, defaultContext);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(constructions.length, 1);
+		deepStrictEqual(constructions[0].credentials, { accessKeyId: "a" });
+
+		credentials = Promise.resolve({ accessKeyId: "b" });
+		await handler(defaultEvent, defaultContext);
+		strictEqual(constructions.length, 2);
+		deepStrictEqual(constructions[1].credentials, { accessKeyId: "b" });
+	});
+
+	test("It should keep a fresh value when a stale fetch fails after the entry was replaced", async (t) => {
+		let call = 0;
+		class StubClient {
+			async send() {
+				call++;
+				if (call === 1) {
+					await new Promise((resolve) => setTimeout(resolve, 60));
+					throw new Error("stale failure");
+				}
+				return { Item: { value: { S: "fresh" } } };
+			}
+		}
+		const middleware = dynamodb({
+			AwsClient: StubClient,
+			cacheKey: "ddb-stale-failure",
+			cacheExpiry: 30,
+			disablePrefetch: true,
+			fetchData: { key: { TableName: "table", Key: { pk: "0000" } } },
+		});
+		const request = () => ({ event: {}, context: {}, internal: {} });
+		const first = request();
+		await middleware.before(first);
+		first.internal.key.catch(() => {});
+
+		await new Promise((resolve) => setTimeout(resolve, 40));
+		const second = request();
+		await middleware.before(second);
+		deepStrictEqual(await second.internal.key, { value: "fresh" });
+
+		// The first fetch fails at 60 ms, after the second replaced the entry.
+		await new Promise((resolve) => setTimeout(resolve, 40));
+		ok(getCache("ddb-stale-failure").value.key !== undefined);
+		clearCache("ddb-stale-failure");
+	});
+
+	// A background refresh has no invocation to rebuild the client from, so it
+	// would sign with the assumed-role credentials it started with. Under
+	// awsClientAssumeRole none is scheduled; the next invocation refetches.
+	test("It should not refresh in the background under awsClientAssumeRole", async (t) => {
+		t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+		let sends = 0;
+		class FakeClient {
+			send() {
+				sends++;
+				return Promise.resolve({ Item: { value: { S: "value" } } });
+			}
+		}
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.role = Promise.resolve({ accessKeyId: "a" });
+			})
+			.use(
+				dynamodb({
+					AwsClient: FakeClient,
+					awsClientAssumeRole: "role",
+					cacheExpiry: 50,
+					fetchData: { key: { TableName: "table", Key: { pk: "0000" } } },
+				}),
+			);
+
+		await handler(defaultEvent, defaultContext);
+		const afterFirst = sends;
+		t.mock.timers.tick(120);
+		await new Promise((resolve) => setImmediate(resolve));
+		strictEqual(sends, afterFirst);
+
+		await handler(defaultEvent, defaultContext);
+		ok(sends > afterFirst);
 	});
 });

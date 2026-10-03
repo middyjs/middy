@@ -1,4 +1,10 @@
-import { equal, ok, strictEqual } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	equal,
+	ok,
+	rejects,
+	strictEqual,
+} from "node:assert/strict";
 import { describe, test } from "node:test";
 import { clearCache, getInternal, modifyCache } from "@middy/util";
 import middy from "../core/index.js";
@@ -39,6 +45,10 @@ mockFetch(`${baseUrl}/dev/service_name/key_name`, {
 mockFetch(`${baseUrl}/dev/service_name/json_key`, {
 	Parameter: { Value: JSON.stringify({ host: "db.local", port: 5432 }) },
 });
+
+// Lambda sets AWS_SESSION_TOKEN in the default initialization mode; the
+// extension requires it as X-Aws-Parameters-Secrets-Token.
+process.env.AWS_SESSION_TOKEN = "session-token-value";
 
 let fetchCount = 0;
 let event = {};
@@ -88,6 +98,28 @@ describe("@middy/ssm-extension", () => {
 				const values = await getInternal(true, request);
 				strictEqual(values.config?.host, "db.local");
 				strictEqual(values.config?.port, 5432);
+			});
+
+		await handler(event, context);
+	});
+
+	// Matches @middy/ssm: a StringList is split into an array.
+	// https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_Parameter.html
+	test("It should split a StringList param into an array", async (_t) => {
+		mockFetch(`${baseUrl}/dev/service_name/list_key`, {
+			Parameter: { Type: "StringList", Value: "a,b,c" },
+		});
+		const handler = middy(() => {})
+			.use(
+				ssmExtension({
+					cacheExpiry: 0,
+					fetchData: { key: "/dev/service_name/list_key" },
+					disablePrefetch: true,
+				}),
+			)
+			.before(async (request) => {
+				const values = await getInternal(true, request);
+				deepStrictEqual(values.key, ["a", "b", "c"]);
 			});
 
 		await handler(event, context);
@@ -369,24 +401,109 @@ describe("@middy/ssm-extension", () => {
 	});
 
 	test("It should send the parameters-secrets extension token header", async (_t) => {
-		process.env.AWS_SESSION_TOKEN = "session-token-value";
+		const handler = middy(() => {}).use(
+			ssmExtension({
+				cacheExpiry: 0,
+				fetchData: { key: "/dev/service_name/key_name" },
+				disablePrefetch: true,
+			}),
+		);
+		await handler(event, context);
+		ok(lastFetchOptions);
+		strictEqual(
+			lastFetchOptions.headers["X-Aws-Parameters-Secrets-Token"],
+			"session-token-value",
+		);
+	});
+
+	// Lambda does not set AWS_SESSION_TOKEN in every initialization mode
+	// (e.g. SnapStart); sending the literal "undefined" hides the cause.
+	// https://docs.aws.amazon.com/systems-manager/latest/userguide/ps-integration-lambda-extensions.html
+	// Under SnapStart Lambda does not set AWS_SESSION_TOKEN; AWS recommends
+	// reading the token from an AWS SDK credential provider chain instead.
+	// https://docs.aws.amazon.com/systems-manager/latest/userguide/ps-integration-lambda-extensions.html
+	test("It should send the token from the awsSessionToken option", async (_t) => {
+		const token = process.env.AWS_SESSION_TOKEN;
+		delete process.env.AWS_SESSION_TOKEN;
 		try {
 			const handler = middy(() => {}).use(
 				ssmExtension({
 					cacheExpiry: 0,
 					fetchData: { key: "/dev/service_name/key_name" },
 					disablePrefetch: true,
+					awsSessionToken: async () => "provided-token",
+					setToContext: true,
 				}),
 			);
 			await handler(event, context);
-			ok(lastFetchOptions);
 			strictEqual(
 				lastFetchOptions.headers["X-Aws-Parameters-Secrets-Token"],
-				"session-token-value",
+				"provided-token",
 			);
 		} finally {
-			delete process.env.AWS_SESSION_TOKEN;
+			process.env.AWS_SESSION_TOKEN = token;
 		}
+	});
+
+	test("It should reject without calling the extension when AWS_SESSION_TOKEN is unset", async (_t) => {
+		const token = process.env.AWS_SESSION_TOKEN;
+		delete process.env.AWS_SESSION_TOKEN;
+		try {
+			const handler = middy(() => {}).use(
+				ssmExtension({
+					cacheExpiry: 0,
+					fetchData: { key: "/dev/service_name/key_name" },
+					disablePrefetch: true,
+					setToContext: true,
+				}),
+			);
+			await rejects(
+				() => handler(event, context),
+				(e) =>
+					e.errors[0].message ===
+					"@middy/ssm-extension requires AWS_SESSION_TOKEN or the awsSessionToken option",
+			);
+			strictEqual(fetchCount, 0);
+		} finally {
+			process.env.AWS_SESSION_TOKEN = token;
+		}
+	});
+
+	test("It should abort the fetch 500 ms before the invocation times out", async (t) => {
+		const timeout = t.mock.method(AbortSignal, "timeout");
+		const handler = middy(() => {}).use(
+			ssmExtension({
+				cacheExpiry: 0,
+				fetchData: { key: "/dev/service_name/key_name" },
+				disablePrefetch: true,
+			}),
+		);
+		await handler(event, { getRemainingTimeInMillis: () => 5000 });
+		strictEqual(timeout.mock.calls[0].arguments[0], 4500);
+		ok(lastFetchOptions.signal instanceof AbortSignal);
+	});
+
+	test("It should allow the fetch 30 s outside an invocation (prefetch)", async (t) => {
+		const timeout = t.mock.method(AbortSignal, "timeout");
+		ssmExtension({
+			fetchData: { key: "/dev/service_name/key_name" },
+		});
+		// The fetch starts once the session token has resolved.
+		await Promise.resolve();
+		strictEqual(timeout.mock.calls[0].arguments[0], 29500);
+	});
+
+	test("It should allow at least 1 s for the fetch", async (t) => {
+		const timeout = t.mock.method(AbortSignal, "timeout");
+		const handler = middy(() => {}).use(
+			ssmExtension({
+				cacheExpiry: 0,
+				fetchData: { key: "/dev/service_name/key_name" },
+				disablePrefetch: true,
+			}),
+		);
+		await handler(event, { getRemainingTimeInMillis: () => 100 });
+		strictEqual(timeout.mock.calls[0].arguments[0], 1000);
 	});
 
 	test("It should preserve colons in parameter names (not percent-encoded)", async (_t) => {
@@ -433,6 +550,42 @@ describe("@middy/ssm-extension", () => {
 		ok(inner, "original fetch error should be present in .errors");
 		strictEqual(inner.message, "@middy/ssm-extension 404 Not Found");
 		strictEqual(inner.cause.package, "@middy/ssm-extension");
+	});
+
+	test("It should keep a fresh value when a superseded fetch fails late", async (t) => {
+		let rejectStale;
+		const staleFetch = t.mock.method(globalThis, "fetch");
+		staleFetch.mock.mockImplementationOnce(
+			() =>
+				new Promise((resolve, reject) => {
+					rejectStale = reject;
+				}),
+		);
+		staleFetch.mock.mockImplementation(async () =>
+			Response.json({ Parameter: { Value: "key-value" } }),
+		);
+
+		const handler = middy(() => {})
+			.use(
+				ssmExtension({
+					cacheExpiry: -1,
+					fetchData: { key: "/dev/service_name/key_name" },
+				}),
+			)
+			.before(async (request) => {
+				const values = await getInternal(["key"], request);
+				equal(values.key, "key-value");
+			});
+
+		// Prefetch in flight, entry cleared, refetch succeeds.
+		await new Promise((resolve) => setImmediate(resolve));
+		clearCache();
+		await handler(event, context);
+		rejectStale(new Error("stale"));
+		await new Promise((resolve) => setImmediate(resolve));
+
+		await handler(event, context);
+		strictEqual(staleFetch.mock.callCount(), 2);
 	});
 
 	test("It should prefetch when prefetch is enabled (no before invocation)", async (_t) => {
@@ -606,6 +759,28 @@ describe("@middy/ssm-extension", () => {
 			ok(false, "expected throw");
 		} catch (e) {
 			ok(e.message.includes("contextKey"));
+		}
+	});
+
+	test("ssmExtensionValidateOptions accepts cacheMaxSize and rejects values below 1", () => {
+		ssmExtensionValidateOptions({ cacheMaxSize: 10 });
+		try {
+			ssmExtensionValidateOptions({ cacheMaxSize: 0 });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("cacheMaxSize"));
+		}
+	});
+
+	test("ssmExtensionValidateOptions validates awsSessionToken as a function", () => {
+		ssmExtensionValidateOptions({ awsSessionToken: () => "token" });
+		try {
+			ssmExtensionValidateOptions({ awsSessionToken: "token" });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("awsSessionToken"));
 		}
 	});
 });

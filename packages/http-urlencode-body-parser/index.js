@@ -12,14 +12,35 @@ const optionSchema = {
 	properties: {
 		disableContentTypeCheck: { type: "boolean" },
 		disableContentTypeError: { type: "boolean" },
+		maxKeys: { type: "integer", minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
 	},
 	additionalProperties: false,
 };
 
 export const httpUrlencodeBodyParserValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
+// Counts `&`-separated fields, stopping as soon as the count passes `limit`,
+// so an oversized body costs no more than the scan up to the limit.
+const exceedsFieldLimit = (body, limit) => {
+	let count = 1;
+	let index = body.indexOf("&");
+	while (index !== -1) {
+		count += 1;
+		if (count > limit) return true;
+		index = body.indexOf("&", index + 1);
+	}
+	return false;
+};
+
 const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
-	const { disableContentTypeCheck, disableContentTypeError } = opts;
+	const {
+		disableContentTypeCheck,
+		disableContentTypeError,
+		maxKeys = 1000,
+	} = opts;
+	// Checked before parsing, so the cap never truncates in silence; the
+	// parser's own cap is lifted since the count is already bounded.
+	const parseOptions = { maxKeys: 0 };
 
 	const httpUrlencodeBodyParserMiddlewareBefore = (request) => {
 		const event = request.event;
@@ -46,7 +67,16 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 		// "malformed" signal to detect here. The previous heuristic both
 		// rejected valid single-field forms and admitted non-form input, and
 		// echoed the raw body into the error, so it has been removed.
-		event.body = parseQuery(decodeBody(body, isBase64Encoded));
+		// A form over `maxKeys` fields is refused rather than parsed: the
+		// parser's default would drop every later field without an error, and no
+		// cap at all lets a 6 MB body of empty pairs build over a million keys.
+		const decoded = decodeBody(body, isBase64Encoded);
+		if (typeof decoded === "string" && exceedsFieldLimit(decoded, maxKeys)) {
+			throw new HttpError(413, {
+				cause: { package: pkg, data: { limit: "maxKeys", maxKeys } },
+			});
+		}
+		event.body = parseQuery(decoded, undefined, undefined, parseOptions);
 	};
 
 	return {

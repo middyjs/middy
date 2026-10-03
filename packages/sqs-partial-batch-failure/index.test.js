@@ -51,6 +51,70 @@ describe("@middy/sqs-partial-batch-failure", () => {
 		strictEqual(logger.mock.callCount(), 1);
 	});
 
+	// FIFO: "your function should stop processing messages after the first
+	// failure and return all failed and unprocessed messages in
+	// batchItemFailures".
+	// docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html
+	const fifoRecords = (...ids) =>
+		ids.map((messageId) => ({
+			messageId,
+			eventSource: "aws:sqs",
+			eventSourceARN: "arn:aws:sqs:us-east-1:123456789012:q.fifo",
+		}));
+
+	test("FIFO: reports every record from the first failure on, including later fulfilled ones", async (t) => {
+		const logger = t.mock.fn();
+		const handler = middy(async () => [
+			{ status: "fulfilled" },
+			{ status: "rejected", reason: new Error("boom") },
+			{ status: "fulfilled" },
+		]).use(sqsPartialBatchFailure({ logger }));
+
+		const response = await handler(
+			{ Records: fifoRecords("a", "b", "c") },
+			defaultContext,
+		);
+		deepStrictEqual(response, {
+			batchItemFailures: [{ itemIdentifier: "b" }, { itemIdentifier: "c" }],
+		});
+		strictEqual(logger.mock.callCount(), 2);
+	});
+
+	test("FIFO: records a sequential handler never reached are reported", async () => {
+		const handler = middy(async () => [
+			{ status: "fulfilled" },
+			{ status: "rejected", reason: new Error("boom") },
+		]).use(sqsPartialBatchFailure({ logger: false }));
+
+		const response = await handler(
+			{ Records: fifoRecords("a", "b", "c", "d") },
+			defaultContext,
+		);
+		deepStrictEqual(response, {
+			batchItemFailures: [
+				{ itemIdentifier: "b" },
+				{ itemIdentifier: "c" },
+				{ itemIdentifier: "d" },
+			],
+		});
+	});
+
+	test("Standard queue: a fulfilled record after a failure is not reported", async () => {
+		const records = fifoRecords("a", "b");
+		for (const record of records) {
+			record.eventSourceARN = "arn:aws:sqs:us-east-1:123456789012:q";
+		}
+		const handler = middy(async () => [
+			{ status: "rejected", reason: new Error("boom") },
+			{ status: "fulfilled" },
+		]).use(sqsPartialBatchFailure({ logger: false }));
+
+		const response = await handler({ Records: records }, defaultContext);
+		deepStrictEqual(response, {
+			batchItemFailures: [{ itemIdentifier: "a" }],
+		});
+	});
+
 	test("Should resolve when there are no failed messages", async (t) => {
 		const event = createEvent.default("aws:sqs", {
 			Records: [

@@ -10,11 +10,14 @@ import type {
 	Handler as LambdaHandler,
 } from "aws-lambda";
 import { expect, test } from "tstyche";
+import type { RouteContext } from "./index.js";
+import * as indexModule from "./index.js";
 import httpRouterHandler, {
 	type Method,
 	type Route,
 	type RouteHandler,
 	type RouteNotFoundResponseFn,
+	type RouterHandler,
 } from "./index.js";
 
 const lambdaHandler: LambdaHandler<
@@ -35,7 +38,7 @@ const middleware = httpRouterHandler([
 	},
 ]);
 expect(middleware).type.toBe<
-	middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
+	RouterHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
 >();
 
 const lambdaHandlerV2: LambdaHandler<
@@ -56,7 +59,7 @@ const middlewareV2 = httpRouterHandler([
 	},
 ]);
 expect(middlewareV2).type.toBe<
-	middy.MiddyfiedHandler<APIGatewayProxyEventV2, APIGatewayProxyResultV2>
+	RouterHandler<APIGatewayProxyEventV2, APIGatewayProxyResultV2>
 >();
 
 const lambdaHandlerALB: LambdaHandler<ALBEvent, ALBResult> = async (event) => {
@@ -74,7 +77,7 @@ const middlewareALB = httpRouterHandler([
 	},
 ]);
 
-expect(middlewareALB).type.toBe<middy.MiddyfiedHandler<ALBEvent, ALBResult>>();
+expect(middlewareALB).type.toBe<RouterHandler<ALBEvent, ALBResult>>();
 
 const middlewareRouteNotFound = httpRouterHandler({
 	routes: [
@@ -90,7 +93,7 @@ const middlewareRouteNotFound = httpRouterHandler({
 });
 
 expect(middlewareRouteNotFound).type.toBe<
-	middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
+	RouterHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
 >();
 
 const middlewareRouteNotFoundReturn = httpRouterHandler({
@@ -108,7 +111,7 @@ const middlewareRouteNotFoundReturn = httpRouterHandler({
 });
 
 expect(middlewareRouteNotFoundReturn).type.toBe<
-	middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
+	RouterHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
 >();
 
 // notFoundResponse has a default in the implementation, so it must be optional
@@ -123,7 +126,7 @@ const middlewareRoutesOnly = httpRouterHandler({
 });
 
 expect(middlewareRoutesOnly).type.toBe<
-	middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
+	RouterHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
 >();
 
 test("Method type", () => {
@@ -168,7 +171,7 @@ test("inline handler: event and context are contextually typed", () => {
 			path: "/",
 			handler: async (event, context) => {
 				expect(event).type.toBe<APIGatewayProxyEvent>();
-				expect(context).type.toBe<Context>();
+				expect(context).type.toBe<RouteContext>();
 				return { statusCode: 200, body: "Hello world" };
 			},
 		},
@@ -180,7 +183,7 @@ test("inline handler: event and context are contextually typed", () => {
 		},
 	]);
 	expect(router).type.toBeAssignableTo<
-		middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
+		RouterHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
 	>();
 });
 
@@ -194,13 +197,13 @@ test("inline handler: explicit generics pick the event type", () => {
 			path: "/",
 			handler: (event, context) => {
 				expect(event).type.toBe<APIGatewayProxyEventV2>();
-				expect(context).type.toBe<Context>();
+				expect(context).type.toBe<RouteContext>();
 				return { statusCode: 200, body: "Hello world" };
 			},
 		},
 	]);
 	expect(router).type.toBe<
-		middy.MiddyfiedHandler<APIGatewayProxyEventV2, APIGatewayProxyResultV2>
+		RouterHandler<APIGatewayProxyEventV2, APIGatewayProxyResultV2>
 	>();
 });
 
@@ -220,7 +223,7 @@ test("inline handler: a typed sibling route fixes the event type", () => {
 			},
 		},
 	]);
-	expect(router).type.toBe<middy.MiddyfiedHandler<ALBEvent, ALBResult>>();
+	expect(router).type.toBe<RouterHandler<ALBEvent, ALBResult>>();
 });
 
 test("middyfied handler as a route handler", () => {
@@ -236,7 +239,7 @@ test("middyfied handler as a route handler", () => {
 		},
 	]);
 	expect(router).type.toBe<
-		middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
+		RouterHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
 	>();
 });
 
@@ -261,4 +264,54 @@ test("RouteHandler type", () => {
 	expect(lambdaHandlerV2).type.not.toBeAssignableTo<
 		RouteHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
 	>();
+});
+
+test("the router is a plain handler that middy() wraps", () => {
+	const router = httpRouterHandler([
+		{ method: "GET", path: "/", handler: lambdaHandler },
+	]);
+	expect(router).type.not.toHaveProperty("use");
+	expect(middy(router)).type.toBe<
+		middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
+	>();
+});
+
+test("the router is assignable to the aws-lambda Handler type", () => {
+	const router = httpRouterHandler([
+		{ method: "GET", path: "/", handler: lambdaHandler },
+	]);
+	expect(router).type.toBeAssignableTo<
+		LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
+	>();
+	const direct = router({} as APIGatewayProxyEvent, {} as Context);
+	expect(direct).type.toBe<
+		APIGatewayProxyResult | Promise<APIGatewayProxyResult>
+	>();
+});
+
+test("httpRouterValidateOptions accepts typed options and returns them", () => {
+	const options = { key: "value" };
+	expect(indexModule.httpRouterValidateOptions(options)).type.toBe<{
+		key: string;
+	}>();
+});
+
+test("route handler context carries middyContext", () => {
+	httpRouterHandler([
+		{
+			method: "GET",
+			path: "/",
+			handler: async (_event, context) => {
+				expect(context.middyContext).type.toBe<Record<string, unknown>>();
+				return { statusCode: 200, body: "" };
+			},
+		},
+	]);
+});
+
+test("rejects misspelled option", () => {
+	expect(httpRouterHandler).type.not.toBeCallableWith({
+		routes: [],
+		notFoundResponce: () => ({}),
+	});
 });

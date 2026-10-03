@@ -30,7 +30,7 @@ npm install --save @middy/http-x402 @x402/core
 - `description` (string) (default `""`): Human-readable description included in the payment requirements.
 - `mimeType` (string) (default `"application/json"`): MIME type of the protected resource.
 - `extra` (object) (optional): Scheme-specific data advertised in the payment requirements and sent to the facilitator, e.g. `{ name: 'USDC', version: '2' }` (the EIP-712 domain used by the `exact` scheme on EVM networks). The protocol-reserved keys `extra.paymentFlow` and `extra.assetTransferMethod` are rejected: only the authorization flow (verify before the handler, settle after) is implemented.
-- `human` (function) (optional): `(request) => boolean`. Return `true` to bypass payment for this request (e.g. to let browser traffic through based on `User-Agent`).
+- `human` (function) (optional): `(request) => boolean`, synchronous. Return `true` to bypass payment for this request (e.g. to let browser traffic through based on `User-Agent`). Only a literal `true` bypasses; any other value, including a truthy one, charges as usual. Returning a Promise (an `async` function) throws a `TypeError`.
 
 ## Sample usage
 
@@ -110,6 +110,14 @@ Per the v2 HTTP transport all protocol information is communicated through heade
 | Undecodable payment, unsupported `x402Version`, requirements mismatch, or verification failure (v1 request) | 402 | v1 challenge in the body with `error` set |
 | Settlement failure | 402 | `PAYMENT-RESPONSE` (v2) or `X-PAYMENT-RESPONSE` (v1) with `success: false` and `errorReason` |
 | Payment settled | handler's status | `PAYMENT-RESPONSE` (v2) or `X-PAYMENT-RESPONSE` (v1) with the settlement result |
+
+On a settlement failure the handler's response is discarded whole, not patched: its body, content headers (`Location`, `Set-Cookie`, ...), `multiValueHeaders` and HTTP API `cookies` never reach a client that did not pay. The 402 carries `Content-Type`, the settlement header, and the response-policy headers already on the replaced response: `Access-Control-*`, `Vary`, `Cross-Origin-*`, `Content-Security-Policy` and the rest of what [`http-security-headers`](/docs/middlewares/http-security-headers) sets. Those matter when [`http-cors`](/docs/middlewares/http-cors) is `.use()`d after this middleware (its after hook then runs first); without them a browser could not read the 402.
+
+The advertised `resource.url` never uses the `Host` header, which the client controls. API Gateway requests use `requestContext.domainName` with the request path. [ALB](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html) and [VPC Lattice](https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html) events carry no trusted domain, so they get `https://localhost` with the request path (`path`, or `raw_path` on Lattice V1) and the query string dropped.
+
+Payment headers are matched case-insensitively (RFC 9110 §5.1), since REST APIs and ALBs pass the client's casing through. ALB with [multi-value headers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers) enabled sends only `multiValueHeaders`, which is read when `headers` is absent.
+
+On an ALB target group with [multi-value headers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers) enabled (an event with `requestContext.elb` and `multiValueHeaders`), every header this middleware writes goes to `multiValueHeaders`, since ALB then reads only that map: the 402 challenges, the refused-settlement 402 (which then has no `headers`), and `PAYMENT-RESPONSE` / `X-PAYMENT-RESPONSE` on a settled response. Other sources keep using `headers`.
 
 ## Internal storage
 

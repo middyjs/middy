@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: MIT
 import cluster from "node:cluster";
 import { availableParallelism } from "node:os";
-import { setTimeout as delay } from "node:timers/promises";
+// The module object rather than a named import so a test's mock timers can
+// intercept setTimeout; a named import binds the real function at load time.
+import timers from "node:timers/promises";
 import { validateOptions } from "@middy/util";
 
 const name = "ecs-batch";
@@ -10,10 +12,16 @@ const pkg = `@middy/${name}`;
 
 const defaults = {
 	timeout: 60_000,
-	gracefulShutdownMs: 110_000,
+	gracefulShutdownMs: 25_000,
 };
 
 const noop = () => {};
+
+// A poller throws an error named SourceClosedError when its source has ended
+// for good (a closed Kinesis or DynamoDB Streams shard). The worker exits with
+// this code so the primary stops the task instead of forking a replacement
+// that would only find the source closed again.
+const sourceClosedExitCode = 2;
 
 const optionSchema = {
 	type: "object",
@@ -67,7 +75,10 @@ export const fetchEcsMetadata = async (
 			region: arnParts[3],
 			taskArn: arn || undefined,
 			family: task.Family,
-			revision: task.Revision != null ? String(task.Revision) : undefined,
+			revision:
+				task.Revision !== undefined && task.Revision !== null
+					? String(task.Revision)
+					: undefined,
 		};
 	} catch {
 		return {};
@@ -76,7 +87,7 @@ export const fetchEcsMetadata = async (
 
 const writeEcsEnv = (meta, env = process.env) => {
 	for (const key of ecsEnvKeys) {
-		if (meta[key] != null)
+		if (meta[key] !== undefined && meta[key] !== null)
 			env[`${ecsEnvPrefix}${key.toUpperCase()}`] = meta[key];
 	}
 };
@@ -85,7 +96,7 @@ export const readEcsEnv = (env = process.env) => {
 	const out = {};
 	for (const key of ecsEnvKeys) {
 		const v = env[`${ecsEnvPrefix}${key.toUpperCase()}`];
-		if (v != null) out[key] = v;
+		if (v !== undefined && v !== null) out[key] = v;
 	}
 	return out;
 };
@@ -129,7 +140,9 @@ export const runPollLoop = async ({
 			// nothing left to report it to
 		}
 	};
-	for await (const event of poller.poll(signal)) {
+	// Pollers report failures that do not stop the loop (a batch discarded
+	// after its retry limit) through the same onError.
+	for await (const event of poller.poll(signal, report)) {
 		if (signal.aborted) break;
 		const batchStart = Date.now();
 		const awsRequestId = contextOverride?.awsRequestId?.() ?? "";
@@ -144,8 +157,10 @@ export const runPollLoop = async ({
 			response = await handler(event, context);
 		} catch (err) {
 			report(err, event);
-			// Handler threw: skip ack so the source's native retry path takes over
-			// (SQS visibility timeout, Kafka uncommitted offset, RMQ unacked, etc.).
+			// Handler threw: skip ack. Resuming the poller releases the batch for
+			// redelivery (Kafka commits nothing, RMQ/AMQ nack, Kinesis and DynamoDB
+			// Streams re-read from the batch's first record); SQS leaves it to the
+			// visibility timeout.
 			continue;
 		}
 		try {
@@ -172,9 +187,11 @@ export const drainAndExit = async ({
 	// drained, and the timer's own abort rejection lands after the race is
 	// decided, so its value is never read.
 	const drained = loopPromise.catch(noop);
-	const deadline = delay(gracefulShutdownMs, "deadline", {
-		signal: deadlineCtl.signal,
-	}).catch(noop);
+	const deadline = timers
+		.setTimeout(gracefulShutdownMs, "deadline", {
+			signal: deadlineCtl.signal,
+		})
+		.catch(noop);
 	const winner = await Promise.race([drained, deadline]);
 	deadlineCtl.abort();
 	exitImpl(winner === "deadline" ? 1 : 0);
@@ -205,7 +222,7 @@ export const runWorker = async (options, deps = {}) => {
 		} catch {
 			// process.exit pre-empts anything the throw could still report.
 		}
-		exitImpl(1);
+		exitImpl(err?.name === "SourceClosedError" ? sourceClosedExitCode : 1);
 	});
 	const onSigterm = () =>
 		drainAndExit({
@@ -260,6 +277,12 @@ export const runPrimary = async (options, deps = {}) => {
 			// code is null when a signal killed the worker; that is not a clean exit.
 			workerExitCode = Math.max(workerExitCode, code ?? 1);
 			return exitWhenDrained();
+		}
+		// A closed source would close a replacement too: drain the rest and
+		// stop the task with the worker's code so ECS sees it.
+		if (code === sourceClosedExitCode) {
+			workerExitCode = code;
+			return onSigterm();
 		}
 		setTimeoutImpl(() => {
 			if (!stopping) clusterImpl.fork();

@@ -89,6 +89,22 @@ describe("@middy/event-logger", () => {
 		deepStrictEqual(JSON.parse(log.mock.calls[0].arguments[0]), { event });
 	});
 
+	// event-normalizer turns DynamoDB N values beyond 2^53 into BigInt, which
+	// JSON.stringify cannot serialize on its own.
+	test("It should log BigInt values as strings with the default logger", async (t) => {
+		const log = t.mock.method(console, "log", () => {});
+
+		const handler = middy((event) => event).use(eventLogger());
+
+		const event = { id: 2n ** 64n };
+		await handler(event, defaultContext);
+
+		strictEqual(log.mock.callCount(), 1);
+		deepStrictEqual(JSON.parse(log.mock.calls[0].arguments[0]), {
+			event: { id: "18446744073709551616" },
+		});
+	});
+
 	// Logging is this middleware's only job, so there is no "off" setting: the
 	// way to disable it is to not register the middleware.
 	test("It should reject logger: false at construction", () => {
@@ -122,6 +138,28 @@ describe("@middy/event-logger", () => {
 
 		strictEqual(lambdaHandler.mock.callCount(), 1);
 		strictEqual(response, "handler");
+	});
+
+	// A logger failure must not change the outcome: the handler still runs.
+	test("It should report a throwing logger via console.error and still run the handler", async (t) => {
+		const loggerError = new Error("logger down");
+		const consoleError = t.mock.method(console, "error", () => {});
+		const lambdaHandler = t.mock.fn(() => "handler");
+
+		const handler = middy(lambdaHandler).use(
+			eventLogger({
+				logger: () => {
+					throw loggerError;
+				},
+			}),
+		);
+
+		const response = await handler({ foo: "bar" }, defaultContext);
+
+		strictEqual(response, "handler");
+		strictEqual(lambdaHandler.mock.callCount(), 1);
+		strictEqual(consoleError.mock.callCount(), 1);
+		strictEqual(consoleError.mock.calls[0].arguments[0], loggerError);
 	});
 
 	test("It should omit paths", async (t) => {

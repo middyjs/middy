@@ -4,7 +4,7 @@ description: "Fetch and cache AWS KMS asymmetric public keys for signature verif
 status: alpha
 ---
 
-Fetches asymmetric public keys from [AWS KMS](https://docs.aws.amazon.com/kms/latest/developerguide/overview.html) using `GetPublicKey` and exposes them via `request.internal` (and optionally `request.context`). Designed to feed token-verification middleware such as [`@middy/http-jwt`](/docs/middlewares/http-jwt) and [`@middy/http-paseto`](/docs/middlewares/http-paseto), but the resolved `{ publicKey, keySpec }` shape can be consumed by any custom middleware.
+Fetches asymmetric public keys from [AWS KMS](https://docs.aws.amazon.com/kms/latest/developerguide/overview.html) using `GetPublicKey` and exposes them via `request.internal` (and optionally `context.middyContext`). Designed to feed token-verification middleware such as [`@middy/http-jwt`](/docs/middlewares/http-jwt) and [`@middy/http-paseto`](/docs/middlewares/http-paseto), but the resolved `{ publicKey, keySpec }` shape can be consumed by any custom middleware.
 
 For each `fetchData` entry the middleware makes a single `GetPublicKey` API call per cold start, caches the result, and stores `{ publicKey, keySpec }` under the configured internal key.
 
@@ -21,16 +21,16 @@ npm install --save-dev @aws-sdk/client-kms
 
 - `AwsClient` (object) (default `KMSClient`): KMSClient class constructor (i.e. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-kms`.
 - `awsClientOptions` (object) (optional): Options to pass to KMSClient class constructor.
-- `awsClientAssumeRole` (string) (optional): Internal key where temporary credentials are stored. See [@middy/sts](/docs/middlewares/sts) on how to set this.
+- `awsClientAssumeRole` (string) (optional): Internal key where temporary credentials are stored. See [@middy/sts](/docs/middlewares/sts) on how to set this. With it set, cached entries are not refreshed in the background (a refresh has no invocation to take fresh credentials from); an expired entry is refetched by the next invocation. It fails the invocation with `Credentials missing for assumed role` when the credentials are not in `request.internal` (a mistyped key, or `@middy/sts` registered after this middleware), rather than falling back to the function's own role; register `sts` first.
 - `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSv3Client` from `aws-xray-sdk` in.
 - `fetchData` (object) (required): Mapping of internal key name to KMS `KeyId` (key ID, key ARN, alias name, or alias ARN, e.g. `alias/jwt-signing-key`).
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
-- `cacheKey` (string) (default `@middy/kms`): Cache key for the fetched data responses. Must be unique across all middleware.
+- `cacheKey` (string) (default `@middy/kms`): Cache key for the fetched data responses. Each instance of this middleware needs its own `cacheKey`: reusing one with a different `fetchData`, `awsClientOptions`, `awsClientAssumeRole` or `AwsClient` throws a `TypeError`.
 - `cacheKeyExpiry` (object) (default `{}`): Per-`cacheKey` expiry override, `{ [cacheKey]: cacheExpiry }`; a unix timestamp in ms above 86400000 is treated as an absolute expiry.
 - `cacheMaxSize` (number) (default `128`): Maximum number of entries kept in the shared middleware cache; the oldest expiring entry is evicted when exceeded.
-- `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms. KMS public keys do not rotate without an explicit `CreateKey`, so the default of "cache forever" is appropriate for most deployments.
+- `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms. KMS public keys do not rotate without an explicit `CreateKey`, so the default of "cache forever" is appropriate for most deployments. Values above `86400000` are unix timestamps (ms): one before 2001-01-01 (`978307200000`) can only be a mistyped duration and throws at construction, while a real timestamp that has passed just leaves the entry expired.
 - `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext.kms`.
-- `contextKey` (string) (default `kms`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.
+- `contextKey` (string) (default `kms`): The key under `context.middyContext` used when `setToContext` is `true`. To run two instances side by side, override it and set a distinct `cacheKey` on each.
 
 NOTES:
 
@@ -64,8 +64,10 @@ export const handler = middy()
   .use(
     httpJwt({
       internalKey: 'jwtKey',
+      algorithm: 'RS256', // sign with typ: 'at+jwt', the default expected typ
       issuer: 'https://auth.example.com',
       audience: 'api.example.com',
+      setToContext: true,
     }),
   )
   .use(httpErrorHandler())
@@ -100,11 +102,10 @@ export const handler = middy()
 ```javascript
 import middy from '@middy/core'
 import kms from '@middy/kms'
-import { getInternal } from '@middy/util'
 import { createPublicKey } from 'node:crypto'
 
 const lambdaHandler = async (event, context) => {
-  const { signingKey } = await getInternal(['signingKey'], context)
+  const { signingKey } = context.middyContext.kms
   // signingKey is { publicKey: Uint8Array, keySpec: 'RSA_2048' | ... }
   const key = createPublicKey({
     key: Buffer.from(signingKey.publicKey),
@@ -119,6 +120,7 @@ export const handler = middy()
   .use(
     kms({
       fetchData: { signingKey: 'alias/my-app' },
+      setToContext: true,
     }),
   )
   .handler(lambdaHandler)

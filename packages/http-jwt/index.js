@@ -42,11 +42,18 @@ const defaults = {
 	algorithm: undefined,
 	audience: undefined,
 	issuer: undefined,
+	// Expected JWS `typ` header. RFC 9068 section 4: a resource server MUST
+	// check that a JWT access token has typ "at+jwt". Pinning it stops a token
+	// of another type from the same issuer and key (an OIDC ID token, typ "JWT")
+	// passing as an access token (RFC 8725 section 3.11).
+	typ: "at+jwt",
 	clockTolerance: 0,
 	requireExp: false,
 	expectedClaims: undefined,
 	maxTokenAge: undefined,
 	payloadKey: "jwt",
+	// Defaults to `${payloadKey}Token`.
+	tokenKey: undefined,
 	setToContext: false,
 	cacheExpiry: undefined,
 	cooldownDuration: undefined,
@@ -57,6 +64,9 @@ const defaults = {
 const stringOrStringArraySchema = {
 	oneOf: [{ type: "string" }, { type: "array", items: { type: "string" } }],
 };
+
+// `null` disables the typ check.
+const typSchema = { oneOf: [{ type: "string" }, { const: null }] };
 
 const optionSchema = {
 	type: "object",
@@ -70,6 +80,7 @@ const optionSchema = {
 					jwksUri: { type: "string" },
 					audience: stringOrStringArraySchema,
 					algorithm: stringOrStringArraySchema,
+					typ: typSchema,
 				},
 				required: ["jwksUri"],
 				additionalProperties: false,
@@ -81,6 +92,7 @@ const optionSchema = {
 		algorithm: stringOrStringArraySchema,
 		audience: stringOrStringArraySchema,
 		issuer: stringOrStringArraySchema,
+		typ: typSchema,
 		clockTolerance: {
 			type: "number",
 			minimum: 0,
@@ -98,6 +110,7 @@ const optionSchema = {
 		},
 		maxTokenAge: { oneOf: [{ type: "string" }, { type: "number" }] },
 		payloadKey: { type: "string" },
+		tokenKey: { type: "string" },
 		setToContext: { type: "boolean" },
 		cacheExpiry: {
 			type: "number",
@@ -122,12 +135,21 @@ const optionSchema = {
 export const httpJwtValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
+// ALB with multi-value headers enabled sends `multiValueHeaders` and no
+// `headers`. Read it directly so this does not depend on http-event-normalizer
+// running first.
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+const eventHeaders = (event) => event?.headers ?? event?.multiValueHeaders;
+
 // HTTP API payload 2.0 strips the Cookie header and delivers each cookie as a
 // `name=value` entry of `event.cookies`. The header is searched first, so an
 // event that somehow carries both keeps its header semantics.
 const readCookieValue = (event, cookieName) => {
-	const headers = event?.headers;
-	const cookieHeader = headers?.cookie ?? headers?.Cookie;
+	const headers = eventHeaders(event);
+	const rawCookie = headers?.cookie ?? headers?.Cookie;
+	const cookieHeader = Array.isArray(rawCookie)
+		? rawCookie.join(";")
+		: rawCookie;
 	const prefix = `${cookieName}=`;
 	const isMatch = (c) => typeof c === "string" && c.trim().startsWith(prefix);
 	let match = cookieHeader ? cookieHeader.split(";").find(isMatch) : undefined;
@@ -148,11 +170,11 @@ const readCookieValue = (event, cookieName) => {
 const AUTH_SCHEMES = new Set(["bearer", "dpop"]);
 
 const readHeaderValue = (event, headerName) => {
-	const headers = event?.headers;
+	const headers = eventHeaders(event);
 	if (!headers) return undefined;
 	const lowerName = headerName.toLowerCase();
 	const rawValue = headers[headerName] ?? headers[lowerName];
-	// Proxies (ALB multiValueHeaders, repeated headers) can deliver arrays.
+	// ALB multiValueHeaders and repeated headers deliver arrays.
 	const raw = Array.isArray(rawValue) ? rawValue[0] : rawValue;
 	if (!raw) return undefined;
 	// Authorization header carries the `Bearer <token>` scheme; strip it.
@@ -300,8 +322,20 @@ const createJwksResolver = (uri, options = {}) => {
 	};
 };
 
+// RFC 6750 §3: a 401 names the scheme it wants. §3.1: a request that presented
+// no token gets the bare challenge, one whose token was refused gets
+// `invalid_token`. `http-error-handler` copies `error.headers` onto the response.
+const unauthorized = (reason, challenge = 'Bearer error="invalid_token"') => {
+	const error = new HttpError(401, {
+		cause: { package: pkg, data: { reason } },
+	});
+	error.headers = { "WWW-Authenticate": challenge };
+	return error;
+};
+
 const httpJwtMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
+	const tokenKey = options.tokenKey ?? `${options.payloadKey}Token`;
 
 	const keySources = [options.internalKey, options.issuers].filter(
 		(v) => v !== undefined,
@@ -348,8 +382,10 @@ const httpJwtMiddleware = (opts = {}) => {
 			});
 			issuersMap.set(iss, {
 				resolver,
-				audience: entry.audience,
+				audience: entry.audience ?? options.audience,
 				algorithms: entryAlgs,
+				// `null` on the issuer disables the check, so only `undefined` inherits.
+				typ: (entry.typ === undefined ? options.typ : entry.typ) ?? undefined,
 			});
 		}
 		if (!options.disablePrefetch) {
@@ -379,17 +415,14 @@ const httpJwtMiddleware = (opts = {}) => {
 			const token = source(event);
 			if (token) return token;
 		}
-		throw new HttpError(401, {
-			cause: {
-				package: pkg,
-				data: { reason: "No token found in configured sources" },
-			},
-		});
+		throw unauthorized("No token found in configured sources", "Bearer");
 	};
 
 	const baseVerifyOptions = {
 		audience: options.audience,
 		issuer: options.issuer,
+		// jose skips the check only for `undefined`; `null` is the opt-out here.
+		typ: options.typ ?? undefined,
 		clockTolerance: options.clockTolerance,
 		maxTokenAge: options.maxTokenAge,
 	};
@@ -402,7 +435,12 @@ const httpJwtMiddleware = (opts = {}) => {
 	// Cache imported keys per-middleware-instance. `importJWK` and
 	// `createPublicKey` reparse via OpenSSL on every call (~tens of μs);
 	// these results are stable across warm invocations.
-	const jwkKeyCache = new Map(); // key: `${kid}\0${alg}`; value: imported key
+	// Keyed by the JWK object the resolver returned, not by `kid`: a refetched
+	// JWKS yields new objects, so a key rotated under the same `kid` is imported
+	// afresh and the retired one stops verifying. Each issuer has its own
+	// resolver and document, so two issuers publishing the same `kid` never share
+	// an entry. Entries go when their document is dropped.
+	const jwkKeyCache = new WeakMap(); // key: JWK object; value: Map alg -> imported key
 	const publicKeyCache = new WeakMap(); // key: keyData ref; value: KeyObject
 
 	// SPKI DER bytes, either bare or under the `publicKey` of the `@middy/kms` shape.
@@ -434,18 +472,11 @@ const httpJwtMiddleware = (opts = {}) => {
 				header = decodeProtectedHeader(token);
 				payload = decodeJwt(token);
 			} catch (e) {
-				throw new HttpError(401, {
-					cause: {
-						package: pkg,
-						data: { reason: `Malformed token: ${e.message}` },
-					},
-				});
+				throw unauthorized(`Malformed token: ${e.message}`);
 			}
 			const entry = issuersMap.get(payload.iss);
 			if (!entry) {
-				throw new HttpError(401, {
-					cause: { package: pkg, data: { reason: "Unknown issuer" } },
-				});
+				throw unauthorized("Unknown issuer");
 			}
 			let jwk;
 			try {
@@ -466,12 +497,7 @@ const httpJwtMiddleware = (opts = {}) => {
 				});
 			}
 			if (!jwk) {
-				throw new HttpError(401, {
-					cause: {
-						package: pkg,
-						data: { reason: `No key in JWKS with kid '${header.kid}'` },
-					},
-				});
+				throw unauthorized(`No key in JWKS with kid '${header.kid}'`);
 			}
 			// Hybrid algorithm resolution:
 			//   1. If the JWK declares `alg`, it must be in the configured allowlist
@@ -484,48 +510,37 @@ const httpJwtMiddleware = (opts = {}) => {
 			let alg;
 			if (jwk.alg) {
 				if (!entry.algorithms.includes(jwk.alg)) {
-					throw new HttpError(401, {
-						cause: {
-							package: pkg,
-							data: {
-								reason: `JWK alg '${jwk.alg}' not in configured allowlist`,
-							},
-						},
-					});
+					throw unauthorized(
+						`JWK alg '${jwk.alg}' not in configured allowlist`,
+					);
 				}
 				alg = jwk.alg;
 			} else if (entry.algorithms.length === 1) {
 				alg = entry.algorithms[0];
 			} else {
-				throw new HttpError(401, {
-					cause: {
-						package: pkg,
-						data: {
-							reason:
-								"JWK omits 'alg' and multiple algorithms configured; cannot disambiguate",
-						},
-					},
-				});
+				throw unauthorized(
+					"JWK omits 'alg' and multiple algorithms configured; cannot disambiguate",
+				);
 			}
-			const jwkCacheKey = `${header.kid}\0${alg}`;
-			key = jwkKeyCache.get(jwkCacheKey);
+			let keysByAlg = jwkKeyCache.get(jwk);
+			if (!keysByAlg) {
+				keysByAlg = new Map();
+				jwkKeyCache.set(jwk, keysByAlg);
+			}
+			key = keysByAlg.get(alg);
 			if (!key) {
 				try {
 					key = await importJWK(jwk, alg);
 				} catch (e) {
-					throw new HttpError(401, {
-						cause: {
-							package: pkg,
-							data: { reason: `JWK import failed: ${e.message}` },
-						},
-					});
+					throw unauthorized(`JWK import failed: ${e.message}`);
 				}
-				jwkKeyCache.set(jwkCacheKey, key);
+				keysByAlg.set(alg, key);
 			}
 			const verifyOptions = {
 				issuer: payload.iss,
 				algorithms: [alg],
 				audience: entry.audience,
+				typ: entry.typ,
 				clockTolerance: options.clockTolerance,
 				maxTokenAge: options.maxTokenAge,
 			};
@@ -653,9 +668,7 @@ const httpJwtMiddleware = (opts = {}) => {
 			}
 		}
 		if (verified === undefined) {
-			throw new HttpError(401, {
-				cause: { package: pkg, data: { reason: failure.message } },
-			});
+			throw unauthorized(failure.message);
 		}
 
 		// Claims the caller declared mandatory, compared with strict equality and
@@ -663,17 +676,15 @@ const httpJwtMiddleware = (opts = {}) => {
 		// payload this rejected.
 		for (const [claim, expected] of expectedClaims) {
 			if (verified[claim] !== expected) {
-				throw new HttpError(401, {
-					cause: {
-						package: pkg,
-						data: {
-							reason: `Claim '${claim}' is '${verified[claim]}', expected '${expected}'`,
-						},
-					},
-				});
+				throw unauthorized(
+					`Claim '${claim}' is '${verified[claim]}', expected '${expected}'`,
+				);
 			}
 		}
 
+		// The token exactly as verified, so @middy/http-dpop can hash the one
+		// that was checked (RFC 9449 §4.3) whichever source it came from.
+		request.internal[tokenKey] = token;
 		request.internal[options.payloadKey] = verified;
 		if (options.setToContext) {
 			setContextNamespace(request, options.payloadKey, verified);

@@ -1,0 +1,20 @@
+# Trivy config, shared by `npm run test:sast:trivy` and the `Trivy: Licensing`
+# job in .github/workflows/test-sast.yml. Trivy loads ./trivy.yaml by default.
+# https://trivy.dev/latest/docs/references/configuration/config-file/
+license:
+  # Allowed licenses: any other license found fails the scan.
+  ignored:
+    - 0BSD
+    - Apache-2.0
+    - BSD-1-Clause
+    - BSD-2-Clause
+    - BSD-3-Clause
+    - CC0-1.0
+    - CC-BY-4.0
+    - ISC
+    - MIT
+    - Python-2.0
+    - LGPL-3.0-or-later
+    - MPL-2.0
+    - BlueOak-1.0.0
+    - Unlicense

@@ -41,6 +41,12 @@ export interface EcsHttpRunnerOptions<
 	 * A client port ALB appends (`ip:port`, `[ipv6]:port`) is stripped.
 	 */
 	trustedProxies?: number;
+	/**
+	 * Milliseconds a worker waits after SIGTERM for in-flight requests before
+	 * it cuts the remaining connections and exits 1. Default 25000, under the
+	 * ECS default stopTimeout of 30s.
+	 */
+	gracefulShutdownMs?: number;
 	contextOverride?: {
 		awsRequestId?: (
 			headers: Record<string, string | string[] | undefined>,
@@ -58,8 +64,8 @@ declare function ecsHttpRunner<
 
 export { ecsHttpRunner };
 
-export declare function ecsHttpValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function ecsHttpValidateOptions<
+	TOptions extends EcsHttpRunnerOptions<any, any>,
+>(options?: TOptions): TOptions;
 
 export default ecsHttpRunner;

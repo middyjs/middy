@@ -541,6 +541,29 @@ describe("@middy/http-cors", () => {
 		});
 	});
 
+	// A wildcard origin with credentials would reflect every Origin alongside
+	// Access-Control-Allow-Credentials: true, letting any site make credentialed
+	// requests. The Fetch standard forbids `*` with credentials, so it is refused
+	// at construction.
+	test("It should throw at construction when origin '*' is combined with credentials", async (t) => {
+		throws(() => httpCors({ origin: "*", credentials: true }), {
+			message: "A wildcard origin cannot be combined with credentials",
+		});
+	});
+
+	test("It should throw at construction when origins includes '*' with credentials", async (t) => {
+		throws(
+			() => httpCors({ origins: ["https://a.com", "*"], credentials: true }),
+			{ message: "A wildcard origin cannot be combined with credentials" },
+		);
+	});
+
+	test("It should throw at construction when a wildcard origin has credentials 'true'", async (t) => {
+		throws(() => httpCors({ origins: ["*"], credentials: "true" }), {
+			message: "A wildcard origin cannot be combined with credentials",
+		});
+	});
+
 	test("It should not override already declared Access-Control-Allow-Credentials header as true", async (t) => {
 		const handler = middy((event, context) => ({ statusCode: 200 }))
 			.use(
@@ -565,96 +588,6 @@ describe("@middy/http-cors", () => {
 			statusCode: 200,
 			headers: {
 				"Access-Control-Allow-Credentials": "true",
-			},
-		});
-	});
-
-	test("It should use change credentials as specified in options (true) w/ origin:*", async (t) => {
-		const handler = middy((event, context) => ({ statusCode: 200 }));
-
-		handler.use(
-			httpCors({
-				disableBeforePreflightResponse: false,
-				credentials: true,
-				origin: "*",
-			}),
-		);
-
-		const event = {
-			httpMethod: "OPTIONS",
-			headers: {
-				Origin: "https://example.com",
-			},
-		};
-
-		const response = await handler(event, defaultContext);
-
-		deepStrictEqual(response, {
-			statusCode: 204,
-			headers: {
-				"Access-Control-Allow-Credentials": "true",
-				"Access-Control-Allow-Origin": "https://example.com",
-				Vary: "Origin",
-			},
-		});
-	});
-
-	test("It should use change credentials as specified in options (true)", async (t) => {
-		const handler = middy((event, context) => ({ statusCode: 200 }));
-
-		handler.use(
-			httpCors({
-				disableBeforePreflightResponse: false,
-				credentials: true,
-				origins: ["*"],
-			}),
-		);
-
-		const event = {
-			httpMethod: "OPTIONS",
-			headers: {
-				Origin: "https://example.com",
-			},
-		};
-
-		const response = await handler(event, defaultContext);
-
-		deepStrictEqual(response, {
-			statusCode: 204,
-			headers: {
-				"Access-Control-Allow-Credentials": "true",
-				"Access-Control-Allow-Origin": "https://example.com",
-				Vary: "Origin",
-			},
-		});
-	});
-
-	test("It should use change credentials as specified in options (true) with lowercase header", async (t) => {
-		const handler = middy((event, context) => ({ statusCode: 200 }));
-
-		handler.use(
-			httpCors({
-				disableBeforePreflightResponse: false,
-				credentials: true,
-				origins: ["*"],
-			}),
-		);
-
-		const event = {
-			httpMethod: "OPTIONS",
-			headers: {
-				origin: "https://example-lowercase.com",
-			},
-		};
-
-		const response = await handler(event, defaultContext);
-
-		deepStrictEqual(response, {
-			statusCode: 204,
-			headers: {
-				"Access-Control-Allow-Credentials": "true",
-				"Access-Control-Allow-Origin": "https://example-lowercase.com",
-				Vary: "Origin",
 			},
 		});
 	});
@@ -1326,33 +1259,6 @@ describe("@middy/http-cors", () => {
 		});
 	});
 
-	test("It should set Vary: Origin when origin is * with credentials but no incoming Origin header", async (t) => {
-		const handler = middy((event, context) => ({ statusCode: 200 }));
-
-		handler.use(
-			httpCors({
-				origin: "*",
-				credentials: true,
-			}),
-		);
-
-		const event = {
-			httpMethod: "GET",
-			headers: {}, // No Origin header
-		};
-
-		const response = await handler(event, defaultContext);
-
-		deepStrictEqual(response, {
-			statusCode: 200,
-			headers: {
-				"Access-Control-Allow-Credentials": "true",
-				"Access-Control-Allow-Origin": "*",
-				Vary: "Origin",
-			},
-		});
-	});
-
 	test("It should handle vary option with empty string header", async (t) => {
 		const handler = middy((event, context) => ({
 			statusCode: 200,
@@ -1427,6 +1333,7 @@ describe("@middy/http-cors", () => {
 			statusCode: 204,
 			headers: {
 				"Access-Control-Allow-Origin": "*",
+				Vary: "Access-Control-Request-Method",
 			},
 		});
 	});
@@ -1451,7 +1358,7 @@ describe("@middy/http-cors", () => {
 
 		deepStrictEqual(response, {
 			statusCode: 204,
-			headers: {},
+			headers: { Vary: "Access-Control-Request-Method" },
 		});
 	});
 
@@ -1477,6 +1384,7 @@ describe("@middy/http-cors", () => {
 			statusCode: 204,
 			headers: {
 				"Access-Control-Allow-Origin": "*",
+				Vary: "Access-Control-Request-Method",
 			},
 		});
 	});
@@ -1503,6 +1411,7 @@ describe("@middy/http-cors", () => {
 			statusCode: 204,
 			headers: {
 				"Access-Control-Allow-Origin": "*",
+				Vary: "Access-Control-Request-Method",
 			},
 		});
 	});
@@ -1553,7 +1462,7 @@ describe("@middy/http-cors", () => {
 
 		deepStrictEqual(response, {
 			statusCode: 204,
-			headers: {},
+			headers: { Vary: "Access-Control-Request-Method" },
 		});
 	});
 
@@ -1586,6 +1495,7 @@ describe("@middy/http-cors", () => {
 				"Access-Control-Allow-Origin": "https://example.com",
 				"Access-Control-Allow-Credentials": "true",
 				"Access-Control-Allow-Methods": "GET, POST",
+				Vary: "Access-Control-Request-Method",
 			},
 		});
 	});
@@ -1617,6 +1527,7 @@ describe("@middy/http-cors", () => {
 			statusCode: 204,
 			headers: {
 				"Access-Control-Allow-Origin": "*",
+				Vary: "Access-Control-Request-Method",
 			},
 		});
 	});
@@ -1643,6 +1554,7 @@ describe("@middy/http-cors", () => {
 			statusCode: 204,
 			headers: {
 				"Access-Control-Allow-Origin": "*",
+				Vary: "Access-Control-Request-Method",
 			},
 		});
 	});
@@ -1672,6 +1584,7 @@ describe("@middy/http-cors", () => {
 			statusCode: 204,
 			headers: {
 				"Access-Control-Allow-Origin": "*",
+				Vary: "Access-Control-Request-Method",
 			},
 		});
 	});
@@ -1808,6 +1721,7 @@ describe("@middy/http-cors", () => {
 			statusCode: 204,
 			headers: {
 				"Access-Control-Allow-Origin": "*",
+				Vary: "Access-Control-Request-Headers",
 			},
 		});
 	});
@@ -1832,7 +1746,7 @@ describe("@middy/http-cors", () => {
 
 		deepStrictEqual(response, {
 			statusCode: 204,
-			headers: {},
+			headers: { Vary: "Access-Control-Request-Headers" },
 		});
 	});
 
@@ -1858,6 +1772,7 @@ describe("@middy/http-cors", () => {
 			statusCode: 204,
 			headers: {
 				"Access-Control-Allow-Origin": "*",
+				Vary: "Access-Control-Request-Headers",
 			},
 		});
 	});
@@ -1886,6 +1801,7 @@ describe("@middy/http-cors", () => {
 			statusCode: 204,
 			headers: {
 				"Access-Control-Allow-Origin": "*",
+				Vary: "Access-Control-Request-Headers",
 			},
 		});
 	});
@@ -1912,6 +1828,7 @@ describe("@middy/http-cors", () => {
 			statusCode: 204,
 			headers: {
 				"Access-Control-Allow-Origin": "*",
+				Vary: "Access-Control-Request-Headers",
 			},
 		});
 	});
@@ -1940,6 +1857,7 @@ describe("@middy/http-cors", () => {
 			statusCode: 204,
 			headers: {
 				"Access-Control-Allow-Origin": "*",
+				Vary: "Access-Control-Request-Headers",
 			},
 		});
 	});
@@ -1966,6 +1884,7 @@ describe("@middy/http-cors", () => {
 			statusCode: 204,
 			headers: {
 				"Access-Control-Allow-Origin": "*",
+				Vary: "Access-Control-Request-Headers",
 			},
 		});
 	});
@@ -2022,6 +1941,7 @@ describe("@middy/http-cors", () => {
 			statusCode: 204,
 			headers: {
 				"Access-Control-Allow-Origin": "*",
+				Vary: "Access-Control-Request-Method, Access-Control-Request-Headers",
 			},
 		});
 	});
@@ -2050,7 +1970,9 @@ describe("@middy/http-cors", () => {
 
 		deepStrictEqual(response, {
 			statusCode: 204,
-			headers: {},
+			headers: {
+				Vary: "Access-Control-Request-Method, Access-Control-Request-Headers",
+			},
 		});
 	});
 
@@ -2081,6 +2003,7 @@ describe("@middy/http-cors", () => {
 			statusCode: 204,
 			headers: {
 				"Access-Control-Allow-Origin": "*",
+				Vary: "Access-Control-Request-Headers",
 			},
 		});
 	});
@@ -2107,6 +2030,7 @@ describe("@middy/http-cors", () => {
 			statusCode: 204,
 			headers: {
 				"Access-Control-Allow-Origin": "*",
+				Vary: "Access-Control-Request-Headers",
 			},
 		});
 	});
@@ -2136,6 +2060,7 @@ describe("@middy/http-cors", () => {
 			statusCode: 204,
 			headers: {
 				"Access-Control-Allow-Origin": "*",
+				Vary: "Access-Control-Request-Headers",
 			},
 		});
 	});
@@ -2721,6 +2646,7 @@ describe("@middy/http-cors", () => {
 				statusCode: 204,
 				headers: {
 					"Access-Control-Allow-Origin": "*",
+					Vary: "Access-Control-Request-Headers",
 				},
 			});
 		});
@@ -2895,10 +2821,10 @@ describe("@middy/http-cors", () => {
 	});
 
 	// *** credentials override must flow into getOrigin options *** //
-	test("It should reflect the incoming origin when the response already allows credentials with origins wildcard", async (t) => {
-		// The handler's Access-Control-Allow-Credentials: "true" header overrides
-		// options.credentials (unset here), and the override must reach getOrigin
-		// so the originAny branch reflects the incoming origin instead of "*".
+	test("It should not reflect the incoming origin when the response allows credentials with origins wildcard", async (t) => {
+		// The handler's Access-Control-Allow-Credentials: "true" header reaches
+		// getOrigin, but a wildcard still answers "*" rather than reflecting the
+		// incoming origin, so a browser refuses the credentialed response.
 		const handler = middy((event, context) => ({
 			statusCode: 200,
 			headers: { "Access-Control-Allow-Credentials": "true" },
@@ -2919,70 +2845,24 @@ describe("@middy/http-cors", () => {
 			statusCode: 200,
 			headers: {
 				"Access-Control-Allow-Credentials": "true",
-				"Access-Control-Allow-Origin": "https://example.com",
+				"Access-Control-Allow-Origin": "*",
 				Vary: "Origin",
 			},
 		});
 	});
 
-	test("It should return wildcard origin when the response disallows credentials with origins wildcard", async (t) => {
-		// An existing Access-Control-Allow-Credentials header that is not "true"
-		// overrides options.credentials (true here) to false, and the override
-		// must reach getOrigin so the originAny branch returns "*" instead of
-		// reflecting the incoming origin.
+	test("It should not reflect the incoming origin when the response allows credentials with origin '*'", async (t) => {
 		const handler = middy((event, context) => ({
 			statusCode: 200,
-			headers: { "Access-Control-Allow-Credentials": "false" },
-		})).use(
-			httpCors({
-				origins: ["*"],
-				credentials: true,
-			}),
+			headers: { "Access-Control-Allow-Credentials": "true" },
+		})).use(httpCors({ origin: "*" }));
+
+		const response = await handler(
+			{ httpMethod: "GET", headers: { Origin: "https://evil.example" } },
+			defaultContext,
 		);
 
-		const event = {
-			httpMethod: "GET",
-			headers: { Origin: "https://example.com" },
-		};
-
-		const response = await handler(event, defaultContext);
-
-		deepStrictEqual(response, {
-			statusCode: 200,
-			headers: {
-				"Access-Control-Allow-Credentials": "false",
-				"Access-Control-Allow-Origin": "*",
-			},
-		});
-	});
-
-	test("It should treat a truthy string credentials option as enabling credentials in getOrigin", async (t) => {
-		// options.credentials accepts a string; a truthy string is neither
-		// strictly true nor strictly false, but must still flow through to
-		// getOrigin unchanged so the originAny branch reflects the incoming
-		// origin.
-		const handler = middy((event, context) => ({ statusCode: 200 })).use(
-			httpCors({
-				origins: ["*"],
-				credentials: "true",
-			}),
-		);
-
-		const event = {
-			httpMethod: "GET",
-			headers: { Origin: "https://example.com" },
-		};
-
-		const response = await handler(event, defaultContext);
-
-		deepStrictEqual(response, {
-			statusCode: 200,
-			headers: {
-				"Access-Control-Allow-Credentials": "true",
-				"Access-Control-Allow-Origin": "https://example.com",
-				Vary: "Origin",
-			},
-		});
+		strictEqual(response.headers["Access-Control-Allow-Origin"], "*");
 	});
 
 	// *** before-hook: unknown event.version => method lookup undefined, no crash *** //
@@ -3031,7 +2911,7 @@ describe("@middy/http-cors", () => {
 
 		deepStrictEqual(response, {
 			statusCode: 204,
-			headers: {},
+			headers: { Vary: "Access-Control-Request-Method" },
 		});
 	});
 
@@ -3053,7 +2933,7 @@ describe("@middy/http-cors", () => {
 
 		deepStrictEqual(response, {
 			statusCode: 204,
-			headers: {},
+			headers: { Vary: "Access-Control-Request-Headers" },
 		});
 	});
 
@@ -3215,7 +3095,7 @@ describe("@middy/http-cors", () => {
 				"Access-Control-Allow-Headers": "x-custom",
 				"Access-Control-Allow-Methods": "POST",
 				"Access-Control-Allow-Origin": "https://example.com",
-				Vary: "Origin",
+				Vary: "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
 			},
 		});
 	});
@@ -3263,7 +3143,7 @@ describe("@middy/http-cors", () => {
 
 		deepStrictEqual(response, {
 			statusCode: 204,
-			headers: {},
+			headers: { Vary: "Access-Control-Request-Headers" },
 		});
 	});
 
@@ -3290,6 +3170,7 @@ describe("@middy/http-cors", () => {
 			headers: {
 				"Access-Control-Allow-Headers": "authorization, x-custom",
 				"Access-Control-Allow-Origin": "*",
+				Vary: "Access-Control-Request-Headers",
 			},
 		});
 	});
@@ -3539,6 +3420,169 @@ describe("@middy/http-cors", () => {
 			statusCode: 200,
 			headers: {
 				Vary: "Accept-Encoding",
+			},
+		});
+	});
+
+	test("It should keep lowercase handler-set CORS headers and not duplicate them", async (t) => {
+		const handler = middy((event, context) => ({
+			statusCode: 200,
+			headers: {
+				"access-control-allow-origin": "https://other.com",
+				"access-control-allow-credentials": "false",
+				"access-control-allow-headers": "X-Handler",
+				"access-control-allow-methods": "GET",
+				"access-control-expose-headers": "X-Handler",
+				"access-control-max-age": "10",
+				"cache-control": "no-store",
+			},
+		}));
+
+		// Header names are case-insensitive (RFC 9110 §5.1), so a handler-set
+		// header in any casing counts as set and wins.
+		handler.use(
+			httpCors({
+				credentials: true,
+				origins: ["https://a.com"],
+				headers: "X-Middleware",
+				methods: "POST",
+				exposeHeaders: "X-Middleware",
+				maxAge: 100,
+				cacheControl: "max-age=100",
+			}),
+		);
+
+		const event = {
+			httpMethod: "OPTIONS",
+			headers: { Origin: "https://a.com" },
+		};
+
+		const response = await handler(event, defaultContext);
+
+		deepStrictEqual(response, {
+			statusCode: 200,
+			headers: {
+				"access-control-allow-origin": "https://other.com",
+				"access-control-allow-credentials": "false",
+				"access-control-allow-headers": "X-Handler",
+				"access-control-allow-methods": "GET",
+				"access-control-expose-headers": "X-Handler",
+				"access-control-max-age": "10",
+				"cache-control": "no-store",
+				Vary: "Origin",
+			},
+		});
+	});
+
+	test("It should honour a lowercase handler-set credentials opt-in", async (t) => {
+		const handler = middy((event, context) => ({
+			statusCode: 200,
+			headers: { "access-control-allow-credentials": "true" },
+		}));
+
+		handler.use(httpCors({ origins: ["https://a.com"] }));
+
+		const event = {
+			httpMethod: "GET",
+			headers: { Origin: "https://a.com" },
+		};
+
+		const response = await handler(event, defaultContext);
+
+		deepStrictEqual(response, {
+			statusCode: 200,
+			headers: {
+				"access-control-allow-credentials": "true",
+				"Access-Control-Allow-Origin": "https://a.com",
+				Vary: "Origin",
+			},
+		});
+	});
+
+	test("It should add Vary to a preflight rejected by requestMethods", async (t) => {
+		const handler = middy((event, context) => ({ statusCode: 200 }));
+
+		// A shared cache must not serve this rejection to a preflight from
+		// another origin or for another method (RFC 9110 §12.5.5).
+		handler.use(
+			httpCors({
+				disableBeforePreflightResponse: false,
+				origins: ["https://a.com"],
+				requestMethods: ["GET"],
+			}),
+		);
+
+		const event = {
+			httpMethod: "OPTIONS",
+			headers: {
+				Origin: "https://a.com",
+				"Access-Control-Request-Method": "POST",
+			},
+		};
+
+		const response = await handler(event, defaultContext);
+
+		deepStrictEqual(response, {
+			statusCode: 204,
+			headers: { Vary: "Origin, Access-Control-Request-Method" },
+		});
+	});
+
+	test("It should add Vary to a preflight rejected by requestHeaders", async (t) => {
+		const handler = middy((event, context) => ({ statusCode: 200 }));
+
+		handler.use(
+			httpCors({
+				disableBeforePreflightResponse: false,
+				origins: ["https://a.com"],
+				requestHeaders: ["authorization"],
+			}),
+		);
+
+		const event = {
+			httpMethod: "OPTIONS",
+			headers: {
+				Origin: "https://a.com",
+				"Access-Control-Request-Headers": "X-Disallowed-Header",
+			},
+		};
+
+		const response = await handler(event, defaultContext);
+
+		deepStrictEqual(response, {
+			statusCode: 204,
+			headers: { Vary: "Origin, Access-Control-Request-Headers" },
+		});
+	});
+
+	test("It should add request Vary tokens to an accepted preflight", async (t) => {
+		const handler = middy((event, context) => ({ statusCode: 200 }));
+
+		handler.use(
+			httpCors({
+				disableBeforePreflightResponse: false,
+				origins: ["https://a.com"],
+				requestMethods: ["GET"],
+				requestHeaders: ["authorization"],
+			}),
+		);
+
+		const event = {
+			httpMethod: "OPTIONS",
+			headers: {
+				Origin: "https://a.com",
+				"Access-Control-Request-Method": "GET",
+				"Access-Control-Request-Headers": "Authorization",
+			},
+		};
+
+		const response = await handler(event, defaultContext);
+
+		deepStrictEqual(response, {
+			statusCode: 204,
+			headers: {
+				"Access-Control-Allow-Origin": "https://a.com",
+				Vary: "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
 			},
 		});
 	});

@@ -59,7 +59,10 @@ export const fetchEcsMetadata = async (
 			region: arnParts[3],
 			taskArn: arn || undefined,
 			family: task.Family,
-			revision: task.Revision != null ? String(task.Revision) : undefined,
+			revision:
+				task.Revision !== undefined && task.Revision !== null
+					? String(task.Revision)
+					: undefined,
 		};
 	} catch {
 		return {};
@@ -68,7 +71,7 @@ export const fetchEcsMetadata = async (
 
 export const writeEcsEnv = (meta, env = process.env) => {
 	for (const key of ecsEnvKeys) {
-		if (meta[key] != null)
+		if (meta[key] !== undefined && meta[key] !== null)
 			env[`${ecsEnvPrefix}${key.toUpperCase()}`] = meta[key];
 	}
 };
@@ -77,7 +80,7 @@ export const readEcsEnv = (env = process.env) => {
 	const out = {};
 	for (const key of ecsEnvKeys) {
 		const v = env[`${ecsEnvPrefix}${key.toUpperCase()}`];
-		if (v != null) out[key] = v;
+		if (v !== undefined && v !== null) out[key] = v;
 	}
 	return out;
 };
@@ -89,7 +92,7 @@ const taskIdFromArn = (arn) => {
 };
 
 const parsePayload = (raw) => {
-	if (raw == null || raw === "") return undefined;
+	if (raw === undefined || raw === null || raw === "") return undefined;
 	return jsonSafeParse(raw);
 };
 

@@ -153,6 +153,41 @@ describe("@middy/s3-object-response", () => {
 		strictEqual(response.statusCode, 200);
 	});
 
+	// A presigned GET that hangs would hold the invocation until Lambda cuts it
+	// off; it is aborted 500 ms early, with a 30 s budget outside Lambda and a
+	// 1 s floor.
+	for (const [remaining, expected] of [
+		[5000, 4500],
+		[undefined, 29500],
+		[100, 1000],
+	]) {
+		test(`It should abort the input fetch after ${expected} ms`, async (t) => {
+			const fetchMock = t.mock.method(
+				globalThis,
+				"fetch",
+				async () => new Response(""),
+			);
+			const timeout = t.mock.method(AbortSignal, "timeout");
+			mockClient(S3Client)
+				.on(WriteGetObjectResponseCommand)
+				.resolvesOnce({ statusCode: 200 });
+
+			const handler = middy(async (event, context) => {
+				await context.middyContext["s3-object-response"];
+			});
+			handler.use(s3ObjectResponse({ AwsClient: S3Client }));
+
+			await handler(
+				defaultEvent,
+				remaining === undefined
+					? {}
+					: { getRemainingTimeInMillis: () => remaining },
+			);
+			strictEqual(timeout.mock.calls[0].arguments[0], expected);
+			ok(fetchMock.mock.calls[0].arguments[1].signal instanceof AbortSignal);
+		});
+	}
+
 	test("It should not emit unhandledRejection when prefetch fetch rejects and handler ignores it", async (t) => {
 		t.mock.method(globalThis, "fetch", async () => {
 			throw new Error("fetch failed");

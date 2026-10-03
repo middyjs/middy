@@ -11,14 +11,14 @@ feature/*  -->  develop  -->  main  -->  npm
 | Branch | Purpose | Merge gate |
 | --- | --- | --- |
 | `feature/*` | All work originates from a feature branch off `develop`. | PR into `develop`; the `develop` ruleset blocks the merge until `Tests (lint)`, `Tests (unit) (24.x)` and `Tests (unit) (26.x)` pass. Review is recommended but not ruleset-enforced |
-| `develop` | Integration branch. CI checks (lint, unit, types, SAST, perf, DAST, DCO) run on every PR. Version-bump PRs are opened by a maintainer after running `npm run release:sync` (see [RELEASE.md](RELEASE.md)). | Ruleset ([rulesets/develop.json](../.github/rulesets/develop.json)): deletion + non-fast-forward + signed commits + required status checks `Tests (lint)`, `Tests (unit) (24.x)` and `Tests (unit) (26.x)`. PR review is policy (CONTRIBUTING.md) but not enforced by the `develop` ruleset |
+| `develop` | Integration branch. CI checks (lint, unit, types, SAST, bench, DAST, DCO) run on every PR. Version-bump PRs are opened by a maintainer after running `npm run release:sync` (see [RELEASE.md](RELEASE.md)). | Ruleset ([rulesets/develop.json](../.github/rulesets/develop.json)): deletion + non-fast-forward + signed commits + required status checks `Tests (lint)`, `Tests (unit) (24.x)` and `Tests (unit) (26.x)`. PR review is policy (CONTRIBUTING.md) but not enforced by the `develop` ruleset |
 | `main` | Release branch. Merging a `develop -> main` PR triggers [release.yml](../.github/workflows/release.yml). | Ruleset enforces: deletion + non-fast-forward + signed commits + PR with 2 approvals + CODEOWNERS review + all required status checks defined in [rulesets/main.json](../.github/rulesets/main.json) + CodeQL/zizmor code-scanning gates. `release.yml` additionally waits on the `npm-publish` GitHub Environment for explicit human approval before `npm stage publish` |
 
 DCO sign-off is required on every commit ([test-dco.yml](../.github/workflows/test-dco.yml)).
 
 ## Release pipeline (`release.yml`)
 
-Triggered by closing (merging) a PR to `main` that changes `package.json`.
+Triggered by closing (merging) a PR to `main`, or to a maintenance branch (`7.x`), that changes `package.json`.
 
 ```
 build  -->  release  -->  publish
@@ -28,7 +28,7 @@ build  -->  release  -->  publish
 | --- | --- | --- |
 | `build` | harden-runner -> checkout -> setup-node -> npm ci -> `npm audit signatures` -> npm run build -> verify every workspace carries the root version and `package-lock.json` links `@middy/*` to the workspaces -> npm pack -> `actions/attest-build-provenance` (Sigstore) -> upload artifact | V2.6.1 dependency signature gating; V3.4.1 cryptographic signing of build artifacts |
 | `release` | harden-runner -> download artifact -> `softprops/action-gh-release` (draft) | V4.1.1 release-candidate assessment |
-| `publish` | harden-runner -> setup-node -> download artifact -> `gh attestation verify` -> `npm stage publish --provenance` per tarball (next or latest tag based on prerelease detection), failing on the first that does not stage. Job is wrapped in `environment: npm-publish` with required reviewers; staged versions only go live once a maintainer runs `npm run release:approve` (see [RELEASE.md](RELEASE.md)). | V3.3.20 manual approval gate; V3.4.2 / V4.3.6 artifact integrity before deployment; V4.3.1 automated deployment |
+| `publish` | harden-runner -> setup-node -> download artifact -> `gh attestation verify` -> `npm stage publish --provenance` per tarball (`latest`, `next` or the major-line tag such as `latest-7`, chosen in `build`). A tarball whose version is already staged or published (`E409`) is skipped so a failed run can be re-run; any other failure does not stop the loop, and the job fails at the end naming every tarball that did not stage. Job is wrapped in `environment: npm-publish` with required reviewers; staged versions only go live once a maintainer runs `npm run release:approve` (see [RELEASE.md](RELEASE.md)). | V3.3.20 manual approval gate; V3.4.2 / V4.3.6 artifact integrity before deployment; V4.3.1 automated deployment |
 
 `npm audit signatures` lives in `build` because it audits *build inputs* (your installed dependencies). `gh attestation verify` lives in `publish` because it audits the *artifact being pushed*.
 
@@ -41,16 +41,16 @@ These run on every PR and (where noted) on a weekly cron.
 | [test-lint.yml](../.github/workflows/test-lint.yml) | PR | Biome lint + format check | V2.2.1 - V2.2.4 |
 | [test-unit.yml](../.github/workflows/test-unit.yml) | PR | `node --test` with 100% lines/branches/functions coverage gate; Node 24 + Node 26 matrix | V2.2.5, V2.7.2 |
 | [test-types.yml](../.github/workflows/test-types.yml) | PR | `tstyche` type tests | V2.7.1 |
-| [test-perf.yml](../.github/workflows/test-perf.yml) | PR | `tinybench` performance regression check | Defence-in-depth |
+| [test-bench.yml](../.github/workflows/test-bench.yml) | PR | `node:bench` benchmarks on Node 26. There are no timing thresholds: the job fails only when a benchmark throws, so it is a smoke run, not a regression gate | Defence-in-depth |
 | [test-dast.yml](../.github/workflows/test-dast.yml) | PR | Property-based fuzz tests via `fast-check` | V3.3.14 |
 | [test-dco.yml](../.github/workflows/test-dco.yml) | PR | Developer Certificate of Origin sign-off | V1.3.5 |
-| [test-sast.yml](../.github/workflows/test-sast.yml) | PR + weekly cron | Trivy SCA (vuln) + Trivy license + lockfile-lint + CodeQL (javascript + actions) + semgrep + actionlint + zizmor (online audits incl. impostor-commit) + dependency-review + TruffleHog + gitleaks + license headers | V2.4.1-6, V2.4.7-9, V2.4.14, V2.5.1, V2.6.1, V3.1.5, V3.3.1-9 |
+| [test-sast.yml](../.github/workflows/test-sast.yml) | PR + weekly cron | Trivy SCA (vuln) + Trivy license (fails on any license outside the allowlist in [trivy.yaml](../trivy.yaml)) + lockfile-lint + CodeQL (javascript + actions) + semgrep + actionlint + zizmor (online audits incl. impostor-commit) + dependency-review + TruffleHog + gitleaks (checksum-pinned CLI over the full history, no license secret, so fork and Dependabot PRs are scanned too) + license headers | V2.4.1-6, V2.4.7-9, V2.4.14, V2.5.1, V2.6.1, V3.1.5, V3.3.1-9 |
 | [test-mutation.yml](../.github/workflows/test-mutation.yml) | PR | Stryker mutation testing, one matrix leg per package, rolled up into the single `Tests (mutation)` required check. The matrix is skipped, and the check still passes, when the PR changes none of `packages/**`, `stryker.config.mjs`, `package-lock.json` or the workflow. Legs time out at 60 minutes; `ecs-batch`, the slowest, takes about 30 minutes locally. No cache: Stryker's incremental report reuses stale results with the command runner | V2.2.5 |
 | [ossf-scorecard.yml](../.github/workflows/ossf-scorecard.yml) | weekly cron + push to `main` | OSSF Scorecard scan; SARIF upload to code-scanning + results published to scorecard.dev | V3.3.18, V3.3.19, V5.2.1 |
 | [website-cloudflare-pages.yml](../.github/workflows/website-cloudflare-pages.yml) | push to `main` (under `websites/`) | Build + deploy the docs site | Outside SPVS scope (docs site, not the npm package) |
 | [tardisec.yml](../.github/workflows/tardisec.yml) | weekly cron + manual dispatch | Sync the docs site's `.tardisec*.json` security-header config from tardisec and open a PR for any drift | Outside SPVS scope (docs site, not the npm package) |
 
-The `License headers` job in `test-sast.yml` (`npm run test:sast:license`) is new in this release and passes locally; its first CI run is the next push, so it has no run history yet.
+The `License headers` job in `test-sast.yml` runs `npm run test:sast:license`, which checks every source file for the license header configured in `.license.config.json`.
 
 ## Hardening conventions
 

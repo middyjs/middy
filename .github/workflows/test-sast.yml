@@ -131,15 +131,15 @@ jobs:
           scanners: license
           scan-type: fs
           scan-ref: .
+          trivy-config: trivy.yaml # license allowlist, shared with `npm run test:sast:trivy`
           hide-progress: true
-          exit-code: 0
+          exit-code: 1
           format: table
 
   lockfile:
     name: "lockfile-lint: SAST package-lock.json"
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: (github.actor != 'dependabot[bot]')
 
     steps:
       - name: Harden runner
@@ -449,13 +449,11 @@ jobs:
         with:
           extra_args: --only-verified
 
-  # https://github.com/gitleaks/gitleaks-action
+  # https://github.com/gitleaks/gitleaks
   gitleaks:
     name: 'gitleaks: secrets'
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
@@ -464,33 +462,26 @@ jobs:
           disable-sudo: true
           disable-telemetry: true
           allowed-endpoints: >
-            api.github.com:443
-            api.keygen.sh:443
+            auth.docker.io:443
             github.com:443
-            objects.githubusercontent.com:443
-            release-assets.githubusercontent.com:443
-      - name: Require GITLEAKS_LICENSE
-        if: env.GITLEAKS_LICENSE == '' && github.event.pull_request.head.repo.fork != true && github.actor != 'dependabot[bot]'
-        run: |
-          echo "::error::GITLEAKS_LICENSE secret is not set; gitleaks cannot run"
-          exit 1
+            production.cloudflare.docker.com:443
+            registry-1.docker.io:443
       # allowed-endpoints: >
       #   github.com:443
       - name: Checkout repository
-        if: env.GITLEAKS_LICENSE != ''
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
       # allowed-endpoints: >
-      #   api.github.com:443
-      #   api.keygen.sh:443
-      #   github.com:443
-      #   objects.githubusercontent.com:443
-      #   release-assets.githubusercontent.com:443
+      #   auth.docker.io:443
+      #   production.cloudflare.docker.com:443
+      #   registry-1.docker.io:443
       - name: gitleaks
-        if: env.GITLEAKS_LICENSE != ''
-        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+        # The CLI needs no license or secrets, so fork and Dependabot PRs are
+        # scanned too. Scans the full history, as `npm run test:sast:gitleaks:git`
+        # does.
+        # https://hub.docker.com/r/zricethezav/gitleaks/tags
+        uses: docker://zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f # v8.30.1
+        with:
+          args: git . --redact --no-banner

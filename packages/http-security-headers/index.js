@@ -373,7 +373,7 @@ helmet.permittedCrossDomainPolicies = (headers, config) => {
 };
 
 // https://github.com/helmetjs/hide-powered-by
-// Removal handled in after hook via delete to avoid undefined cleanup loop
+// Removal handled in the after hook, together with the headers this sets
 helmet.poweredBy = () => {};
 
 // https://github.com/helmetjs/x-xss-protection
@@ -399,17 +399,27 @@ const httpSecurityHeadersMiddleware = (opts = {}) => {
 		}
 	}
 
+	// Header names are case-insensitive (RFC 9110 §5.1). A handler header that
+	// this middleware sets, or removes under `poweredBy`, is dropped in every
+	// casing, so the middleware's value still wins and only one copy is sent.
+	const replacedNames = new Set(
+		Object.keys(precomputedHeaders).map((key) => key.toLowerCase()),
+	);
+	if (options.poweredBy) {
+		replacedNames.add("server");
+		replacedNames.add("x-powered-by");
+	}
+
 	const httpSecurityHeadersMiddlewareAfter = (request) => {
 		normalizeHttpResponse(request);
-		const headers = request.response.headers;
-		Object.assign(headers, precomputedHeaders);
-		if (options.poweredBy) {
-			// Deleting an absent key is a no-op for V8's hidden classes; only a
-			// present one drops the object into dictionary mode, and that cost is
-			// unavoidable when the handler did set it.
-			delete headers.Server;
-			delete headers["X-Powered-By"];
+		const handlerHeaders = request.response.headers;
+		const headers = {};
+		for (const key of Object.keys(handlerHeaders)) {
+			if (!replacedNames.has(key.toLowerCase())) {
+				headers[key] = handlerHeaders[key];
+			}
 		}
+		request.response.headers = Object.assign(headers, precomputedHeaders);
 	};
 	const httpSecurityHeadersMiddlewareOnError = (request) => {
 		if (typeof request.response === "undefined") return;

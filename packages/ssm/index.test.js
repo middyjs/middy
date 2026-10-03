@@ -57,6 +57,84 @@ describe("@middy/ssm", () => {
 		await handler(event, context);
 	});
 
+	test("It should keep a fresh value when a superseded batch fetch fails late", async (t) => {
+		let rejectStale;
+		const send = t.mock.fn();
+		send.mock.mockImplementationOnce(
+			() =>
+				new Promise((resolve, reject) => {
+					rejectStale = reject;
+				}),
+		);
+		send.mock.mockImplementation(async () => ({
+			Parameters: [{ Name: "/dev/service_name/key_name", Value: "key-value" }],
+		}));
+		class FakeClient {
+			send = send;
+		}
+
+		const handler = middy(() => {})
+			.use(
+				ssm({
+					AwsClient: FakeClient,
+					cacheExpiry: -1,
+					fetchData: { key: "/dev/service_name/key_name" },
+				}),
+			)
+			.before(async (request) => {
+				const values = await getInternal(["key"], request);
+				strictEqual(values.key, "key-value");
+			});
+
+		// Prefetch in flight, entry cleared, refetch succeeds.
+		clearCache();
+		await handler(event, context);
+		rejectStale(new Error("stale"));
+		await new Promise((resolve) => setImmediate(resolve));
+
+		await handler(event, context);
+		strictEqual(send.mock.callCount(), 2);
+	});
+
+	test("It should keep a fresh value when a superseded batch reports it invalid late", async (t) => {
+		let resolveStale;
+		const send = t.mock.fn();
+		send.mock.mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					resolveStale = resolve;
+				}),
+		);
+		send.mock.mockImplementation(async () => ({
+			Parameters: [{ Name: "/dev/service_name/key_name", Value: "key-value" }],
+		}));
+		class FakeClient {
+			send = send;
+		}
+
+		const handler = middy(() => {})
+			.use(
+				ssm({
+					AwsClient: FakeClient,
+					cacheExpiry: -1,
+					fetchData: { key: "/dev/service_name/key_name" },
+				}),
+			)
+			.before(async (request) => {
+				const values = await getInternal(["key"], request);
+				strictEqual(values.key, "key-value");
+			});
+
+		// Prefetch in flight, entry cleared, refetch succeeds.
+		clearCache();
+		await handler(event, context);
+		resolveStale({ InvalidParameters: ["/dev/service_name/key_name"] });
+		await new Promise((resolve) => setImmediate(resolve));
+
+		await handler(event, context);
+		strictEqual(send.mock.callCount(), 2);
+	});
+
 	test("It should set SSM param path to internal storage", async (t) => {
 		mockClient(SSMClient)
 			.on(GetParametersByPathCommand)
@@ -944,10 +1022,9 @@ describe("@middy/ssm", () => {
 	});
 
 	test("It should look up a non-ARN named value directly, not via the ARN suffix branch", async (t) => {
-		// A non-ARN fetchKey must resolve by exact name (index.js line 149), not by
-		// entering the ARN-suffix matching branch. Here a sibling param's name is a
-		// `:parameter<name>` suffix of the fetchKey; the ARN branch would mis-select
-		// it. Guards the `fetchKey.startsWith("arn:aws:ssm:")` condition.
+		// A fetchKey resolves by exact name, never by suffix. Here a sibling
+		// param's name is a `:parameter<name>` suffix of the fetchKey; suffix
+		// matching would mis-select it.
 		const fetchKey = "weird:parameter/dev/service_name/key_name";
 		mockClient(SSMClient)
 			.on(GetParametersCommand)
@@ -979,10 +1056,9 @@ describe("@middy/ssm", () => {
 		await handler(event, context);
 	});
 
-	test("It should map multiple cross-account ARNs to the correct values by suffix", async (t) => {
-		// Two ARNs in one batch. The branch matches each param by its
-		// `:parameter<Name>` suffix; a first-match would mis-map key1 to key0's
-		// value. Guards the ARN matching at index.js (startsWith + template).
+	test("It should map multiple cross-account ARNs to the correct values", async (t) => {
+		// Two ARNs in one batch, each matched by its exact ARN; a first-match
+		// would mis-map key1 to key0's value.
 		const arn0 =
 			"arn:aws:ssm:us-east-1:000000000000:parameter/dev/service_name/key_name0";
 		const arn1 =
@@ -1023,6 +1099,73 @@ describe("@middy/ssm", () => {
 				}),
 			)
 			.before(middleware);
+
+		await handler(event, context);
+	});
+
+	// A parameter shared from another account is fetched by its full ARN, and
+	// each returned Parameter carries its ARN.
+	// https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_GetParameters.html
+	// https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_Parameter.html
+	test("It should map cross-account ARNs sharing a parameter name by ARN", async (t) => {
+		const arnA = "arn:aws:ssm:us-east-1:111111111111:parameter/shared/key";
+		const arnB = "arn:aws:ssm:us-east-1:222222222222:parameter/shared/key";
+		mockClient(SSMClient)
+			.on(GetParametersCommand)
+			.resolvesOnce({
+				Parameters: [
+					{ ARN: arnA, Name: "/shared/key", Value: "value-a" },
+					{ ARN: arnB, Name: "/shared/key", Value: "value-b" },
+				],
+			});
+
+		const handler = middy(() => {})
+			.use(
+				ssm({
+					AwsClient: SSMClient,
+					cacheExpiry: 0,
+					fetchData: { keyA: arnA, keyB: arnB },
+					disablePrefetch: true,
+				}),
+			)
+			.before(async (request) => {
+				const values = await getInternal(["keyA", "keyB"], request);
+				strictEqual(values.keyA, "value-a");
+				strictEqual(values.keyB, "value-b");
+			});
+
+		await handler(event, context);
+	});
+
+	// ARNs carry the partition: aws, aws-cn or aws-us-gov.
+	// https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html
+	test("It should map ARNs in every partition by ARN", async (t) => {
+		const arnCn = "arn:aws-cn:ssm:cn-north-1:111111111111:parameter/cn/key";
+		const arnGov =
+			"arn:aws-us-gov:ssm:us-gov-west-1:111111111111:parameter/gov/key";
+		mockClient(SSMClient)
+			.on(GetParametersCommand)
+			.resolvesOnce({
+				Parameters: [
+					{ ARN: arnCn, Name: "/cn/key", Value: "value-cn" },
+					{ ARN: arnGov, Name: "/gov/key", Value: "value-gov" },
+				],
+			});
+
+		const handler = middy(() => {})
+			.use(
+				ssm({
+					AwsClient: SSMClient,
+					cacheExpiry: 0,
+					fetchData: { cn: arnCn, gov: arnGov },
+					disablePrefetch: true,
+				}),
+			)
+			.before(async (request) => {
+				const values = await getInternal(["cn", "gov"], request);
+				strictEqual(values.cn, "value-cn");
+				strictEqual(values.gov, "value-gov");
+			});
 
 		await handler(event, context);
 	});
@@ -1391,6 +1534,71 @@ describe("@middy/ssm", () => {
 		}
 	});
 
+	test("It should blank every internal key that maps to an invalid parameter", async (t) => {
+		const badArn = "/dev/service_name/bad";
+		mockClient(SSMClient)
+			.on(GetParametersCommand)
+			.resolves({ InvalidParameters: [badArn] });
+
+		const handler = middy(() => {})
+			.use(
+				ssm({
+					AwsClient: SSMClient,
+					cacheKey: "ssm-duplicate-invalid",
+					cacheExpiry: -1,
+					disablePrefetch: true,
+					fetchData: { first: badArn, second: badArn },
+				}),
+			)
+			.before(async (request) => {
+				await getInternal(true, request);
+			});
+
+		await rejects(() => handler(event, context));
+		const cached = getCache("ssm-duplicate-invalid").value;
+		strictEqual(cached.first, undefined);
+		strictEqual(cached.second, undefined);
+		clearCache();
+	});
+
+	// GetParameters accepts `name:version` / `name:label`; the response Name is
+	// the bare name and Selector holds the ":version" / ":label" suffix.
+	// https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_GetParameters.html
+	// https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-labels.html
+	test("It should resolve names with a version or label selector", async (t) => {
+		mockClient(SSMClient)
+			.on(GetParametersCommand)
+			.resolves({
+				Parameters: [
+					{ Name: "/dev/key", Selector: ":3", Value: "v3" },
+					{ Name: "/dev/key", Selector: ":prod", Value: "vprod" },
+					{ Name: "/dev/other", Value: "latest" },
+				],
+			});
+
+		const handler = middy(() => {})
+			.use(
+				ssm({
+					AwsClient: SSMClient,
+					cacheExpiry: 0,
+					fetchData: {
+						byVersion: "/dev/key:3",
+						byLabel: "/dev/key:prod",
+						latest: "/dev/other",
+					},
+					disablePrefetch: true,
+				}),
+			)
+			.before(async (request) => {
+				const values = await getInternal(true, request);
+				strictEqual(values.byVersion, "v3");
+				strictEqual(values.byLabel, "vprod");
+				strictEqual(values.latest, "latest");
+			});
+
+		await handler(event, context);
+	});
+
 	test("It should retry client init after a rejected attempt", async (t) => {
 		mockClient(SSMClient)
 			.on(GetParametersCommand)
@@ -1581,5 +1789,39 @@ describe("@middy/ssm", () => {
 		// A response without InvalidParameters must not touch the cached entry:
 		// nothing is evicted and no stray key reaches request.internal.
 		deepStrictEqual(internalKeys, ["key"]);
+	});
+
+	// A background refresh has no invocation to rebuild the client from, so it
+	// would sign with the assumed-role credentials it started with. Under
+	// awsClientAssumeRole none is scheduled; the next invocation refetches.
+	test("It should not refresh in the background under awsClientAssumeRole", async (t) => {
+		let sends = 0;
+		class FakeClient {
+			send() {
+				sends++;
+				return Promise.resolve({ Parameters: [{ Name: "/k", Value: "v" }] });
+			}
+		}
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.role = Promise.resolve({ accessKeyId: "a" });
+			})
+			.use(
+				ssm({
+					AwsClient: FakeClient,
+					awsClientAssumeRole: "role",
+					cacheExpiry: 50,
+					fetchData: { key: "/k" },
+				}),
+			);
+
+		await handler(event, context);
+		const afterFirst = sends;
+		t.mock.timers.tick(120);
+		await new Promise((resolve) => setImmediate(resolve));
+		strictEqual(sends, afterFirst);
+
+		await handler(event, context);
+		ok(sends > afterFirst);
 	});
 });

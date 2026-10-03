@@ -1,4 +1,5 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { Readable } from "node:stream";
 import { describe, test } from "node:test";
 import middy from "../core/index.js";
 import httpPartialResponse, {
@@ -458,5 +459,57 @@ describe("@middy/http-partial-response", () => {
 		strictEqual(response.statusCode, 500);
 		deepStrictEqual(response.headers, {});
 		deepStrictEqual(response.body, { firstname: "john" });
+	});
+
+	// Only a plain object or array is JSON data; a Buffer or a stream is left for
+	// the next middleware (or the runtime) to send as-is.
+	for (const [label, makeBody] of [
+		["Buffer", () => Buffer.from('{"firstname":"john","lastname":"doe"}')],
+		["Node Readable", () => Readable.from(["a"])],
+		["web ReadableStream", () => new ReadableStream()],
+	]) {
+		test(`It should leave a ${label} body untouched`, async (t) => {
+			const body = makeBody();
+			const handler = middy(() => ({ statusCode: 200, body }));
+			handler.use(httpPartialResponse());
+
+			const response = await handler(
+				{ headers: {}, queryStringParameters: { fields: "firstname" } },
+				defaultContext,
+			);
+
+			strictEqual(response.body, body);
+		});
+	}
+
+	test("It should filter a null-prototype object body", async (t) => {
+		const body = Object.assign(Object.create(null), {
+			firstname: "john",
+			lastname: "doe",
+		});
+		const handler = middy(() => ({ statusCode: 200, body }));
+		handler.use(httpPartialResponse());
+
+		const response = await handler(
+			{ headers: {}, queryStringParameters: { fields: "firstname" } },
+			defaultContext,
+		);
+
+		deepStrictEqual({ ...response.body }, { firstname: "john" });
+	});
+
+	test("It should filter an array body", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: [{ firstname: "john", lastname: "doe" }],
+		}));
+		handler.use(httpPartialResponse());
+
+		const response = await handler(
+			{ headers: {}, queryStringParameters: { fields: "firstname" } },
+			defaultContext,
+		);
+
+		deepStrictEqual(response.body, [{ firstname: "john" }]);
 	});
 });

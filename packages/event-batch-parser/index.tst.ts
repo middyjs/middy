@@ -1,6 +1,7 @@
 import type middy from "@middy/core";
 import { expect, test } from "tstyche";
-import eventBatchParser, { type RecordParser } from "./index.js";
+import * as indexModule from "./index.js";
+import eventBatchParser, { parseErrorKey, type RecordParser } from "./index.js";
 import { parseAvro } from "./parseAvro.js";
 import { parseJson } from "./parseJson.js";
 import { parseProtobuf } from "./parseProtobuf.js";
@@ -51,4 +52,22 @@ test("middleware accepts key/value/body/data parsers", () => {
 			maxDecompressedBytes: 1024,
 		}),
 	).type.toBe<middy.MiddlewareObj>();
+});
+
+test("parseErrorKey is a symbol", () => {
+	expect(parseErrorKey).type.toBeAssignableTo<symbol>();
+});
+
+test("eventBatchParserValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.EventBatchParserOptions;
+	expect(
+		indexModule.eventBatchParserValidateOptions(options),
+	).type.toBe<indexModule.EventBatchParserOptions>();
+});
+
+test("rejects misspelled option", () => {
+	expect(eventBatchParser).type.not.toBeCallableWith({
+		body: "json",
+		bdy: "json",
+	});
 });

@@ -32,6 +32,13 @@ echo $GITHUB_PAT | docker login ghcr.io -u $USERNAME
 docker pull ghcr.io/oss-review-toolkit/ort
 ```
 
+Install dependencies, then install the git hooks. The repository `.npmrc` sets `ignore-scripts=true`, so husky's `prepare` script does not run during install; run it once yourself. The `commit-msg` hook it installs runs `commitlint` on every commit message.
+
+```bash
+npm install
+npm run prepare
+```
+
 ## 3. Implementation
 
 When necessary ensure changes follow secure design principles. See [SECURITY.md](../SECURITY.md)
@@ -41,6 +48,8 @@ When necessary ensure changes follow secure design principles. See [SECURITY.md]
 ```bash
 npm test
 ```
+
+`npm test` includes the performance benchmarks (`npm run test:bench`), which need Node.js >= 26.9.
 
 Ensure tests are updated and pass. All tests are automatically enforced using GitHub Actions on Pull-Requests.
 
@@ -74,13 +83,13 @@ before reaching this packages inputs.
 
 ### Performance benchmarks
 
-We use `tinybench` to ensure there are no performance regressions.
+We use the built-in `node:bench` (Node.js >= 26.9) to ensure there are no performance regressions.
 
 ## 5. Committing
 
 Ensure git commits meet the following FLOSS Best Practices:
 
-- Message follows [Conventional Commits](https://www.conventionalcommits.org/) pattern. This is automatically enforce using `@commitlint/cli`.
+- Message follows [Conventional Commits](https://www.conventionalcommits.org/) pattern. This is automatically enforced using `@commitlint/cli`, run by the `commit-msg` git hook that `npm run prepare` installs.
 - Message includes sign off for [Developer Certificate of Origin (DCO)](https://developercertificate.org/) compliance. This is automatically enforced using GitHub Actions on Pull-Requests.
   a. `git config --global user.name "Your Name"` and `git config --global user.email username@example.org` setup with `--signoff` flag on `git commit`
   a. Or, `Signed-off-by: username <email address>` as the last line of a commit, when a change is made through GitHub

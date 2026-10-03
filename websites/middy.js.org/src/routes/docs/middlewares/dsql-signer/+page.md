@@ -23,11 +23,12 @@ npm install --save-dev @aws-sdk/dsql-signer
   - `hostname` (string) (required): DSQL cluster endpoint, e.g. `<cluster-id>.dsql.<region>.on.aws`. Validated against the DSQL hostname format.
   - `username` (string) (optional): Database role. When set to `"admin"` the middleware calls `getDbConnectAdminAuthToken`; any other value (or omitted) calls `getDbConnectAuthToken`.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can.
-- `cacheKey` (string) (default `dsql-signer`): Cache key for the fetched data responses. Must be unique across all middleware.
+- `cacheKey` (string) (default `@middy/dsql-signer`): Cache key for the fetched data responses. Each instance of this middleware needs its own `cacheKey`: reusing one with a different `fetchData`, `awsClientOptions` or `AwsClient` throws a `TypeError`.
 - `cacheKeyExpiry` (object) (default `{}`): Per-`cacheKey` expiry override, `{ [cacheKey]: cacheExpiry }`; a unix timestamp in ms above 86400000 is treated as an absolute expiry.
-- `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms. A DSQL authentication token [automatically expires in 15 minutes by default](https://docs.aws.amazon.com/aurora-dsql/latest/userguide/SECTION_authentication-token.html) (`awsClientOptions.expiresIn` seconds, `900` by default, up to a maximum of `604800`), so a token is refreshed one minute before it expires, 14 minutes after issue by default, regardless of a longer setting. With an `expiresIn` of `60` or less that margin leaves no lifetime, so the token is not cached and a fresh one is signed on every invocation.
+- `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms. A DSQL authentication token [automatically expires in 15 minutes by default](https://docs.aws.amazon.com/aurora-dsql/latest/userguide/SECTION_authentication-token.html) (`awsClientOptions.expiresIn` seconds, `900` by default, up to a maximum of `604800`), so a token is refreshed one minute before it expires, 14 minutes after issue by default, regardless of a longer setting. With an `expiresIn` of `60` or less that margin leaves no lifetime, so the token is not cached and a fresh one is signed on every invocation. Values above `86400000` are unix timestamps (ms): one before 2001-01-01 (`978307200000`) can only be a mistyped duration and throws at construction, while a real timestamp that has passed just leaves the entry expired.
+- `cacheMaxSize` (number) (default `128`): Maximum number of entries kept in the shared middleware cache; the oldest expiring entry is evicted when exceeded.
 - `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext['dsql-signer']`.
-- `contextKey` (string) (default `dsql-signer`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.
+- `contextKey` (string) (default `dsql-signer`): The key under `context.middyContext` used when `setToContext` is `true`. To run two instances side by side, override it and set a distinct `cacheKey` on each.
 
 NOTES:
 
@@ -79,11 +80,10 @@ export const handler = middy()
 ```javascript
 import middy from '@middy/core'
 import dsqlSigner from '@middy/dsql-signer'
-import { getInternal } from '@middy/util'
 import pg from 'pg'
 
 const lambdaHandler = async (event, context) => {
-  const { dsqlToken } = await getInternal(['dsqlToken'], context)
+  const { dsqlToken } = context.middyContext['dsql-signer']
 
   const client = new pg.Client({
     host: 'cluster-id.dsql.us-east-1.on.aws',
@@ -109,6 +109,7 @@ export const handler = middy()
           username: 'admin',
         },
       },
+      setToContext: true,
     }),
   )
   .handler(lambdaHandler)
