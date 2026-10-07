@@ -1,0 +1,89 @@
+{
+	"name": "@middy/http-mpp",
+	"version": "7.3.4",
+	"description": "Machine Payments Protocol (MPP) HTTP 402 payment gate middleware for the middy framework",
+	"type": "module",
+	"engines": {
+		"node": ">=22"
+	},
+	"engineStrict": true,
+	"publishConfig": {
+		"access": "public"
+	},
+	"module": "./index.js",
+	"sideEffects": false,
+	"exports": {
+		".": {
+			"import": {
+				"types": "./index.d.ts",
+				"default": "./index.js"
+			}
+		},
+		"./mppx": {
+			"import": {
+				"types": "./mppx.d.ts",
+				"default": "./mppx.js"
+			}
+		}
+	},
+	"types": "index.d.ts",
+	"files": [
+		"index.js",
+		"index.d.ts",
+		"mppx.js",
+		"mppx.d.ts"
+	],
+	"scripts": {
+		"test": "npm run test:unit && npm run test:fuzz",
+		"test:unit": "node --test",
+		"test:fuzz": "node --test index.fuzz.js",
+		"test:perf": "node --test index.perf.js"
+	},
+	"license": "MIT",
+	"keywords": [
+		"Lambda",
+		"Middleware",
+		"Serverless",
+		"Framework",
+		"AWS",
+		"AWS Lambda",
+		"Middy",
+		"MPP",
+		"402",
+		"payment",
+		"Machine Payments Protocol"
+	],
+	"author": {
+		"name": "Middy contributors",
+		"url": "https://github.com/middyjs/middy/graphs/contributors"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/middyjs/middy.git",
+		"directory": "packages/http-mpp"
+	},
+	"bugs": {
+		"url": "https://github.com/middyjs/middy/issues"
+	},
+	"homepage": "https://middy.js.org",
+	"funding": {
+		"type": "github",
+		"url": "https://github.com/sponsors/willfarrell"
+	},
+	"dependencies": {
+		"@middy/util": "7.3.4"
+	},
+	"peerDependencies": {
+		"mppx": ">=0.6.0"
+	},
+	"peerDependenciesMeta": {
+		"mppx": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@middy/core": "7.3.4",
+		"@types/aws-lambda": "^8.0.0",
+		"@types/node": "^22.0.0"
+	}
+}
