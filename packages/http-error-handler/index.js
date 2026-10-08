@@ -116,10 +116,36 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
 		}
 
 		Object.assign(request.response.headers, headers);
+
+		if (isAlbMultiValue(request.event)) {
+			moveToMultiValueHeaders(request.response);
+		}
 	};
 
 	return {
 		onError: httpErrorHandlerMiddlewareOnError,
 	};
 };
+
+// An ALB target group with multi-value headers enabled sends
+// `multiValueHeaders` and only reads them back: "You must use
+// multiValueHeaders if you have enabled multi-value headers and headers
+// otherwise." Its events are the only ones that carry `requestContext.elb`
+// together with `multiValueHeaders`.
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+const isAlbMultiValue = (event) =>
+	typeof event?.requestContext?.elb !== "undefined" &&
+	typeof event.multiValueHeaders !== "undefined";
+
+// The response is built here from nothing, so every header moves over.
+const moveToMultiValueHeaders = (response) => {
+	const multiValueHeaders = {};
+	for (const key of Object.keys(response.headers)) {
+		const value = response.headers[key];
+		multiValueHeaders[key] = Array.isArray(value) ? value : [value];
+	}
+	response.headers = {};
+	response.multiValueHeaders = multiValueHeaders;
+};
+
 export default httpErrorHandlerMiddleware;

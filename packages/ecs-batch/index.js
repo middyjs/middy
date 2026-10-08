@@ -1,6 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import cluster from "node:cluster";
+import { randomUUID } from "node:crypto";
 import { availableParallelism } from "node:os";
 // The module object rather than a named import so a test's mock timers can
 // intercept setTimeout; a named import binds the real function at load time.
@@ -142,10 +143,11 @@ export const runPollLoop = async ({
 	};
 	// Pollers report failures that do not stop the loop (a batch discarded
 	// after its retry limit) through the same onError.
-	for await (const event of poller.poll(signal, report)) {
+	for await (const event of poller.poll(signal, report, { timeout })) {
 		if (signal.aborted) break;
 		const batchStart = Date.now();
-		const awsRequestId = contextOverride?.awsRequestId?.() ?? "";
+		// A fresh id per batch so logs and traces can tell batches apart.
+		const awsRequestId = contextOverride?.awsRequestId?.() ?? randomUUID();
 		const context = buildContext({
 			timeout,
 			batchStart,
@@ -302,10 +304,46 @@ export const runPrimary = async (options, deps = {}) => {
 	return { onSigterm };
 };
 
+// Every worker runs its own poller. The Kinesis and DynamoDB Streams pollers
+// read every shard with no coordination between them, so a second worker would
+// process each record again; scale those by running one task per stream.
+const singleWorkerSources = new Set(["aws:kinesis", "aws:dynamodb"]);
+
 export const ecsBatchRunner = async (opts, deps = {}) => {
 	const clusterImpl = deps.cluster ?? cluster;
-	const options = { ...defaults, workers: availableParallelism(), ...opts };
+	const options = { ...defaults, ...opts };
 	ecsBatchValidateOptions(options);
+	const { source } = options.poller;
+	if (singleWorkerSources.has(source)) {
+		options.workers ??= 1;
+		if (options.workers > 1) {
+			throw new Error(
+				`workers must be 1 for ${source}: every worker would read every shard`,
+				{ cause: { package: pkg, data: { source, workers: options.workers } } },
+			);
+		}
+	}
+	options.workers ??= availableParallelism();
+	// An SQS message whose visibility timeout lapses mid-batch is received
+	// again, and its delete after the handler fails. Unset, pollSqs derives
+	// one from the timeout.
+	// https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html
+	const { visibilityTimeout } = options.poller;
+	if (
+		source === "aws:sqs" &&
+		visibilityTimeout !== undefined &&
+		visibilityTimeout * 1000 <= options.timeout
+	) {
+		throw new Error(
+			"visibilityTimeout must outlast timeout: messages would be received again mid-batch",
+			{
+				cause: {
+					package: pkg,
+					data: { visibilityTimeout, timeout: options.timeout },
+				},
+			},
+		);
+	}
 	if (clusterImpl.isPrimary) {
 		return runPrimary(options, deps);
 	}

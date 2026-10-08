@@ -27,13 +27,15 @@ export default {
 		`!${base}/**/*.test.js`,
 		`!${base}/**/*.bench.js`,
 		`!${base}/**/*.fuzz.js`,
+		`!${base}/**/*.load.js`,
+		`!${base}/**/*.load.server.js`,
 	],
 	incremental: true,
 	incrementalFile: pkg
 		? `/tmp/stryker/@middy/${pkg}/incremental.json`
 		: "/tmp/stryker/@middy/incremental.json",
-	plugins: ["@stryker-mutator/*"],
-	reporters: ["progress", "clear-text"],
+	plugins: ["@stryker-mutator/*", "./.github/reporters/stryker.mjs"],
+	reporters: ["progress", "clear-text", "github-summary"],
 	thresholds: { high: 100, low: 100, break: 100 },
 	tempDirName: pkg ? `/tmp/stryker/@middy/${pkg}` : "/tmp/stryker/@middy",
 };

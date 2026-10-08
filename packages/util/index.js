@@ -463,7 +463,10 @@ export const getInternal = async (variables, request) => {
 	if (!variables || !request?.internal) return Object.create(null);
 	let keys;
 	let values;
-	if (variables === true) {
+	// All-keys mode reads each real key name as-is: a stored key such as
+	// "db.password" is a name, not a path, so it must not be split on ".".
+	const keysArePaths = variables !== true;
+	if (!keysArePaths) {
 		keys = values = Object.keys(request.internal);
 	} else if (typeof variables === "string") {
 		keys = values = [variables];
@@ -484,7 +487,7 @@ export const getInternal = async (variables, request) => {
 	let allSync = true;
 	for (let i = 0; i < values.length; i++) {
 		const internalKey = values[i];
-		const dotIndex = internalKey.indexOf(".");
+		const dotIndex = keysArePaths ? internalKey.indexOf(".") : -1;
 		const rootKey =
 			dotIndex === -1 ? internalKey : internalKey.substring(0, dotIndex);
 		let value = request.internal[rootKey];
@@ -511,7 +514,7 @@ export const getInternal = async (variables, request) => {
 	const promises = [];
 	for (const internalKey of values) {
 		// 'internal.key.sub_value' -> { [key]: internal.key.sub_value }
-		const pathOptionKey = internalKey.split(".");
+		const pathOptionKey = keysArePaths ? internalKey.split(".") : [internalKey];
 		const rootOptionKey = pathOptionKey.shift();
 		// Promise.resolve hands a native promise back unchanged, so a resolved
 		// value and a pending one take the same path.
@@ -740,9 +743,15 @@ const maxTimeoutDuration = 2147483647;
 // Under `awsClientAssumeRole` there is no refresh either: without a request
 // it cannot rebuild the client from the credentials sts refetched. The entry
 // still expires on time and the next invocation refetches with its own.
+// The refresh always refetches: a timer can fire a millisecond or so before
+// Date.now reaches the expiry, and an unexpired check would then return the
+// cached entry without scheduling the next refresh, ending the chain.
 const scheduleRefresh = (duration, options, middlewareFetch) =>
 	duration > 0 && duration <= maxTimeoutDuration && !options.awsClientAssumeRole
-		? setTimeout(() => processCache(options, middlewareFetch), duration).unref()
+		? setTimeout(
+				() => processCacheEntry(options, middlewareFetch, {}, true),
+				duration,
+			).unref()
 		: undefined;
 
 // Absolute expiry learned for `cacheKey` (see setCacheKeyExpiry), or Infinity
@@ -854,13 +863,21 @@ export const processCache = (
 	options,
 	middlewareFetch = () => undefined,
 	middlewareFetchRequest = {},
+) => processCacheEntry(options, middlewareFetch, middlewareFetchRequest, false);
+
+// `forceRefetch` skips the cache read (background refresh only).
+const processCacheEntry = (
+	options,
+	middlewareFetch,
+	middlewareFetchRequest,
+	forceRefetch,
 ) => {
 	let { cacheKey, cacheKeyExpiry, cacheExpiry, cacheMaxSize } = options;
 	cacheMaxSize ??= defaultCacheMaxSize;
 	cacheExpiry = cacheKeyExpiry?.[cacheKey] ?? cacheExpiry;
 	validateCacheExpiry(cacheExpiry);
 	const now = Date.now();
-	if (cacheExpiry) {
+	if (cacheExpiry && !forceRefetch) {
 		const cached = getCache(cacheKey);
 		if (cached.expiry !== undefined) assertCacheKeyOwner(cached, options);
 		// A unix-timestamp cacheExpiry is re-read on every call so a changed
@@ -938,7 +955,7 @@ export const processCache = (
 			middlewareFetch,
 			fetchSourceId: fetchSourceId(options),
 		});
-		evictCache(cacheMaxSize);
+		evictCache(cacheMaxSize, cacheKey);
 	}
 	return { value, expiry };
 };
@@ -1025,18 +1042,23 @@ export const setCacheKeyExpiry = (options, expiryMs) => {
 	}
 };
 
-const evictCache = (maxSize) => {
+// The entry being inserted is never the victim: in a cache full of
+// never-expiring entries it has the earliest expiry, and evicting it would
+// mean its key is never cached. It only goes when it is the sole entry
+// (a cacheMaxSize below 1). Ties keep the first found, so a cache of nothing
+// but never-expiring entries still evicts the oldest inserted one.
+const evictCache = (maxSize, insertedKey) => {
 	if (cache.size <= maxSize) return;
-	// Seeded from the first entry, so a cache of nothing but never-expiring
-	// entries still evicts the oldest inserted one.
-	let [oldestKey, oldest] = cache.entries().next().value;
+	let oldestKey = insertedKey;
+	let oldest;
 	for (const [key, entry] of cache) {
-		if (entry.expiry < oldest.expiry) {
+		if (key === insertedKey) continue;
+		if (oldest === undefined || entry.expiry < oldest.expiry) {
 			oldestKey = key;
 			oldest = entry;
 		}
 	}
-	clearTimeout(oldest.refresh);
+	clearTimeout(cache.get(oldestKey).refresh);
 	cache.delete(oldestKey);
 };
 
@@ -1331,9 +1353,22 @@ const omitObject = (obj, pathTree, mask) => {
 	if (dropped === undefined) return clone;
 	// Copying the survivors, not spread-then-delete: `delete` drops the object
 	// into dictionary mode, making the logger's later reads ~28x slower.
+	// An own "__proto__" key (JSON.parse creates one) is defined, not assigned:
+	// assigning it would set the copy's prototype and hide the data from the
+	// log line. Every other key keeps the plain assignment, which is faster.
 	const survivors = {};
 	for (const key in clone) {
-		if (!dropped.has(key)) survivors[key] = clone[key];
+		if (dropped.has(key)) continue;
+		if (key === "__proto__") {
+			Object.defineProperty(survivors, key, {
+				value: clone[key],
+				writable: true,
+				enumerable: true,
+				configurable: true,
+			});
+		} else {
+			survivors[key] = clone[key];
+		}
 	}
 	return survivors;
 };
@@ -1414,7 +1449,6 @@ const STATUS_CODES = {
 	506: "Variant Also Negotiates",
 	507: "Insufficient Storage",
 	508: "Loop Detected",
-	509: "Bandwidth Limit Exceeded",
 	510: "Not Extended",
 	511: "Network Authentication Required",
 };

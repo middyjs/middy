@@ -440,7 +440,11 @@ const settlementRefused = (
 	for (const map of [replaced.headers, replaced.multiValueHeaders]) {
 		if (!map) continue;
 		for (const name of Object.keys(map)) {
-			if (isPolicyHeader(name)) headers[name] = map[name];
+			if (!isPolicyHeader(name)) continue;
+			// Single-value `headers` cannot carry a `multiValueHeaders` array.
+			const value = map[name];
+			headers[name] =
+				!multiValue && Array.isArray(value) ? value.join(", ") : value;
 		}
 	}
 	headers["Content-Type"] = "application/json";

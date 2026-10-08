@@ -59,4 +59,5 @@ jobs:
       #   registry.npmjs.org:443
       - name: Benchmarking tests
         run: |
+          export NODE_OPTIONS="--bench-reporter=spec --bench-reporter-destination=stdout --bench-reporter=./.github/reporters/node-bench.mjs --bench-reporter-destination=$GITHUB_STEP_SUMMARY"
           npm run test:bench

@@ -20,16 +20,12 @@ corepack enable
 ```
 
 ```bash
-npm i -g npq
-npm i -g lockfile-lint
 brew install semgrep
 brew install trivy
 brew install trufflehog
 brew install gitleaks
 brew install actionlint
 brew install zizmor
-echo $GITHUB_PAT | docker login ghcr.io -u $USERNAME
-docker pull ghcr.io/oss-review-toolkit/ort
 ```
 
 Install dependencies, then install the git hooks. The repository `.npmrc` sets `ignore-scripts=true`, so husky's `prepare` script does not run during install; run it once yourself. The `commit-msg` hook it installs runs `commitlint` on every commit message.

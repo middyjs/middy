@@ -93,11 +93,6 @@ export interface Options<Client, ClientOptions> {
 	cacheExpiry?: number;
 	cacheKeyExpiry?: Record<string, number>;
 	/**
-	 * Absolute expiries (unix ms) recorded by `setCacheKeyExpiry`, kept apart
-	 * from the user-facing `cacheKeyExpiry`. Managed by the middleware.
-	 */
-	cacheLearnedExpiry?: Record<string, number | undefined>;
-	/**
 	 * Caps the number of entries in the one cache every middleware in the
 	 * process shares (default 128), not this middleware's own entries. Storing
 	 * an entry past the cap evicts the entry that expires soonest (the oldest
@@ -135,12 +130,20 @@ export type ContextNamespace<
 };
 
 export declare class HttpError extends Error {
-	constructor(code: number, properties?: Record<string, unknown>);
+	/**
+	 * The message is always the reason phrase for `code`; put failure detail
+	 * in `cause` (it stays server-side). `expose` defaults to `code < 500`.
+	 */
+	constructor(code: number, options?: { cause?: unknown; expose?: boolean });
 	status: number;
 	statusCode: number;
 	expose: boolean;
-	[key: string]: unknown;
-	[key: number]: unknown;
+	/**
+	 * Response headers `http-error-handler` copies onto the error response
+	 * (e.g. `WWW-Authenticate`). An array value is kept as multiple values on
+	 * an ALB multi-value-headers response.
+	 */
+	headers?: Record<string, string | string[]>;
 }
 
 declare function createPrefetchClient<Client, ClientOptions>(
@@ -284,6 +287,16 @@ declare function assignSetToContext(
 declare function sanitizeKey<T extends string>(key: T): SanitizeKey<T>;
 
 /**
+ * @internal Absolute expiries (unix ms) recorded by `setCacheKeyExpiry` on the
+ * middleware's options object, kept apart from the user-facing
+ * `cacheKeyExpiry` and read by `processCache`. Not a user option: every
+ * package optionSchema rejects it.
+ */
+type CacheLearnedExpiryOptions = {
+	cacheLearnedExpiry?: Record<string, number | undefined>;
+};
+
+/**
  * Serves `options.cacheKey` from the cache or calls `fetch(request)`. A
  * background refresh runs outside any invocation, so `fetch` then gets an
  * empty request, as on prefetch; the request is never kept with the entry.
@@ -294,7 +307,7 @@ declare function sanitizeKey<T extends string>(key: T): SanitizeKey<T>;
  * expires and the next invocation refetches.
  */
 declare function processCache<Client, ClientOptions>(
-	options: Options<Client, ClientOptions>,
+	options: Options<Client, ClientOptions> & CacheLearnedExpiryOptions,
 	fetch: (request: Request, cachedValues: unknown) => unknown,
 	request?: Request,
 ): { value: unknown; expiry: number };
@@ -368,8 +381,9 @@ declare function evictCacheOnFailure(
 declare function setCacheKeyExpiry(
 	options: Pick<
 		Options<unknown, unknown>,
-		"cacheKey" | "cacheExpiry" | "cacheKeyExpiry" | "cacheLearnedExpiry"
-	>,
+		"cacheKey" | "cacheExpiry" | "cacheKeyExpiry"
+	> &
+		CacheLearnedExpiryOptions,
 	expiryMs: number,
 ): void;
 

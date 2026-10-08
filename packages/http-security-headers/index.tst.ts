@@ -116,6 +116,29 @@ test("httpSecurityHeadersValidateOptions accepts typed options and returns them"
 	).type.toBe<indexModule.Options>();
 });
 
+// The runtime schema takes `true`, `false` or a property-less object (the
+// `originAgentCluster` default is `{}`).
+test("accepts the object form of originAgentCluster and xssProtection", () => {
+	const middleware = httpSecurityHeaders({
+		originAgentCluster: {},
+		xssProtection: {},
+	});
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
+	expect(indexModule.httpSecurityHeadersValidateOptions).type.toBeCallableWith({
+		originAgentCluster: {},
+		xssProtection: {},
+	});
+});
+
+test("rejects properties on the object form of originAgentCluster and xssProtection", () => {
+	expect(httpSecurityHeaders).type.not.toBeCallableWith({
+		originAgentCluster: { enabled: true },
+	});
+	expect(httpSecurityHeaders).type.not.toBeCallableWith({
+		xssProtection: { mode: "block" },
+	});
+});
+
 test("rejects misspelled option", () => {
 	expect(httpSecurityHeaders).type.not.toBeCallableWith({ frameOption: false });
 });

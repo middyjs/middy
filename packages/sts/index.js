@@ -24,7 +24,7 @@ const expirationMarginMs = 60 * 1000;
 const defaults = {
 	AwsClient: STSClient,
 	awsClientOptions: {},
-	// awsClientAssumeRole: undefined, // Not Applicable, as this is the middleware that defines the roles
+	// awsClientAssumeRole: undefined, // internalKey of credentials from an earlier sts instance, for role chaining
 	awsClientCapture: undefined,
 	fetchData: {}, // { internalKey: {RoleArn, RoleSessionName} }
 	disablePrefetch: false,

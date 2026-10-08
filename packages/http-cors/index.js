@@ -231,7 +231,7 @@ const httpCorsMiddleware = (opts = {}) => {
 
 		let newOrigin;
 		if (!present.has("access-control-allow-origin")) {
-			const eventHeaders = request.event.headers ?? {};
+			const eventHeaders = readEventHeaders(request.event);
 			const incomingOrigin = headerValue(
 				eventHeaders.Origin ?? eventHeaders.origin,
 			);
@@ -291,7 +291,7 @@ const httpCorsMiddleware = (opts = {}) => {
 		}
 		addPreflightVary(headers);
 		request.response.statusCode = 204;
-		request.response.headers = headers;
+		setPreflightHeaders(request, headers);
 		return request.response;
 	};
 
@@ -301,7 +301,7 @@ const httpCorsMiddleware = (opts = {}) => {
 		const method = readHttpMethod(request.event);
 		if (method === "OPTIONS") {
 			normalizeHttpResponse(request);
-			const eventHeaders = request.event.headers ?? {};
+			const eventHeaders = readEventHeaders(request.event);
 			const requestMethod = headerValue(
 				eventHeaders["Access-Control-Request-Method"] ??
 					eventHeaders["access-control-request-method"],
@@ -340,19 +340,46 @@ const httpCorsMiddleware = (opts = {}) => {
 			const headers = {};
 			modifyHeaders(headers, options, request);
 			addPreflightVary(headers);
-			request.response.headers = headers;
+			setPreflightHeaders(request, headers);
 			request.response.statusCode = 204;
 			return request.response;
 		}
 	};
 
 	const httpCorsMiddlewareAfter = (request) => {
-		normalizeHttpResponse(request);
+		const response = normalizeHttpResponse(request);
 		// Cloned, not mutated: a handler may return a module-level constant as its
 		// `headers`, which would leak one invocation's origin into the next.
-		const headers = { ...request.response.headers };
+		const headers = { ...response.headers };
+		if (
+			typeof response.multiValueHeaders === "undefined" &&
+			!isAlbMultiValue(request.event)
+		) {
+			modifyHeaders(headers, options, request);
+			response.headers = headers;
+			return;
+		}
+		// API Gateway REST lets `multiValueHeaders` win over `headers` for the
+		// same name, and ALB with multi-value headers enabled reads only
+		// `multiValueHeaders`. Both maps are checked for what the handler set;
+		// whatever this middleware adds or changes goes into `multiValueHeaders`.
+		const multiValueHeaders = { ...response.multiValueHeaders };
+		for (const key of Object.keys(multiValueHeaders)) {
+			headers[key] = multiValueHeaders[key].join(", ");
+		}
+		const handlerHeaders = { ...headers };
 		modifyHeaders(headers, options, request);
-		request.response.headers = headers;
+		const singleValueHeaders = {};
+		for (const key of Object.keys(headers)) {
+			if (headers[key] !== handlerHeaders[key]) {
+				multiValueHeaders[key] = [headers[key]];
+			}
+			if (!Object.hasOwn(multiValueHeaders, key)) {
+				singleValueHeaders[key] = headers[key];
+			}
+		}
+		response.headers = singleValueHeaders;
+		response.multiValueHeaders = multiValueHeaders;
 	};
 	const httpCorsMiddlewareOnError = (request) => {
 		if (typeof request.response === "undefined") return;
@@ -378,6 +405,36 @@ const getVersionHttpMethod = Object.assign(Object.create(null), {
 
 const readHttpMethod = (event) =>
 	getVersionHttpMethod[resolveHttpEventVersion(event)]?.(event);
+
+// An ALB target group with multi-value headers enabled sends
+// `multiValueHeaders` and only reads them back: "You must use
+// multiValueHeaders if you have enabled multi-value headers and headers
+// otherwise." Its events are the only ones that carry `requestContext.elb`
+// together with `multiValueHeaders`.
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+const isAlbMultiValue = (event) =>
+	typeof event.requestContext?.elb !== "undefined" &&
+	typeof event.multiValueHeaders !== "undefined";
+
+// ALB with multi-value headers enabled sends only `multiValueHeaders`; their
+// arrays are read like VPC Lattice V2's.
+const readEventHeaders = (event) =>
+	event.headers ?? event.multiValueHeaders ?? {};
+
+// A preflight response is built here from nothing, so on ALB with multi-value
+// headers enabled every header goes into `multiValueHeaders`.
+const setPreflightHeaders = (request, headers) => {
+	if (!isAlbMultiValue(request.event)) {
+		request.response.headers = headers;
+		return;
+	}
+	const multiValueHeaders = {};
+	for (const key of Object.keys(headers)) {
+		multiValueHeaders[key] = [headers[key]];
+	}
+	request.response.headers = {};
+	request.response.multiValueHeaders = multiValueHeaders;
+};
 
 // VPC Lattice V2 delivers every header value as an array.
 const headerValue = (value) => (Array.isArray(value) ? value[0] : value);

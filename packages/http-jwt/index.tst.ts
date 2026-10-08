@@ -148,6 +148,25 @@ test("options declare maxTokenAge and requireExp", () => {
 	>();
 });
 
+test("audience accepts null to opt out of the aud check", () => {
+	expect<Options["audience"]>().type.toBe<
+		string | string[] | null | undefined
+	>();
+	expect<indexModule.IssuerConfig["audience"]>().type.toBe<
+		string | string[] | null | undefined
+	>();
+	httpJwt({
+		issuers: {
+			"https://issuer.example.com": {
+				jwksUri: "https://issuer.example.com/.well-known/jwks.json",
+				audience: null,
+			},
+		},
+		algorithm: "RS256",
+		audience: null,
+	});
+});
+
 test("internal carries the payload and token under their keys", () => {
 	middy()
 		.use(httpJwt({ internalKey: "jwks" }))

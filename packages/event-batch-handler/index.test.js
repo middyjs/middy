@@ -1,4 +1,4 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, rejects, strictEqual } from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import middy from "../core/index.js";
@@ -251,6 +251,21 @@ describe("@middy/event-batch-handler", () => {
 		deepStrictEqual(await handler({}, defaultContext), []);
 		deepStrictEqual(await handler(null, defaultContext), []);
 		deepStrictEqual(await handler(undefined, defaultContext), []);
+	});
+
+	test("throws for an unsupported eventSource without running a record", async () => {
+		let calls = 0;
+		const handler = eventBatchHandler(() => {
+			calls += 1;
+		});
+		const event = {
+			eventSource: "aws:rmq",
+			rmqMessagesByQueue: { "q::/": [{ data: "eA==" }] },
+		};
+		await rejects(handler(event, defaultContext), {
+			message: 'Unsupported event source "aws:rmq"',
+		});
+		strictEqual(calls, 0);
 	});
 
 	// --- Durable Functions auto-detection ----------------------------------

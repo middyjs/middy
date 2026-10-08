@@ -608,6 +608,32 @@ describe("@middy/util", () => {
 				deepStrictEqual(order, ["tick", "settled"]);
 			}
 		});
+
+		test("getInternal(true) reads a dotted key name directly, not as a path (sync path)", async (t) => {
+			const values = await getInternal(true, {
+				internal: { "db.password": "s3cret", db: { password: "nested" } },
+			});
+			strictEqual(values.db_password, "s3cret");
+		});
+
+		test("getInternal(true) reads a dotted key name directly, not as a path (async path)", async (t) => {
+			const values = await getInternal(true, {
+				internal: { "db.password": Promise.resolve("s3cret"), plain: 1 },
+			});
+			strictEqual(values.db_password, "s3cret");
+			strictEqual(values.plain, 1);
+		});
+
+		test("getInternal(true) surfaces a rejection stored under a dotted key name", async (t) => {
+			const reason = new Error("rejected");
+			await rejects(
+				() =>
+					getInternal(true, {
+						internal: { "db.password": Promise.reject(reason) },
+					}),
+				(e) => e instanceof AggregateError && e.errors[0] === reason,
+			);
+		});
 	});
 
 	describe("sanitizeKey", () => {
@@ -1845,6 +1871,26 @@ describe("@middy/util", () => {
 		clearCache();
 	});
 
+	test("processCache background refresh keeps chaining when its timer fires before Date.now reaches the expiry", async (t) => {
+		// Real timers can fire ~1ms ahead of Date.now. The refresh must refetch
+		// (and schedule the next one) rather than see an unexpired entry, return
+		// it, and end the chain.
+		t.mock.timers.reset();
+		t.mock.timers.enable({ apis: ["setTimeout"] });
+		let clock = 1000000;
+		t.mock.method(Date, "now", () => clock);
+		const fetchRequest = t.mock.fn(() => ({ a: "value" }));
+		const options = { cacheKey: "refresh-early-timer", cacheExpiry: 100 };
+		processCache(options, fetchRequest);
+		for (let i = 1; i <= 3; i++) {
+			clock += 99;
+			t.mock.timers.tick(100);
+			strictEqual(fetchRequest.mock.callCount(), 1 + i);
+			clock += 1;
+		}
+		clearCache();
+	});
+
 	test("processCache should keep auto-refresh alive after modifyCache (unix timestamp)", async (t) => {
 		const fetchRequest = t.mock.fn(() => ({ a: "value" }));
 		const options = {
@@ -2455,6 +2501,14 @@ describe("@middy/util", () => {
 		strictEqual(e.name, "UnknownError");
 	});
 
+	test("new HttpError(509) is an unknown code (509 is not IANA-registered)", async (t) => {
+		// https://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml
+		const e = new HttpError(509);
+		strictEqual(e.message, "");
+		strictEqual(e.name, "UnknownError");
+		strictEqual(e.statusCode, 509);
+	});
+
 	test("HttpError should default name to UnknownError for unknown status code", async (t) => {
 		const e = new HttpError(999);
 		strictEqual(e.name, "UnknownError");
@@ -2779,7 +2833,6 @@ describe("@middy/util", () => {
 			506: ["VariantAlsoNegotiatesError", "Variant Also Negotiates"],
 			507: ["InsufficientStorageError", "Insufficient Storage"],
 			508: ["LoopDetectedError", "Loop Detected"],
-			509: ["BandwidthLimitExceededError", "Bandwidth Limit Exceeded"],
 			510: ["NotExtendedError", "Not Extended"],
 			511: [
 				"NetworkAuthenticationRequiredError",
@@ -2797,8 +2850,14 @@ describe("@middy/util", () => {
 
 		// util carries its own copy of the reason phrases so it does not have to
 		// import node:http. This is what stops the copy drifting from Node's.
+		// node:http also carries 509 "Bandwidth Limit Exceeded", an Apache
+		// extension that IANA never registered; util leaves it out.
+		const registeredStatusCodes = Object.fromEntries(
+			Object.entries(STATUS_CODES).filter(([code]) => code !== "509"),
+		);
+
 		test("every reason phrase matches node:http STATUS_CODES", () => {
-			for (const [code, phrase] of Object.entries(STATUS_CODES)) {
+			for (const [code, phrase] of Object.entries(registeredStatusCodes)) {
 				strictEqual(
 					new HttpError(Number(code)).message,
 					phrase,
@@ -2810,7 +2869,7 @@ describe("@middy/util", () => {
 		test("covers every code node:http knows about", () => {
 			deepStrictEqual(
 				Object.keys(expected).sort(),
-				Object.keys(STATUS_CODES).sort(),
+				Object.keys(registeredStatusCodes).sort(),
 			);
 		});
 	});
@@ -3124,6 +3183,28 @@ describe("@middy/util", () => {
 		test("leaves non-plain values alone", () => {
 			const date = new Date(0);
 			strictEqual(omit(date, buildPathTree(["getTime"])), date);
+		});
+		test("keeps an own __proto__ key as data when dropping a sibling", () => {
+			// Assigning it would set the copy's prototype instead, hiding the data
+			// from JSON.stringify (the log line) and exposing it as inherited props.
+			const obj = JSON.parse(
+				'{"password":"x","__proto__":{"isAdmin":true},"a":1}',
+			);
+			const out = omit(obj, buildPathTree(["password"]));
+			strictEqual(Object.getPrototypeOf(out), Object.prototype);
+			strictEqual(out.isAdmin, undefined);
+			deepStrictEqual(Object.keys(out), ["__proto__", "a"]);
+			strictEqual(JSON.stringify(out), '{"__proto__":{"isAdmin":true},"a":1}');
+		});
+		test("copies ordinary survivors by assignment, not defineProperty", (t) => {
+			// defineProperty is ~8x slower per key; only "__proto__" needs it.
+			const defineProperty = t.mock.method(Object, "defineProperty");
+			const out = omit(
+				{ password: "x", a: 1, b: 2 },
+				buildPathTree(["password"]),
+			);
+			strictEqual(defineProperty.mock.callCount(), 0);
+			deepStrictEqual(out, { a: 1, b: 2 });
 		});
 		test("does not mutate the input", () => {
 			const obj = { a: { b: 1 } };
@@ -3505,6 +3586,37 @@ describe("@middy/util", () => {
 
 			strictEqual(request.context.middyContext.demo, "second");
 		});
+	});
+
+	test("processCache never evicts the entry it is inserting", async (t) => {
+		// With the cache full of never-expiring entries, the new entry has the
+		// earliest expiry; evicting it would mean the key is never cached.
+		processCache(
+			{ cacheKey: "evict-self-a", cacheExpiry: -1, cacheMaxSize: 1 },
+			() => ({ v: 1 }),
+		);
+		const fetchRequest = t.mock.fn(() => ({ v: 2 }));
+		const options = {
+			cacheKey: "evict-self-b",
+			cacheExpiry: 60000,
+			cacheMaxSize: 1,
+		};
+		processCache(options, fetchRequest);
+		processCache(options, fetchRequest);
+		strictEqual(fetchRequest.mock.callCount(), 1);
+		deepStrictEqual(getCache("evict-self-a"), {});
+		clearCache();
+	});
+
+	test("processCache with cacheMaxSize 0 caches nothing", async (t) => {
+		const options = {
+			cacheKey: "evict-size-0",
+			cacheExpiry: 100,
+			cacheMaxSize: 0,
+		};
+		processCache(options, () => ({ v: 1 }));
+		deepStrictEqual(getCache("evict-size-0"), {});
+		clearCache();
 	});
 
 	test("processCache should cancel the refresh timer of an evicted entry", async (t) => {

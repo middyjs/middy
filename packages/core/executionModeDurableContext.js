@@ -13,15 +13,16 @@ export const executionModeDurableContext = (
 ) => {
 	const middy = withDurableExecution(async (event, context) => {
 		const request = middyRequest(event, context);
-		plugin.requestStart(request);
 
-		// normalize context with executionModeStandard
+		// normalize context with executionModeStandard, before requestStart so
+		// the hook sees the same context shape as in the other modes.
 		// https://docs.aws.amazon.com/lambda/latest/dg/typescript-context.html
 		// The SDK keeps the Lambda context (including `tenantId`, which it reads
 		// from there itself) under `lambdaContext`; `executionContext` only
 		// carries `durableExecutionArn`.
 		// Idea: Use Proxy instead of copying. Faster for common use case?
 		copyKeys(request.context, request.context.lambdaContext, lambdaContextKeys);
+		plugin.requestStart(request);
 
 		// Run requestEnd, then rethrow the request error. `hasError` (not
 		// truthiness) tracks the catch so thrown falsy primitives still reject.

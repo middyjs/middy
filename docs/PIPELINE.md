@@ -18,7 +18,7 @@ DCO sign-off is required on every commit ([test-dco.yml](../.github/workflows/te
 
 ## Release pipeline (`release.yml`)
 
-Triggered by closing (merging) a PR to `main`, or to a maintenance branch (`7.x`), that changes `package.json`.
+Triggered by closing (merging) a PR to `main` that changes `package.json`. No other branch triggers a release.
 
 ```
 build  -->  release  -->  publish
@@ -28,7 +28,7 @@ build  -->  release  -->  publish
 | --- | --- | --- |
 | `build` | harden-runner -> checkout -> setup-node -> npm ci -> `npm audit signatures` -> npm run build -> verify every workspace carries the root version and `package-lock.json` links `@middy/*` to the workspaces -> npm pack -> `actions/attest-build-provenance` (Sigstore) -> upload artifact | V2.6.1 dependency signature gating; V3.4.1 cryptographic signing of build artifacts |
 | `release` | harden-runner -> download artifact -> `softprops/action-gh-release` (draft) | V4.1.1 release-candidate assessment |
-| `publish` | harden-runner -> setup-node -> download artifact -> `gh attestation verify` -> `npm stage publish --provenance` per tarball (`latest`, `next` or the major-line tag such as `latest-7`, chosen in `build`). A tarball whose version is already staged or published (`E409`) is skipped so a failed run can be re-run; any other failure does not stop the loop, and the job fails at the end naming every tarball that did not stage. Job is wrapped in `environment: npm-publish` with required reviewers; staged versions only go live once a maintainer runs `npm run release:approve` (see [RELEASE.md](RELEASE.md)). | V3.3.20 manual approval gate; V3.4.2 / V4.3.6 artifact integrity before deployment; V4.3.1 automated deployment |
+| `publish` | harden-runner -> setup-node -> download artifact -> `gh attestation verify` -> `npm stage publish --provenance` per tarball under the dist-tag chosen in `build` from the version: `next` for a pre-release (`X.Y.Z-alpha.N`), `latest` otherwise (see [RELEASE.md](RELEASE.md#dist-tags)). A tarball whose version is already staged or published (`E409`) is skipped so a failed run can be re-run; any other failure does not stop the loop, and the job fails at the end naming every tarball that did not stage. Job is wrapped in `environment: npm-publish` with required reviewers; staged versions only go live once a maintainer runs `npm run release:approve` (see [RELEASE.md](RELEASE.md)). | V3.3.20 manual approval gate; V3.4.2 / V4.3.6 artifact integrity before deployment; V4.3.1 automated deployment |
 
 `npm audit signatures` lives in `build` because it audits *build inputs* (your installed dependencies). `gh attestation verify` lives in `publish` because it audits the *artifact being pushed*.
 

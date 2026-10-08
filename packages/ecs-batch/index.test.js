@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 import {
 	deepStrictEqual,
+	match,
 	notStrictEqual,
 	ok,
 	rejects,
@@ -11,6 +12,7 @@ import {
 import nodeCluster from "node:cluster";
 import { EventEmitter, getEventListeners } from "node:events";
 import { readFileSync } from "node:fs";
+import { availableParallelism } from "node:os";
 import { describe, mock, test } from "node:test";
 import amqplib from "amqplib";
 import stompit from "stompit";
@@ -50,6 +52,8 @@ mock.method(process, "exit", (code) => {
 });
 
 const noop = () => {};
+const uuidPattern =
+	/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const settleMacrotask = () => new Promise((r) => setImmediate(r));
 const pendingTimeouts = () =>
@@ -225,7 +229,7 @@ describe("@middy/ecs-batch", () => {
 			signal: new AbortController().signal,
 			contextOverride: {},
 		});
-		strictEqual(captured.awsRequestId, "");
+		match(captured.awsRequestId, uuidPattern);
 	});
 
 	test("runPollLoop invokes handler then acknowledge per event", async () => {
@@ -249,19 +253,22 @@ describe("@middy/ecs-batch", () => {
 		deepStrictEqual(poller.acked[0].response, { batchItemFailures: [] });
 	});
 
-	test("runPollLoop awsRequestId is empty string by default", async () => {
-		const poller = stubPoller([{ Records: [1] }]);
-		let captured;
+	test("runPollLoop awsRequestId is a fresh random UUID per batch by default", async () => {
+		const poller = stubPoller([{ Records: [1] }, { Records: [2] }]);
+		const ids = [];
 		await runPollLoop({
 			poller,
 			handler: async (_event, context) => {
-				captured = context;
+				ids.push(context.awsRequestId);
 				return { batchItemFailures: [] };
 			},
 			timeout: 1000,
 			signal: new AbortController().signal,
 		});
-		strictEqual(captured.awsRequestId, "");
+		strictEqual(ids.length, 2);
+		match(ids[0], uuidPattern);
+		match(ids[1], uuidPattern);
+		notStrictEqual(ids[0], ids[1]);
 	});
 
 	test("runPollLoop uses contextOverride.awsRequestId when provided", async () => {
@@ -720,18 +727,62 @@ describe("@middy/ecs-batch", () => {
 		await rejects(ecsBatchRunner({}), TypeError);
 	});
 
-	test("ecsBatchRunner default workers fallback uses availableParallelism", async () => {
-		// Pass workers: undefined explicitly; the spread default supplies a value.
-		const fakeCluster = { isPrimary: true, workers: {}, fork: noop, on: noop };
-		const { onSigterm } = await ecsBatchRunner(
-			{
-				handler: async () => ({ batchItemFailures: [] }),
-				poller: stubPoller(),
+	const countForks = async (poller, extra = {}) => {
+		let forks = 0;
+		const fakeCluster = {
+			isPrimary: true,
+			workers: {},
+			fork: () => {
+				forks += 1;
 			},
+			on: noop,
+		};
+		const { onSigterm } = await ecsBatchRunner(
+			{ handler: async () => ({ batchItemFailures: [] }), poller, ...extra },
 			{ cluster: fakeCluster, fetch: async () => ({ ok: false }) },
 		);
 		process.removeListener("SIGTERM", onSigterm);
+		return forks;
+	};
+
+	test("ecsBatchRunner default workers fallback uses availableParallelism", async () => {
+		strictEqual(await countForks(stubPoller()), availableParallelism());
 	});
+
+	// Every worker runs its own poller, and the Kinesis and DynamoDB Streams
+	// pollers have no shard coordination: N workers read every shard N times.
+	for (const source of ["aws:kinesis", "aws:dynamodb"]) {
+		test(`ecsBatchRunner defaults workers to 1 for ${source}`, async () => {
+			strictEqual(await countForks({ ...stubPoller(), source }), 1);
+		});
+
+		test(`ecsBatchRunner accepts workers: 1 for ${source}`, async () => {
+			strictEqual(
+				await countForks({ ...stubPoller(), source }, { workers: 1 }),
+				1,
+			);
+		});
+
+		test(`ecsBatchRunner rejects workers > 1 for ${source}`, async () => {
+			await rejects(
+				ecsBatchRunner(
+					{ handler: noop, poller: { ...stubPoller(), source }, workers: 2 },
+					{ cluster: { isPrimary: true } },
+				),
+				(err) => {
+					strictEqual(
+						err.message,
+						`workers must be 1 for ${source}: every worker would read every shard`,
+					);
+					deepStrictEqual(err.cause, {
+						package: "@middy/ecs-batch",
+						data: { source, workers: 2 },
+					});
+					return true;
+				},
+			);
+		});
+	}
 
 	test("runWorker uses default abortController when none injected", async () => {
 		const poller = stubPoller([{ Records: [1] }]);
@@ -1264,6 +1315,140 @@ describe("@middy/ecs-batch", () => {
 		const r = await it.next();
 		strictEqual(r.done, true);
 		strictEqual(sent[0].input.VisibilityTimeout, 30);
+	});
+
+	// A message not deleted before its visibility timeout expires is received
+	// again, and deleting it later with the earlier receipt handle fails. The
+	// queue default is 30 s, below the runner's 60 s default timeout.
+	// https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html
+	// https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_ReceiveMessage.html
+	const firstReceiveInput = async (options, pollOptions) => {
+		const sent = [];
+		const ac = new AbortController();
+		const client = {
+			send: async (cmd) => {
+				sent.push(cmd);
+				ac.abort();
+				return { Messages: [] };
+			},
+		};
+		const poller = pollSqs({
+			queueUrl: "https://sqs.us-east-1.amazonaws.com/1/q",
+			client,
+			...options,
+		});
+		await poller.poll(ac.signal, noop, pollOptions).next();
+		return sent[0].input;
+	};
+
+	test("pollSqs defaults VisibilityTimeout to cover the runner timeout plus acknowledge headroom", async () => {
+		strictEqual(
+			(await firstReceiveInput({}, { timeout: 60_000 })).VisibilityTimeout,
+			90,
+		);
+		strictEqual(
+			(await firstReceiveInput({}, { timeout: 60_001 })).VisibilityTimeout,
+			91,
+		);
+	});
+
+	test("pollSqs keeps an explicit visibilityTimeout over the runner timeout", async () => {
+		strictEqual(
+			(await firstReceiveInput({ visibilityTimeout: 600 }, { timeout: 60_000 }))
+				.VisibilityTimeout,
+			600,
+		);
+	});
+
+	test("pollSqs leaves VisibilityTimeout to the queue without a timeout or option", async () => {
+		strictEqual(
+			"VisibilityTimeout" in (await firstReceiveInput({}, undefined)),
+			false,
+		);
+		strictEqual(
+			"VisibilityTimeout" in (await firstReceiveInput({}, {})),
+			false,
+		);
+	});
+
+	test("pollSqs exposes its configured visibilityTimeout", () => {
+		const queueUrl = "https://sqs.us-east-1.amazonaws.com/1/q";
+		strictEqual(
+			pollSqs({ queueUrl, client: {}, visibilityTimeout: 45 })
+				.visibilityTimeout,
+			45,
+		);
+		strictEqual(pollSqs({ queueUrl, client: {} }).visibilityTimeout, undefined);
+	});
+
+	test("runPollLoop passes the runner timeout to the poller", async () => {
+		const seen = [];
+		const poller = {
+			source: "test",
+			poll(_signal, _onError, options) {
+				seen.push(options);
+				return [];
+			},
+			acknowledge: noop,
+		};
+		await runPollLoop({
+			poller,
+			handler: noop,
+			timeout: 1234,
+			signal: new AbortController().signal,
+		});
+		deepStrictEqual(seen, [{ timeout: 1234 }]);
+	});
+
+	test("ecsBatchRunner rejects an SQS visibilityTimeout that does not outlast the timeout", async () => {
+		const queueUrl = "https://sqs.us-east-1.amazonaws.com/1/q";
+		for (const [visibilityTimeout, timeout] of [
+			[60, undefined],
+			[0, undefined],
+			[10, 10_000],
+		]) {
+			await rejects(
+				ecsBatchRunner(
+					{
+						handler: noop,
+						poller: pollSqs({ queueUrl, client: {}, visibilityTimeout }),
+						...(timeout === undefined ? {} : { timeout }),
+						workers: 1,
+					},
+					{ cluster: { isPrimary: true } },
+				),
+				(err) => {
+					strictEqual(
+						err.message,
+						"visibilityTimeout must outlast timeout: messages would be received again mid-batch",
+					);
+					deepStrictEqual(err.cause, {
+						package: "@middy/ecs-batch",
+						data: { visibilityTimeout, timeout: timeout ?? 60_000 },
+					});
+					return true;
+				},
+			);
+		}
+	});
+
+	test("ecsBatchRunner accepts an SQS visibilityTimeout that outlasts the timeout, or none", async () => {
+		const queueUrl = "https://sqs.us-east-1.amazonaws.com/1/q";
+		for (const visibilityTimeout of [61, undefined]) {
+			strictEqual(
+				await countForks(pollSqs({ queueUrl, client: {}, visibilityTimeout }), {
+					workers: 1,
+				}),
+				1,
+			);
+		}
+		strictEqual(
+			await countForks(
+				pollSqs({ queueUrl, client: {}, visibilityTimeout: 11 }),
+				{ workers: 1, timeout: 10_000 },
+			),
+			1,
+		);
 	});
 
 	test("pollSqs poll rethrows non-abort errors", async () => {
@@ -2275,7 +2460,8 @@ describe("@middy/ecs-batch", () => {
 		const nacked = [];
 		const subscriptions = [];
 		let subscribeCb;
-		return {
+		// stompit clients are EventEmitters ("error", "end").
+		return Object.assign(new EventEmitter(), {
 			acked,
 			nacked,
 			subscriptions,
@@ -2294,7 +2480,7 @@ describe("@middy/ecs-batch", () => {
 			disconnect() {
 				this.disconnectCalls++;
 			},
-		};
+		});
 	};
 
 	const fakeStompMessage = (id, body) => ({
@@ -2514,7 +2700,7 @@ describe("@middy/ecs-batch", () => {
 		strictEqual(stomp.acked.length, 0);
 	});
 
-	test("pollAmq nacks message on body read failure and ignores subscribe errors", async () => {
+	test("pollAmq nacks message on body read failure", async () => {
 		const stomp = makeFakeStompClient();
 		const poller = pollAmq({
 			connectOptions: {},
@@ -2534,10 +2720,115 @@ describe("@middy/ecs-batch", () => {
 			},
 		};
 		cb(null, failingMsg);
-		cb(new Error("subscription-failed")); // ignored path
 		for (let i = 0; i < 5; i++) await Promise.resolve();
 		strictEqual(stomp.nacked.length, 1);
 		ac.abort();
+	});
+
+	test("pollAmq lets an in-flight batch acknowledge on abort, then disconnects", async () => {
+		// SIGTERM lands while the handler runs: the connection must stay open for
+		// the acknowledge that follows, or every message redelivers.
+		const log = [];
+		const stomp = makeFakeStompClient();
+		const ack = stomp.ack;
+		stomp.ack = (msg) => {
+			if (stomp.disconnectCalls) throw new Error("not connected");
+			log.push("ack");
+			ack(msg);
+		};
+		const disconnect = stomp.disconnect;
+		stomp.disconnect = function () {
+			log.push("disconnect");
+			disconnect.call(this);
+		};
+		const poller = pollAmq({
+			...amqBase,
+			batchSize: 1,
+			batchWindowMs: 0,
+			client: stomp,
+		});
+		const ac = new AbortController();
+		const errors = [];
+		const loop = runPollLoop({
+			poller,
+			handler: async () => {
+				log.push("handler start");
+				ac.abort();
+				await sleep(10);
+				log.push("handler done");
+				return { batchItemFailures: [] };
+			},
+			timeout: 1000,
+			signal: ac.signal,
+			onError: (err) => errors.push(err),
+		});
+		for (let i = 0; i < 8; i++) await Promise.resolve();
+		stomp.subscribeCb()(null, fakeStompMessage("m1", "body"));
+		await loop;
+		deepStrictEqual(errors, []);
+		deepStrictEqual(log, [
+			"handler start",
+			"handler done",
+			"ack",
+			"disconnect",
+		]);
+	});
+
+	// stompit drops its connect-time "error" listener once connected, and a
+	// dropped socket emits "error" on the client: unheard, it would be an
+	// uncaught exception instead of reaching onError.
+	test("pollAmq fails the poll when the client emits an error", async () => {
+		const stomp = makeFakeStompClient();
+		const poller = pollAmq({ ...amqBase, client: stomp });
+		const ac = new AbortController();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		const err = new Error("socket hang up");
+		stomp.emit("error", err);
+		await rejects(firstNext, (e) => e === err);
+		strictEqual(stomp.disconnectCalls, 1);
+		strictEqual(getEventListeners(ac.signal, "abort").length, 0);
+	});
+
+	test("pollAmq fails the poll when the subscription reports an error", async () => {
+		const stomp = makeFakeStompClient();
+		const poller = pollAmq({ ...amqBase, client: stomp });
+		const ac = new AbortController();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		const err = new Error("subscription-failed");
+		stomp.subscribeCb()(err);
+		await rejects(firstNext, (e) => e === err);
+	});
+
+	test("pollAmq raises an error that lands while a batch is in flight without settling the batch", async () => {
+		const stomp = makeFakeStompClient();
+		const poller = pollAmq({
+			...amqBase,
+			batchSize: 1,
+			batchWindowMs: 0,
+			client: stomp,
+		});
+		const ac = new AbortController();
+		const it = poller.poll(ac.signal);
+		const { firstNext } = await drainPollSetup(it);
+		stomp.subscribeCb()(null, fakeStompMessage("m1", "body"));
+		strictEqual((await firstNext).done, false);
+		const err = new Error("socket hang up");
+		stomp.emit("error", err);
+		await rejects(it.next(), (e) => e === err);
+		deepStrictEqual(stomp.nacked, []);
+	});
+
+	test("pollAmq swallows client.disconnect errors when the poll fails", async () => {
+		const stomp = makeFakeStompClient();
+		stomp.disconnect = () => {
+			throw new Error("disc-fail");
+		};
+		const poller = pollAmq({ ...amqBase, client: stomp });
+		const ac = new AbortController();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		const err = new Error("socket hang up");
+		stomp.emit("error", err);
+		await rejects(firstNext, (e) => e === err);
 	});
 
 	// --- pollRmq ----------------------------------------------------------------
@@ -2568,6 +2859,11 @@ describe("@middy/ecs-batch", () => {
 			async consume(queue, cb, opts) {
 				consumes.push({ queue, opts });
 				consumeCb = cb;
+				return { consumerTag: "ctag-1" };
+			},
+			cancels: [],
+			async cancel(consumerTag) {
+				this.cancels.push(consumerTag);
 			},
 			ack(msg) {
 				acked.push(msg);
@@ -2702,6 +2998,99 @@ describe("@middy/ecs-batch", () => {
 		});
 		await firstNext;
 		ac.abort();
+	});
+
+	test("pollRmq lets an in-flight batch acknowledge on abort, then closes", async () => {
+		// SIGTERM lands while the handler runs: the channel must stay open for
+		// the acknowledge that follows, or every delivery redelivers.
+		const log = [];
+		const channel = makeFakeRmqChannel();
+		const ack = channel.ack;
+		channel.ack = (msg) => {
+			if (channel.closeCalls) throw new Error("Channel closed");
+			log.push("ack");
+			ack(msg);
+		};
+		channel.cancel = async (consumerTag) => {
+			log.push(`cancel ${consumerTag}`);
+		};
+		const close = channel.close;
+		channel.close = async function () {
+			log.push("channel.close");
+			await close.call(this);
+		};
+		const poller = pollRmq({
+			queue: "q",
+			batchSize: 1,
+			batchWindowMs: 0,
+			connection: {
+				async createChannel() {
+					return channel;
+				},
+				async close() {
+					log.push("connection.close");
+				},
+			},
+			channel,
+		});
+		const ac = new AbortController();
+		const errors = [];
+		const loop = runPollLoop({
+			poller,
+			handler: async () => {
+				log.push("handler start");
+				ac.abort();
+				await sleep(10);
+				log.push("handler done");
+				return { batchItemFailures: [] };
+			},
+			timeout: 1000,
+			signal: ac.signal,
+			onError: (err) => errors.push(err),
+		});
+		for (let i = 0; i < 8; i++) await Promise.resolve();
+		channel.consumeCb()({
+			fields: { deliveryTag: 1, redelivered: false },
+			properties: {},
+			content: Buffer.from("x"),
+		});
+		await loop;
+		deepStrictEqual(errors, []);
+		deepStrictEqual(log, [
+			"handler start",
+			"cancel ctag-1",
+			"handler done",
+			"ack",
+			"channel.close",
+			"connection.close",
+		]);
+	});
+
+	test("pollRmq closes the channel and connection when the poll ends on abort while idle", async () => {
+		const channel = makeFakeRmqChannel();
+		const connection = makeFakeRmqConnection(channel);
+		const poller = pollRmq({ queue: "q", connection, channel });
+		const ac = new AbortController();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		ac.abort();
+		strictEqual((await firstNext).done, true);
+		deepStrictEqual(channel.cancels, ["ctag-1"]);
+		strictEqual(channel.closeCalls, 1);
+		strictEqual(connection.closeCalls, 1);
+	});
+
+	test("pollRmq swallows a cancel error on abort", async () => {
+		const channel = makeFakeRmqChannel();
+		channel.cancel = async () => {
+			throw new Error("cancel-fail");
+		};
+		const connection = makeFakeRmqConnection(channel);
+		const poller = pollRmq({ queue: "q", connection, channel });
+		const ac = new AbortController();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		ac.abort();
+		strictEqual((await firstNext).done, true);
+		strictEqual(channel.closeCalls, 1);
 	});
 
 	test("pollRmq swallows close errors during abort", async () => {
@@ -4934,6 +5323,21 @@ describe("@middy/ecs-batch", () => {
 			return true;
 		});
 		ac.abort();
+	});
+
+	test("pollRmq closes the connection when the poll fails, even if the channel close fails", async () => {
+		const channel = makeFakeRmqChannel();
+		channel.close = async () => {
+			throw new Error("Channel closed");
+		};
+		const connection = makeFakeRmqConnection(channel);
+		const poller = pollRmq({ queue: "q", connection, channel });
+		const ac = new AbortController();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		channel.consumeCb()(null);
+		await rejects(firstNext, { message: "Consumer cancelled by RabbitMQ" });
+		strictEqual(connection.closeCalls, 1);
+		strictEqual(getEventListeners(ac.signal, "abort").length, 0);
 	});
 
 	// A channel emits "close" when it or its connection closes, after "error"

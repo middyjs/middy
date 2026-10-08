@@ -411,15 +411,26 @@ const httpSecurityHeadersMiddleware = (opts = {}) => {
 	}
 
 	const httpSecurityHeadersMiddlewareAfter = (request) => {
-		normalizeHttpResponse(request);
-		const handlerHeaders = request.response.headers;
-		const headers = {};
-		for (const key of Object.keys(handlerHeaders)) {
-			if (!replacedNames.has(key.toLowerCase())) {
-				headers[key] = handlerHeaders[key];
-			}
+		const response = normalizeHttpResponse(request);
+		response.headers = withoutHeaderNames(response.headers, replacedNames);
+		if (
+			typeof response.multiValueHeaders === "undefined" &&
+			!isAlbMultiValue(request.event)
+		) {
+			Object.assign(response.headers, precomputedHeaders);
+			return;
 		}
-		request.response.headers = Object.assign(headers, precomputedHeaders);
+		// API Gateway REST lets `multiValueHeaders` win over `headers` for the
+		// same name, and ALB with multi-value headers enabled reads only
+		// `multiValueHeaders`, so the headers go there.
+		const multiValueHeaders = withoutHeaderNames(
+			response.multiValueHeaders ?? {},
+			replacedNames,
+		);
+		for (const key of Object.keys(precomputedHeaders)) {
+			multiValueHeaders[key] = [precomputedHeaders[key]];
+		}
+		response.multiValueHeaders = multiValueHeaders;
 	};
 	const httpSecurityHeadersMiddlewareOnError = (request) => {
 		if (typeof request.response === "undefined") return;
@@ -430,4 +441,27 @@ const httpSecurityHeadersMiddleware = (opts = {}) => {
 		onError: httpSecurityHeadersMiddlewareOnError,
 	};
 };
+
+// Copies a header map without the names (lower-cased) in `names`, in any
+// casing.
+const withoutHeaderNames = (map, names) => {
+	const kept = {};
+	for (const key of Object.keys(map)) {
+		if (!names.has(key.toLowerCase())) {
+			kept[key] = map[key];
+		}
+	}
+	return kept;
+};
+
+// An ALB target group with multi-value headers enabled sends
+// `multiValueHeaders` and only reads them back: "You must use
+// multiValueHeaders if you have enabled multi-value headers and headers
+// otherwise." Its events are the only ones that carry `requestContext.elb`
+// together with `multiValueHeaders`.
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+const isAlbMultiValue = (event) =>
+	typeof event?.requestContext?.elb !== "undefined" &&
+	typeof event.multiValueHeaders !== "undefined";
+
 export default httpSecurityHeadersMiddleware;

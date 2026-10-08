@@ -44,7 +44,9 @@ For documentation and examples, refer to the main [Middy monorepo on GitHub](htt
 
 The `algorithms` allowlist blocks `none`, and a string key (a symmetric secret) may only be paired with symmetric `HS*` algorithms: configuring a string key with any asymmetric algorithm is rejected, which closes the classic RS/HS algorithm-confusion attack. Asymmetric keys must be supplied as a `Uint8Array` (DER) or KMS key, which binds the algorithm family to the key type. Operators SHOULD still restrict `algorithms` to exactly the set they expect (for example `["RS256"]` or `["ES256"]`).
 
-By default `requireExp` is `false`, so a token without an `exp` claim is accepted (and never expires). Set `requireExp: true` (and/or `maxTokenAge`) to require expiry; this is strongly recommended in production so a leaked token cannot be replayed indefinitely.
+By default `requireExp` is `true`, so a token without an `exp` claim is rejected ([RFC 9068 section 2.2](https://www.rfc-editor.org/rfc/rfc9068#section-2.2) makes `exp` required in an access token); otherwise a leaked token could be replayed indefinitely. Set `requireExp: false` only for an issuer that never sets `exp`, and pair it with `maxTokenAge`.
+
+With `issuers`, every entry must resolve an `audience` (its own or the top-level one), or the factory throws: a shared issuer signs tokens for every client it serves, and [RFC 9068 section 4](https://www.rfc-editor.org/rfc/rfc9068#section-4) requires the resource server to check `aud`. Set `audience: null` to opt out explicitly, for example for Amazon Cognito access tokens, which carry `client_id` instead of `aud`; check that with `expectedClaims: { client_id }`.
 
 
 ## Contributing

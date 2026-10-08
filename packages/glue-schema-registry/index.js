@@ -200,11 +200,13 @@ export const resolveSchemaVersion = async (
 	const cacheKey = `${merged.cacheKey}:schemaVersions`;
 	// A per-key expiry set on the base cacheKey applies to every version
 	// resolved under it. processCache falls back to cacheExpiry when the
-	// override is undefined.
+	// override is undefined. awsClientAssumeRole is passed so processCache skips
+	// background refresh, which would reuse a client with stale credentials.
 	const cacheOptions = {
 		cacheKey,
 		cacheExpiry: merged.cacheExpiry,
 		cacheKeyExpiry: { [cacheKey]: merged.cacheKeyExpiry?.[merged.cacheKey] },
+		awsClientAssumeRole: merged.awsClientAssumeRole,
 	};
 
 	// One client per options object, shared across schema versions. Without

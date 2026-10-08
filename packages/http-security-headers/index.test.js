@@ -882,4 +882,125 @@ describe("@middy/http-security-headers", () => {
 		strictEqual(response.headers["X-Frame-Options"], "DENY");
 		ok(response.headers["Content-Security-Policy"] !== "default-src *");
 	});
+
+	// ALB with multi-value headers enabled only reads `multiValueHeaders`: "You
+	// must use multiValueHeaders if you have enabled multi-value headers and
+	// headers otherwise."
+	// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+	const albMultiValueEvent = {
+		httpMethod: "GET",
+		requestContext: { elb: { targetGroupArn: "arn" } },
+		multiValueHeaders: { accept: ["text/html"] },
+	};
+
+	test("It should write security headers into multiValueHeaders for an ALB multi-value event", async (t) => {
+		const handler = middy(() => ({ statusCode: 200, body: "" }));
+		handler.use(httpSecurityHeaders());
+
+		const response = await handler(albMultiValueEvent, defaultContext);
+
+		deepStrictEqual(response.multiValueHeaders["Strict-Transport-Security"], [
+			"max-age=15552000; includeSubDomains",
+		]);
+		deepStrictEqual(response.multiValueHeaders["X-Frame-Options"], ["DENY"]);
+		strictEqual(response.headers["Strict-Transport-Security"], undefined);
+	});
+
+	test("It should keep handler multiValueHeaders it does not own for an ALB multi-value event", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			multiValueHeaders: { "Set-Cookie": ["a=1", "b=2"] },
+		}));
+		handler.use(httpSecurityHeaders());
+
+		const response = await handler(albMultiValueEvent, defaultContext);
+
+		deepStrictEqual(response.multiValueHeaders["Set-Cookie"], ["a=1", "b=2"]);
+		deepStrictEqual(response.multiValueHeaders["X-Frame-Options"], ["DENY"]);
+	});
+
+	test("It should not treat an ALB event without multiValueHeaders as multi-value", async (t) => {
+		const handler = middy(() => ({ statusCode: 200, body: "" }));
+		handler.use(httpSecurityHeaders());
+
+		const response = await handler(
+			{ httpMethod: "GET", requestContext: { elb: {} }, headers: {} },
+			defaultContext,
+		);
+
+		strictEqual(response.multiValueHeaders, undefined);
+		strictEqual(response.headers["X-Frame-Options"], "DENY");
+	});
+
+	test("It should not treat an API Gateway REST event with multiValueHeaders as ALB multi-value", async (t) => {
+		const handler = middy(() => ({ statusCode: 200, body: "" }));
+		handler.use(httpSecurityHeaders());
+
+		const response = await handler(
+			{ httpMethod: "GET", headers: {}, multiValueHeaders: {} },
+			defaultContext,
+		);
+
+		strictEqual(response.multiValueHeaders, undefined);
+		strictEqual(response.headers["X-Frame-Options"], "DENY");
+	});
+
+	// API Gateway REST merges both maps and "If the same key-value pair is
+	// specified in both, only the values from multiValueHeaders will appear".
+	// https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
+	test("It should replace and strip handler multiValueHeaders in any casing", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			headers: { "X-Keep": "1" },
+			multiValueHeaders: {
+				"x-frame-options": ["SAMEORIGIN"],
+				"X-Powered-By": ["MiddyJS"],
+				server: ["AMZN"],
+				"Set-Cookie": ["a=1"],
+			},
+		}));
+		handler.use(httpSecurityHeaders({ poweredBy: true }));
+
+		const response = await handler(
+			{ httpMethod: "GET", headers: {}, multiValueHeaders: {} },
+			defaultContext,
+		);
+
+		const names = Object.keys(response.multiValueHeaders).map((k) =>
+			k.toLowerCase(),
+		);
+		strictEqual(names.filter((n) => n === "x-frame-options").length, 1);
+		ok(!names.includes("x-powered-by"));
+		ok(!names.includes("server"));
+		deepStrictEqual(response.multiValueHeaders["X-Frame-Options"], ["DENY"]);
+		deepStrictEqual(response.multiValueHeaders["Set-Cookie"], ["a=1"]);
+		strictEqual(response.headers["X-Keep"], "1");
+		const headerNames = Object.keys(response.headers).map((k) =>
+			k.toLowerCase(),
+		);
+		ok(!headerNames.includes("x-frame-options"));
+	});
+
+	test("It should strip handler headers it owns when writing into multiValueHeaders", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			headers: { "X-Frame-Options": "SAMEORIGIN", "X-Keep": "1" },
+			multiValueHeaders: {},
+		}));
+		handler.use(httpSecurityHeaders());
+
+		const response = await handler({ httpMethod: "GET" }, defaultContext);
+
+		deepStrictEqual(response.headers, { "X-Keep": "1" });
+		deepStrictEqual(response.multiValueHeaders["X-Frame-Options"], ["DENY"]);
+	});
+
+	test("It should set headers when the event is null", async (t) => {
+		const handler = middy(() => ({ statusCode: 200, body: "" }));
+		handler.use(httpSecurityHeaders());
+
+		const response = await handler(null, defaultContext);
+
+		strictEqual(response.headers["X-Frame-Options"], "DENY");
+	});
 });

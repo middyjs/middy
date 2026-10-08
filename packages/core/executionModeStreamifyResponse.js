@@ -3,7 +3,7 @@
 /* global awslambda */
 import { Buffer } from "node:buffer";
 import { once } from "node:events";
-import { pipeline } from "node:stream/promises";
+import { finished, pipeline } from "node:stream/promises";
 import { ReadableStream } from "node:stream/web";
 
 export const executionModeStreamifyResponse = (
@@ -112,7 +112,7 @@ const writeString = async (stream, body) => {
 		const ok = stream.write(body.substring(position, next));
 		position = next;
 		if (!ok && position < length) {
-			await once(stream, "drain");
+			await waitForDrain(stream);
 		}
 	} while (position < length);
 	await endStream(stream);
@@ -127,10 +127,21 @@ const writeBinary = async (stream, body) => {
 
 const writeStream = (stream, body) => pipeline(body, stream);
 
-// stream.end(cb) calls cb on 'finish'; cb has no arg. Separate 'error'
-// listener handles any late write errors so we don't hang on failure.
-const endStream = (stream) =>
-	new Promise((resolve, reject) => {
-		stream.once("error", reject);
-		stream.end(resolve);
-	});
+// A destroyed stream never emits 'drain', so the wait also ends (rejecting)
+// when the stream closes or errors. Aborting removes the losing listeners.
+const waitForDrain = (stream) => {
+	const controller = new AbortController();
+	const options = { signal: controller.signal };
+	return Promise.race([
+		once(stream, "drain", options),
+		finished(stream, options),
+	]).finally(() => controller.abort());
+};
+
+// finished() rejects with the stream error, or ERR_STREAM_PREMATURE_CLOSE when
+// the stream is destroyed before 'finish'. end() is skipped on a destroyed
+// stream: it marks the stream ended, which finished() then reports as success.
+const endStream = (stream) => {
+	if (!stream.destroyed) stream.end();
+	return finished(stream);
+};

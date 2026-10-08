@@ -33,6 +33,7 @@
 		"test:types": "tstyche",
 		"test:mutation": "stryker run",
 		"test:bench": "node --no-warnings=ExperimentalWarning --no-addons --pending-deprecation --frozen-intrinsics --experimental-bench --bench './packages/**/*.bench.js'",
+		"test:load": "for f in packages/*/*.load.js; do node ${f%.js}.server.js & pid=$!; k6 run -e LOAD_TEST=$f $f; code=$?; kill $pid; wait $pid; [ $code -eq 0 ] || exit $code; done",
 		"test:dast": "npm run test:dast:fuzz",
 		"test:dast:fuzz": "node --no-warnings=ExperimentalWarning --no-addons --pending-deprecation --frozen-intrinsics --test --experimental-test-module-mocks './packages/**/*.fuzz.js'",
 		"rm": "npm run rm:macos && npm run rm:node_modules && npm run rm:lock",
@@ -87,7 +88,12 @@
 			"cookie": "^0.7.2"
 		},
 		"fast-xml-parser": ">=5.7.2",
+		"katex": ">=0.18.2",
 		"mathjs": ">=15.2.0",
+		"miniflare": {
+			"sharp": "^0.35.5",
+			"undici": "^7.29.1"
+		},
 		"qs": ">=6.14.2",
 		"uuid": ">=14.0.0"
 	},

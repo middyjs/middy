@@ -1,7 +1,10 @@
-name: Tests (unit)
+name: Tests (load)
 
 on:
   pull_request:
+
+env:
+  NODE_VERSION: 26.x
 
 permissions:
   contents: read
@@ -11,14 +14,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  unit:
-    name: Tests (unit)
+  load:
+    name: Tests (load)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    strategy:
-      matrix:
-        node-version: [24.x, 26.x]
+    timeout-minutes: 10
 
     steps:
       - name: Harden runner
@@ -34,8 +33,6 @@ jobs:
             objects.githubusercontent.com:443
             registry.npmjs.org:443
             release-assets.githubusercontent.com:443
-            truststore.pki.rds.amazonaws.com:443
-            truststore.pki.us-gov-west-1.rds.amazonaws.com:443
       # allowed-endpoints: >
       #   github.com:443
       - name: Checkout repository
@@ -48,10 +45,10 @@ jobs:
       #   objects.githubusercontent.com:443
       #   registry.npmjs.org:443
       #   release-assets.githubusercontent.com:443
-      - name: Setup Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: ${{ env.NODE_VERSION }}
           registry-url: https://registry.npmjs.org
       # allowed-endpoints: >
       #   registry.npmjs.org:443
@@ -59,19 +56,12 @@ jobs:
         run: |
           npm ci --ignore-scripts
       # allowed-endpoints: >
-      #   truststore.pki.rds.amazonaws.com:443
-      #   truststore.pki.us-gov-west-1.rds.amazonaws.com:443
-      - name: Build
-        # packages/rds/certificates is a gitignored build output that
-        # `npm ci --ignore-scripts` above skipped. It downloads from the AWS
-        # truststore, so a network failure must not fail the PR: every region
-        # it did not write is skipped by packages/rds/certificates.test.js.
-        continue-on-error: true
+      #   github.com:443
+      #   release-assets.githubusercontent.com:443
+      - name: Setup k6
+        uses: grafana/setup-k6-action@43b9fc21641a76002687994433dd586f56e791b1 # v1.2.2
+        with:
+          k6-version: 2.3.0
+      - name: Load tests
         run: |
-          npm run build --workspace packages/rds
-      # allowed-endpoints: >
-      #   registry.npmjs.org:443
-      - name: Unit tests
-        run: |
-          export NODE_OPTIONS="--test-reporter=spec --test-reporter-destination=stdout --test-reporter=./.github/reporters/node-test.mjs --test-reporter-destination=$GITHUB_STEP_SUMMARY"
-          npm run test:unit
+          npm run test:load

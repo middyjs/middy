@@ -1129,6 +1129,37 @@ describe("@middy/glue-schema-registry", () => {
 		});
 	});
 
+	test("resolveSchemaVersion does not background-refresh under awsClientAssumeRole", async () => {
+		const roleRefreshId = "00000000-0000-0000-0000-0000000c0de2";
+		const mock = mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
+			SchemaVersionId: roleRefreshId,
+			SchemaDefinition: AVRO_SCHEMA,
+			DataFormat: "AVRO",
+		});
+
+		const request = {
+			internal: {
+				credentials: { accessKeyId: "AK", secretAccessKey: "SK" },
+			},
+			context: {},
+		};
+		await resolveSchemaVersion(
+			roleRefreshId,
+			{
+				cacheKey: "glue-role-refresh",
+				cacheExpiry: 30,
+				awsClientAssumeRole: "credentials",
+			},
+			request,
+		);
+
+		await new Promise((resolve) => setTimeout(resolve, 90));
+		clearCache("glue-role-refresh:schemaVersions");
+		// A refresh has no request to read fresh credentials from, so it would
+		// reuse a client holding the first invocation's (possibly expired) ones.
+		strictEqual(mock.commandCalls(GetSchemaVersionCommand).length, 1);
+	});
+
 	test("glueSchemaRegistryValidateOptions validates contextKey as a string", () => {
 		// Pins the rule itself: an empty `{}` rule would accept the number below,
 		// and a blank `type` would reject the valid string above.

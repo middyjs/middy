@@ -1447,6 +1447,7 @@ describe("@middy/http-jwt", () => {
 						[issB]: { jwksUri: jwksUriB },
 					},
 					algorithm: "RS256",
+					audience: null,
 				}),
 			);
 			const tokenA = await signToken({
@@ -1594,6 +1595,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [issConfigured]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -1640,6 +1642,7 @@ describe("@middy/http-jwt", () => {
 						[issB]: { jwksUri: uriB },
 					},
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -1697,6 +1700,7 @@ describe("@middy/http-jwt", () => {
 						[issB]: { jwksUri: uriB },
 					},
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -1809,6 +1813,110 @@ describe("@middy/http-jwt", () => {
 		}
 	});
 
+	// RFC 9068 section 4: the resource server MUST validate that `aud` identifies
+	// it. A shared issuer signs tokens for every client it serves, so without an
+	// audience any of them would pass. Opting out takes an explicit `null`.
+	test("issuers: an issuer with no audience and no top-level audience throws at construction", async (t) => {
+		const iss = "https://idp.example.com/pool";
+		try {
+			httpJwt({
+				issuers: { [iss]: { jwksUri: nextJwksUri() } },
+				algorithm: "RS256",
+				disablePrefetch: true,
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes(`issuers['${iss}'].audience`), e.message);
+			strictEqual(e.cause.package, "@middy/http-jwt");
+		}
+	});
+
+	test("issuers: entry audience: null opts out of the aud check over a top-level audience", async (t) => {
+		const { privateKey, jwk, kid } = await jwksFixture();
+		const iss = "https://idp.example.com/pool";
+		const jwksUri = nextJwksUri();
+		const token = await signToken({
+			privateKey,
+			alg: "RS256",
+			kid,
+			iss,
+			aud: "other",
+		});
+
+		const fetchStub = installFetch({
+			[jwksUri]: jwksResponse({ keys: [jwk] }),
+		});
+		try {
+			const handler = middy((event, context) => context.middyContext).use(
+				httpJwt({
+					issuers: { [iss]: { jwksUri, audience: null } },
+					audience: "clientA",
+					algorithm: "RS256",
+					disablePrefetch: true,
+				}),
+			);
+			const r = await handler(
+				{ headers: { authorization: `Bearer ${token}` } },
+				{ ...defaultContext },
+			);
+			strictEqual(r.jwt.aud, "other");
+		} finally {
+			fetchStub.restore();
+		}
+	});
+
+	test("issuers: entry audience still applies over a top-level audience: null", async (t) => {
+		const { privateKey, jwk, kid } = await jwksFixture();
+		const iss = "https://idp.example.com/pool";
+		const jwksUri = nextJwksUri();
+		const good = await signToken({
+			privateKey,
+			alg: "RS256",
+			kid,
+			iss,
+			aud: "clientB",
+		});
+		const bad = await signToken({
+			privateKey,
+			alg: "RS256",
+			kid,
+			iss,
+			aud: "clientA",
+		});
+
+		const fetchStub = installFetch({
+			[jwksUri]: jwksResponse({ keys: [jwk] }),
+		});
+		try {
+			const handler = middy((event, context) => context.middyContext).use(
+				httpJwt({
+					issuers: { [iss]: { jwksUri, audience: "clientB" } },
+					audience: null,
+					algorithm: "RS256",
+					disablePrefetch: true,
+				}),
+			);
+			const r = await handler(
+				{ headers: { authorization: `Bearer ${good}` } },
+				{ ...defaultContext },
+			);
+			strictEqual(r.jwt.aud, "clientB");
+			try {
+				await handler(
+					{ headers: { authorization: `Bearer ${bad}` } },
+					{ ...defaultContext },
+				);
+				ok(false, "expected throw");
+			} catch (e) {
+				strictEqual(e.statusCode, 401);
+				strictEqual(e.cause.data.reason, 'unexpected "aud" claim value');
+			}
+		} finally {
+			fetchStub.restore();
+		}
+	});
+
 	test("issuers: a key rotated under the same kid replaces the cached key once the JWKS is refetched", async (t) => {
 		const fixOld = await jwksFixture({ kid: "k" });
 		const fixNew = await jwksFixture({ kid: "k", slot: 1 });
@@ -1826,6 +1934,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					cacheExpiry: 1,
 					cooldownDuration: 0,
 					disablePrefetch: true,
@@ -1869,6 +1978,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -1909,6 +2019,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -1941,6 +2052,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -1970,6 +2082,7 @@ describe("@middy/http-jwt", () => {
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
+				audience: null,
 			});
 			// Wait long enough for the warm-up fetch to complete and be swallowed.
 			await new Promise((r) => setTimeout(r, 30));
@@ -2000,6 +2113,7 @@ describe("@middy/http-jwt", () => {
 					[issB]: { jwksUri: uriB },
 				},
 				algorithm: "RS256",
+				audience: null,
 			});
 			// give the warm-up promises a chance to fire
 			await new Promise((r) => setTimeout(r, 30));
@@ -2023,6 +2137,7 @@ describe("@middy/http-jwt", () => {
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
+				audience: null,
 				disablePrefetch: true,
 			});
 			await new Promise((r) => setTimeout(r, 30));
@@ -2046,6 +2161,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -2081,6 +2197,7 @@ describe("@middy/http-jwt", () => {
 	test("issuers: factory throws when algorithm is missing", () => {
 		try {
 			httpJwt({
+				audience: null,
 				issuers: { "https://idp.example.com": { jwksUri: "https://x/jwks" } },
 			});
 			ok(false, "expected throw");
@@ -2095,6 +2212,7 @@ describe("@middy/http-jwt", () => {
 			httpJwt({
 				issuers: { "https://idp.example.com": { jwksUri: "https://x/jwks" } },
 				algorithm: [],
+				audience: null,
 			});
 			ok(false, "expected throw");
 		} catch (e) {
@@ -2108,6 +2226,7 @@ describe("@middy/http-jwt", () => {
 			httpJwt({
 				issuers: { "https://idp.example.com": { jwksUri: "https://x/jwks" } },
 				algorithm: "none",
+				audience: null,
 			});
 			ok(false, "expected throw");
 		} catch (e) {
@@ -2188,6 +2307,7 @@ describe("@middy/http-jwt", () => {
 						[issEc]: { jwksUri: uriEc, algorithm: "ES256" }, // overrides
 					},
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -2216,6 +2336,7 @@ describe("@middy/http-jwt", () => {
 					},
 				},
 				algorithm: "RS256",
+				audience: null,
 			});
 			ok(false, "expected throw");
 		} catch (e) {
@@ -2261,6 +2382,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri, algorithm: ["RS256", "ES256"] } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -2304,6 +2426,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -2339,6 +2462,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -2368,6 +2492,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri, algorithm: ["RS256", "ES256"] } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -2411,6 +2536,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -2458,6 +2584,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -2496,6 +2623,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					clockTolerance: 5,
 					disablePrefetch: true,
 				}),
@@ -2523,6 +2651,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -2647,10 +2776,12 @@ describe("@middy/http-jwt", () => {
 				},
 				"https://other.example.com": {
 					jwksUri: "https://other.example.com/.well-known/jwks.json",
+					audience: null,
 					typ: "at+jwt",
 				},
 			},
 			algorithm: "RS256",
+			audience: null,
 			cacheExpiry: 1000,
 			cooldownDuration: 100,
 			disablePrefetch: true,
@@ -2757,7 +2888,30 @@ describe("@middy/http-jwt", () => {
 		strictEqual(result.jwt.sub, "user-quoted-cookie");
 	});
 
-	test("It should accept a token without exp by default", async (t) => {
+	test("It should reject a token without exp by default", async (t) => {
+		// RFC 9068 section 2.2: exp is REQUIRED in a JWT access token, and jose
+		// only checks exp when present, so an exp-less token would never expire.
+		const secret = "super-secret-key-for-testing-1234";
+		// No setExpirationTime: token has no exp claim.
+		const token = await new SignJWT({ sub: "user-no-exp" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
+			.setIssuedAt()
+			.sign(Buffer.from(secret));
+
+		const handler = middy(() => {}).use(
+			httpJwt({ secretKey: secret, algorithm: "HS256" }),
+		);
+
+		try {
+			await handler(makeEvent(`Bearer ${token}`), defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.data.reason, 'missing required "exp" claim');
+		}
+	});
+
+	test("It should accept a token without exp when requireExp is false", async (t) => {
 		const secret = "super-secret-key-for-testing-1234";
 		// No setExpirationTime: token has no exp claim.
 		const token = await new SignJWT({ sub: "user-no-exp" })
@@ -2766,7 +2920,7 @@ describe("@middy/http-jwt", () => {
 			.sign(Buffer.from(secret));
 
 		const handler = middy((event, context) => context.middyContext).use(
-			httpJwt({ secretKey: secret, algorithm: "HS256" }),
+			httpJwt({ secretKey: secret, algorithm: "HS256", requireExp: false }),
 		);
 
 		const result = await handler(makeEvent(`Bearer ${token}`), {
@@ -2824,7 +2978,12 @@ describe("@middy/http-jwt", () => {
 			.sign(Buffer.from(secret));
 
 		const handler = middy(() => {}).use(
-			httpJwt({ secretKey: secret, algorithm: "HS256", maxTokenAge: "1h" }),
+			httpJwt({
+				secretKey: secret,
+				algorithm: "HS256",
+				maxTokenAge: "1h",
+				requireExp: false,
+			}),
 		);
 
 		try {
@@ -2855,6 +3014,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					requireExp: true,
 					disablePrefetch: true,
 				}),
@@ -2893,7 +3053,9 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					maxTokenAge: "1h",
+					requireExp: false,
 					disablePrefetch: true,
 				}),
 			);
@@ -2926,6 +3088,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					requireExp: true,
 					disablePrefetch: true,
 				}),
@@ -3534,6 +3697,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3571,6 +3735,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [issConfigured]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3602,6 +3767,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3639,6 +3805,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3680,6 +3847,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3716,6 +3884,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3752,6 +3921,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri, algorithm: ["RS256", "ES256"] } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3798,6 +3968,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3874,6 +4045,22 @@ describe("@middy/http-jwt", () => {
 		strictEqual(result.jwt.sub, "user-anyaud");
 	});
 
+	test("It should accept a token without aud when audience is null (internalKey path)", async (t) => {
+		const secret = "super-secret-key-for-testing-1234";
+		const token = await new SignJWT({ sub: "user-nullaud" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
+			.setIssuedAt()
+			.setExpirationTime("1h")
+			.sign(Buffer.from(secret));
+		const handler = middy((event, context) => context.middyContext).use(
+			httpJwt({ secretKey: secret, algorithm: "HS256", audience: null }),
+		);
+		const result = await handler(makeEvent(`Bearer ${token}`), {
+			...defaultContext,
+		});
+		strictEqual(result.jwt.sub, "user-nullaud");
+	});
+
 	test("It should accept any iss when no issuer is configured (internalKey path)", async (t) => {
 		const secret = "super-secret-key-for-testing-1234";
 		const token = await new SignJWT({ sub: "user-anyiss" })
@@ -3933,7 +4120,12 @@ describe("@middy/http-jwt", () => {
 			.setIssuedAt(Math.floor(Date.now() / 1000) - 7200)
 			.sign(Buffer.from(secret));
 		const handler = middy(() => {}).use(
-			httpJwt({ secretKey: secret, algorithm: "HS256", maxTokenAge: "1h" }),
+			httpJwt({
+				secretKey: secret,
+				algorithm: "HS256",
+				maxTokenAge: "1h",
+				requireExp: false,
+			}),
 		);
 		try {
 			await handler(makeEvent(`Bearer ${token}`), defaultContext);
@@ -3981,7 +4173,7 @@ describe("@middy/http-jwt", () => {
 		}
 	});
 
-	test("issuers: accepts any aud when no per-issuer audience configured", async (t) => {
+	test("issuers: accepts any aud when audience is null", async (t) => {
 		const { privateKey, jwk, kid } = await jwksFixture();
 		const iss = "https://idp.example.com/pool";
 		const jwksUri = nextJwksUri();
@@ -3999,6 +4191,7 @@ describe("@middy/http-jwt", () => {
 			const handler = middy((event, context) => context.middyContext).use(
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
+					audience: null,
 					algorithm: "RS256",
 					disablePrefetch: true,
 				}),
@@ -4031,6 +4224,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -4066,6 +4260,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [issA]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -4116,6 +4311,7 @@ describe("@middy/http-jwt", () => {
 		const m = realHttpJwt({
 			issuers: { "https://idp.example.com": { jwksUri: "https://x/jwks" } },
 			algorithm: "RS256",
+			audience: null,
 			disablePrefetch: true,
 		});
 		ok(typeof m.before === "function");
@@ -4144,6 +4340,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -4195,6 +4392,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					cooldownDuration: 0,
 					disablePrefetch: true,
 				}),
@@ -4227,6 +4425,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					cacheExpiry: 0,
 					cooldownDuration: 0,
 					disablePrefetch: true,
@@ -4263,6 +4462,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -4308,6 +4508,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -4352,6 +4553,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -4390,6 +4592,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					cooldownDuration: 0,
 					cacheExpiry: 600_000,
 					disablePrefetch: true,
@@ -4414,8 +4617,8 @@ describe("@middy/http-jwt", () => {
 		}
 	});
 
-	test("issuers: a token without exp verifies when requireExp is not set", async (t) => {
-		// No requireExp option: a token lacking exp must verify. A mutant forcing
+	test("issuers: a token without exp verifies when requireExp is false", async (t) => {
+		// requireExp: false: a token lacking exp must verify. A mutant forcing
 		// requiredClaims:['exp'] unconditionally would reject it (401).
 		const { privateKey, jwk, kid } = await jwksFixture();
 		const iss = "https://idp.example.com/pool";
@@ -4433,6 +4636,8 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
+					requireExp: false,
 					disablePrefetch: true,
 				}),
 			);
@@ -4745,6 +4950,7 @@ describe("@middy/http-jwt", () => {
 				setToContext: true,
 				algorithm: alg,
 				issuers: { [iss]: { jwksUri } },
+				audience: null,
 				expectedClaims: { token_use: "access" },
 			}),
 		);
@@ -5034,6 +5240,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 					jwksTimeoutMs: 10,
 				}),
@@ -5067,7 +5274,11 @@ describe("@middy/http-jwt", () => {
 			[jwksUri]: jwksResponse({ keys: [jwk] }),
 		});
 		try {
-			httpJwt({ issuers: { [iss]: { jwksUri } }, algorithm: "RS256" });
+			httpJwt({
+				issuers: { [iss]: { jwksUri } },
+				algorithm: "RS256",
+				audience: null,
+			});
 			await new Promise((resolve) => setImmediate(resolve));
 			strictEqual(fetchStub.calls.length, 1);
 			ok(fetchStub.calls[0].init.signal instanceof AbortSignal);
@@ -5095,6 +5306,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -5138,6 +5350,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -5174,6 +5387,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -5201,6 +5415,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -5240,6 +5455,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -5273,6 +5489,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -5313,6 +5530,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 					jwksTimeoutMs: undefined,
 				}),
@@ -5343,6 +5561,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -5383,6 +5602,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 					cooldownDuration: 30_000,
 				}),
@@ -5431,6 +5651,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -5479,6 +5700,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 					jwksTimeoutMs: 10,
 					cooldownDuration: 30_000,
@@ -5528,6 +5750,7 @@ describe("@middy/http-jwt", () => {
 					httpJwt({
 						issuers: { [iss]: { jwksUri } },
 						algorithm: "RS256",
+						audience: null,
 						disablePrefetch: true,
 						jwksTimeoutMs: 10,
 					}),
@@ -5558,6 +5781,7 @@ describe("@middy/http-jwt", () => {
 					httpJwt({
 						issuers: { [iss]: { jwksUri } },
 						algorithm: "RS256",
+						audience: null,
 						disablePrefetch: true,
 					}),
 				);
@@ -5591,6 +5815,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					cooldownDuration: 0,
 					disablePrefetch: true,
 				}),
@@ -5621,6 +5846,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					cacheExpiry: 1000,
 					cooldownDuration: 0,
 					disablePrefetch: true,
@@ -5660,6 +5886,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					cooldownDuration: 30_000,
 					disablePrefetch: true,
 				}),

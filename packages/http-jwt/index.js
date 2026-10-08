@@ -48,7 +48,9 @@ const defaults = {
 	// passing as an access token (RFC 8725 section 3.11).
 	typ: "at+jwt",
 	clockTolerance: 0,
-	requireExp: false,
+	// RFC 9068 section 2.2: exp is REQUIRED in a JWT access token. jose only
+	// checks exp when present, so without this an exp-less token never expires.
+	requireExp: true,
 	expectedClaims: undefined,
 	maxTokenAge: undefined,
 	payloadKey: "jwt",
@@ -65,6 +67,11 @@ const stringOrStringArraySchema = {
 	oneOf: [{ type: "string" }, { type: "array", items: { type: "string" } }],
 };
 
+// `null` disables the aud check.
+const nullableStringOrStringArraySchema = {
+	oneOf: [...stringOrStringArraySchema.oneOf, { const: null }],
+};
+
 // `null` disables the typ check.
 const typSchema = { oneOf: [{ type: "string" }, { const: null }] };
 
@@ -78,7 +85,7 @@ const optionSchema = {
 				type: "object",
 				properties: {
 					jwksUri: { type: "string" },
-					audience: stringOrStringArraySchema,
+					audience: nullableStringOrStringArraySchema,
 					algorithm: stringOrStringArraySchema,
 					typ: typSchema,
 				},
@@ -90,7 +97,7 @@ const optionSchema = {
 		tokenHeaderName: { type: "string" },
 		tokenQueryStringName: { type: "string" },
 		algorithm: stringOrStringArraySchema,
-		audience: stringOrStringArraySchema,
+		audience: nullableStringOrStringArraySchema,
 		issuer: stringOrStringArraySchema,
 		typ: typSchema,
 		clockTolerance: {
@@ -375,6 +382,18 @@ const httpJwtMiddleware = (opts = {}) => {
 		for (const [iss, entry] of Object.entries(options.issuers)) {
 			const entryAlgs = normalizeAlgs(entry.algorithm) ?? topLevelAlgs;
 			assertValidAlgs(entryAlgs, `issuers['${iss}'].algorithm`);
+			// RFC 9068 section 4: the resource server MUST check `aud`. A shared
+			// issuer signs tokens for every client it serves, so with no audience
+			// any of them would pass. `null` is the explicit opt-out, so only
+			// `undefined` inherits, as with `typ`.
+			const audience =
+				entry.audience === undefined ? options.audience : entry.audience;
+			if (audience === undefined) {
+				throw new TypeError(
+					`issuers['${iss}'].audience is required: set it, set the top-level audience, or set null to skip the aud check`,
+					{ cause: { package: pkg } },
+				);
+			}
 			const resolver = createJwksResolver(entry.jwksUri, {
 				cacheMaxAge: options.cacheExpiry,
 				cooldownDuration: options.cooldownDuration,
@@ -382,7 +401,8 @@ const httpJwtMiddleware = (opts = {}) => {
 			});
 			issuersMap.set(iss, {
 				resolver,
-				audience: entry.audience ?? options.audience,
+				// jose skips the check only for `undefined`.
+				audience: audience ?? undefined,
 				algorithms: entryAlgs,
 				// `null` on the issuer disables the check, so only `undefined` inherits.
 				typ: (entry.typ === undefined ? options.typ : entry.typ) ?? undefined,
@@ -418,10 +438,10 @@ const httpJwtMiddleware = (opts = {}) => {
 		throw unauthorized("No token found in configured sources", "Bearer");
 	};
 
+	// jose skips a check only for `undefined`; `null` is the opt-out here.
 	const baseVerifyOptions = {
-		audience: options.audience,
+		audience: options.audience ?? undefined,
 		issuer: options.issuer,
-		// jose skips the check only for `undefined`; `null` is the opt-out here.
 		typ: options.typ ?? undefined,
 		clockTolerance: options.clockTolerance,
 		maxTokenAge: options.maxTokenAge,

@@ -137,6 +137,10 @@ const chunk = (arr, size) => {
 	return out;
 };
 
+// Time left after the handler's budget for DeleteMessageBatch, retries
+// included, before a batch's messages become visible again.
+const acknowledgeHeadroomSeconds = 30;
+
 export const pollSqs = (opts) => {
 	pollSqsValidateOptions(opts);
 	const client = opts.client ?? new SQSClient({});
@@ -153,14 +157,27 @@ export const pollSqs = (opts) => {
 		AttributeNames: ["All"],
 		MessageAttributeNames: ["All"],
 	};
-	if (opts.visibilityTimeout !== undefined) {
-		receiveParams.VisibilityTimeout = opts.visibilityTimeout;
-	}
 
 	return {
 		source: "aws:sqs",
 		client,
-		async *poll(signal) {
+		visibilityTimeout: opts.visibilityTimeout,
+		async *poll(signal, _onError, { timeout } = {}) {
+			// A message not deleted before its visibility timeout expires is
+			// received again mid-batch, and the later delete with this receipt
+			// handle fails. Without a configured value, hide each batch for the
+			// runner's timeout plus headroom for the delete, instead of the queue's
+			// own (30 s by default).
+			// https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html
+			const visibilityTimeout =
+				opts.visibilityTimeout ??
+				(timeout === undefined
+					? undefined
+					: Math.ceil(timeout / 1000) + acknowledgeHeadroomSeconds);
+			const params =
+				visibilityTimeout === undefined
+					? receiveParams
+					: { ...receiveParams, VisibilityTimeout: visibilityTimeout };
 			// A hostname without a region (the bare legacy us-east-1 endpoint, a
 			// custom endpoint) takes the client's region, which the SDK resolves
 			// asynchronously.
@@ -173,7 +190,7 @@ export const pollSqs = (opts) => {
 			while (!signal.aborted) {
 				let res;
 				try {
-					res = await client.send(new ReceiveMessageCommand(receiveParams), {
+					res = await client.send(new ReceiveMessageCommand(params), {
 						abortSignal: signal,
 					});
 				} catch (err) {

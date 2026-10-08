@@ -195,15 +195,32 @@ const detectEventSource = (event) => {
 	return undefined;
 };
 
+// An event without a batch shape has no source and no records. An event that
+// names a source without a partial batch response contract (Amazon MQ, whose
+// Lambda contract retries the whole batch on any error, or any other) throws:
+// treating it as an empty batch would report every record as processed.
+// docs.aws.amazon.com/lambda/latest/dg/with-mq.html
+const resolveBatchSource = (event) => {
+	const eventSource = detectEventSource(event);
+	if (eventSource === undefined) return undefined;
+	const source = sources[eventSource];
+	if (!source) {
+		throw new Error(`Unsupported event source "${eventSource}"`, {
+			cause: { package: pkg, data: { eventSource } },
+		});
+	}
+	return source;
+};
+
 export const flattenBatchRecords = (event) => {
-	const source = sources[detectEventSource(event)];
+	const source = resolveBatchSource(event);
 	if (!source) return [];
 	return source.getRecords(event);
 };
 
 const eventBatchResponseMiddleware = () => {
 	const eventBatchResponseMiddlewareBefore = (request) => {
-		const source = sources[detectEventSource(request.event)];
+		const source = resolveBatchSource(request.event);
 		if (!source) return;
 		// Store records as-is; identifiers are derived lazily by buildResponse
 		// only for the entries that actually need them. Avoids the per-record

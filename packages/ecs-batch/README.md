@@ -49,7 +49,7 @@ For documentation and examples, refer to the main [Middy monorepo on GitHub](htt
 
 ## Workers and stateful sources
 
-`workers` defaults to `availableParallelism()`. This is correct for queue-style sources (SQS, Kafka with consumer groups, RabbitMQ work queues) where multiple competing consumers increase throughput. For shard-based sources where exactly-one consumer per shard is required (Kinesis Data Streams, DynamoDB Streams), set `workers: 1` and scale by running one ECS task per shard.
+`workers` defaults to `availableParallelism()` for queue-style sources (SQS, Kafka with consumer groups, RabbitMQ work queues) where multiple competing consumers increase throughput. Shard-based sources (Kinesis Data Streams, DynamoDB Streams) need exactly one consumer per shard: `workers` defaults to `1` for them and any other value throws at startup. Scale those by running one ECS task per shard.
 
 ## Contributing
 

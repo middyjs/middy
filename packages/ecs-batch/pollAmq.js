@@ -146,30 +146,41 @@ export const pollAmq = (opts) => {
 	const pendingMessages = [];
 	const inflight = new WeakMap();
 	let resolveNext;
+	let failure;
 
 	const wakeReader = () => {
 		resolveNext?.();
 		resolveNext = undefined;
 	};
 
+	// A client that can no longer deliver would leave the loop parked forever.
+	// Fail the poll instead: the worker reports it through onError, exits 1 and
+	// the primary re-forks it.
+	const fail = (err) => {
+		failure = err;
+		wakeReader();
+	};
+
 	return {
 		source: "aws:amq",
 		async *poll(signal) {
 			client = opts.client ?? (await connect(opts.connectOptions));
-			const onAbort = () => {
-				wakeReader();
-				try {
-					client.disconnect();
-				} catch {
-					// best-effort
-				}
-			};
-			signal.addEventListener("abort", onAbort, { once: true });
+			// stompit drops its connect-time "error" listener once connected, and
+			// a dropped socket emits "error" on the client: unheard, it would be an
+			// uncaught exception instead of reaching onError.
+			client.on("error", fail);
+			// On abort only wake the reader: the batch in flight still has to be
+			// acknowledged on this connection. Disconnecting, once the poll ends,
+			// leaves whatever is unacknowledged to the broker to redeliver.
+			signal.addEventListener("abort", wakeReader, { once: true });
 
 			client.subscribe(
 				{ destination: opts.destination, ack: ackMode },
 				(err, message) => {
-					if (err) return;
+					if (err) {
+						fail(err);
+						return;
+					}
 					readBody(message).then(
 						(body) => {
 							pendingMessages.push({
@@ -185,41 +196,53 @@ export const pollAmq = (opts) => {
 				},
 			);
 
-			while (!signal.aborted) {
-				if (pendingMessages.length === 0) {
-					await new Promise((r) => {
-						resolveNext = r;
-					});
-					continue;
+			try {
+				while (!signal.aborted) {
+					if (failure) throw failure;
+					if (pendingMessages.length === 0) {
+						await new Promise((r) => {
+							resolveNext = r;
+						});
+						continue;
+					}
+					const deadline = Date.now() + batchWindowMs;
+					while (
+						pendingMessages.length < batchSize &&
+						Date.now() < deadline &&
+						!signal.aborted
+					) {
+						await timers.setTimeout(Math.min(50, deadline - Date.now()));
+					}
+					if (signal.aborted) return;
+					const taken = pendingMessages.splice(0, batchSize);
+					const event = {
+						eventSource: "aws:amq",
+						eventSourceArn: opts.eventSourceArn,
+						messages: taken.map((t) => t.record),
+					};
+					inflight.set(event, taken);
+					yield event;
+					// The runner resumes here after acknowledging the batch, or after
+					// the handler threw. A batch still in flight was never
+					// acknowledged: NACK every message so the broker redelivers it
+					// instead of holding it against the subscription. On shutdown or
+					// a failure, disconnecting leaves the unacknowledged messages to
+					// the broker to redeliver instead.
+					// https://stomp.github.io/stomp-specification-1.2.html#NACK
+					if (signal.aborted) return;
+					if (failure) throw failure;
+					const unsettled = inflight.get(event);
+					if (unsettled) {
+						inflight.delete(event);
+						for (const t of unsettled) client.nack(t.message);
+					}
 				}
-				const deadline = Date.now() + batchWindowMs;
-				while (
-					pendingMessages.length < batchSize &&
-					Date.now() < deadline &&
-					!signal.aborted
-				) {
-					await timers.setTimeout(Math.min(50, deadline - Date.now()));
-				}
-				if (signal.aborted) return;
-				const taken = pendingMessages.splice(0, batchSize);
-				const event = {
-					eventSource: "aws:amq",
-					eventSourceArn: opts.eventSourceArn,
-					messages: taken.map((t) => t.record),
-				};
-				inflight.set(event, taken);
-				yield event;
-				// The runner resumes here after acknowledging the batch, or after the
-				// handler threw. A batch still in flight was never acknowledged: NACK
-				// every message so the broker redelivers it instead of holding it
-				// against the subscription. On shutdown, disconnecting leaves the
-				// unacknowledged messages to the broker to redeliver instead.
-				// https://stomp.github.io/stomp-specification-1.2.html#NACK
-				if (signal.aborted) return;
-				const unsettled = inflight.get(event);
-				if (unsettled) {
-					inflight.delete(event);
-					for (const t of unsettled) client.nack(t.message);
+			} finally {
+				signal.removeEventListener("abort", wakeReader);
+				try {
+					client.disconnect();
+				} catch {
+					// best-effort
 				}
 			}
 		},

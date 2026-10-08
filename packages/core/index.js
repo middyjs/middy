@@ -16,7 +16,6 @@ const pkg = `@middy/${name}`;
 // A symbol on the context costs ~nothing; a WeakSet added ~80ns/invocation.
 const inFlight = Symbol("middy.inFlight");
 
-const defaultLambdaHandler = () => {};
 const noop = () => {};
 const defaultPluginConfig = {
 	timeoutEarlyInMillis: 5,
@@ -69,7 +68,7 @@ export const middy = (setupLambdaHandler, pluginConfig) => {
 		lambdaHandler = setupLambdaHandler;
 		plugin = { ...pluginConfig };
 	} else {
-		lambdaHandler = defaultLambdaHandler;
+		lambdaHandler = noop;
 		plugin = { ...setupLambdaHandler };
 	}
 	// Per-key rather than a defaults spread, so an explicit `undefined` still
@@ -218,7 +217,10 @@ const runRequest = async (
 				request.context,
 				abortOpts,
 			);
-			if (handlerResult instanceof Promise) {
+			// Any thenable, not only a native Promise: lazy thenables such as the
+			// durable SDK's DurablePromise only run once then() is called.
+			// Middleware results stay real-Promise-only.
+			if (typeof handlerResult?.then === "function") {
 				if (timeoutEarly) {
 					let timeoutResolve;
 					const timeoutPromise = new Promise((resolve, reject) => {

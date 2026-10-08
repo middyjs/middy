@@ -676,14 +676,15 @@ describe("@middy/core/StreamifyResponse", () => {
 			// branch's `while (position < length)` would skip it entirely. Both end
 			// up with empty output, so only the write itself tells them apart.
 			const writes = [];
-			const stream = {
-				write: (chunk) => {
-					writes.push(chunk);
-					return true;
+			const stream = new Writable({
+				write(chunk, encoding, callback) {
+					callback();
 				},
-				end: (cb) => cb?.(),
-				once: () => {},
-				on: () => {},
+			});
+			const originalWrite = stream.write.bind(stream);
+			stream.write = (chunk) => {
+				writes.push(chunk);
+				return originalWrite(chunk);
 			};
 			const handler = middy(async () => "", {
 				executionMode: executionModeStreamifyResponse,
@@ -1062,6 +1063,74 @@ describe("@middy/core/StreamifyResponse", () => {
 				caught = e;
 			}
 			strictEqual(caught, streamErr);
+		});
+
+		// A response stream destroyed without an error (client gone) never
+		// emits 'finish' or 'error', so ending it must still settle, as a failure.
+		test("Should reject when the response stream was destroyed without error", {
+			timeout: 1000,
+		}, async (t) => {
+			t.mock.timers.reset();
+			const responseStream = new Writable({
+				write(chunk, encoding, callback) {
+					callback();
+				},
+			});
+			responseStream.destroy();
+
+			const handler = middy({
+				executionMode: executionModeStreamifyResponse,
+			}).handler(() => "body");
+
+			await rejects(handler(event, responseStream, context), {
+				code: "ERR_STREAM_PREMATURE_CLOSE",
+			});
+		});
+
+		// A response stream that already errored must not report the write as
+		// a success.
+		test("Should reject with the stream error when the response stream already errored", {
+			timeout: 1000,
+		}, async (t) => {
+			t.mock.timers.reset();
+			const streamErr = new Error("stream errored earlier");
+			const responseStream = new Writable({
+				write(chunk, encoding, callback) {
+					callback();
+				},
+			});
+			responseStream.on("error", () => {});
+			responseStream.destroy(streamErr);
+			// Let 'error' and 'close' fire before the handler starts writing.
+			await new Promise((resolve) => setImmediate(resolve));
+
+			const handler = middy({
+				executionMode: executionModeStreamifyResponse,
+			}).handler(() => Buffer.from("body"));
+
+			await rejects(handler(event, responseStream, context), streamErr);
+		});
+
+		// write() returns false on a destroyed stream, and a destroyed stream
+		// never emits 'drain', so the backpressure wait must also end on close.
+		test("Should reject instead of waiting for drain when the response stream closes", {
+			timeout: 1000,
+		}, async (t) => {
+			t.mock.timers.reset();
+			const responseStream = new Writable({
+				write(chunk, encoding, callback) {
+					callback();
+				},
+			});
+			responseStream.destroy();
+
+			const handler = middy({
+				executionMode: executionModeStreamifyResponse,
+			}).handler(() => "x".repeat(16384 * 2));
+
+			await rejects(handler(event, responseStream, context), {
+				code: "ERR_STREAM_PREMATURE_CLOSE",
+			});
 		});
 
 		// The writer waits out backpressure with `once(stream, "drain")`, which

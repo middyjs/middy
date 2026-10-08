@@ -70,6 +70,26 @@ describe("@middy/core/DurableContext", () => {
 			strictEqual(captured.hasUndefinedKey, false);
 		});
 
+		test("executionModeDurableContext normalizes the context before requestStart runs", async () => {
+			let seen;
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+				requestStart: (request) => {
+					seen = {
+						functionName: request.context.functionName,
+						tenantId: request.context.tenantId,
+					};
+				},
+			}).handler(() => "ok");
+
+			await handler({}, baseContext());
+
+			deepStrictEqual(seen, {
+				functionName: "fn-xyz",
+				tenantId: "tenant-123",
+			});
+		});
+
 		test("executionModeDurableContext keeps the outer middyContext intact under a nested request", async () => {
 			const seen = {};
 			const inner = middy({

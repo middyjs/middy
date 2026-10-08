@@ -16,5 +16,10 @@ license:
     - Python-2.0
     - LGPL-3.0-or-later
     - MPL-2.0
+    - OFL-1.1
     - BlueOak-1.0.0
     - Unlicense
+vulnerability:
+  # Matches `ignore-unfixed: true` on the `Trivy: SCA` job: a vulnerability
+  # with no fixed release has no upgrade to act on.
+  ignore-unfixed: true

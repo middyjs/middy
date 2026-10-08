@@ -278,6 +278,29 @@ test("HttpError properties", () => {
 	expect(err instanceof util.HttpError).type.toBe<boolean>();
 });
 
+test("HttpError options", () => {
+	expect(util.HttpError).type.toBeConstructableWith(400, { expose: true });
+	expect(util.HttpError).type.toBeConstructableWith(400, { cause: "x" });
+	expect(util.HttpError).type.toBeConstructableWith(400, {});
+	// The message is always the reason phrase; the constructor never reads one.
+	expect(util.HttpError).type.not.toBeConstructableWith(400, {
+		message: "custom",
+	});
+	expect(util.HttpError).type.not.toBeConstructableWith(400, {
+		expose: "yes",
+	});
+});
+
+test("HttpError headers", () => {
+	const err = new util.HttpError(401);
+	expect(err.headers).type.toBe<
+		Record<string, string | string[]> | undefined
+	>();
+	err.headers = { "WWW-Authenticate": "Bearer" };
+	// No index signature: an undeclared property is a type error.
+	expect(err).type.not.toHaveProperty("somethingElse");
+});
+
 test("modifyCache", () => {
 	expect(util.modifyCache("someKey", { key: "value" })).type.toBe<void>();
 });
@@ -341,6 +364,17 @@ test("setCacheKeyExpiry", () => {
 			Date.now(),
 		),
 	).type.toBe<void>();
+});
+
+test("cacheLearnedExpiry is internal to the cache helpers", () => {
+	// Every package optionSchema rejects it, so it is not a user-facing option.
+	expect<util.Options<unknown, unknown>>().type.not.toHaveProperty(
+		"cacheLearnedExpiry",
+	);
+	expect(util.processCache).type.toBeCallableWith(
+		{ cacheKey: "someKey", cacheExpiry: -1, cacheLearnedExpiry: {} },
+		() => undefined,
+	);
 });
 
 test("buildSetToContextSpec / assignSetToContext", () => {

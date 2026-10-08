@@ -8,10 +8,12 @@ export interface Poller<TEvent, TResponse = unknown> {
 	 * `onError` reports a failure that does not end the poll, such as a batch
 	 * discarded after its retry limit. A throw ends it; an error named
 	 * `SourceClosedError` (a closed shard) stops the task with exit code 2.
+	 * `options.timeout` is the runner's per-batch budget in milliseconds.
 	 */
 	poll: (
 		signal: AbortSignal,
 		onError?: (error: Error, event?: TEvent) => void,
+		options?: { timeout?: number },
 	) => AsyncIterable<TEvent>;
 	acknowledge: (event: TEvent, response: TResponse) => Promise<void> | void;
 }

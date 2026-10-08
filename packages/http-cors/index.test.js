@@ -3586,4 +3586,253 @@ describe("@middy/http-cors", () => {
 			},
 		});
 	});
+
+	// ALB with multi-value headers enabled sends only `multiValueHeaders` and
+	// only reads them back: "You must use multiValueHeaders if you have enabled
+	// multi-value headers and headers otherwise."
+	// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+	const albMultiValueEvent = (httpMethod, multiValueHeaders) => ({
+		httpMethod,
+		requestContext: { elb: { targetGroupArn: "arn" } },
+		multiValueHeaders,
+	});
+
+	test("It should write CORS headers into multiValueHeaders for an ALB multi-value event", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			multiValueHeaders: { "Set-Cookie": ["a=1", "b=2"] },
+		}));
+
+		handler.use(
+			httpCors({
+				origins: ["https://a.com"],
+				credentials: true,
+				exposeHeaders: "X-Id",
+			}),
+		);
+
+		const response = await handler(
+			albMultiValueEvent("GET", { origin: ["https://a.com"] }),
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			statusCode: 200,
+			headers: {},
+			multiValueHeaders: {
+				"Set-Cookie": ["a=1", "b=2"],
+				"Access-Control-Allow-Credentials": ["true"],
+				"Access-Control-Allow-Origin": ["https://a.com"],
+				"Access-Control-Expose-Headers": ["X-Id"],
+				Vary: ["Origin"],
+			},
+		});
+	});
+
+	test("It should create multiValueHeaders for an ALB multi-value event when the handler set none", async (t) => {
+		const handler = middy(() => ({ statusCode: 200 }));
+
+		handler.use(httpCors({ origin: "*" }));
+
+		const response = await handler(
+			albMultiValueEvent("GET", {}),
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			statusCode: 200,
+			headers: {},
+			multiValueHeaders: { "Access-Control-Allow-Origin": ["*"] },
+		});
+	});
+
+	test("It should keep a handler's multiValueHeaders CORS header in any casing", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			multiValueHeaders: {
+				"access-control-allow-origin": ["https://b.com"],
+				"access-control-allow-credentials": ["false"],
+				vary: ["Accept"],
+			},
+		}));
+
+		handler.use(httpCors({ origins: ["https://a.com"], credentials: true }));
+
+		const response = await handler(
+			{ httpMethod: "GET", headers: { Origin: "https://a.com" } },
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			statusCode: 200,
+			headers: {},
+			multiValueHeaders: {
+				"access-control-allow-origin": ["https://b.com"],
+				"access-control-allow-credentials": ["false"],
+				vary: ["Accept, Origin"],
+			},
+		});
+	});
+
+	// API Gateway REST merges both maps and "If the same key-value pair is
+	// specified in both, only the values from multiValueHeaders will appear".
+	// https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
+	test("It should move a changed handler header into multiValueHeaders when the response uses them", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			headers: { Vary: "Accept", "X-Keep": "1" },
+			multiValueHeaders: { "Set-Cookie": ["a=1"] },
+		}));
+
+		handler.use(httpCors({ origins: ["https://a.com"] }));
+
+		const response = await handler(
+			{ httpMethod: "GET", headers: { Origin: "https://a.com" } },
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			statusCode: 200,
+			headers: { "X-Keep": "1" },
+			multiValueHeaders: {
+				"Set-Cookie": ["a=1"],
+				"Access-Control-Allow-Origin": ["https://a.com"],
+				Vary: ["Accept, Origin"],
+			},
+		});
+	});
+
+	test("It should treat a handler header as set when the response uses multiValueHeaders", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			headers: { "Access-Control-Allow-Origin": "https://b.com" },
+			multiValueHeaders: {},
+		}));
+
+		handler.use(httpCors({ origin: "https://a.com" }));
+
+		const response = await handler(
+			{ httpMethod: "GET", headers: {} },
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			statusCode: 200,
+			headers: { "Access-Control-Allow-Origin": "https://b.com" },
+			multiValueHeaders: {},
+		});
+	});
+
+	test("It should not treat an API Gateway REST event with multiValueHeaders as ALB multi-value", async (t) => {
+		const handler = middy(() => ({ statusCode: 200 }));
+
+		handler.use(httpCors({ origin: "*" }));
+
+		const response = await handler(
+			{ httpMethod: "GET", headers: {}, multiValueHeaders: {} },
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			statusCode: 200,
+			headers: { "Access-Control-Allow-Origin": "*" },
+		});
+	});
+
+	test("It should not treat an ALB event without multiValueHeaders as multi-value", async (t) => {
+		const handler = middy(() => ({ statusCode: 200 }));
+
+		handler.use(httpCors({ origin: "*" }));
+
+		const response = await handler(
+			{ httpMethod: "GET", requestContext: { elb: {} }, headers: {} },
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			statusCode: 200,
+			headers: { "Access-Control-Allow-Origin": "*" },
+		});
+	});
+
+	test("It should answer a preflight in multiValueHeaders for an ALB multi-value event", async (t) => {
+		const handler = middy(() => ({ statusCode: 200 }));
+
+		handler.use(
+			httpCors({
+				disableBeforePreflightResponse: false,
+				origins: ["https://a.com"],
+				methods: "GET",
+				requestMethods: ["GET"],
+				requestHeaders: ["authorization"],
+			}),
+		);
+
+		const response = await handler(
+			albMultiValueEvent("OPTIONS", {
+				origin: ["https://a.com"],
+				"access-control-request-method": ["GET"],
+				"access-control-request-headers": ["Authorization"],
+			}),
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			statusCode: 204,
+			headers: {},
+			multiValueHeaders: {
+				"Access-Control-Allow-Methods": ["GET"],
+				"Access-Control-Allow-Origin": ["https://a.com"],
+				Vary: [
+					"Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+				],
+			},
+		});
+	});
+
+	test("It should reject a preflight in multiValueHeaders for an ALB multi-value event", async (t) => {
+		const handler = middy(() => ({ statusCode: 200 }));
+
+		handler.use(
+			httpCors({
+				disableBeforePreflightResponse: false,
+				origins: ["https://a.com"],
+				requestMethods: ["GET"],
+			}),
+		);
+
+		const response = await handler(
+			albMultiValueEvent("OPTIONS", {
+				origin: ["https://a.com"],
+				"access-control-request-method": ["DELETE"],
+			}),
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			statusCode: 204,
+			headers: {},
+			multiValueHeaders: {
+				Vary: ["Origin, Access-Control-Request-Method"],
+			},
+		});
+	});
+
+	test("It should fold a repeated multiValueHeaders Vary into one list before adding Origin", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			multiValueHeaders: { Vary: ["Accept", "Accept-Encoding"] },
+		}));
+
+		handler.use(httpCors({ origins: ["https://a.com"] }));
+
+		const response = await handler(
+			albMultiValueEvent("GET", { origin: ["https://a.com"] }),
+			defaultContext,
+		);
+
+		deepStrictEqual(response.multiValueHeaders.Vary, [
+			"Accept, Accept-Encoding, Origin",
+		]);
+	});
 });

@@ -1,4 +1,10 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	ok,
+	rejects,
+	strictEqual,
+	throws,
+} from "node:assert/strict";
 import { describe, test } from "node:test";
 import createEvent from "@serverless/event-mocks";
 
@@ -416,15 +422,38 @@ describe("@middy/event-batch-response", () => {
 		});
 	});
 
-	test("unknown eventSource: leaves response untouched", async () => {
-		const event = { Records: [{ eventSource: "aws:unknown", id: "x" }] };
-		const handler = middy(async () => ({ pass: true })).use(
-			eventBatchResponse(),
-		);
+	// Amazon MQ has no partial batch response: "If your function returns an
+	// error for any of the messages in a batch, Lambda retries the whole batch".
+	// docs.aws.amazon.com/lambda/latest/dg/with-mq.html
+	const unsupportedSourceError = (eventSource) => (err) => {
+		strictEqual(err.message, `Unsupported event source "${eventSource}"`);
+		deepStrictEqual(err.cause, {
+			package: "@middy/event-batch-response",
+			data: { eventSource },
+		});
+		return true;
+	};
 
-		const response = await handler(event, defaultContext);
-		deepStrictEqual(response, { pass: true });
-	});
+	for (const event of [
+		{ Records: [{ eventSource: "aws:unknown", id: "x" }] },
+		{ eventSource: "aws:rmq", rmqMessagesByQueue: { "q::/": [{}] } },
+		{ eventSource: "aws:mq", messages: [{ messageID: "m" }] },
+	]) {
+		const eventSource = event.eventSource ?? event.Records[0].eventSource;
+		test(`unsupported eventSource ${eventSource}: throws before the handler runs`, async () => {
+			let calls = 0;
+			const handler = middy(async () => {
+				calls += 1;
+				return [];
+			}).use(eventBatchResponse());
+
+			await rejects(
+				handler(event, defaultContext),
+				unsupportedSourceError(eventSource),
+			);
+			strictEqual(calls, 0);
+		});
+	}
 
 	test("missing Records / records / events: no-op", async () => {
 		const event = {};
@@ -674,31 +703,35 @@ describe("@middy/event-batch-response", () => {
 		strictEqual(caught.message, "durable-step-exhausted");
 	});
 
-	test("onError unknown source: does nothing", async () => {
-		const event = { Records: [{ eventSource: "aws:unknown" }] };
+	test("onError without a batch shape: does nothing", async () => {
 		const handler = middy(async () => {
 			throw new Error("boom");
 		}).use(eventBatchResponse());
 
-		let caught;
-		try {
-			await handler(event, defaultContext);
-		} catch (e) {
-			caught = e;
-		}
-		ok(caught instanceof Error);
-		strictEqual(caught.message, "boom");
+		await rejects(handler({}, defaultContext), { message: "boom" });
 	});
 
 	// --- flattenBatchRecords (public named export) -------------------------
 
-	test("flattenBatchRecords: unknown / null / undefined → []", () => {
+	test("flattenBatchRecords: no batch shape / null / undefined → []", () => {
 		deepStrictEqual(flattenBatchRecords(null), []);
 		deepStrictEqual(flattenBatchRecords(undefined), []);
 		deepStrictEqual(flattenBatchRecords({}), []);
-		deepStrictEqual(
-			flattenBatchRecords({ Records: [{ eventSource: "aws:unknown" }] }),
-			[],
+		deepStrictEqual(flattenBatchRecords({ Records: [] }), []);
+	});
+
+	test("flattenBatchRecords: unsupported eventSource throws", () => {
+		throws(
+			() => flattenBatchRecords({ Records: [{ eventSource: "aws:unknown" }] }),
+			unsupportedSourceError("aws:unknown"),
+		);
+		throws(
+			() =>
+				flattenBatchRecords({
+					eventSource: "aws:rmq",
+					rmqMessagesByQueue: { "q::/": [{}] },
+				}),
+			unsupportedSourceError("aws:rmq"),
 		);
 	});
 
@@ -1216,63 +1249,58 @@ describe("@middy/event-batch-response", () => {
 	// --- after runs only when before cached an entry ------------------------
 
 	test("after with no cached entry leaves an array response untouched", async () => {
-		// Unrecognized source: before stores nothing, so after must early-return
+		// No batch shape: before stores nothing, so after must early-return
 		// even though request.response is an array.
-		const event = { Records: [{ eventSource: "aws:unknown", id: "x" }] };
 		const settled = [{ status: "rejected", reason: new Error("x") }];
 		const handler = middy(async () => settled).use(eventBatchResponse());
 
-		const response = await handler(event, defaultContext);
+		const response = await handler({}, defaultContext);
 		deepStrictEqual(response, settled);
 	});
 
 	// --- prototype-pollution-safe source lookup -----------------------------
 
-	test("flattenBatchRecords: event-level eventSource matching Object.prototype member → []", () => {
-		// A source string equal to an inherited Object.prototype member ("constructor",
-		// "__proto__", "toString", "hasOwnProperty", "valueOf") must NOT resolve to a
-		// truthy inherited value; the unknown-source contract is a graceful [].
-		for (const proto of [
-			"constructor",
-			"__proto__",
-			"toString",
-			"hasOwnProperty",
-			"valueOf",
-		]) {
-			deepStrictEqual(
-				flattenBatchRecords({
-					eventSource: proto,
-					Records: [{ messageId: "a" }],
-				}),
-				[],
-				`event-level eventSource "${proto}" must be treated as unknown`,
+	// A source string equal to an inherited Object.prototype member must NOT
+	// resolve to a truthy inherited value; it is an unsupported source.
+	const protoMembers = [
+		"constructor",
+		"__proto__",
+		"toString",
+		"hasOwnProperty",
+		"valueOf",
+	];
+
+	test("flattenBatchRecords: event-level eventSource matching Object.prototype member throws", () => {
+		for (const proto of protoMembers) {
+			throws(
+				() =>
+					flattenBatchRecords({
+						eventSource: proto,
+						Records: [{ messageId: "a" }],
+					}),
+				unsupportedSourceError(proto),
 			);
 		}
 	});
 
-	test("flattenBatchRecords: record-level eventSource matching Object.prototype member → []", () => {
-		for (const proto of [
-			"constructor",
-			"__proto__",
-			"toString",
-			"hasOwnProperty",
-			"valueOf",
-		]) {
-			deepStrictEqual(
-				flattenBatchRecords({ Records: [{ eventSource: proto }] }),
-				[],
-				`record-level eventSource "${proto}" must be treated as unknown`,
+	test("flattenBatchRecords: record-level eventSource matching Object.prototype member throws", () => {
+		for (const proto of protoMembers) {
+			throws(
+				() => flattenBatchRecords({ Records: [{ eventSource: proto }] }),
+				unsupportedSourceError(proto),
 			);
 		}
 	});
 
-	test("before hook handles eventSource matching Object.prototype member gracefully", async () => {
+	test("before hook rejects eventSource matching Object.prototype member", async () => {
 		const event = { eventSource: "constructor", Records: [{ messageId: "a" }] };
 		const handler = middy(async () => ({ pass: true })).use(
 			eventBatchResponse(),
 		);
 
-		const response = await handler(event, defaultContext);
-		deepStrictEqual(response, { pass: true });
+		await rejects(
+			handler(event, defaultContext),
+			unsupportedSourceError("constructor"),
+		);
 	});
 });

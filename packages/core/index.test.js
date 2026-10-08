@@ -8,6 +8,7 @@ import {
 import { AsyncLocalStorage } from "node:async_hooks";
 import { syncBuiltinESMExports } from "node:module";
 import { describe, test } from "node:test";
+import { DurablePromise } from "@aws/durable-execution-sdk-js";
 import { contextNamespace } from "@middy/util";
 import middy, { middyValidateOptions } from "./index.js";
 
@@ -1469,6 +1470,76 @@ describe("@middy/core", () => {
 
 		strictEqual(handlerCalled, false);
 		strictEqual(response, undefined);
+	});
+
+	test("Should await a non-Promise thenable returned by the handler before after middlewares", async () => {
+		// Lazy thenables (e.g. DurablePromise) only run once then() is called,
+		// so the handler result is awaited whenever it has a then() method.
+		let ran = false;
+		let afterResponse;
+		const handler = middy(
+			() =>
+				createThenable((resolve) => {
+					ran = true;
+					resolve("thenable-response");
+				}),
+			{ timeoutEarlyInMillis: 0 },
+		).after((request) => {
+			afterResponse = request.response;
+		});
+
+		const response = await handler(defaultEvent, defaultContext);
+
+		strictEqual(ran, true);
+		strictEqual(afterResponse, "thenable-response");
+		strictEqual(response, "thenable-response");
+	});
+
+	test("Should race a non-Promise thenable returned by the handler against the early timeout", async (t) => {
+		await withMockedCoreTimers(t, async () => {
+			let aborted = false;
+			// Never settles, so only the early timeout can resolve the request.
+			const handler = middy(
+				(event, context, { signal }) => {
+					signal.addEventListener("abort", () => {
+						aborted = true;
+					});
+					return createThenable(() => {});
+				},
+				{
+					timeoutEarlyInMillis: 1,
+					timeoutEarlyResponse: () => "early response",
+				},
+			);
+
+			const pending = handler(defaultEvent, {
+				getRemainingTimeInMillis: () => 2,
+			});
+			t.mock.timers.tick(1);
+
+			strictEqual(await pending, "early response");
+			strictEqual(aborted, true);
+		});
+	});
+
+	test("Should run a DurablePromise returned by the handler before after middlewares", async () => {
+		let ran = false;
+		let afterResponse;
+		const handler = middy(
+			() =>
+				new DurablePromise(async () => {
+					ran = true;
+					return "durable-response";
+				}),
+		).after((request) => {
+			afterResponse = request.response;
+		});
+
+		const response = await handler(defaultEvent, defaultContext);
+
+		strictEqual(ran, true);
+		strictEqual(afterResponse, "durable-response");
+		strictEqual(response, "durable-response");
 	});
 
 	test("Should throw error when timeout expires", async (t) => {

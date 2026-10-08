@@ -19,6 +19,18 @@ import { type KinesisPoller, pollKinesis } from "./pollKinesis.js";
 import { pollRmq, type RabbitMQEvent, type RmqPoller } from "./pollRmq.js";
 import { pollSqs, type SqsPoller } from "./pollSqs.js";
 
+test("SqsPoller exposes its visibilityTimeout", () => {
+	const poller = pollSqs({
+		queueUrl: "https://sqs.us-east-1.amazonaws.com/1/q",
+	});
+	expect(poller.visibilityTimeout).type.toBe<number | undefined>();
+	expect(poller.poll).type.toBeCallableWith(
+		new AbortController().signal,
+		() => {},
+		{ timeout: 1000 },
+	);
+});
+
 test("poller factories return typed pollers", () => {
 	expect(
 		pollSqs({ queueUrl: "https://sqs.us-east-1.amazonaws.com/1/q" }),

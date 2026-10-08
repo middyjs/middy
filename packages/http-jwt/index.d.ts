@@ -11,7 +11,11 @@ import type { JWTPayload } from "jose";
 
 export interface IssuerConfig {
 	jwksUri: string;
-	audience?: string | string[];
+	/**
+	 * Overrides the top-level `audience` for this issuer; `null` disables the
+	 * check. One of the two is required (RFC 9068 section 4).
+	 */
+	audience?: string | string[] | null;
 	algorithm?: string | string[];
 	/** Overrides the top-level `typ` for this issuer; `null` disables the check. */
 	typ?: string | null;
@@ -24,7 +28,8 @@ export interface Options {
 	tokenHeaderName?: string;
 	tokenQueryStringName?: string;
 	algorithm?: string | string[];
-	audience?: string | string[];
+	/** Expected `aud`. `null` disables the check. Required for `issuers` unless every entry sets its own. */
+	audience?: string | string[] | null;
 	issuer?: string | string[];
 	/**
 	 * Expected JWS `typ` header (RFC 9068 section 4). Defaults to "at+jwt";
@@ -33,6 +38,7 @@ export interface Options {
 	 */
 	typ?: string | null;
 	clockTolerance?: number;
+	/** Require an `exp` claim. Defaults to true (RFC 9068 section 2.2). */
 	requireExp?: boolean;
 	maxTokenAge?: string | number;
 	expectedClaims?: Record<string, string | number | boolean>;

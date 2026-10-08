@@ -21,6 +21,10 @@ const css =
 
 const iconLabel = /^(\s*(\w+)@\{[^}]*label: ")([^"]*)"/gm;
 
+// Repo-authored text into an SVG text node or a quoted attribute of mdsvex output.
+// `{` is escaped because mdsvex output is compiled as Svelte, where it starts an expression.
+const escapeText = (s) => s.replace(/[&<"{]/g, (c) => `&#${c.charCodeAt(0)};`);
+
 // Mermaid's icon shape anchors edges at the centre of icon+label, half a label
 // below the icon's middle, with no config to change it (see `async function
 // icon` in mermaid). So render icon-only nodes, whose edges meet the icon's
@@ -48,8 +52,7 @@ const addIconLabels = (svg, source) => {
 			minX = Math.min(minX, Number(x) - half);
 			maxX = Math.max(maxX, Number(x) + half);
 			maxY = Math.max(maxY, Number(y) + 50);
-			const escaped = text.replaceAll("&", "&amp;").replaceAll("<", "&lt;");
-			return `${tag}<text class="icon-label" y="44" text-anchor="middle">${escaped}</text>`;
+			return `${tag}<text class="icon-label" y="44" text-anchor="middle">${escapeText(text)}</text>`;
 		},
 	);
 	return out
@@ -105,7 +108,7 @@ export function remarkMermaid() {
 		for (const { node, file } of fences) {
 			const alt = /accDescr:\s*(.+)/.exec(node.value)?.[1].trim() ?? "";
 			node.type = "html";
-			node.value = `<img class="diagram" src="/diagrams/${file}" alt="${alt.replaceAll('"', "&quot;")}" loading="lazy">`;
+			node.value = `<img class="diagram" src="/diagrams/${file}" alt="${escapeText(alt)}" loading="lazy">`;
 		}
 	};
 }
