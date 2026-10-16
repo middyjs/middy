@@ -64,7 +64,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"peerDependencies": {
-		"@x402/core": "^2.0.0",
+		"@x402/core": "^2.28.0",
 		"@middy/core": "8.0.0-alpha.1",
 		"@types/aws-lambda": "^8.0.0"
 	},
@@ -83,6 +83,6 @@
 		"@middy/core": "8.0.0-alpha.1",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^24.0.0",
-		"@x402/core": "^2.0.0"
+		"@x402/core": "^2.28.0"
 	}
 }
