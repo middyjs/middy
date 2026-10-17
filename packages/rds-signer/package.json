@@ -63,7 +63,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"peerDependencies": {
-		"@aws-sdk/rds-signer": "^3.0.0",
+		"@aws-sdk/rds-signer": "^3.1145.0",
 		"@middy/core": "8.0.0-alpha.1",
 		"@types/aws-lambda": "^8.0.0"
 	},
@@ -79,7 +79,7 @@
 		"@middy/util": "8.0.0-alpha.1"
 	},
 	"devDependencies": {
-		"@aws-sdk/rds-signer": "^3.0.0",
+		"@aws-sdk/rds-signer": "^3.1145.0",
 		"@middy/core": "8.0.0-alpha.1",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^24.0.0",
