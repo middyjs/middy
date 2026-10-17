@@ -34,7 +34,7 @@ npm install --save @middy/ecs-http
 - `eventVersion` (string): One of `"2.0"` (API Gateway HTTP API), `"1.0"` (API Gateway REST), or `"alb"` (ALB target group). Defaults to `"2.0"`.
 - `requestContext` (object): Static fields merged into every event's `requestContext`. Merged on top of values fetched from the ECS task metadata endpoint, so caller-provided values win.
 - `workers` (integer): Number of forked worker processes. Defaults to `availableParallelism()` (matches Fargate vCPU at runtime). `1` serves from the main process with no cluster.
-- `timeout` (integer, ms): Wall-clock budget exposed via `context.getRemainingTimeInMillis`. Defaults to `60000`. Abort itself is Middy's job (configure `timeoutEarlyInMillis` on your handler if you need early-timeout behavior).
+- `timeout` (integer, ms): Wall-clock budget exposed via `context.getRemainingTimeInMillis`. Defaults to `60000`. Abort itself is Middy's job: its early timeout (`timeoutEarlyInMillis`, 5 ms by default) answers with an error just before the budget runs out. On a server that timer has a cost; see [Early timeout](#early-timeout).
 - `bodyLimit` (integer, bytes): Maximum request body size. Defaults to `10 * 1024 * 1024` (10 MB, matches the ALB default). Over-limit requests get a `413` response: a declared `Content-Length` above the limit is rejected before the body is read, and a streamed body stops buffering and gets the `413` once it passes the limit.
 - `gracefulShutdownMs` (integer, ms): How long a worker drains after `SIGTERM` before force-closing the remaining connections and exiting `1`. Defaults to `25000`, or `800` on a Lambda Web Function. Keep it a few seconds below the ECS task `stopTimeout` (30 s by default), as with `@middy/ecs-batch`.
 - `trustedProxies` (integer): Number of trailing `X-Forwarded-For` hops appended by proxies you control. Defaults to `1`, which is a single ALB in front of the task: the client IP is the last hop, the one the load balancer appended. Set `2` when CloudFront sits in front of the ALB, and `0` to ignore the header and use the socket address (no proxy at all).
@@ -93,6 +93,18 @@ await ecsHttpRunner({
   },
 })
 ```
+
+## Early timeout
+
+For every request, Middy arms a timer so that `timeoutEarlyResponse` can answer before `timeout` runs out (`timeoutEarlyInMillis`, 5 ms by default). On a long-running server that timer is most of what `middy()` costs per request, roughly a tenth of the CPU of a small request, because Node builds and tears down a timer list for each one. Lambda Event Functions don't notice it, since they run one invocation at a time. Handlers that don't need the early answer should turn it off:
+
+```javascript
+const handler = middy({ timeoutEarlyInMillis: 0 })
+  .use(httpErrorHandler())
+  .handler(lambdaHandler)
+```
+
+With it off, the runner no longer turns a handler that overruns `timeout` into an error response: the client waits until it, or the load balancer, gives up (an ALB's idle timeout is 60 s by default), and the handler keeps running in the meantime. `context.getRemainingTimeInMillis()` still counts down for handlers that check it themselves. On a Lambda Web Function the revision's `timeoutSeconds` still bounds each request.
 
 ## Faster cluster start
 
