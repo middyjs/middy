@@ -23,14 +23,35 @@ export type EcsHttpResult =
 	| APIGatewayProxyResultV2
 	| ALBResult;
 
-export interface EcsHttpRunnerOptions<
+type EcsHttpHandler<TEvent, TResult> =
+	| LambdaHandler<TEvent, TResult>
+	| MiddyfiedHandler<TEvent, TResult>;
+
+export type EcsHttpRunnerOptions<
 	TEvent extends EcsHttpEvent = APIGatewayProxyEventV2,
 	TResult extends EcsHttpResult = APIGatewayProxyResultV2,
-> {
-	handler: LambdaHandler<TEvent, TResult> | MiddyfiedHandler<TEvent, TResult>;
+> = EcsHttpRunnerSettings &
+	(
+		| { handler: EcsHttpHandler<TEvent, TResult>; loadHandler?: never }
+		| {
+				handler?: never;
+				/**
+				 * Loads the handler, e.g. `() => import("./handler.js").then((m) => m.handler)`.
+				 * Called only in the process that serves requests, so a cluster
+				 * primary never imports the application.
+				 */
+				loadHandler: () => Promise<EcsHttpHandler<TEvent, TResult>>;
+		  }
+	);
+
+interface EcsHttpRunnerSettings {
+	/** Defaults to 80, or the port in AWS_LAMBDA_HTTP_ENDPOINT on a Lambda Web Function. */
 	port?: number;
+	/** Address to bind. Defaults to all interfaces, or the host in AWS_LAMBDA_HTTP_ENDPOINT. */
+	host?: string;
 	eventVersion?: EventVersion;
 	requestContext?: Record<string, unknown>;
+	/** Defaults to availableParallelism(). With 1, requests are served from this process (no cluster). */
 	workers?: number;
 	timeout?: number;
 	bodyLimit?: number;
@@ -44,7 +65,8 @@ export interface EcsHttpRunnerOptions<
 	/**
 	 * Milliseconds a worker waits after SIGTERM for in-flight requests before
 	 * it cuts the remaining connections and exits 1. Default 25000, under the
-	 * ECS default stopTimeout of 30s.
+	 * ECS default stopTimeout of 30s; 800 on a Lambda Web Function, which
+	 * allows 1s after SIGTERM.
 	 */
 	gracefulShutdownMs?: number;
 	contextOverride?: {

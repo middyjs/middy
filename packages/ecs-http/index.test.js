@@ -11,6 +11,7 @@ import nodeCluster from "node:cluster";
 import { EventEmitter } from "node:events";
 import http from "node:http";
 import net from "node:net";
+import { Readable } from "node:stream";
 import { describe, mock, test } from "node:test";
 import {
 	buildContext,
@@ -135,7 +136,7 @@ describe("@middy/ecs-http", () => {
 	test("ecsHttpValidateOptions names the package in the error cause", () => {
 		throws(() => ecsHttpValidateOptions({}), {
 			name: "TypeError",
-			message: "Missing required option 'handler'",
+			message: "Pass exactly one of 'handler' or 'loadHandler'",
 			cause: { package: "@middy/ecs-http" },
 		});
 	});
@@ -787,13 +788,15 @@ describe("@middy/ecs-http", () => {
 			"set-cookie": ["a=1", "b=2"],
 			"content-length": 2,
 		});
-		deepStrictEqual(res._calls.endArgs, ["ok"]);
+		deepStrictEqual(res._calls.endArgs, ["ok", "latin1"]);
 	});
 
 	test("writeResponse sets content-length in bytes, not characters", () => {
 		const res = fakeRes();
 		writeResponse(res, "héllo");
 		strictEqual(res._calls.writeHead.headers["content-length"], 6);
+		// Not ASCII, so it is written as utf8 (the default).
+		deepStrictEqual(res._calls.endArgs, ["héllo", undefined]);
 	});
 
 	test("writeResponse keeps a handler-set content-length or transfer-encoding", () => {
@@ -905,6 +908,109 @@ describe("@middy/ecs-http", () => {
 			});
 			const body = await res.json();
 			strictEqual(body.requestContext.http.sourceIp, "203.0.113.9");
+		} finally {
+			await close();
+		}
+	});
+
+	test("integration: ASCII and non-ASCII bodies arrive byte-exact", async () => {
+		for (const body of ["a".repeat(70_000), `héllo ✓ ${"é".repeat(9_000)}`]) {
+			const { url, close } = await startWith({ handler: async () => body });
+			try {
+				const res = await fetch(`${url}/`);
+				const bytes = Buffer.from(await res.arrayBuffer());
+				strictEqual(res.headers.get("content-length"), String(bytes.length));
+				strictEqual(bytes.toString("utf8"), body);
+			} finally {
+				await close();
+			}
+		}
+	});
+
+	test("integration: a Node Readable body is streamed to the client", async () => {
+		const { url, close } = await startWith({
+			handler: async () => ({
+				statusCode: 201,
+				headers: { "x-a": "1" },
+				body: Readable.from(["hel", "lo"]),
+			}),
+		});
+		try {
+			const res = await fetch(`${url}/`);
+			strictEqual(res.status, 201);
+			strictEqual(res.headers.get("x-a"), "1");
+			strictEqual(res.headers.get("transfer-encoding"), "chunked");
+			strictEqual(res.headers.get("content-length"), null);
+			strictEqual(await res.text(), "hello");
+		} finally {
+			await close();
+		}
+	});
+
+	test("integration: a web ReadableStream body is streamed to the client", async () => {
+		const { url, close } = await startWith({
+			handler: async () => ({
+				statusCode: 200,
+				body: new ReadableStream({
+					start(controller) {
+						controller.enqueue(new TextEncoder().encode("wé"));
+						controller.enqueue(new TextEncoder().encode("b"));
+						controller.close();
+					},
+				}),
+			}),
+		});
+		try {
+			const res = await fetch(`${url}/`);
+			strictEqual(res.headers.get("transfer-encoding"), "chunked");
+			strictEqual(await res.text(), "wéb");
+		} finally {
+			await close();
+		}
+	});
+
+	test("integration: a stream body that fails mid-way cuts the response off", async () => {
+		const { url, close } = await startWith({
+			handler: async () => ({
+				statusCode: 200,
+				body: new Readable({
+					read() {
+						this.push("partial");
+						this.destroy(new Error("source failed"));
+					},
+				}),
+			}),
+		});
+		try {
+			// The connection drops before the response completes: depending on
+			// what was flushed, either the request or reading the body fails.
+			await rejects(fetch(`${url}/`).then((res) => res.text()));
+		} finally {
+			await close();
+		}
+	});
+
+	test("integration: a client that disconnects mid-stream destroys the source", async () => {
+		// Never ends on its own: only the disconnect can stop it.
+		const source = new Readable({ read() {} });
+		source.push("first");
+		const { url, close } = await startWith({
+			handler: async () => ({ statusCode: 200, body: source }),
+		});
+		try {
+			await new Promise((resolve, reject) => {
+				const req = http.get(url, (res) => {
+					res.once("data", () => {
+						req.destroy();
+						resolve();
+					});
+				});
+				req.on("error", () => {});
+				req.setTimeout(5000, () => reject(new Error("no data")));
+			});
+			// Destroyed with or without an error; either way it closes.
+			await new Promise((resolve) => source.once("close", resolve));
+			strictEqual(source.destroyed, true);
 		} finally {
 			await close();
 		}
@@ -1470,7 +1576,7 @@ describe("@middy/ecs-http", () => {
 			on: noop,
 		};
 		const { onSigterm } = await ecsHttpRunner(
-			{ handler: noop, workers: 1 },
+			{ handler: noop, workers: 2 },
 			{ cluster: fakeCluster, fetch: async () => ({ ok: false }) },
 		);
 		ok(typeof onSigterm === "function");
@@ -1670,7 +1776,7 @@ describe("@middy/ecs-http", () => {
 	test("runWorker uses injected http impl", async () => {
 		let createCalled = false;
 		const fakeServer = {
-			listen(_port, cb) {
+			listen(_port, _host, cb) {
 				cb();
 			},
 			address() {
@@ -2226,8 +2332,9 @@ describe("@middy/ecs-http", () => {
 	const fakeHttp = () => {
 		const calls = { listen: undefined };
 		const server = {
-			listen(port, cb) {
+			listen(port, host, cb) {
 				calls.listen = port;
+				calls.host = host;
 				cb();
 			},
 			close(cb) {
@@ -2257,6 +2364,206 @@ describe("@middy/ecs-http", () => {
 			for (const key of ecsEnvKeys) delete process.env[`MIDDY_ECS_${key}`];
 		});
 	};
+
+	// Lambda Web Functions always set AWS_LAMBDA_HTTP_ENDPOINT; ECS never does.
+	// https://docs.aws.amazon.com/lambda/latest/dg/web-functions-revisions-env-vars.html
+	const withLambdaEndpoint = (t, value) => {
+		const previous = process.env.AWS_LAMBDA_HTTP_ENDPOINT;
+		process.env.AWS_LAMBDA_HTTP_ENDPOINT = value;
+		t.after(() => {
+			if (previous === undefined) delete process.env.AWS_LAMBDA_HTTP_ENDPOINT;
+			else process.env.AWS_LAMBDA_HTTP_ENDPOINT = previous;
+		});
+	};
+
+	test("ecsHttpRunner on a Lambda Web Function listens on AWS_LAMBDA_HTTP_ENDPOINT", async (t) => {
+		withLambdaEndpoint(t, "127.0.0.1:9123");
+		const { calls, http } = fakeHttp();
+		const { onSigterm } = await ecsHttpRunner(
+			{ handler: noop, workers: 1 },
+			{ cluster: { isPrimary: false }, http, exit: noop },
+		);
+		process.removeListener("SIGTERM", onSigterm);
+		strictEqual(calls.listen, 9123);
+		strictEqual(calls.host, "127.0.0.1");
+	});
+
+	test("ecsHttpRunner on a Lambda Web Function drains within its 1s SIGTERM window", async (t) => {
+		withLambdaEndpoint(t, "127.0.0.1:9123");
+		t.mock.timers.enable({ apis: ["setTimeout"] });
+		const exits = [];
+		const { http, server } = fakeHttp();
+		server.close = noop;
+		server.closeAllConnections = noop;
+		const { onSigterm } = await ecsHttpRunner(
+			{ handler: noop, workers: 1 },
+			{ cluster: { isPrimary: false }, http, exit: (code) => exits.push(code) },
+		);
+		process.removeListener("SIGTERM", onSigterm);
+		const drained = onSigterm();
+		t.mock.timers.tick(799);
+		deepStrictEqual(exits, []);
+		t.mock.timers.tick(1);
+		await drained;
+		deepStrictEqual(exits, [1]);
+	});
+
+	test("request handler on a Lambda Web Function uses lambda-web-request-id as awsRequestId", async (t) => {
+		withLambdaEndpoint(t, "127.0.0.1:9123");
+		const { seen, requestHandler } = capture();
+		await dispatch(
+			requestHandler,
+			makeReq({
+				headers: {
+					"lambda-web-request-id": "lw-1",
+					"x-amzn-trace-id": "Root=1-abc",
+				},
+			}),
+		);
+		strictEqual(seen.context.awsRequestId, "lw-1");
+		strictEqual(seen.event.requestContext.requestId, "lw-1");
+	});
+
+	test("request handler off Lambda ignores a client-sent lambda-web-request-id", async (t) => {
+		// Only Lambda sets the header; elsewhere it comes from the client.
+		withLambdaEndpoint(t, undefined);
+		delete process.env.AWS_LAMBDA_HTTP_ENDPOINT;
+		const { seen, requestHandler } = capture();
+		await dispatch(
+			requestHandler,
+			makeReq({
+				headers: {
+					"lambda-web-request-id": "spoofed",
+					"x-amzn-trace-id": "Root=1-abc",
+				},
+			}),
+		);
+		strictEqual(seen.context.awsRequestId, "Root=1-abc");
+	});
+
+	test("ecsHttpRunner serves with the handler loadHandler resolves", async () => {
+		const { calls, http } = fakeHttp();
+		const { onSigterm } = await ecsHttpRunner(
+			{
+				loadHandler: async () => async () => ({
+					statusCode: 200,
+					body: "lazy",
+				}),
+				workers: 1,
+			},
+			{ cluster: { isPrimary: false }, http, exit: noop },
+		);
+		process.removeListener("SIGTERM", onSigterm);
+		const res = await dispatch(calls.requestHandler, makeReq());
+		deepStrictEqual(res.endArgs, ["lazy", "latin1"]);
+	});
+
+	test("ecsHttpRunner never calls loadHandler in the cluster primary", async () => {
+		const cluster = makeFakeCluster();
+		let loads = 0;
+		const { onSigterm } = await ecsHttpRunner(
+			{
+				loadHandler: async () => {
+					loads++;
+					return noop;
+				},
+				workers: 2,
+			},
+			{ cluster, fetch: async () => ({ ok: false }), exit: noop },
+		);
+		process.removeListener("SIGTERM", onSigterm);
+		strictEqual(cluster.forks, 2);
+		strictEqual(loads, 0);
+	});
+
+	test("ecsHttpValidateOptions requires exactly one of handler and loadHandler", () => {
+		throws(() => ecsHttpValidateOptions({}), TypeError);
+		throws(
+			() => ecsHttpValidateOptions({ handler: noop, loadHandler: noop }),
+			TypeError,
+		);
+		ecsHttpValidateOptions({ handler: noop });
+		ecsHttpValidateOptions({ loadHandler: noop });
+	});
+
+	test("ecsHttpRunner fails at startup when loadHandler does not resolve to a function", async () => {
+		const { calls, http } = fakeHttp();
+		await rejects(
+			ecsHttpRunner(
+				// The module, not its handler export.
+				{ loadHandler: async () => ({ handler: noop }), workers: 1 },
+				{ cluster: { isPrimary: false }, http, exit: noop },
+			),
+			TypeError,
+		);
+		strictEqual(calls.requestHandler, undefined);
+	});
+
+	test("ecsHttpRunner with one worker outside ECS skips the metadata lookup", async (t) => {
+		withEcsEnv(t, {});
+		const uri = process.env.ECS_CONTAINER_METADATA_URI_V4;
+		delete process.env.ECS_CONTAINER_METADATA_URI_V4;
+		t.after(() => {
+			if (uri !== undefined) process.env.ECS_CONTAINER_METADATA_URI_V4 = uri;
+		});
+		const cluster = makeFakeCluster();
+		const { calls, http } = fakeHttp();
+		const seen = {};
+		const { onSigterm } = await ecsHttpRunner(
+			{
+				handler: async (event) => {
+					seen.event = event;
+					return { statusCode: 200, body: "" };
+				},
+				workers: 1,
+			},
+			// No fetch injected: without the endpoint it must not be called.
+			{ cluster, http, exit: noop },
+		);
+		process.removeListener("SIGTERM", onSigterm);
+		strictEqual(cluster.forks, 0);
+		await dispatch(calls.requestHandler, makeReq());
+		strictEqual(seen.event.requestContext.accountId, undefined);
+	});
+
+	test("ecsHttpRunner with one worker serves from this process with ECS metadata", async (t) => {
+		withEcsEnv(t, {});
+		const uri = process.env.ECS_CONTAINER_METADATA_URI_V4;
+		process.env.ECS_CONTAINER_METADATA_URI_V4 = "http://169.254.170.2/v4";
+		t.after(() => {
+			if (uri === undefined) delete process.env.ECS_CONTAINER_METADATA_URI_V4;
+			else process.env.ECS_CONTAINER_METADATA_URI_V4 = uri;
+		});
+		const cluster = makeFakeCluster();
+		const { calls, http } = fakeHttp();
+		const seen = {};
+		const { onSigterm } = await ecsHttpRunner(
+			{
+				handler: async (event) => {
+					seen.event = event;
+					return { statusCode: 200, body: "" };
+				},
+				workers: 1,
+			},
+			{
+				cluster,
+				http,
+				exit: noop,
+				fetch: async () => ({
+					ok: true,
+					json: async () => ({
+						TaskARN: "arn:aws:ecs:us-east-1:111:task/c/abc",
+						Family: "fam",
+					}),
+				}),
+			},
+		);
+		process.removeListener("SIGTERM", onSigterm);
+		strictEqual(cluster.forks, 0);
+		await dispatch(calls.requestHandler, makeReq());
+		strictEqual(seen.event.requestContext.accountId, "111");
+		strictEqual(seen.event.requestContext.family, "fam");
+	});
 
 	test("runWorker merges ECS env and requestContext option into the event", async (t) => {
 		t.mock.timers.enable({ apis: ["Date"], now: 42 });
@@ -2444,7 +2751,7 @@ describe("@middy/ecs-http", () => {
 			);
 		const atLimit = await post(limit);
 		strictEqual(atLimit.writeHead.code, 200);
-		deepStrictEqual(atLimit.endArgs, [String(limit)]);
+		deepStrictEqual(atLimit.endArgs, [String(limit), "latin1"]);
 		const overLimit = await post(limit + 1);
 		strictEqual(overLimit.writeHead.code, 413);
 	});
@@ -2463,10 +2770,10 @@ describe("@middy/ecs-http", () => {
 		const res = fakeRes();
 		writeResponse(res, { statusCode: 201, body: { a: 1 } });
 		strictEqual(res._calls.writeHead.code, 201);
-		deepStrictEqual(res._calls.endArgs, ['{"a":1}']);
+		deepStrictEqual(res._calls.endArgs, ['{"a":1}', "latin1"]);
 		const num = fakeRes();
 		writeResponse(num, { statusCode: 200, body: 42 });
-		deepStrictEqual(num._calls.endArgs, ["42"]);
+		deepStrictEqual(num._calls.endArgs, ["42", "latin1"]);
 	});
 
 	test("writeResponse passes a Buffer body through", () => {

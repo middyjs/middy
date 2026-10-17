@@ -77,6 +77,7 @@ test("EcsHttpRunnerOptions accepts all optional fields", () => {
 	const options: EcsHttpRunnerOptions = {
 		handler: lambdaHandlerV2,
 		port: 8080,
+		host: "127.0.0.1",
 		eventVersion: "2.0",
 		requestContext: { accountId: "111" },
 		workers: 4,
@@ -103,4 +104,15 @@ test("ecsHttpValidateOptions accepts typed options and returns them", () => {
 	expect(
 		indexModule.ecsHttpValidateOptions(options),
 	).type.toBe<indexModule.EcsHttpRunnerOptions>();
+});
+
+test("EcsHttpRunnerOptions takes exactly one of handler and loadHandler", () => {
+	expect({
+		loadHandler: async () => lambdaHandlerV2,
+	}).type.toBeAssignableTo<EcsHttpRunnerOptions>();
+	expect({
+		handler: lambdaHandlerV2,
+		loadHandler: async () => lambdaHandlerV2,
+	}).type.not.toBeAssignableTo<EcsHttpRunnerOptions>();
+	expect({ port: 8080 }).type.not.toBeAssignableTo<EcsHttpRunnerOptions>();
 });

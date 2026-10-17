@@ -6,6 +6,7 @@ import {
 	throws,
 } from "node:assert/strict";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { spawnSync } from "node:child_process";
 import { syncBuiltinESMExports } from "node:module";
 import { describe, test } from "node:test";
 import { DurablePromise } from "@aws/durable-execution-sdk-js";
@@ -1233,6 +1234,105 @@ describe("@middy/core", () => {
 			strictEqual(await pending, true);
 			strictEqual(abortedAtAbortEvent, true);
 		});
+	});
+
+	test("Should time out concurrent requests each at its own deadline", async (t) => {
+		await withMockedCoreTimers(t, async () => {
+			const settled = [];
+			const handler = middy(
+				() => new Promise((resolve) => setTimeout(resolve, 1000)),
+				{
+					timeoutEarlyInMillis: 1,
+					timeoutEarlyResponse: () => "early",
+				},
+			);
+			// The later deadline is registered first, so the second request has
+			// to move ahead of it.
+			const late = handler(defaultEvent, {
+				getRemainingTimeInMillis: () => 100,
+			});
+			const soon = handler(defaultEvent, {
+				getRemainingTimeInMillis: () => 50,
+			});
+			late.then(() => settled.push(["late", Date.now()]));
+			soon.then(() => settled.push(["soon", Date.now()]));
+			const flush = () => new Promise((resolve) => setImmediate(resolve));
+			t.mock.timers.tick(49);
+			await flush();
+			deepStrictEqual(settled, [["soon", 49]]);
+			t.mock.timers.tick(50);
+			await flush();
+			deepStrictEqual(settled, [
+				["soon", 49],
+				["late", 99],
+			]);
+		});
+	});
+
+	test("Should time out again after fake timers are reset and reinstalled", async (t) => {
+		await withMockedCoreTimers(t, async () => {
+			const plugin = {
+				timeoutEarlyInMillis: 1,
+				timeoutEarlyResponse: () => "early",
+			};
+			const context = { getRemainingTimeInMillis: () => 50 };
+			// A request that finishes under the first fake clock.
+			await middy(() => Promise.resolve("done"), plugin)(defaultEvent, context);
+			// As between two tests: that clock is discarded and a new one installed.
+			t.mock.timers.reset();
+			syncBuiltinESMExports();
+			t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+			syncBuiltinESMExports();
+			const pending = middy(
+				() => new Promise((resolve) => setTimeout(() => resolve("late"), 1000)),
+				plugin,
+			)(defaultEvent, context);
+			t.mock.timers.tick(1000);
+			strictEqual(await pending, "early");
+		});
+	});
+
+	test("Should time out a short request with real timers after a long one left the timer armed", async (t) => {
+		// Real timers: this exercises the timer kept between requests.
+		t.mock.timers.reset();
+		syncBuiltinESMExports();
+		const plugin = {
+			timeoutEarlyInMillis: 1,
+			timeoutEarlyResponse: () => "early",
+		};
+		await middy(() => Promise.resolve("done"), plugin)(defaultEvent, {
+			getRemainingTimeInMillis: () => 60_000,
+		});
+		const started = Date.now();
+		let slow;
+		const response = await middy(
+			() =>
+				new Promise((resolve) => {
+					slow = setTimeout(() => resolve("late"), 5_000);
+				}),
+			plugin,
+		)(defaultEvent, { getRemainingTimeInMillis: () => 30 });
+		clearTimeout(slow);
+		strictEqual(response, "early");
+		ok(Date.now() - started < 1_000);
+	});
+
+	test("Should not keep the process alive once requests finish", () => {
+		// Real timers in a child process: a 60s early-timeout timer left
+		// holding the event loop would keep it running past the spawn timeout.
+		const script = `
+			import middy from ${JSON.stringify(new URL("./index.js", import.meta.url).href)};
+			const handler = middy(async () => "ok");
+			await handler({}, { getRemainingTimeInMillis: () => 60_000 });
+		`;
+		const started = Date.now();
+		const { status } = spawnSync(
+			process.execPath,
+			["--input-type=module", "-e", script],
+			{ timeout: 10_000 },
+		);
+		strictEqual(status, 0);
+		ok(Date.now() - started < 10_000);
 	});
 
 	test("Should abort a non-async handler returning a pending promise when timeout expires", async (t) => {

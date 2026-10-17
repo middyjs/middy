@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 import cluster from "node:cluster";
 import { availableParallelism } from "node:os";
+import { Readable } from "node:stream";
 import { validateOptions } from "@middy/util";
 
 const name = "ecs-http";
@@ -24,7 +25,9 @@ const optionSchema = {
 	type: "object",
 	properties: {
 		handler: { instanceof: "Function" },
+		loadHandler: { instanceof: "Function" },
 		port: { type: "integer", minimum: 0, maximum: 65535 },
+		host: { type: "string" },
 		eventVersion: { type: "string", enum: ["1.0", "2.0", "alb"] },
 		requestContext: { type: "object", additionalProperties: true },
 		workers: { type: "integer", minimum: 1 },
@@ -40,12 +43,18 @@ const optionSchema = {
 			additionalProperties: false,
 		},
 	},
-	required: ["handler"],
 	additionalProperties: false,
 };
 
-export const ecsHttpValidateOptions = (options) =>
+export const ecsHttpValidateOptions = (options) => {
 	validateOptions(pkg, optionSchema, options);
+	if ((options.handler === undefined) === (options.loadHandler === undefined)) {
+		throw new TypeError("Pass exactly one of 'handler' or 'loadHandler'", {
+			cause: { package: pkg },
+		});
+	}
+	return options;
+};
 
 const ecsEnvKeys = ["accountId", "region", "taskArn", "family", "revision"];
 const ecsEnvPrefix = "MIDDY_ECS_";
@@ -174,8 +183,11 @@ export const resolveSourceIp = (headers, socketAddress, trustedProxies = 1) =>
 // Behind ALB / API Gateway, every request carries `X-Amzn-Trace-Id`. We use it
 // as the request ID for free correlation with X-Ray and CloudWatch logs.
 // When absent (typically only in local dev or behind a non-AWS load balancer),
-export const resolveRequestId = (headers, override) =>
-	headers["x-amzn-trace-id"] ?? override?.(headers) ?? "";
+export const resolveRequestId = (
+	headers,
+	override,
+	idHeader = "x-amzn-trace-id",
+) => headers[idHeader] ?? override?.(headers) ?? "";
 
 const parseCookies = (cookieHeader) => {
 	if (!cookieHeader) return undefined;
@@ -429,6 +441,18 @@ export const writeResponse = (res, result) => {
 	if (Array.isArray(cookies) && cookies.length > 0) {
 		headers["set-cookie"] = cookies;
 	}
+	// A Node Readable or web ReadableStream body is piped with chunked encoding.
+	// .pipe() costs ~35% less CPU per response than stream.pipeline(); the
+	// two cleanups pipeline() adds are done here: a failing source cuts the
+	// response off, and a response closed early (client gone) stops the source.
+	if (body?._readableState || body instanceof ReadableStream) {
+		res.writeHead(statusCode, headers);
+		const source = body._readableState ? body : Readable.fromWeb(body);
+		source.once("error", () => res.destroy());
+		res.once("close", () => source.destroy());
+		source.pipe(res);
+		return;
+	}
 	// Settle the payload before writeHead: anything that throws here still
 	// reaches writeError with the headers unsent. res.end only takes a string
 	// or bytes, so any other body is sent as JSON.
@@ -442,17 +466,24 @@ export const writeResponse = (res, result) => {
 	} else {
 		payload = JSON.stringify(body);
 	}
-	// writeHead flushes the headers, so without an explicit length node:http
-	// falls back to chunked encoding even for a fully buffered body.
-	if (payload !== undefined && !hasFramingHeader(headers)) {
-		headers["content-length"] = Buffer.byteLength(payload);
-	}
-	res.writeHead(statusCode, headers);
 	if (payload === undefined) {
+		res.writeHead(statusCode, headers);
 		res.end();
 		return;
 	}
-	res.end(payload);
+	// writeHead flushes the headers, so without an explicit length node:http
+	// falls back to chunked encoding even for a fully buffered body.
+	const byteLength = Buffer.byteLength(payload);
+	if (!hasFramingHeader(headers)) headers["content-length"] = byteLength;
+	res.writeHead(statusCode, headers);
+	// A string whose UTF-8 length equals its length is ASCII, which latin1
+	// writes byte-for-byte. node:http reserves 3 bytes per character for a
+	// utf8 string, and past ~8 KB that costs ~30% more CPU per response.
+	const encoding =
+		typeof payload === "string" && byteLength === payload.length
+			? "latin1"
+			: undefined;
+	res.end(payload, encoding);
 };
 
 const writeError = (res, err) => {
@@ -541,6 +572,11 @@ export const createRequestHandler = ({
 }) => {
 	const buildEvent = eventBuilders[eventVersion];
 	const requestIdOverride = contextOverride?.awsRequestId;
+	// A Lambda Web Function adds lambda-web-request-id to every request: its
+	// awsRequestId. Anywhere else that header could only come from the client.
+	const requestIdHeader = process.env.AWS_LAMBDA_HTTP_ENDPOINT
+		? "lambda-web-request-id"
+		: "x-amzn-trace-id";
 	// ALB events carry no client address (see buildEventAlb).
 	const needsSourceIp = eventVersion !== "alb";
 	// server.close() only closes idle connections; one busy when draining
@@ -567,7 +603,11 @@ export const createRequestHandler = ({
 					req.socket?.remoteAddress ??
 					"")
 				: undefined;
-			const requestId = resolveRequestId(headers, requestIdOverride);
+			const requestId = resolveRequestId(
+				headers,
+				requestIdOverride,
+				requestIdHeader,
+			);
 			const url = splitUrl(req.url);
 			const event = buildEvent({
 				req,
@@ -624,12 +664,20 @@ export const runWorker = async (options, deps = {}) => {
 	// node:http is the slowest import on its path to forking workers.
 	const httpImpl = deps.http ?? (await import("node:http")).default;
 	const exitImpl = deps.exit ?? process.exit;
+	// Only a process that serves requests loads the handler, so a cluster
+	// primary never imports the application.
+	const handler = options.handler ?? (await options.loadHandler());
+	if (typeof handler !== "function") {
+		throw new TypeError("loadHandler must resolve to the handler function", {
+			cause: { package: pkg },
+		});
+	}
 	const ecs = readEcsEnv();
 	const requestContext = { ...ecs, ...options.requestContext };
 	const invokedFunctionArn = composeInvokedFunctionArn(ecs);
 	let draining = false;
 	const requestHandler = createRequestHandler({
-		handler: options.handler,
+		handler,
 		eventVersion: options.eventVersion,
 		requestContext,
 		timeout: options.timeout,
@@ -656,7 +704,9 @@ export const runWorker = async (options, deps = {}) => {
 	// option (default 60s). The Node default of 300s diverges from the
 	// `getRemainingTimeInMillis` budget we expose to handlers.
 	server.requestTimeout = options.timeout;
-	await new Promise((resolve) => server.listen(options.port, resolve));
+	await new Promise((resolve) =>
+		server.listen(options.port, options.host, resolve),
+	);
 	const onSigterm = () => {
 		draining = true;
 		return drainAndExit(server, exitImpl, options.gracefulShutdownMs);
@@ -726,10 +776,43 @@ export const runPrimary = async (options, deps = {}) => {
 	return { onSigterm };
 };
 
+// A Lambda Web Function always sets AWS_LAMBDA_HTTP_ENDPOINT ("host:port")
+// and only routes requests to exactly that address; ECS never sets it. After
+// SIGTERM it allows 1 s before killing the environment, so the drain ends at
+// 800 ms, leaving time for worker exits to reach the primary.
+// https://docs.aws.amazon.com/lambda/latest/dg/web-functions-revisions-env-vars.html
+// https://docs.aws.amazon.com/lambda/latest/dg/web-functions-env-lifecycle.html
+const lambdaWebDefaults = (endpoint = process.env.AWS_LAMBDA_HTTP_ENDPOINT) => {
+	if (!endpoint) return {};
+	const sep = endpoint.lastIndexOf(":");
+	return {
+		host: endpoint.slice(0, sep),
+		port: Number(endpoint.slice(sep + 1)),
+		gracefulShutdownMs: 800,
+	};
+};
+
 export const ecsHttpRunner = async (opts, deps = {}) => {
 	const clusterImpl = deps.cluster ?? cluster;
-	const options = { ...defaults, workers: availableParallelism(), ...opts };
+	const options = {
+		...defaults,
+		...lambdaWebDefaults(),
+		workers: availableParallelism(),
+		...opts,
+	};
 	ecsHttpValidateOptions(options);
+	// One worker is served from this process: a cluster would add a second
+	// process (~57 MB RSS) and its boot (~45 ms) to the first response. A
+	// crash then exits the task for the platform to replace, not a re-fork.
+	if (clusterImpl.isPrimary && options.workers === 1) {
+		writeEcsEnv(
+			await fetchEcsMetadata(
+				process.env.ECS_CONTAINER_METADATA_URI_V4,
+				deps.fetch ?? fetch,
+			),
+		);
+		return runWorker(options, deps);
+	}
 	if (clusterImpl.isPrimary) {
 		return runPrimary(options, deps);
 	}
