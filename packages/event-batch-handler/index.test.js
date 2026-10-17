@@ -1,9 +1,16 @@
-import { deepStrictEqual, rejects, strictEqual } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	rejects,
+	strictEqual,
+	throws,
+} from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import middy from "../core/index.js";
 import eventBatchResponse from "../event-batch-response/index.js";
-import eventBatchHandler from "./index.js";
+import eventBatchHandler, {
+	eventBatchHandlerValidateOptions,
+} from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -545,5 +552,96 @@ describe("@middy/event-batch-handler", () => {
 		deepStrictEqual(response, {
 			batchItemFailures: [{ itemIdentifier: "fail-2" }],
 		});
+	});
+
+	// Counts records in flight; each holds its slot for one macrotask.
+	const trackInFlight = () => {
+		const state = { active: 0, peak: 0 };
+		state.run = async (fn) => {
+			state.active += 1;
+			state.peak = Math.max(state.peak, state.active);
+			await new Promise((resolve) => setImmediate(resolve));
+			state.active -= 1;
+			return fn();
+		};
+		return state;
+	};
+
+	test("concurrency: caps records in flight and keeps settled order", async () => {
+		const state = trackInFlight();
+		const error = new Error("boom");
+		const handler = eventBatchHandler(
+			(record) => {
+				if (record.syncThrow) throw error;
+				return state.run(() => {
+					if (record.fail) throw error;
+					return record.id;
+				});
+			},
+			{ concurrency: 2 },
+		);
+
+		const result = await handler(
+			sqsEvent(
+				{ id: 1 },
+				{ id: 2, fail: true },
+				{ id: 3, syncThrow: true },
+				{ id: 4 },
+				{ id: 5 },
+			),
+			defaultContext,
+		);
+		strictEqual(state.peak, 2);
+		deepStrictEqual(result, [
+			{ status: "fulfilled", value: 1 },
+			{ status: "rejected", reason: error },
+			{ status: "rejected", reason: error },
+			{ status: "fulfilled", value: 4 },
+			{ status: "fulfilled", value: 5 },
+		]);
+	});
+
+	test("concurrency: a batch within the limit runs every record at once", async () => {
+		const state = trackInFlight();
+		const handler = eventBatchHandler((record) => state.run(() => record.id), {
+			concurrency: 5,
+		});
+
+		const result = await handler(
+			sqsEvent({ id: 1 }, { id: 2 }, { id: 3 }),
+			defaultContext,
+		);
+		strictEqual(state.peak, 3);
+		deepStrictEqual(
+			result.map((r) => r.value),
+			[1, 2, 3],
+		);
+	});
+
+	test("concurrency: caps durable steps in flight", async () => {
+		const state = trackInFlight();
+		const ctx = new DurableContextImpl();
+		const handler = eventBatchHandler((record) => state.run(() => record.id), {
+			concurrency: 1,
+		});
+
+		const result = await handler(sqsEvent({ id: 1 }, { id: 2 }), ctx);
+		strictEqual(state.peak, 1);
+		deepStrictEqual(ctx.stepCalls, ["record-0", "record-1"]);
+		deepStrictEqual(
+			result.map((r) => r.value),
+			[1, 2],
+		);
+	});
+
+	test("concurrency: rejects invalid options", () => {
+		for (const opts of [
+			{ concurrency: 0 },
+			{ concurrency: 1.5 },
+			{ unknown: true },
+		]) {
+			throws(() => eventBatchHandler(() => {}, opts));
+		}
+		eventBatchHandlerValidateOptions({ concurrency: 1 });
 	});
 });

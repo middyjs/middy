@@ -1,7 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import cluster from "node:cluster";
-import http from "node:http";
 import { availableParallelism } from "node:os";
 import { validateOptions } from "@middy/util";
 
@@ -137,8 +136,31 @@ const buildMultiValueHeaders = (rawHeaders) => {
 const ipv6WithPort = /^\[([^\]]+)\]:\d+$/;
 const ipv4WithPort = /^([^:]+):\d+$/;
 const stripClientPort = (hop) => {
+	// Both port forms need a colon; a plain IPv4 hop skips the regexes.
+	if (!hop.includes(":")) return hop;
 	const match = ipv6WithPort.exec(hop) ?? ipv4WithPort.exec(hop);
 	return match ? match[1] : hop;
+};
+
+// The trustedProxies-th hop from the end, without splitting the whole header.
+const hopFromEnd = (xff, trustedProxies) => {
+	let end = xff.length;
+	for (let i = 1; i < trustedProxies; i++) {
+		end = xff.lastIndexOf(",", end - 1);
+		if (end <= 0) return undefined;
+	}
+	return xff.slice(xff.lastIndexOf(",", end - 1) + 1, end).trim();
+};
+
+const clientIpFromHeaders = (headers, trustedProxies = 1) => {
+	if (trustedProxies > 0) {
+		const xff = headers["x-forwarded-for"];
+		if (xff) {
+			const hop = hopFromEnd(xff, trustedProxies);
+			if (hop) return stripClientPort(hop);
+		}
+	}
+	return undefined;
 };
 
 // Behind ALB the client address is the hop the load balancer appends, i.e. the
@@ -146,16 +168,8 @@ const stripClientPort = (hop) => {
 // spoofed. `trustedProxies` is the number of trailing hops added by proxies
 // you control (1 for a lone ALB, 2 for CloudFront in front of ALB). 0 ignores
 // the header and uses the socket address.
-export const resolveSourceIp = (headers, socketAddress, trustedProxies = 1) => {
-	if (trustedProxies > 0) {
-		const xff = headers["x-forwarded-for"];
-		if (xff) {
-			const hop = xff.split(",").at(-trustedProxies)?.trim();
-			if (hop) return stripClientPort(hop);
-		}
-	}
-	return socketAddress ?? "";
-};
+export const resolveSourceIp = (headers, socketAddress, trustedProxies = 1) =>
+	clientIpFromHeaders(headers, trustedProxies) ?? socketAddress ?? "";
 
 // Behind ALB / API Gateway, every request carries `X-Amzn-Trace-Id`. We use it
 // as the request ID for free correlation with X-Ray and CloudWatch logs.
@@ -165,10 +179,12 @@ export const resolveRequestId = (headers, override) =>
 
 const parseCookies = (cookieHeader) => {
 	if (!cookieHeader) return undefined;
-	return cookieHeader
-		.split(";")
-		.map((s) => s.trim())
-		.filter(Boolean);
+	const cookies = [];
+	for (const part of cookieHeader.split(";")) {
+		const cookie = part.trim();
+		if (cookie) cookies.push(cookie);
+	}
+	return cookies;
 };
 
 // Cheap path/query split. node:http has already validated the request line by
@@ -183,11 +199,15 @@ const splitUrl = (rawUrl) => {
 	};
 };
 
+// Most requests carry no query string; skip building URLSearchParams.
+const noQuery = { size: 0 };
+
 // Only v1 carries multiValueQueryStringParameters; v2 would otherwise
 // allocate the multi-value map on every request and discard it. Format 2.0
 // combines duplicate query strings with commas instead.
 // https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html
 const collectQuery = (queryString) => {
+	if (queryString === "") return noQuery;
 	const single = Object.create(null);
 	const params = new URLSearchParams(queryString);
 	let size = 0;
@@ -217,6 +237,7 @@ const collectQueryEncoded = (queryString) => {
 };
 
 const collectQueryMultiValue = (queryString) => {
+	if (queryString === "") return noQuery;
 	const single = Object.create(null);
 	const multi = Object.create(null);
 	const params = new URLSearchParams(queryString);
@@ -370,6 +391,12 @@ const mergeMultiValueHeaders = (headers, multiValueHeaders) => {
 	}
 };
 
+const framingHeaderPattern = /^(content-length|transfer-encoding)$/i;
+const hasFramingHeader = (headers) => {
+	for (const k in headers) if (framingHeaderPattern.test(k)) return true;
+	return false;
+};
+
 export const writeResponse = (res, result) => {
 	let statusCode = 200;
 	let headers = {};
@@ -390,7 +417,7 @@ export const writeResponse = (res, result) => {
 	} else {
 		const r = result ?? {};
 		statusCode = r.statusCode ?? 200;
-		headers = { ...(r.headers ?? {}) };
+		headers = { ...r.headers };
 		if (r.multiValueHeaders) {
 			mergeMultiValueHeaders(headers, r.multiValueHeaders);
 		}
@@ -415,6 +442,11 @@ export const writeResponse = (res, result) => {
 	} else {
 		payload = JSON.stringify(body);
 	}
+	// writeHead flushes the headers, so without an explicit length node:http
+	// falls back to chunked encoding even for a fully buffered body.
+	if (payload !== undefined && !hasFramingHeader(headers)) {
+		headers["content-length"] = Buffer.byteLength(payload);
+	}
 	res.writeHead(statusCode, headers);
 	if (payload === undefined) {
 		res.end();
@@ -438,8 +470,12 @@ const writeError = (res, err) => {
 	// Below 500 `err` is an object: that is where the numeric statusCode came from.
 	const message =
 		statusCode >= 500 ? "Internal Server Error" : (err.message ?? "");
-	res.writeHead(statusCode, { "content-type": "application/json" });
-	res.end(JSON.stringify({ message }));
+	const payload = JSON.stringify({ message });
+	res.writeHead(statusCode, {
+		"content-type": "application/json",
+		"content-length": Buffer.byteLength(payload),
+	});
+	res.end(payload);
 };
 
 // Returns true when the request declares a body (Content-Length > 0 or
@@ -485,7 +521,10 @@ const readBody = (req, limit) =>
 			chunks.push(chunk);
 		};
 		req.on("data", onData);
-		req.once("end", () => resolve(Buffer.concat(chunks)));
+		// A body that arrived in one chunk needs no copy.
+		req.once("end", () =>
+			resolve(chunks.length === 1 ? chunks[0] : Buffer.concat(chunks, size)),
+		);
 		req.once("error", reject);
 	});
 
@@ -502,6 +541,8 @@ export const createRequestHandler = ({
 }) => {
 	const buildEvent = eventBuilders[eventVersion];
 	const requestIdOverride = contextOverride?.awsRequestId;
+	// ALB events carry no client address (see buildEventAlb).
+	const needsSourceIp = eventVersion !== "alb";
 	// server.close() only closes idle connections; one busy when draining
 	// starts would otherwise keep serving requests on its keep-alive socket.
 	// Without keep-alive node:http sends `Connection: close` and closes the
@@ -519,11 +560,13 @@ export const createRequestHandler = ({
 			const body = hasBody ? await readBody(req, bodyLimit) : EMPTY_BUFFER;
 			const isBase64Encoded =
 				hasBody && !isTextContentType(headers["content-type"]);
-			const sourceIp = resolveSourceIp(
-				headers,
-				req.socket?.remoteAddress,
-				trustedProxies,
-			);
+			// The socket address is a getpeername() call; only read it when
+			// X-Forwarded-For has no usable hop.
+			const sourceIp = needsSourceIp
+				? (clientIpFromHeaders(headers, trustedProxies) ??
+					req.socket?.remoteAddress ??
+					"")
+				: undefined;
 			const requestId = resolveRequestId(headers, requestIdOverride);
 			const url = splitUrl(req.url);
 			const event = buildEvent({
@@ -577,7 +620,9 @@ export const drainAndExit = (
 	});
 
 export const runWorker = async (options, deps = {}) => {
-	const httpImpl = deps.http ?? http;
+	// Loaded here, not at the top: the cluster primary never serves HTTP and
+	// node:http is the slowest import on its path to forking workers.
+	const httpImpl = deps.http ?? (await import("node:http")).default;
 	const exitImpl = deps.exit ?? process.exit;
 	const ecs = readEcsEnv();
 	const requestContext = { ...ecs, ...options.requestContext };
@@ -594,7 +639,13 @@ export const runWorker = async (options, deps = {}) => {
 		contextOverride: options.contextOverride,
 		isDraining: () => draining,
 	});
-	const server = httpImpl.createServer(requestHandler);
+	// optimizeEmptyRequests (Node 25.1+, ignored before) hands a request with
+	// no body an already-ended stream, skipping its 'end' event machinery.
+	// https://nodejs.org/api/http.html#httpcreateserveroptions-requestlistener
+	const server = httpImpl.createServer(
+		{ optimizeEmptyRequests: true },
+		requestHandler,
+	);
 	// Tune keep-alive so behind-ALB sockets aren't recycled prematurely. ALB's
 	// default idle timeout is 60s; the server's keepAliveTimeout must be
 	// strictly greater (Node default is 5s, which thrashes connections under

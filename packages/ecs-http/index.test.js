@@ -785,8 +785,23 @@ describe("@middy/ecs-http", () => {
 		deepStrictEqual(res._calls.writeHead.headers, {
 			"x-trace": "t",
 			"set-cookie": ["a=1", "b=2"],
+			"content-length": 2,
 		});
 		deepStrictEqual(res._calls.endArgs, ["ok"]);
+	});
+
+	test("writeResponse sets content-length in bytes, not characters", () => {
+		const res = fakeRes();
+		writeResponse(res, "héllo");
+		strictEqual(res._calls.writeHead.headers["content-length"], 6);
+	});
+
+	test("writeResponse keeps a handler-set content-length or transfer-encoding", () => {
+		for (const header of ["Content-Length", "transfer-encoding"]) {
+			const res = fakeRes();
+			writeResponse(res, { headers: { [header]: "x" }, body: "ok" });
+			deepStrictEqual(res._calls.writeHead.headers, { [header]: "x" });
+		}
 	});
 
 	test("writeResponse decodes base64 body", () => {
@@ -859,7 +874,10 @@ describe("@middy/ecs-http", () => {
 			const res = await fetch(`${url}/`, {
 				headers: { "x-forwarded-for": "6.6.6.6, 203.0.113.9" },
 			});
-			const body = await res.json();
+			const text = await res.text();
+			strictEqual(res.headers.get("transfer-encoding"), null);
+			strictEqual(res.headers.get("content-length"), String(text.length));
+			const body = JSON.parse(text);
 			strictEqual(body.requestContext.http.sourceIp, "203.0.113.9");
 		} finally {
 			await close();
@@ -1988,7 +2006,7 @@ describe("@middy/ecs-http", () => {
 		const calls = await dispatch(requestHandler, req, [], { end: false });
 		deepStrictEqual(calls.writeHead, {
 			code: 413,
-			headers: { "content-type": "application/json" },
+			headers: { "content-type": "application/json", "content-length": 31 },
 		});
 		deepStrictEqual(calls.endArgs, ['{"message":"Payload too large"}']);
 		strictEqual(req.listenerCount("data"), 0, "body is not buffered");
@@ -2010,7 +2028,7 @@ describe("@middy/ecs-http", () => {
 		);
 		deepStrictEqual(calls.writeHead, {
 			code: 413,
-			headers: { "content-type": "application/json" },
+			headers: { "content-type": "application/json", "content-length": 31 },
 		});
 		deepStrictEqual(calls.endArgs, ['{"message":"Payload too large"}']);
 		strictEqual(req.listenerCount("data"), 0, "buffering stopped");
@@ -2030,7 +2048,7 @@ describe("@middy/ecs-http", () => {
 		await pending;
 		deepStrictEqual(res._calls.writeHead, {
 			code: 500,
-			headers: { "content-type": "application/json" },
+			headers: { "content-type": "application/json", "content-length": 35 },
 		});
 		deepStrictEqual(res._calls.endArgs, [
 			'{"message":"Internal Server Error"}',
@@ -2150,7 +2168,7 @@ describe("@middy/ecs-http", () => {
 		const calls = await dispatch(requestHandler, makeReq());
 		deepStrictEqual(calls.writeHead, {
 			code: 418,
-			headers: { "content-type": "application/json" },
+			headers: { "content-type": "application/json", "content-length": 18 },
 		});
 		deepStrictEqual(calls.endArgs, ['{"message":"nope"}']);
 	});
@@ -2168,7 +2186,7 @@ describe("@middy/ecs-http", () => {
 		const calls = await dispatch(requestHandler, makeReq());
 		deepStrictEqual(calls.writeHead, {
 			code: 404,
-			headers: { "content-type": "application/json" },
+			headers: { "content-type": "application/json", "content-length": 14 },
 		});
 		deepStrictEqual(calls.endArgs, ['{"message":""}']);
 	});
@@ -2193,7 +2211,10 @@ describe("@middy/ecs-http", () => {
 			const calls = await dispatch(requestHandler, makeReq());
 			deepStrictEqual(
 				calls.writeHead,
-				{ code: 500, headers: { "content-type": "application/json" } },
+				{
+					code: 500,
+					headers: { "content-type": "application/json", "content-length": 35 },
+				},
 				JSON.stringify(thrown),
 			);
 			deepStrictEqual(calls.endArgs, ['{"message":"Internal Server Error"}']);
@@ -2218,7 +2239,7 @@ describe("@middy/ecs-http", () => {
 			calls,
 			server,
 			http: {
-				createServer(requestHandler) {
+				createServer(_options, requestHandler) {
 					calls.requestHandler = requestHandler;
 					return server;
 				},
@@ -2516,6 +2537,7 @@ describe("@middy/ecs-http", () => {
 			"x-a": "1",
 			"x-b": ["3", "2"],
 			"set-cookie": ["a=1", "b=2"],
+			"content-length": 2,
 		});
 	});
 });

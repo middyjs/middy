@@ -38,3 +38,13 @@ test("narrowable to a Durable-shaped context via the third generic", () => {
 		Promise<PromiseSettledResult<string>[]>
 	>();
 });
+
+test("accepts a concurrency option", () => {
+	const handler = eventBatchHandler((record) => record, { concurrency: 4 });
+	expect(handler({}, ctx)).type.toBe<
+		Promise<PromiseSettledResult<unknown>[]>
+	>();
+	expect(eventBatchHandler).type.not.toBeCallableWith(() => 1, {
+		concurrency: "4",
+	});
+});
