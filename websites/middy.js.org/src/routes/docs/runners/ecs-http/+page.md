@@ -7,6 +7,10 @@ description: "Run a Middy handler as an HTTP server on AWS ECS/Fargate, with clu
 
 The package spawns one `node:cluster` worker per CPU core by default (`availableParallelism()`), replaces workers that exit with exponential backoff (1 s, doubling to a 30 s cap, reset after 60 s without a worker exit, so a worker that dies on startup cannot crash-loop), and forwards `SIGTERM` for a clean drain when ECS stops the task.
 
+## Lambda Web Functions
+
+[Lambda Web Functions](https://aws.amazon.com/about-aws/whats-new/2026/10/aws-lambda-web-functions/) run your code as an HTTP server instead of calling an `(event, context)` handler, so this runner is also how you serve a Middy handler from one. Set `port` to the port your Web Function listens on. Outside ECS there is no task metadata endpoint, so the metadata lookup is skipped and the ECS fields on `requestContext` are left unset. Pass `requestContext` to fill in anything your handler reads from them.
+
 ## Install
 
 To install this runner you can use NPM:

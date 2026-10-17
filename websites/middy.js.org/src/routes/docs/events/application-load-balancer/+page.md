@@ -4,7 +4,7 @@ description: "Use Middy with Application Load Balancer Lambda target group event
 ---
 
 <script>
-import Callout from '@design-system/components/Callout.svelte'
+import Callout from '@willfarrell-ds/svelte/components/Callout.svelte'
 </script>
 Same as API Gateway (REST)
 

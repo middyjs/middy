@@ -4,7 +4,7 @@ description: "Use Middy with Serverless Stack (SST) for Lambda development."
 ---
 
 <script>
-import Callout from '@design-system/components/Callout.svelte'
+import Callout from '@willfarrell-ds/svelte/components/Callout.svelte'
 </script>
 
 

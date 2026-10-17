@@ -24,7 +24,7 @@
 		"test:sast:gitleaks": "npm run test:sast:gitleaks:dir && npm run test:sast:gitleaks:git",
 		"test:sast:gitleaks:dir": "gitleaks dir . --redact --no-banner",
 		"test:sast:gitleaks:git": "gitleaks git . --redact --no-banner",
-		"test:sast:license": "license-check-and-add check -f .license.config.json",
+		"test:sast:license": "node .github/license.mjs check",
 		"test:sast:lockfile": "lockfile-lint --path package-lock.json --type npm --allowed-hosts npm --validate-https",
 		"test:sast:semgrep": "semgrep scan --config auto --error",
 		"test:sast:trivy": "trivy fs --config trivy.yaml --scanners vuln,license --include-dev-deps --exit-code 1 --skip-files '**/bun.lock' --disable-telemetry .",
@@ -43,8 +43,8 @@
 		"update": "corepack up && npm run rm && npm install --workspaces",
 		"outdated": "npm outdated --workspaces",
 		"audit": "npm audit fix --workspaces",
-		"release:license:add": "license-check-and-add add -f .license.config.json",
-		"release:license:remove": "license-check-and-add remove -f .license.config.json",
+		"release:license:add": "node .github/license.mjs add",
+		"release:license:remove": "node .github/license.mjs remove",
 		"release:sync": "npm version $npm_package_version --workspaces --allow-same-version && MIDDY_VERSION=$(npm pkg get version | tr -d '\"') find ./packages -name package.json -not -path '*/node_modules/*' -exec perl -pi -e 's#\"\\@middy/([^\"]+)\": \"[^\"]+\"#\"\\@middy/$1\": \"$ENV{MIDDY_VERSION}\"#g' {} + && npm install --package-lock-only && npm run lint",
 		"release:tag": "git tag -s -m $npm_package_version $npm_package_version",
 		"release:staged": "npm whoami >/dev/null && npm query '.workspace:not([private])' | jq -r '.[].name' | xargs -n1 -I{} npm stage list {} --json | jq -r '.[] | \"\\(.packageName)@\\(.version) \\(.actor) \\(.shasum)\"'",
@@ -84,9 +84,6 @@
 	},
 	"overrides": {
 		"@aws/durable-execution-sdk-js": "^2.0.0",
-		"@sveltejs/kit": {
-			"cookie": "^0.7.2"
-		},
 		"fast-xml-parser": ">=5.7.2",
 		"katex": ">=0.18.2",
 		"mathjs": ">=15.2.0",
@@ -94,7 +91,7 @@
 			"sharp": "^0.35.5",
 			"undici": "^7.29.1"
 		},
-		"qs": ">=6.14.2",
+		"qs": ">=6.16.0",
 		"uuid": ">=14.0.0"
 	},
 	"devEngines": {

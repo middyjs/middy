@@ -38,10 +38,20 @@ The wrapper walks the same record container as `event-batch-response`:
 | S3 Batch Operations | `event.tasks` |
 | Kinesis Firehose transform | `event.records` (array) |
 
+## Options
+
+- `concurrency` (integer, minimum 1): the most records that run at once. Default: unset, so every record in the batch runs at once.
+
 
 ## Concurrency and SQS FIFO queues
 
-Records run concurrently by default. For an SQS FIFO queue (detected by an `eventSourceARN` ending in `.fifo`) the wrapper follows the AWS guidance for partial batch responses: "If you're using this feature with a FIFO queue, your function should stop processing messages after the first failure and return all failed and unprocessed messages in `batchItemFailures`" ([Handling errors for an SQS event source](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html)).
+Records run concurrently by default. On Lambda the trigger's batch size bounds how many that is. A long-running poller such as [`@middy/ecs-batch`](/docs/runners/ecs-batch) has no such bound: a single Kafka fetch can hold thousands of records. Set `concurrency` to cap the records in flight; results still come back in record order.
+
+```javascript
+const lambdaHandler = eventBatchHandler(recordHandler, { concurrency: 16 })
+```
+
+For an SQS FIFO queue (detected by an `eventSourceARN` ending in `.fifo`) the wrapper follows the AWS guidance for partial batch responses: "If you're using this feature with a FIFO queue, your function should stop processing messages after the first failure and return all failed and unprocessed messages in `batchItemFailures`" ([Handling errors for an SQS event source](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html)).
 
 Records run one at a time in order. After the first rejection the remaining records are not passed to `recordHandler`; each settles as rejected with an `Error` whose message is `Unprocessed: an earlier FIFO record failed`, so `event-batch-response` reports the failed record and every record after it. Under durable functions FIFO records are also stepped one at a time, and stepping stops at the first failure.
 
@@ -55,7 +65,7 @@ When the Lambda invocation runs under [durable functions](https://docs.aws.amazo
 
 Each record becomes its own checkpointed step keyed by index in the flattened batch (the batch is stable across replays of the same invocation). On replay, the durable runtime returns cached results for completed steps and only re-executes the failed one(s) according to the configured retry policy.
 
-The wrapper uses `Promise.allSettled` of `ctx.step` calls rather than `context.map`. This is intentional: it makes each step's final status explicit, doesn't depend on assumptions about how the durable SDK aggregates branch failures, and still gives the runtime full per-step retry control. Steps run concurrently (one at a time for SQS FIFO); durable de-dupes by step ID.
+The wrapper uses `Promise.allSettled` of `ctx.step` calls rather than `context.map`. This is intentional: it makes each step's final status explicit, doesn't depend on assumptions about how the durable SDK aggregates branch failures, and still gives the runtime full per-step retry control. Steps run concurrently, up to `concurrency` (one at a time for SQS FIFO); durable de-dupes by step ID.
 
 The user's `recordHandler` receives the **per-record step context** (the child context the SDK passes to `step`'s callback). Any nested `ctx.step(...)` calls inside the record handler scope correctly under that record's step rather than the parent invocation:
 

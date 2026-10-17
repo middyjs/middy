@@ -31,7 +31,7 @@ export const handler = middy({
 **Notes**
 
 Do not mistake `timeoutEarlyInMillis` for a “timeout threshold”, as this is not something middy can control.
-The actual timeout of a Lambda function is controlled by AWS and you can configure it at the infrastructure level (with a hard limit of 15 minutes),
+The actual timeout of a Lambda Event Function is controlled by AWS and you can configure it at the infrastructure level (with a hard limit of 15 minutes),
 see docs https://docs.aws.amazon.com/lambda/latest/dg/configuration-timeout.html
 
 `timeoutEarlyInMillis` gives you a small buffer of time to perform cleanup or logging before Lambda forcibly terminates the function.

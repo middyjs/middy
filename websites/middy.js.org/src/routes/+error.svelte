@@ -1,9 +1,9 @@
 <script>
-import H1 from "@design-system/components/Heading1.svelte";
-import Image from "@design-system/components/Image.svelte";
-import Div from "@design-system/elements/div.svelte";
-import Main from "@design-system/elements/main.svelte";
-import P from "@design-system/elements/p.svelte";
+import H1 from "@willfarrell-ds/svelte/components/Heading1.svelte";
+import Image from "@willfarrell-ds/svelte/components/Image.svelte";
+import Div from "@willfarrell-ds/svelte/elements/div.svelte";
+import Main from "@willfarrell-ds/svelte/elements/main.svelte";
+import P from "@willfarrell-ds/svelte/elements/p.svelte";
 import { page } from "$app/state";
 
 const message = $derived(page.error?.message ?? "An error occurred");

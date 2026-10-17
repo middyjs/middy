@@ -4,7 +4,7 @@ description: "Use Middy with S3 Batch Operations Lambda events for bulk processi
 ---
 
 <script>
-import Callout from '@design-system/components/Callout.svelte'
+import Callout from '@willfarrell-ds/svelte/components/Callout.svelte'
 </script>
 
 

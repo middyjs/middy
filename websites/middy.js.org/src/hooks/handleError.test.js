@@ -29,10 +29,9 @@ describe("handleError", () => {
 	test("logs only the request identity and the error details", async () => {
 		const error = new Error("boom");
 		const { line, entry } = await captureLog({
+			kind: "unknown",
 			error,
 			event: makeEvent({ "cf-ray": "8a1b2c3d4e5f6789-YYZ" }),
-			status: 500,
-			message: "Internal Error",
 		});
 		deepEqual(Object.keys(entry).sort(), [
 			"log_level",
@@ -57,21 +56,19 @@ describe("handleError", () => {
 
 	test("falls back to the nil UUID without a cf-ray header", async () => {
 		const { entry } = await captureLog({
-			error: new Error("boom"),
+			kind: "framework",
+			error: { status: 404, message: "Not Found" },
 			event: makeEvent(),
-			status: 404,
-			message: "Not Found",
 		});
 		equal(entry.request_id, NIL_UUID);
 		equal(entry.status_code, 404);
 	});
 
-	test("uses Kit's message when a non-Error value was thrown", async () => {
+	test("uses Kit's default message when a non-Error value was thrown", async () => {
 		const { entry } = await captureLog({
+			kind: "unknown",
 			error: "string thrown",
 			event: makeEvent(),
-			status: 500,
-			message: "Internal Error",
 		});
 		equal(entry.message, "Internal Error");
 		equal("stack" in entry, false);
@@ -79,11 +76,21 @@ describe("handleError", () => {
 
 	test("tolerates a missing error value", async () => {
 		const { entry } = await captureLog({
+			kind: "unknown",
 			error: undefined,
 			event: makeEvent(),
-			status: 500,
-			message: "Internal Error",
 		});
 		equal(entry.message, "Internal Error");
+		equal(entry.status_code, 500);
+	});
+
+	test("skips expected app errors thrown with error()", async () => {
+		const spy = mock.method(console, "error", () => {});
+		await handleError({
+			kind: "app",
+			error: { message: "Not Found" },
+			event: makeEvent(),
+		});
+		equal(spy.mock.callCount(), 0);
 	});
 });

@@ -4,7 +4,7 @@ description: "Use Middy with Amazon MSK (Managed Streaming for Kafka) Lambda eve
 ---
 
 <script>
-import Callout from '@design-system/components/Callout.svelte'
+import Callout from '@willfarrell-ds/svelte/components/Callout.svelte'
 </script>
 
 

@@ -1,18 +1,18 @@
 <script>
-import Seo from "@components/Seo.svelte";
-import Callout from "@design-system/components/Callout.svelte";
-import H1 from "@design-system/components/Heading1.svelte";
-import LayoutAside from "@design-system/components/LayoutAside.svelte";
-import LayoutTableOfContents from "@design-system/components/LayoutTableOfContents.svelte";
-import NavScrollspy from "@design-system/components/NavScrollspy.svelte";
-import A from "@design-system/elements/a.svelte";
-import Hgroup from "@design-system/elements/hgroup.svelte";
-import Li from "@design-system/elements/li.svelte";
-import Ol from "@design-system/elements/ol.svelte";
-import P from "@design-system/elements/p.svelte";
+import Callout from "@willfarrell-ds/svelte/components/Callout.svelte";
+import H1 from "@willfarrell-ds/svelte/components/Heading1.svelte";
+import LayoutAside from "@willfarrell-ds/svelte/components/LayoutAside.svelte";
+import LayoutTableOfContents from "@willfarrell-ds/svelte/components/LayoutTableOfContents.svelte";
+import NavScrollspy from "@willfarrell-ds/svelte/components/NavScrollspy.svelte";
+import A from "@willfarrell-ds/svelte/elements/a.svelte";
+import Hgroup from "@willfarrell-ds/svelte/elements/hgroup.svelte";
+import Li from "@willfarrell-ds/svelte/elements/li.svelte";
+import Ol from "@willfarrell-ds/svelte/elements/ol.svelte";
+import P from "@willfarrell-ds/svelte/elements/p.svelte";
 import copyPreUrl from "@willfarrell-ds/vanilla/components/ds-copy-pre.js?worker&url";
+import Seo from "#components/Seo.svelte";
+import { getLastUpdated } from "#lib/docs-content.js";
 import { page } from "$app/state";
-import { getLastUpdated } from "$lib/docs-content.js";
 import AsideNav from "./AsideNav.svelte";
 
 const { title = "Documentation", description = "", headings = [], status, children } = $props();

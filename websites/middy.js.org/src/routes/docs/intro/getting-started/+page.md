@@ -1,6 +1,6 @@
 ---
 title: Getting started
-description: "Install Middy and start building cleaner AWS Lambda functions with the middleware pattern in minutes."
+description: "Install Middy and start building cleaner AWS Lambda Event Functions with the middleware pattern in minutes."
 position: 2
 ---
 

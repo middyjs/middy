@@ -1,4 +1,4 @@
-import { getDocsRoutes, getLastUpdated } from "$lib/docs-content.js";
+import { getDocsRoutes, getLastUpdated } from "#lib/docs-content.js";
 
 export const prerender = true;
 

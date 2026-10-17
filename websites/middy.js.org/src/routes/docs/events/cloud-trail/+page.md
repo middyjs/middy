@@ -4,7 +4,7 @@ description: "Use Middy with CloudTrail Lambda events for audit log processing."
 ---
 
 <script>
-import Callout from '@design-system/components/Callout.svelte'
+import Callout from '@willfarrell-ds/svelte/components/Callout.svelte'
 </script>
 
 

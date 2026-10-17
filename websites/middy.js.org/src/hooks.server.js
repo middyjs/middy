@@ -1,11 +1,11 @@
-import applyCacheControlMiddleware from "@design-system/hooks/applyCacheControlMiddleware.js";
-import removeCommentsMiddleware from "@design-system/hooks/removeCommentsMiddleware.js";
-import removeDuplicateImportMiddleware from "@design-system/hooks/removeDuplicateImportMiddleware.js";
-import removeOnEventsMiddleware from "@design-system/hooks/removeOnEventsMiddleware.js";
-import tardisecMiddleware from "@hooks/tardisecMiddleware.js";
 import { sequence } from "@sveltejs/kit/hooks";
+import applyCacheControlMiddleware from "@willfarrell-ds/svelte/hooks/applyCacheControlMiddleware.js";
+import removeCommentsMiddleware from "@willfarrell-ds/svelte/hooks/removeCommentsMiddleware.js";
+import removeDuplicateImportMiddleware from "@willfarrell-ds/svelte/hooks/removeDuplicateImportMiddleware.js";
+import removeOnEventsMiddleware from "@willfarrell-ds/svelte/hooks/removeOnEventsMiddleware.js";
+import tardisecMiddleware from "#hooks/tardisecMiddleware.js";
 
-export { handleError } from "@hooks/handleError.js";
+export { handleError } from "#hooks/handleError.js";
 
 export const handle = sequence(
 	applyCacheControlMiddleware,

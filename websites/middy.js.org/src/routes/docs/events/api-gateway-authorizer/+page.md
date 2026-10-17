@@ -4,7 +4,7 @@ description: "Use Middy with API Gateway Lambda authorizer events for custom aut
 ---
 
 <script>
-import Callout from '@design-system/components/Callout.svelte'
+import Callout from '@willfarrell-ds/svelte/components/Callout.svelte'
 </script>
 
 

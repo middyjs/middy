@@ -4,7 +4,7 @@ description: "Use Middy with Pino logger for structured JSON logging in Lambda."
 ---
 
 <script>
-import Callout from '@design-system/components/Callout.svelte'
+import Callout from '@willfarrell-ds/svelte/components/Callout.svelte'
 </script>
 
 

@@ -39,6 +39,7 @@ jobs:
       #   github.com:443
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: develop
           persist-credentials: false
       # allowed-endpoints: >
       #   api.github.com:443
@@ -57,6 +58,7 @@ jobs:
       #   github.com:443
       - uses: tardisec/integration-github-action@79a37c4a612483144768e0eb020b2b7236268862 # main, no tagged releases upstream
         with:
+          base: develop
           domain: middy.js.org
           path: /websites/middy.js.org
           files: |

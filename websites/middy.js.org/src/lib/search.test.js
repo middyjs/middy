@@ -41,7 +41,7 @@ describe("cleanContentForSearch", () => {
 			"title: X",
 			"---",
 			"<script>",
-			"  import Note from '@components/Note.svelte'",
+			"  import Note from '#components/Note.svelte'",
 			"</script>",
 			"<style>p { color: red }</style>",
 			"## Heading",

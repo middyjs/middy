@@ -128,7 +128,7 @@ The same shape, minus `ath`, is what a client sends to your token endpoint to ge
 
 This middleware does **not** keep a `jti` cache, and that is deliberate.
 
-`ath` pins a proof to one token and `maxAge` bounds it to a minute, so replaying a proof requires an attacker who already holds both halves on the same channel, inside TLS. An in-process cache would not stop that attacker either, because a Lambda function runs many concurrent execution environments and a replay landing on a cold one still passes. Shipping one would trade a real dependency for the appearance of protection.
+`ath` pins a proof to one token and `maxAge` bounds it to a minute, so replaying a proof requires an attacker who already holds both halves on the same channel, inside TLS. An in-process cache would not stop that attacker either, because a Lambda Event Function runs many concurrent execution environments and a replay landing on a cold one still passes. Shipping one would trade a real dependency for the appearance of protection.
 
 If your threat model needs it, the verified claims are published at `request.internal[proofKey]`, so a middleware of your own can check `jti` against a store you control:
 

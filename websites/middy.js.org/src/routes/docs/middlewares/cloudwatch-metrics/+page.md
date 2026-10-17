@@ -3,7 +3,7 @@ title: cloudwatch-metrics
 description: "Emit custom CloudWatch metrics from Lambda using AWS Embedded Metrics with Middy."
 ---
 
-This middleware publishes an instance of [MetricLogger](https://github.com/awslabs/aws-embedded-metrics-node#metriclogger) to `context.middyContext['cloudwatch-metrics']`. This instance can be used to easily generate custom metrics from Lambda functions without requiring custom batching code, making blocking network requests or relying on 3rd party software.
+This middleware publishes an instance of [MetricLogger](https://github.com/awslabs/aws-embedded-metrics-node#metriclogger) to `context.middyContext['cloudwatch-metrics']`. This instance can be used to easily generate custom metrics from Lambda Event Functions without requiring custom batching code, making blocking network requests or relying on 3rd party software.
 
 Metrics collected with this logger are then available for querying within [AWS CloudWatch Log Insights](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/AnalyzingLogData.html)
 

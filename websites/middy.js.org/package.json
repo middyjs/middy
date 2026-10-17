@@ -21,17 +21,17 @@
 		"release:deploy": "wrangler pages deploy"
 	},
 	"dependencies": {
-		"@willfarrell-ds/svelte": "0.0.0-beta.0",
-		"@willfarrell-ds/vanilla": "0.0.0-beta.0",
+		"@willfarrell-ds/svelte": "0.0.0-beta.1",
+		"@willfarrell-ds/vanilla": "0.0.0-beta.1",
 		"hast-util-to-string": "3.0.1",
 		"mdast-util-to-string": "4.0.0"
 	},
 	"devDependencies": {
-		"@iconify-json/logos": "1.2.14",
-		"@sveltejs/adapter-cloudflare": "^7.0.0",
-		"@sveltejs/kit": "^2.0.0",
+		"@iconify-json/logos": "1.2.15",
+		"@sveltejs/adapter-cloudflare": "^8.0.0",
+		"@sveltejs/kit": "^3.0.0",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
-		"@willfarrell-ds/cli": "0.0.0-beta.0",
+		"@willfarrell-ds/cli": "0.0.0-beta.1",
 		"mdsvex": "^0.12.0",
 		"mermaid-isomorphic": "3.1.0",
 		"playwright": "1.63.0",
@@ -42,5 +42,12 @@
 		"vite-plugin-mkcert": "^2.0.0",
 		"vite-plugin-sri": "^0.0.2",
 		"wrangler": "^4.134.0"
+	},
+	"imports": {
+		"#components/*": "./src/components/*",
+		"#hooks/*": "./src/hooks/*",
+		"#lib/*": "./src/lib/*",
+		"#scripts/*": "./src/scripts/*",
+		"#styles/*": "./src/styles/*"
 	}
 }

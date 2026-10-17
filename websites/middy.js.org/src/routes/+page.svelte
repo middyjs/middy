@@ -1,21 +1,21 @@
 <script>
-import Seo from "@components/Seo.svelte";
-import Card from "@design-system/components/Card.svelte";
-import Codeblock from "@design-system/components/Codeblock.svelte";
-import H1 from "@design-system/components/Heading1.svelte";
-import H2 from "@design-system/components/Heading2.svelte";
-import H3 from "@design-system/components/Heading3.svelte";
-import Icon from "@design-system/components/Icon.svelte";
-import Image from "@design-system/components/Image.svelte";
-import LayoutSlices from "@design-system/components/LayoutSlices.svelte";
-import A from "@design-system/elements/a.svelte";
-import Div from "@design-system/elements/div.svelte";
-import Em from "@design-system/elements/em.svelte";
-import Li from "@design-system/elements/li.svelte";
-import P from "@design-system/elements/p.svelte";
-import Section from "@design-system/elements/section.svelte";
-import Span from "@design-system/elements/span.svelte";
-import Ul from "@design-system/elements/ul.svelte";
+import Card from "@willfarrell-ds/svelte/components/Card.svelte";
+import Codeblock from "@willfarrell-ds/svelte/components/Codeblock.svelte";
+import H1 from "@willfarrell-ds/svelte/components/Heading1.svelte";
+import H2 from "@willfarrell-ds/svelte/components/Heading2.svelte";
+import H3 from "@willfarrell-ds/svelte/components/Heading3.svelte";
+import Icon from "@willfarrell-ds/svelte/components/Icon.svelte";
+import Image from "@willfarrell-ds/svelte/components/Image.svelte";
+import LayoutSlices from "@willfarrell-ds/svelte/components/LayoutSlices.svelte";
+import A from "@willfarrell-ds/svelte/elements/a.svelte";
+import Div from "@willfarrell-ds/svelte/elements/div.svelte";
+import Em from "@willfarrell-ds/svelte/elements/em.svelte";
+import Li from "@willfarrell-ds/svelte/elements/li.svelte";
+import P from "@willfarrell-ds/svelte/elements/p.svelte";
+import Section from "@willfarrell-ds/svelte/elements/section.svelte";
+import Span from "@willfarrell-ds/svelte/elements/span.svelte";
+import Ul from "@willfarrell-ds/svelte/elements/ul.svelte";
+import Seo from "#components/Seo.svelte";
 
 const codeWithoutMiddy = `export const handler = (event, context) => {
   // BOILERPLATE!

@@ -4,7 +4,7 @@ description: "Use Middy with CodeCommit Lambda trigger events for repository aut
 ---
 
 <script>
-import Callout from '@design-system/components/Callout.svelte'
+import Callout from '@willfarrell-ds/svelte/components/Callout.svelte'
 </script>
 
 

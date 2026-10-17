@@ -1,7 +1,7 @@
 <script>
-import BodyFooter from "@design-system/components/BodyFooter.svelte";
-import Image from "@design-system/components/Image.svelte";
-import A from "@design-system/elements/a.svelte";
+import BodyFooter from "@willfarrell-ds/svelte/components/BodyFooter.svelte";
+import Image from "@willfarrell-ds/svelte/components/Image.svelte";
+import A from "@willfarrell-ds/svelte/elements/a.svelte";
 
 const navLinks = {
 	Docs: {

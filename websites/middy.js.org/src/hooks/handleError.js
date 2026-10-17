@@ -5,13 +5,15 @@ const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 
 // Never log the whole RequestEvent: on Cloudflare it carries `platform.env`
 // (secret bindings), `platform.cf`, cookies and client details.
-export async function handleError({ error, event, status, message }) {
+export async function handleError({ kind, error, event }) {
+	// Kit 3 also passes expected `error()` throws here; v2 never did
+	if (kind === "app") return;
 	console.error(
 		`${JSON.stringify({
 			log_level: "ERROR",
-			message: error?.message ?? message,
+			message: error?.message ?? "Internal Error",
 			stack: error?.stack,
-			status_code: status,
+			status_code: error?.status ?? 500,
 			request_id: event.request.headers.get("cf-ray") ?? NIL_UUID,
 			path: event.url.pathname,
 			route_id: event.route.id,

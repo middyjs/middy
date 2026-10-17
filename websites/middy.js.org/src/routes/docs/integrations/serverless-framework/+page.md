@@ -4,7 +4,7 @@ description: "Use Middy with the Serverless Framework for Lambda deployment and 
 ---
 
 <script>
-import Callout from '@design-system/components/Callout.svelte'
+import Callout from '@willfarrell-ds/svelte/components/Callout.svelte'
 </script>
 
 

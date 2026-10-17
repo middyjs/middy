@@ -6,11 +6,11 @@ status: alpha
 
 Fetches AppConfig configuration and feature flags via the [AWS AppConfig Lambda Extension](https://docs.aws.amazon.com/appconfig/latest/userguide/appconfig-integration-lambda-extensions.html). The extension runs as a sidecar process and handles polling, caching, and session token management internally, with no AWS SDK required.
 
-Use this middleware instead of `@middy/appconfig` when your Lambda function uses the AppConfig Lambda Layer. For SDK-direct access (IAM role assumption, X-Ray capture) use `@middy/appconfig` instead.
+Use this middleware instead of `@middy/appconfig` when your Lambda Event Function uses the AppConfig Lambda Layer. For SDK-direct access (IAM role assumption, X-Ray capture) use `@middy/appconfig` instead.
 
 ## Prerequisites
 
-Add the [AWS AppConfig Lambda Extension layer](https://docs.aws.amazon.com/appconfig/latest/userguide/appconfig-integration-lambda-extensions.html#appconfig-integration-lambda-extensions-enabling) to your Lambda function.
+Add the [AWS AppConfig Lambda Extension layer](https://docs.aws.amazon.com/appconfig/latest/userguide/appconfig-integration-lambda-extensions.html#appconfig-integration-lambda-extensions-enabling) to your Lambda Event Function.
 
 **Incompatible with AWS Lambda Code Signing.** The extension is deployed as an AWS-published Lambda Layer. If your function has a Code Signing Configuration that restricts layers to your own approved signing profiles, this layer cannot be attached. In that case use `@middy/appconfig` instead.
 

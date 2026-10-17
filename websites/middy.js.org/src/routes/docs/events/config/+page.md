@@ -4,7 +4,7 @@ description: "Use Middy with AWS Config rule Lambda events for resource complian
 ---
 
 <script>
-import Callout from '@design-system/components/Callout.svelte'
+import Callout from '@willfarrell-ds/svelte/components/Callout.svelte'
 </script>
 
 

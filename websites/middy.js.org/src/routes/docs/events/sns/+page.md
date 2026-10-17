@@ -64,7 +64,7 @@ export const handler = middy()
 
 - **`Sns.Message` is always a string.** If you publish JSON, you have to `JSON.parse(record.Sns.Message)` or use `eventNormalizer`.
 - **No partial-batch support.** SNS-to-Lambda is fire-and-forget per record. For retry semantics, fan out via SQS (SNS -> SQS -> Lambda) and use the [SQS event page](/docs/events/sqs).
-- **DLQ vs on-failure destination.** Configure a DLQ or an `OnFailure` destination on the Lambda function for failed invocations; SNS itself does not redeliver.
+- **DLQ vs on-failure destination.** Configure a DLQ or an `OnFailure` destination on the Lambda Event Function for failed invocations; SNS itself does not redeliver.
 - **Message size.** SNS has a 256 KB message limit; use the Extended Client Library if you need larger.
 
 ## Related

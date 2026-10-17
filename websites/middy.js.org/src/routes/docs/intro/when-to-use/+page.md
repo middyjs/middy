@@ -64,6 +64,15 @@ Lambdas killed at the runtime timeout return no response to the caller. A gracef
 
 - `middy({ timeoutEarlyResponse: () => ({ statusCode: 408 }) })` - see [Early response](/docs/intro/early-interrupt).
 
+## Lambda Event Functions and Lambda Web Functions
+
+AWS Lambda now has two kinds of function ([announcement](https://aws.amazon.com/about-aws/whats-new/2026/10/aws-lambda-web-functions/)):
+
+- **Lambda Event Functions** are what used to be called Lambda functions. The runtime invokes your handler with an `event` and a `context`. Only the name changed, with no code changes or redeploys. Everything in these docs that says "Lambda" means an Event Function.
+- **Lambda Web Functions** run your code as an HTTP server listening on a port. One warm execution environment serves many concurrent requests and can stream responses natively. Only the Node.js runtime is supported.
+
+A Web Function never calls an `(event, context)` handler, so a middyfied handler cannot be deployed to one directly. Wrap it with [`@middy/ecs-http`](/docs/runners/ecs-http): the runner starts the HTTP server, turns each request into the API Gateway or ALB event your handler already expects, and maps the return value back to an HTTP response. The same handler and middleware stack then runs on Lambda Event Functions, Lambda Web Functions, and ECS/Fargate.
+
 ## Exceptions
 
 These are narrow. If you find yourself reaching for one of them, double-check that what you are writing is actually a production handler.
