@@ -6,8 +6,8 @@ import { fileURLToPath } from "node:url";
 
 // The certificates/ directory is a build artifact produced by ./bin/certificates
 // (downloaded from AWS at build/publish time) and is gitignored. When it has not
-// been built (e.g. in CI before `npm run build`), these validation tests skip
-// rather than fail on a missing module.
+// been built (e.g. a local checkout, or a CI run whose download failed), each
+// missing region's tests skip rather than fail on a missing module.
 const regions = [
 	"af-south-1",
 	"ap-east-1",

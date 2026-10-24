@@ -1,5 +1,6 @@
 import type middy from "@middy/core";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import httpResponseSerializer, { type SerializerHandler } from "./index.js";
 
 test("use with default options", () => {
@@ -39,4 +40,17 @@ test("SerializerHandler type is exported", () => {
 		serializer: (data) => JSON.stringify(data),
 	};
 	expect(handler).type.toBe<SerializerHandler>();
+});
+
+test("httpResponseSerializerValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.Options;
+	expect(
+		indexModule.httpResponseSerializerValidateOptions(options),
+	).type.toBe<indexModule.Options>();
+});
+
+test("rejects misspelled option", () => {
+	expect(httpResponseSerializer).type.not.toBeCallableWith({
+		defaultContentTyp: "application/json",
+	});
 });

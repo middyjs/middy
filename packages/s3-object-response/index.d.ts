@@ -37,8 +37,8 @@ declare function s3ObjectResponse<
 	options?: TOptions & { contextKey?: TKey },
 ): middy.MiddlewareObj<unknown, unknown, Error, Context<TOptions>>;
 
-export declare function s3ObjectResponseValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function s3ObjectResponseValidateOptions<
+	TOptions extends S3ObjectResponseOptions,
+>(options?: TOptions): TOptions;
 
 export default s3ObjectResponse;

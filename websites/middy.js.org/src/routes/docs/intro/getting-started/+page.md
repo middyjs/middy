@@ -1,6 +1,6 @@
 ---
 title: Getting started
-description: "Install Middy and start building cleaner AWS Lambda functions with the middleware pattern in minutes."
+description: "Install Middy and start building cleaner AWS Lambda Event Functions with the middleware pattern in minutes."
 position: 2
 ---
 
@@ -69,4 +69,4 @@ export const handler = middy()
 
 You can also attach [inline middlewares](/docs/writing-middlewares/inline-middlewares) by using the functions `.before`, `.after` and `.onError`.
 
-For a more detailed use case and examples check the [Writing a middleware section](/docs/category/writing-middlewares).
+For a more detailed use case and examples check the [Writing a middleware section](/docs/writing-middlewares/intro).

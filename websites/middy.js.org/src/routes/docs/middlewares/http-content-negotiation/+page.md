@@ -31,19 +31,21 @@ npm install --save @middy/http-content-negotiation
 ## Options
 
 - `parseCharsets` (defaults to `true`) - Allows enabling/disabling the charsets parsing
-- `availableCharsets` (defaults to `undefined`) - Allows defining the list of charsets supported by the Lambda function
+- `availableCharsets` (defaults to `undefined`) - Allows defining the list of charsets supported by the Lambda Event Function
 - `defaultToFirstCharset` (defaults to `false`) - When negotiation produces no preferred charset, fall back to the first value in `availableCharsets` instead of failing
 - `parseEncodings` (defaults to `true`) - Allows enabling/disabling the encodings parsing
-- `availableEncodings` (defaults to `undefined`) - Allows defining the list of encodings supported by the Lambda function
+- `availableEncodings` (defaults to `undefined`) - Allows defining the list of encodings supported by the Lambda Event Function
 - `defaultToFirstEncoding` (defaults to `false`) - When negotiation produces no preferred encoding, fall back to the first value in `availableEncodings` instead of failing
 - `parseLanguages` (defaults to `true`) - Allows enabling/disabling the languages parsing
-- `availableLanguages` (defaults to `undefined`) - Allows defining the list of languages supported by the Lambda function. Setting to `en` will match with locales like `en-*`. Setting to `en-US` will match with language `en`.
+- `availableLanguages` (defaults to `undefined`) - Allows defining the list of languages supported by the Lambda Event Function. Setting to `en` will match with locales like `en-*`. Setting to `en-US` will match with language `en`.
 - `defaultToFirstLanguage` (defaults to `false`) - When negotiation produces no preferred language, fall back to the first value in `availableLanguages` instead of failing
 - `parseMediaTypes` (defaults to `true`) - Allows enabling/disabling the media types parsing
-- `availableMediaTypes` (defaults to `undefined`) - Allows defining the list of media types supported by the Lambda function
+- `availableMediaTypes` (defaults to `undefined`) - Allows defining the list of media types supported by the Lambda Event Function
 - `defaultToFirstMediaType` (defaults to `false`) - When negotiation produces no preferred media type, fall back to the first value in `availableMediaTypes` instead of failing
 - `failOnMismatch` (defaults to `true`) - If set to true it will throw an HTTP `NotAcceptable` (406) exception when the negotiation fails for one of the headers (e.g. none of the languages requested are supported by the app)
 - `contextKey` (defaults to `'http-content-negotiation'`) - The key under `context.middyContext` the results are published to
+
+**Note**: VPC Lattice V2 delivers each header as an array of its values ([event structure](https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html)); they are joined with `, ` before negotiation. ALB with [multi-value headers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers) enabled sends no `headers` at all, so put [`http-event-normalizer`](/docs/middlewares/http-event-normalizer) in front.
 
 ## Consumed by
 

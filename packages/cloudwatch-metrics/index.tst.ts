@@ -2,6 +2,7 @@ import middy from "@middy/core";
 import type { MetricsLogger } from "aws-embedded-metrics";
 import type { Context as LambdaContext } from "aws-lambda";
 import { expect, test } from "tstyche";
+import * as cloudwatchMetricsModule from "./index.js";
 import cloudwatchMetrics, { type Context, type Options } from "./index.js";
 
 test("use with default options", () => {
@@ -71,4 +72,25 @@ test("contextKey literal narrows middyContext without as const", () => {
 		.before((request) => {
 			expect(request.context.middyContext.metrics).type.toBe<MetricsLogger>();
 		});
+});
+
+test("MetricsLogger is re-exported as a type only", () => {
+	expect<cloudwatchMetricsModule.MetricsLogger>().type.toBe<MetricsLogger>();
+	expect<typeof cloudwatchMetricsModule>().type.not.toHaveProperty(
+		"MetricsLogger",
+	);
+});
+
+test("rejects misspelled option", () => {
+	expect(cloudwatchMetrics).type.not.toBeCallableWith({
+		namespace: "myApp",
+		namspace: "myApp",
+	});
+});
+
+test("cloudwatchMetricsValidateOptions accepts typed options and returns them", () => {
+	const options = {} as cloudwatchMetricsModule.Options;
+	expect(
+		cloudwatchMetricsModule.cloudwatchMetricsValidateOptions(options),
+	).type.toBe<cloudwatchMetricsModule.Options>();
 });

@@ -32,6 +32,8 @@ npm install --save @middy/http-json-body-parser
 - `disableContentTypeCheck` (`boolean`) (optional): Skip `Content-Type` check for JSON. Default: `false`.
 - `disableContentTypeError` (`boolean`) (optional): Skip throwing 415 when `Content-Type` is invalid. Default: `false`.
 
+**Note**: ALB with [multi-value headers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers) enabled sends `multiValueHeaders` and no `headers`, so `Content-Type` is not found. Put [`http-event-normalizer`](/docs/middlewares/http-event-normalizer) in front.
+
 ## Sample usage
 
 ```javascript
@@ -71,4 +73,3 @@ deepStrictEqual(response, { foo: 'bar' })
 - [`@middy/http-urlencode-body-parser`](/docs/middlewares/http-urlencode-body-parser) - for `application/x-www-form-urlencoded` bodies.
 - [`@middy/http-multipart-body-parser`](/docs/middlewares/http-multipart-body-parser) - for `multipart/form-data` (file uploads).
 - [`@middy/ws-json-body-parser`](/docs/middlewares/ws-json-body-parser) - for WebSocket payloads.
-- [CORS and error handling recipe](/docs/recipes/cors-and-errors).

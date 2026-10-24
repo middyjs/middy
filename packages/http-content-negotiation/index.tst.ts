@@ -1,6 +1,7 @@
 import middy from "@middy/core";
 import type { Context as LambdaContext } from "aws-lambda";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import httpContentNegotiationMiddleware, {
 	type Context,
 	type NegotiationResults,
@@ -54,4 +55,28 @@ test("contextKey literal narrows middyContext without as const", () => {
 				request.context.middyContext.custom,
 			).type.toBe<NegotiationResults>();
 		});
+});
+
+test("httpContentNegotiationValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.Options;
+	expect(
+		indexModule.httpContentNegotiationValidateOptions(options),
+	).type.toBe<indexModule.Options>();
+});
+
+test("NegotiationResults fields may be absent", () => {
+	expect<NegotiationResults["preferredCharset"]>().type.toBe<
+		string | undefined
+	>();
+	expect<NegotiationResults["preferredMediaTypes"]>().type.toBe<
+		string[] | undefined
+	>();
+	expect<{}>().type.toBeAssignableTo<NegotiationResults>();
+});
+
+test("rejects misspelled option", () => {
+	expect(httpContentNegotiationMiddleware).type.not.toBeCallableWith({
+		parseCharsets: true,
+		parseCharset: true,
+	});
 });

@@ -80,8 +80,10 @@ npm install --save @middy/event-normalizer
 
 NOTES:
 
-- A record missing the fields its event source promises (a DynamoDB record without `dynamodb`, an S3 record without `s3`, an SNS record without `Sns`, a Kafka event without `records`, ...) fails the invocation with a 422 `HttpError`. `cause.data` carries `{ reason: 'Malformed event record', eventSource, message }`. This also applies to records nested in an SQS or SNS message, and to an S3 `object.key` or S3 Batch `s3Key` that is not valid percent-encoding.
+- A record missing the fields its event source promises (a DynamoDB record without `dynamodb`, an S3 record without `s3`, an SNS record without `Sns`, a Kafka event without `records`, ...) fails the invocation with a 422 `HttpError`. `cause.data` carries `{ reason: 'Malformed event record', eventSource, message }`. This also applies to an S3 `object.key` or S3 Batch `s3Key` that is not valid percent-encoding. The documented nested notifications (S3 to SQS, SNS to SQS) are normalized the same way; an SQS body or SNS `Message` that only looks like an AWS event and cannot be normalized is left as parsed JSON for that record instead of failing the batch.
+- A payload containing a `__proto__` or other prototype-polluting key is never parsed into an object and never fails the batch: that record's field keeps its original raw value (the plain string for an SQS `body` or SNS `Message`; the base64 string for Kinesis, Firehose, ActiveMQ, RabbitMQ and a Kafka `key` / `value`), and the other records normalize as usual. Treat a payload that is still a string as unparsed and untrusted.
 - An SNS notification (direct or delivered through SQS) is only descended into when its `Message` parses to an object; a missing or plain-text `Message` is left as is.
+- DynamoDB `Keys`, `NewImage` and `OldImage` are each unmarshalled only when present. Which ones a record carries depends on the stream's `StreamViewType` and the event name (a `REMOVE` has no `NewImage`; `KEYS_ONLY` has neither image), so check for `undefined` rather than an empty object. See the [StreamRecord reference](https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_streams_StreamRecord.html).
 
 ## Sample usage
 

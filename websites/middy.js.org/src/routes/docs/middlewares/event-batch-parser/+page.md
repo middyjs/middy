@@ -38,7 +38,7 @@ npm install --save-dev @aws-sdk/client-glue
 - `body` (function) (SQS only): Parser to apply to `record.body`.
 - `data` (function) (Kinesis / Firehose / MQ): Parser to apply to the source-specific data field (`record.kinesis.data`, `record.data`, or `message.data`).
 - `disableEventSourceError` (boolean) (default `false`): If `true`, unknown event sources are skipped silently instead of throwing.
-- `maxDecompressedBytes` (integer) (default `10485760`, 10 MiB): Cap on the decompressed size of any single Glue-framed (`0x05` zlib) record payload. Bounds zlib output to defend against compression-bomb DoS from external producers. A breach throws an HTTP 413 error.
+- `maxDecompressedBytes` (integer) (default `10485760`, 10 MiB): Cap on the decompressed size of any single Glue-framed (`0x05` zlib) record payload. Bounds zlib output to defend against compression-bomb DoS from external producers. A breach marks the record with an HTTP 413 error (see Errors below).
 
 ## Parser exports
 
@@ -134,7 +134,7 @@ bytes 2-17 : SchemaVersionId UUID
 bytes 18+  : payload (Avro/Protobuf/JSON-Schema-encoded)
 ```
 
-`0x00` and `0x05` are the only compression types the Glue serializer defines, so a `0x03` record with any other second byte is not a Glue header and reaches the parser unframed. A parser bound to [`@middy/glue-schema-registry`](/docs/middlewares/glue-schema-registry) through `internalKey` (`parseAvro({ internalKey })`, `parseProtobuf({ internalKey })`) then decodes the raw bytes and fails with the usual 422 when they are not a valid record.
+`0x00` and `0x05` are the only compression types the Glue serializer defines, so a `0x03` record with any other second byte is not a Glue header and reaches the parser unframed. A parser bound to [`@middy/glue-schema-registry`](/docs/middlewares/glue-schema-registry) through `internalKey` (`parseAvro({ internalKey })`, `parseProtobuf({ internalKey })`) then decodes the raw bytes and marks the record with the usual 422 when they are not a valid record.
 
 One raw record cannot be told apart from Glue framing: an Avro record whose first field is an `int` or `long` with the value `-2`, which the [zigzag varint encoding](https://avro.apache.org/docs/1.11.1/specification/#binary-encoding) writes as the single byte `0x03`, followed by a `0x00` byte (an `int` or `long` `0`, `false`, an empty `string` or `bytes`, the first branch of a union) or a `0x05` byte. Such a record is read as a Glue header: the next 16 bytes become the schema version id and the rest fails to decode, or decodes against the wrong schema. Lengths, union branches and enum indexes are never negative and so never start a record with `0x03`. To avoid the collision, produce every record through the Glue Schema Registry serializer so all records are framed, or order the schema so its first field is a `string`, `bytes`, `boolean`, `enum` or union rather than a signed `int` or `long` (or a `float`, `double` or `fixed`, whose raw bytes can also start with `0x03`).
 
@@ -142,9 +142,31 @@ The framing is passed to the parser as its fourth argument, `{ schemaVersionId, 
 
 ## Errors
 
-- A record whose payload cannot be handled (a non-string value already decoded upstream, an invalid base64/zlib stream, a decode failure in the parser) fails the invocation with a 422 `HttpError`. `cause.data` carries `{ reason: 'Invalid record payload', source, field, message }`.
-- `parseJson` rejects a payload with an own `__proto__` key or a `constructor.prototype` key with a 422 (`cause.data.reason` `Forbidden key in JSON body`), so a crafted record cannot smuggle a prototype gadget into the object handed to your handler.
-- A zlib-framed record whose decompressed size exceeds `maxDecompressedBytes` fails with a 413 `HttpError`.
+A record that can't be parsed does not fail the invocation. The middleware attaches the error to that record under the `parseErrorKey` symbol (`Symbol.for("@middy/event-batch-parser/error")`, also exported by this package), leaves the record's raw payload in place, skips the record's remaining fields, and carries on with the rest of the batch. [`@middy/event-batch-handler`](/docs/handlers/event-batch-handler) settles such a record as rejected without calling your record handler, so [`@middy/event-batch-response`](/docs/middlewares/event-batch-response) reports only that record as failed rather than the whole batch. In an SQS FIFO batch it is the first failure, so it and every later record are reported. Under durable functions the same holds: a parse failure is reported per record, not rethrown (see [event-batch-handler failure semantics](/docs/handlers/event-batch-handler#failure-semantics)).
+
+If you walk the records yourself instead of using `event-batch-handler`, check each record for the key:
+
+```javascript
+import { parseErrorKey } from '@middy/event-batch-parser'
+
+for (const record of event.Records) {
+  if (record[parseErrorKey]) {
+    // record.body is still the raw string; record[parseErrorKey] is the error
+    continue
+  }
+  // record.body is the parsed value
+}
+```
+
+The attached error is one of:
+
+- A 422 `HttpError` for a payload that cannot be handled (a non-string value already decoded upstream, an invalid base64/zlib stream, a decode failure in the parser). `cause.data` carries `{ reason: 'Invalid record payload', source, field, message }`.
+- A 422 from `parseJson` for a payload with an own `__proto__` key or a `constructor.prototype` key (`cause.data.reason` `Forbidden key in JSON body`), so a crafted record cannot smuggle a prototype gadget into the object handed to your handler.
+- A 413 `HttpError` for a zlib-framed record whose decompressed size exceeds `maxDecompressedBytes`.
+- Any other error that carries a numeric `statusCode` (for example a parser's own `HttpError`), as thrown.
+
+Configuration errors (an unsupported event source, a field the source doesn't support) still fail the invocation.
+
 - Kafka and RabbitMQ groups that are not arrays are skipped.
 
 

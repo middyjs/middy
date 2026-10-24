@@ -4,13 +4,24 @@ description: "Use Middy with S3 Batch Operations Lambda events for bulk processi
 ---
 
 <script>
-import Callout from '@design-system/components/Callout.svelte'
+import Callout from '@willfarrell-ds/svelte/components/Callout.svelte'
 </script>
 
 
 <Callout data-theme="warn">
 This page is a work in progress. If you want to help us to make this page better, please consider contributing on GitHub.
 </Callout>
+
+## Event flow
+
+```mermaid
+flowchart LR
+  accTitle: S3 Batch Operations to Lambda
+  accDescr: S3 Batch Operations to Lambda.
+  src@{ icon: "logos:aws-s3", label: "S3 Batch Operations", pos: "b", h: 48 }
+  fn@{ icon: "logos:aws-lambda", label: "Lambda", pos: "b", h: 48 }
+  src --> fn
+```
 
 ## AWS Documentation
 - [Using AWS Lambda with Amazon S3 batch operations](https://docs.aws.amazon.com/lambda/latest/dg/services-s3-batch.html)

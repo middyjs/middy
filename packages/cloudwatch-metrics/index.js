@@ -54,6 +54,10 @@ const cloudwatchMetricsMiddleware = (opts = {}) => {
 			}
 		}
 	}
+	// The logger each request created, taken on its first flush: a request
+	// flushes only its own logger (never one inherited from an outer middy's
+	// namespace) and only once, even when onError runs after a flushed after.
+	const loggers = new WeakMap();
 	const cloudwatchMetricsBefore = (request) => {
 		const metrics = awsEmbeddedMetrics.createMetricsLogger();
 
@@ -67,11 +71,15 @@ const cloudwatchMetricsMiddleware = (opts = {}) => {
 			metrics.setDimensions(dimensions);
 		}
 		setContextNamespace(request, contextKey, metrics);
+		loggers.set(request, metrics);
 	};
 
 	const flushMetrics = async (request) => {
+		const metrics = loggers.get(request);
+		if (metrics === undefined) return;
+		loggers.delete(request);
 		try {
-			await request.context.middyContext?.[contextKey]?.flush();
+			await metrics.flush();
 		} catch (err) {
 			// Flush errors are swallowed to prevent metrics from crashing the
 			// handler. Users who need visibility (e.g., to catch IAM or network

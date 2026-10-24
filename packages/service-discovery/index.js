@@ -80,6 +80,11 @@ const optionSchema = {
 			minimum: -1,
 			maximum: Number.MAX_SAFE_INTEGER,
 		},
+		cacheMaxSize: {
+			type: "integer",
+			minimum: 1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		setToContext: { type: "boolean" },
 		contextKey: { type: "string" },
 	},

@@ -31,6 +31,15 @@ const optionSchema = {
 export const wsResponseValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
+// The default domain is documented as
+// `https://{api-id}.execute-api.{region}.amazonaws.com/{stage}`, and "If you
+// use a custom domain name for your WebSocket API, remove the `stage`
+// variable". Matching the `{api-id}.execute-api.{region}.` labels rather than
+// the TLD keeps other partitions' default domains (e.g. `.amazonaws.com.cn`)
+// on the stage path.
+// https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-how-to-call-websocket-api-connections.html
+const defaultDomainPattern = /^[a-z0-9]+\.execute-api\.[a-z0-9-]+\./;
+
 const defaults = {
 	AwsClient: ApiGatewayManagementApiClient,
 	awsClientOptions: {}, // { endpoint }
@@ -63,8 +72,13 @@ const wsResponseMiddleware = (opts = {}) => {
 		// object (which would otherwise leak one request's endpoint to later
 		// warm invocations).
 		const awsClientOptions = { ...options.awsClientOptions };
-		if (request.event.requestContext) {
-			awsClientOptions.endpoint ??= `https://${request.event.requestContext.domainName}/${request.event.requestContext.stage}`;
+		const { requestContext } = request.event;
+		if (requestContext?.domainName) {
+			awsClientOptions.endpoint ??= defaultDomainPattern.test(
+				requestContext.domainName,
+			)
+				? `https://${requestContext.domainName}/${requestContext.stage}`
+				: `https://${requestContext.domainName}`;
 		}
 		const { endpoint } = awsClientOptions;
 		const derived = derivedClients.get(endpoint) ?? {
@@ -84,6 +98,14 @@ const wsResponseMiddleware = (opts = {}) => {
 	};
 
 	const wsResponseMiddlewareAfter = async (request) => {
+		// There is no open connection to post to on $connect ("the actual
+		// connection will not be established" until the integration completes)
+		// or on $disconnect ("the connection is already closed"). The handler's
+		// response is left for API Gateway as-is.
+		// https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-websocket-api-route-keys-connect-disconnect.html
+		const eventType = request.event.requestContext?.eventType;
+		if (eventType === "CONNECT" || eventType === "DISCONNECT") return;
+
 		const normalizedResponse = normalizeWsResponse(request);
 
 		if (!normalizedResponse.ConnectionId) return;

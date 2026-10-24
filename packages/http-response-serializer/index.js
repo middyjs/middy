@@ -15,7 +15,18 @@ const defaults = {
 
 const maxMediaTypeLength = 128;
 
-const mediaTypeGrammar = /^[a-z0-9][a-z0-9.+-]*\/[a-z0-9][a-z0-9.+-]*$/i;
+// RFC 9110 §8.3.1 media-type: `type "/" subtype` then `*( OWS ";" OWS
+// token "=" ( token / quoted-string ) )`. No CR, LF or other control
+// character can match, so a value that passes is safe to echo as a header.
+const token = "[!#$%&'*+.^_`|~0-9a-z-]+";
+const quotedString =
+	'"(?:[\\t \\x21\\x23-\\x5b\\x5d-\\x7e]|\\\\[\\t \\x21-\\x7e])*"';
+// Built from the two constants above, never from input.
+// nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
+const mediaTypeGrammar = new RegExp(
+	`^[a-z0-9][a-z0-9.+-]*/[a-z0-9][a-z0-9.+-]*(?:[ \\t]*;[ \\t]*${token}=(?:${token}|${quotedString}))*$`,
+	"i",
+);
 
 const optionSchema = {
 	type: "object",
@@ -41,6 +52,9 @@ const optionSchema = {
 export const httpResponseSerializerValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
+const hasContentType = (headers) =>
+	Object.keys(headers).some((key) => key.toLowerCase() === "content-type");
+
 const httpResponseSerializerMiddleware = (opts = {}) => {
 	const { serializers, defaultContentType, contextKeyHttpContentNegotiation } =
 		{
@@ -50,10 +64,14 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
 	const httpResponseSerializerMiddlewareAfter = (request) => {
 		normalizeHttpResponse(request);
 
-		// skip serialization when Content-Type or content-type is already set
+		// skip serialization when Content-Type is already set, in any casing
+		// (RFC 9110 §5.1) and in either map. ALB with multi-value headers enabled
+		// reads and writes `multiValueHeaders` only.
+		// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+		const { multiValueHeaders } = request.response;
 		if (
-			request.response.headers["Content-Type"] ??
-			request.response.headers["content-type"]
+			hasContentType(request.response.headers) ||
+			(multiValueHeaders && hasContentType(multiValueHeaders))
 		) {
 			return;
 		}
@@ -81,7 +99,11 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
 				}
 
 				if (mediaTypeGrammar.test(type)) {
-					request.response.headers["Content-Type"] = type;
+					if (multiValueHeaders) {
+						multiValueHeaders["Content-Type"] = [type];
+					} else {
+						request.response.headers["Content-Type"] = type;
+					}
 				}
 				const result = s.serializer(request.response);
 				if (result !== null && typeof result === "object" && "body" in result) {

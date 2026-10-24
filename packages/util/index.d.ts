@@ -1,6 +1,5 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import type { Context as LambdaContext } from "aws-lambda";
 import type {
 	ArrayValues,
 	Choose,
@@ -9,6 +8,53 @@ import type {
 	SanitizeKey,
 	SanitizeKeys,
 } from "./type-utils.d.ts";
+
+// import type { Context } from "aws-lambda";
+// Structural copy of `Context` from @types/aws-lambda (MIT, DefinitelyTyped),
+// kept local because @middy/util declares no dependencies. It must stay
+// mutually assignable with the aws-lambda type (see index.tst.ts).
+export interface LambdaContext {
+	callbackWaitsForEmptyEventLoop: boolean;
+	functionName: string;
+	functionVersion: string;
+	invokedFunctionArn: string;
+	memoryLimitInMB: string;
+	awsRequestId: string;
+	logGroupName: string;
+	logStreamName: string;
+	identity?:
+		| { cognitoIdentityId: string; cognitoIdentityPoolId: string }
+		| undefined;
+	clientContext?:
+		| {
+				client: {
+					installationId: string;
+					appTitle: string;
+					appVersionName: string;
+					appVersionCode: string;
+					appPackageName: string;
+				};
+				custom?: any;
+				env: {
+					platformVersion: string;
+					platform: string;
+					make: string;
+					model: string;
+					locale: string;
+				};
+		  }
+		| undefined;
+	tenantId?: string | undefined;
+	getRemainingTimeInMillis(): number;
+	/** @deprecated Use handler callback or promise result */
+	done(error?: Error, result?: any): void;
+	/** @deprecated Use handler callback with first argument or reject a promise result */
+	fail(error: Error | string): void;
+	/** @deprecated Use handler callback with second argument or resolve a promise result */
+	succeed(messageOrObject: any): void;
+	/** @deprecated Use handler callback or promise result */
+	succeed(message: string, object: any): void;
+}
 
 /**
  * The request the helpers receive, described structurally rather than
@@ -47,10 +93,12 @@ export interface Options<Client, ClientOptions> {
 	cacheExpiry?: number;
 	cacheKeyExpiry?: Record<string, number>;
 	/**
-	 * Absolute expiries (unix ms) recorded by `setCacheKeyExpiry`, kept apart
-	 * from the user-facing `cacheKeyExpiry`. Managed by the middleware.
+	 * Caps the number of entries in the one cache every middleware in the
+	 * process shares (default 128), not this middleware's own entries. Storing
+	 * an entry past the cap evicts the entry that expires soonest (the oldest
+	 * inserted among equals), which may belong to another middleware; it is
+	 * then refetched on its next use.
 	 */
-	cacheLearnedExpiry?: Record<string, number | undefined>;
 	cacheMaxSize?: number;
 	setToContext?: boolean;
 	contextKey?: string;
@@ -82,12 +130,20 @@ export type ContextNamespace<
 };
 
 export declare class HttpError extends Error {
-	constructor(code: number, properties?: Record<string, unknown>);
+	/**
+	 * The message is always the reason phrase for `code`; put failure detail
+	 * in `cause` (it stays server-side). `expose` defaults to `code < 500`.
+	 */
+	constructor(code: number, options?: { cause?: unknown; expose?: boolean });
 	status: number;
 	statusCode: number;
 	expose: boolean;
-	[key: string]: unknown;
-	[key: number]: unknown;
+	/**
+	 * Response headers `http-error-handler` copies onto the error response
+	 * (e.g. `WWW-Authenticate`). An array value is kept as multiple values on
+	 * an ALB multi-value-headers response.
+	 */
+	headers?: Record<string, string | string[]>;
 }
 
 declare function createPrefetchClient<Client, ClientOptions>(
@@ -107,6 +163,11 @@ declare function createClientInit<Client, ClientOptions>(
 	options: Options<Client, ClientOptions>,
 ): (request: Request) => Promise<Client>;
 
+/**
+ * Whether the middleware can fetch at construction. Throws when the effective
+ * `cacheExpiry` can only be a mistyped duration: above 86400000 (read as a
+ * unix timestamp) but before 2001-01-01 (978307200000).
+ */
 declare function canPrefetch<Client, ClientOptions>(
 	options: Options<Client, ClientOptions>,
 ): boolean;
@@ -225,8 +286,28 @@ declare function assignSetToContext(
 
 declare function sanitizeKey<T extends string>(key: T): SanitizeKey<T>;
 
+/**
+ * @internal Absolute expiries (unix ms) recorded by `setCacheKeyExpiry` on the
+ * middleware's options object, kept apart from the user-facing
+ * `cacheKeyExpiry` and read by `processCache`. Not a user option: every
+ * package optionSchema rejects it.
+ */
+type CacheLearnedExpiryOptions = {
+	cacheLearnedExpiry?: Record<string, number | undefined>;
+};
+
+/**
+ * Serves `options.cacheKey` from the cache or calls `fetch(request)`. A
+ * background refresh runs outside any invocation, so `fetch` then gets an
+ * empty request, as on prefetch; the request is never kept with the entry.
+ * A `fetch` closure that captures the request keeps it alive regardless, so
+ * pass the request as the third argument rather than closing over it.
+ * No background refresh is scheduled under `awsClientAssumeRole`: without a
+ * request the client cannot pick up refetched credentials, so the entry
+ * expires and the next invocation refetches.
+ */
 declare function processCache<Client, ClientOptions>(
-	options: Options<Client, ClientOptions>,
+	options: Options<Client, ClientOptions> & CacheLearnedExpiryOptions,
 	fetch: (request: Request, cachedValues: unknown) => unknown,
 	request?: Request,
 ): { value: unknown; expiry: number };
@@ -248,7 +329,6 @@ declare function jsonParseProtectProto(
 
 declare function normalizeHttpResponse(
 	request: Request,
-	fallbackResponse?: Record<string, unknown>,
 ): Record<string, unknown>;
 
 /**
@@ -258,7 +338,7 @@ declare function normalizeHttpResponse(
 export type PathTree = Map<string, PathTree | true>;
 
 declare function buildPathTree(
-	paths: ReadonlyArray<string | string[]>,
+	paths: ReadonlyArray<string | ReadonlyArray<string | number>>,
 ): PathTree;
 
 /**
@@ -301,8 +381,9 @@ declare function evictCacheOnFailure(
 declare function setCacheKeyExpiry(
 	options: Pick<
 		Options<unknown, unknown>,
-		"cacheKey" | "cacheExpiry" | "cacheKeyExpiry" | "cacheLearnedExpiry"
-	>,
+		"cacheKey" | "cacheExpiry" | "cacheKeyExpiry"
+	> &
+		CacheLearnedExpiryOptions,
 	expiryMs: number,
 ): void;
 
@@ -323,7 +404,19 @@ declare function decodeBody(
 
 declare const lambdaContextKeys: string[];
 
-declare function isExecutionModeDurable(context: LambdaContext): boolean;
+/**
+ * Whether `context` is the durable execution context (`@middy/core` hands
+ * middleware the SDK's `DurableContext` in durable mode), detected by its
+ * brand. Any other value, including a plain Lambda context, is `false`.
+ */
+declare function isExecutionModeDurable(context: unknown): boolean;
+
+/**
+ * The API Gateway / VPC Lattice event version: an explicit `event.version`
+ * wins (a VPC Lattice V2 event is `"2.0"`), otherwise `"vpc"` for a VPC
+ * Lattice V1 event (one with `method`), else `"1.0"`.
+ */
+declare function resolveHttpEventVersion(event: object): string;
 
 export type JsonSchemaType =
 	| "string"
@@ -412,8 +505,6 @@ export type OptionSchemaRule =
 
 export type OptionSchema = ObjectRule;
 
-export declare function validateOptions(
-	packageName: string,
-	schema: OptionSchema,
-	options?: Record<string, unknown>,
-): void;
+export declare function validateOptions<
+	TOptions extends Record<string, unknown> = Record<string, unknown>,
+>(packageName: string, schema: OptionSchema, options?: TOptions): TOptions;

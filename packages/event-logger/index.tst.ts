@@ -1,5 +1,7 @@
 import type middy from "@middy/core";
+import type { APIGatewayProxyEvent } from "aws-lambda";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import eventLogger, { type Options } from "./index.js";
 
 test("use with default options", () => {
@@ -48,4 +50,22 @@ test("Options omitPaths accepts string array", () => {
 test("Options mask accepts string", () => {
 	expect<string>().type.toBeAssignableTo<NonNullable<Options["mask"]>>();
 	expect<boolean>().type.not.toBeAssignableTo<NonNullable<Options["mask"]>>();
+});
+
+test("eventLoggerValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.Options;
+	expect(
+		indexModule.eventLoggerValidateOptions(options),
+	).type.toBe<indexModule.Options>();
+});
+
+test("logger may annotate a concrete event type", () => {
+	const logger = (request: middy.Request<APIGatewayProxyEvent>) => {
+		console.log(request.event.path);
+	};
+	expect(eventLogger).type.toBeCallableWith({ logger });
+});
+
+test("rejects misspelled option", () => {
+	expect(eventLogger).type.not.toBeCallableWith({ loger: () => {} });
 });

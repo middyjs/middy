@@ -122,7 +122,7 @@ const s3 = new S3Client()
 
 const handler = middy()
   .handler(async (event) => {
-    if (event.s3 != null) {
+    if (event.s3 !== undefined) {
       const obj = await s3.send(new GetObjectCommand(event.s3))
       event = JSON.parse(await obj.Body.transformToString())
     }

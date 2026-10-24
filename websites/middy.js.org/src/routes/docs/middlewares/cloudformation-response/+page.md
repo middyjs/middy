@@ -5,7 +5,7 @@ description: "Manage CloudFormation Custom Resource responses automatically with
 
 Manage CloudFormation Custom Resource responses.
 
-CloudFormation reads the outcome of a custom resource from a `PUT` to the presigned `event.ResponseURL`, not from the Lambda return value. The middleware fills in the required fields (`Status`, `RequestId`, `LogicalResourceId`, `StackId`, `PhysicalResourceId`) from the event and context, sends the body to `event.ResponseURL`, and returns the same object from the handler. A thrown error becomes a `FAILED` response whose `Reason` is the error message.
+CloudFormation reads the outcome of a custom resource from a `PUT` to the presigned `event.ResponseURL`, not from the Lambda return value. The middleware fills in the required fields (`Status`, `RequestId`, `LogicalResourceId`, `StackId`, `PhysicalResourceId`) from the event and context, sends the body to `event.ResponseURL`, and returns the same object from the handler. A thrown error becomes a `FAILED` response whose `Reason` is the error message, or `String(error)` (for example `Error`) when the message is empty.
 
 See [Custom resource request and response reference](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/crpg-ref-responses.html).
 
@@ -24,7 +24,7 @@ npm install --save @middy/cloudformation-response
 NOTES:
 
 - The body sent to CloudFormation is capped at 4096 bytes. When it is larger, `Reason` is cut down to the whole characters that fit and suffixed with ` [truncated]`; the returned object carries the same trimmed `Reason`. When the body still does not fit (for example a large `Data`), the invocation reports `FAILED` with a reason naming the cap, so the stack fails fast instead of waiting for the custom resource timeout.
-- `Reason` is required when `Status` is `FAILED`, so a `FAILED` response without one gets `See CloudWatch logs`.
+- `Reason` is required when `Status` is `FAILED`, so a `FAILED` response without one (or with an empty one) gets `See CloudWatch logs`.
 - `PhysicalResourceId` must be a non-empty string. It is taken from the handler's response, then `event.PhysicalResourceId`, then `context.logStreamName`, then `context.awsRequestId`; when none is available the invocation fails with `@middy/cloudformation-response: PhysicalResourceId is required and neither the event nor the context provides one` rather than sending a response CloudFormation would reject.
 - `event.ResponseURL` must be an `https:` URL, as the presigned S3 URL always is. Any other value fails with a package error before anything is sent, so the body and the stack's ids never go elsewhere.
 - The `PUT` is aborted 500 ms before the invocation's remaining time runs out (never under 1 s; 30 s when there is no `context.getRemainingTimeInMillis`), so a hung request is logged as a failure instead of being cut off by the runtime.

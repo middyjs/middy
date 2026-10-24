@@ -19,6 +19,18 @@ import { type KinesisPoller, pollKinesis } from "./pollKinesis.js";
 import { pollRmq, type RabbitMQEvent, type RmqPoller } from "./pollRmq.js";
 import { pollSqs, type SqsPoller } from "./pollSqs.js";
 
+test("SqsPoller exposes its visibilityTimeout", () => {
+	const poller = pollSqs({
+		queueUrl: "https://sqs.us-east-1.amazonaws.com/1/q",
+	});
+	expect(poller.visibilityTimeout).type.toBe<number | undefined>();
+	expect(poller.poll).type.toBeCallableWith(
+		new AbortController().signal,
+		() => {},
+		{ timeout: 1000 },
+	);
+});
+
 test("poller factories return typed pollers", () => {
 	expect(
 		pollSqs({ queueUrl: "https://sqs.us-east-1.amazonaws.com/1/q" }),
@@ -36,6 +48,40 @@ test("poller factories return typed pollers", () => {
 		pollAmq({ connectOptions: {}, destination: "/queue/q" }),
 	).type.toBe<AmqPoller>();
 	expect(pollRmq({ queue: "q" })).type.toBe<RmqPoller>();
+});
+
+test("stream and Kafka pollers take maxRetryAttempts and retryDelayMs", () => {
+	expect(
+		pollKinesis({
+			streamName: "s",
+			shardId: "0",
+			maxRetryAttempts: 3,
+			retryDelayMs: 500,
+		}),
+	).type.toBe<KinesisPoller>();
+	expect(
+		pollDynamoDBStreams({
+			streamArn: "arn",
+			shardId: "0",
+			maxRetryAttempts: -1,
+			retryDelayMs: 0,
+		}),
+	).type.toBe<DynamoDBStreamsPoller>();
+	expect(
+		pollKafka({
+			brokers: ["b"],
+			groupId: "g",
+			topics: ["t"],
+			maxRetryAttempts: 10,
+			retryDelayMs: 1000,
+		}),
+	).type.toBe<KafkaPoller>();
+	expect(pollKafka).type.not.toBeCallableWith({
+		brokers: ["b"],
+		groupId: "g",
+		topics: ["t"],
+		maxRetryAttempts: "3",
+	});
 });
 
 test("Kafka batch failures accept Lambda's object identifier and the legacy string", () => {

@@ -9,10 +9,10 @@ export type ParamType<T> = string & { __returnType?: T };
 export declare function rdsSignerParam<T>(name: string): ParamType<T>;
 
 // The signer is constructed directly rather than through `createClient`, so
-// assume-role, X-Ray capture and the shared cache size are not honoured.
+// assume-role and X-Ray capture are not honoured.
 export type RdsSignerOptions<AwsSigner = Signer> = Omit<
 	MiddyOptions<AwsSigner, SignerConfig>,
-	"fetchData" | "awsClientAssumeRole" | "awsClientCapture" | "cacheMaxSize"
+	"fetchData" | "awsClientAssumeRole" | "awsClientCapture"
 > & {
 	fetchData?: {
 		[key: string]: SignerConfig;
@@ -44,8 +44,12 @@ declare function rdsSigner<
 	TKey extends string = string,
 >(
 	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
-	// key narrows `middyContext` without `as const`.
-	options?: TOptions & { contextKey?: TKey },
+	// key narrows `middyContext` without `as const`. The `never` record rejects
+	// keys `RdsSignerOptions` does not declare, which inference would otherwise accept.
+	options?: TOptions & { contextKey?: TKey } & Record<
+			Exclude<keyof TOptions, keyof RdsSignerOptions>,
+			never
+		>,
 ): middy.MiddlewareObj<
 	unknown,
 	unknown,
@@ -54,8 +58,8 @@ declare function rdsSigner<
 	Internal<TOptions>
 >;
 
-export declare function rdsSignerValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function rdsSignerValidateOptions<
+	TOptions extends RdsSignerOptions,
+>(options?: TOptions): TOptions;
 
 export default rdsSigner;

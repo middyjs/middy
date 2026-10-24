@@ -14,6 +14,9 @@ const pkg = `@middy/${name}`;
 
 const defaults = {
 	payloadKey: "jwt",
+	// Defaults to `${payloadKey}Token`, where http-jwt and http-paseto publish
+	// the token they verified.
+	tokenKey: undefined,
 	proofKey: "dpop",
 	confirmationClaim: "cnf",
 	origin: undefined,
@@ -32,6 +35,7 @@ const optionSchema = {
 	type: "object",
 	properties: {
 		payloadKey: { type: "string" },
+		tokenKey: { type: "string" },
 		proofKey: { type: "string" },
 		confirmationClaim: { type: "string" },
 		origin: { type: "string" },
@@ -194,23 +198,35 @@ const normalizeAlgorithms = (algorithm) => {
 // cannot have supplied.
 const asString = (value) => (typeof value === "string" ? value : undefined);
 
-// Covers API Gateway HTTP (v2), API Gateway REST (v1) and ALB.
+// Covers API Gateway HTTP (v2), API Gateway REST (v1), ALB and VPC Lattice
+// (`method`, https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html).
 const readMethod = (event) => {
 	const requestContext = event.requestContext;
 	const httpMethod = asString(event.httpMethod);
-	return asString(requestContext?.http?.method) ?? httpMethod;
+	return (
+		asString(requestContext?.http?.method) ??
+		httpMethod ??
+		asString(event.method)
+	);
 };
 
 // `htu` names the URI the client requested, so the path has to be the one that
 // arrived rather than the one the router matched. API Gateway REST strips the
 // stage from `event.path` and keeps it on `requestContext.path`, so preferring
 // the latter is what makes a stage other than `$default` work at all. HTTP
-// (v2) has no `requestContext.path`; ALB has neither, and only `path`.
+// (v2) has no `requestContext.path`; ALB has neither, and only `path`. VPC
+// Lattice V2 sends `path` and V1 `raw_path`, both with the query string, which
+// `httpUri` drops.
 const readPath = (event) => {
 	const rawPath = asString(event.rawPath);
 	const requestContext = event.requestContext;
 	const path = asString(event.path);
-	return rawPath ?? asString(requestContext?.path) ?? path;
+	return (
+		rawPath ??
+		asString(requestContext?.path) ??
+		path ??
+		asString(event.raw_path)
+	);
 };
 
 // Never the Host header: a client controls it, so trusting it would let a proof
@@ -224,22 +240,36 @@ const readOrigin = (event, configured) => {
 	return domainName ? `https://${domainName}` : undefined;
 };
 
-// Exactly one DPoP header, per RFC 9449 §4.3 step 1. Proxies can deliver a
-// repeated header as an array, and two proofs is ambiguous rather than merely
-// redundant, so it is refused instead of resolved. readAuthorization runs first
-// and rejects when `headers` is absent, so `headers` is always an object here.
-const readProof = (headers) => {
-	const raw = headers.dpop ?? headers.DPoP ?? headers.Dpop;
-	if (Array.isArray(raw)) {
-		return raw.length === 1 ? asString(raw[0]) : undefined;
+// ALB with multi-value headers enabled sends `multiValueHeaders` and no
+// `headers`. Read it directly so this does not depend on http-event-normalizer
+// running first.
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+const readHeaders = (event) => event?.headers ?? event?.multiValueHeaders;
+
+// Every value of one header, whatever its casing. Field names are
+// case-insensitive (RFC 9110 §5.1) and API Gateway REST passes the client's
+// casing through; ALB multi-value and VPC Lattice V2 deliver arrays.
+const headerValues = (headers, lowerName) => {
+	const values = [];
+	for (const key of Object.keys(headers)) {
+		if (key.toLowerCase() === lowerName) {
+			values.push(...[headers[key]].flat());
+		}
 	}
-	return asString(raw);
+	return values;
 };
 
-const readAuthorization = (headers) => {
-	const raw = headers?.authorization ?? headers?.Authorization;
-	return asString(Array.isArray(raw) ? raw[0] : raw);
+// Exactly one DPoP header, per RFC 9449 §4.3 step 1. Two proofs, whether
+// repeated or under two casings, are ambiguous rather than merely redundant,
+// so they are refused instead of resolved. readAuthorization runs first and
+// rejects when `headers` is absent, so `headers` is always an object here.
+const readProof = (headers) => {
+	const values = headerValues(headers, "dpop");
+	return values.length === 1 ? asString(values[0]) : undefined;
 };
+
+const readAuthorization = (headers) =>
+	headers ? asString(headerValues(headers, "authorization")[0]) : undefined;
 
 /**
  * Verify a DPoP proof JWT and return the JWK thumbprint of the key that signed
@@ -346,6 +376,7 @@ export const verifyDpopProof = (
 
 const httpDpopMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
+	const tokenKey = options.tokenKey ?? `${options.payloadKey}Token`;
 	const algorithms = normalizeAlgorithms(options.algorithm);
 	const origin = normalizeOrigin(options.origin);
 
@@ -384,7 +415,7 @@ const httpDpopMiddleware = (opts = {}) => {
 			return;
 		}
 
-		const headers = request.event?.headers;
+		const headers = readHeaders(request.event);
 
 		// RFC 9449 §7.1: a bound token is no longer a bearer token. Accepting it
 		// under the Bearer scheme would let a holder drop the scheme and the
@@ -396,6 +427,17 @@ const httpDpopMiddleware = (opts = {}) => {
 			);
 		}
 		const accessToken = authorization.slice("dpop ".length);
+		// RFC 9449 §4.3 check 11 binds `ath` to the access token presented with
+		// the proof, and §7.1 puts that token in this Authorization header. The
+		// verifier publishes the token it actually checked; if that is another
+		// token (from a cookie or query string, say), the proof is not for it.
+		// A verifier that publishes nothing leaves the header as the only source.
+		const verifiedToken = request.internal[tokenKey];
+		if (verifiedToken !== undefined && verifiedToken !== accessToken) {
+			throw unauthorized(
+				"The DPoP Authorization token is not the token that was verified",
+			);
+		}
 
 		// readProof returns a string or undefined, so `!proof` is the whole check.
 		const proof = readProof(headers);
@@ -439,7 +481,7 @@ const httpDpopMiddleware = (opts = {}) => {
 		}
 
 		// Same reasoning as the URI: an event with no method (nothing under
-		// `requestContext.http.method` or `httpMethod`) is a shape the operator
+		// `requestContext.http.method`, `httpMethod` or `method`) is a shape the operator
 		// has to act on, not a proof the caller got wrong.
 		const method = readMethod(request.event);
 		if (method === undefined) {
@@ -448,7 +490,7 @@ const httpDpopMiddleware = (opts = {}) => {
 					package: pkg,
 					data: {
 						reason:
-							"Cannot determine the request method: the event carries neither 'requestContext.http.method' nor 'httpMethod'",
+							"Cannot determine the request method: the event carries none of 'requestContext.http.method', 'httpMethod' or 'method'",
 					},
 				},
 			});

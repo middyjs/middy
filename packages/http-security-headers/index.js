@@ -373,7 +373,7 @@ helmet.permittedCrossDomainPolicies = (headers, config) => {
 };
 
 // https://github.com/helmetjs/hide-powered-by
-// Removal handled in after hook via delete to avoid undefined cleanup loop
+// Removal handled in the after hook, together with the headers this sets
 helmet.poweredBy = () => {};
 
 // https://github.com/helmetjs/x-xss-protection
@@ -399,17 +399,38 @@ const httpSecurityHeadersMiddleware = (opts = {}) => {
 		}
 	}
 
+	// Header names are case-insensitive (RFC 9110 §5.1). A handler header that
+	// this middleware sets, or removes under `poweredBy`, is dropped in every
+	// casing, so the middleware's value still wins and only one copy is sent.
+	const replacedNames = new Set(
+		Object.keys(precomputedHeaders).map((key) => key.toLowerCase()),
+	);
+	if (options.poweredBy) {
+		replacedNames.add("server");
+		replacedNames.add("x-powered-by");
+	}
+
 	const httpSecurityHeadersMiddlewareAfter = (request) => {
-		normalizeHttpResponse(request);
-		const headers = request.response.headers;
-		Object.assign(headers, precomputedHeaders);
-		if (options.poweredBy) {
-			// Deleting an absent key is a no-op for V8's hidden classes; only a
-			// present one drops the object into dictionary mode, and that cost is
-			// unavoidable when the handler did set it.
-			delete headers.Server;
-			delete headers["X-Powered-By"];
+		const response = normalizeHttpResponse(request);
+		response.headers = withoutHeaderNames(response.headers, replacedNames);
+		if (
+			typeof response.multiValueHeaders === "undefined" &&
+			!isAlbMultiValue(request.event)
+		) {
+			Object.assign(response.headers, precomputedHeaders);
+			return;
 		}
+		// API Gateway REST lets `multiValueHeaders` win over `headers` for the
+		// same name, and ALB with multi-value headers enabled reads only
+		// `multiValueHeaders`, so the headers go there.
+		const multiValueHeaders = withoutHeaderNames(
+			response.multiValueHeaders ?? {},
+			replacedNames,
+		);
+		for (const key of Object.keys(precomputedHeaders)) {
+			multiValueHeaders[key] = [precomputedHeaders[key]];
+		}
+		response.multiValueHeaders = multiValueHeaders;
 	};
 	const httpSecurityHeadersMiddlewareOnError = (request) => {
 		if (typeof request.response === "undefined") return;
@@ -420,4 +441,27 @@ const httpSecurityHeadersMiddleware = (opts = {}) => {
 		onError: httpSecurityHeadersMiddlewareOnError,
 	};
 };
+
+// Copies a header map without the names (lower-cased) in `names`, in any
+// casing.
+const withoutHeaderNames = (map, names) => {
+	const kept = {};
+	for (const key of Object.keys(map)) {
+		if (!names.has(key.toLowerCase())) {
+			kept[key] = map[key];
+		}
+	}
+	return kept;
+};
+
+// An ALB target group with multi-value headers enabled sends
+// `multiValueHeaders` and only reads them back: "You must use
+// multiValueHeaders if you have enabled multi-value headers and headers
+// otherwise." Its events are the only ones that carry `requestContext.elb`
+// together with `multiValueHeaders`.
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+const isAlbMultiValue = (event) =>
+	typeof event?.requestContext?.elb !== "undefined" &&
+	typeof event.multiValueHeaders !== "undefined";
+
 export default httpSecurityHeadersMiddleware;

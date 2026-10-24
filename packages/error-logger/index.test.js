@@ -74,6 +74,34 @@ describe("@middy/error-logger", () => {
 		});
 	});
 
+	// A logger failure must not change the outcome: an error handler registered
+	// before errorLogger still turns the error into its response.
+	test("It should report a throwing logger via console.error and keep the handled response", async (t) => {
+		const loggerError = new Error("logger down");
+		const consoleError = t.mock.method(console, "error", () => {});
+
+		const handler = middy(() => {
+			throw new Error("Not Found");
+		})
+			.use({
+				onError: (request) => {
+					request.response = { statusCode: 404 };
+				},
+			})
+			.use(
+				errorLogger({
+					logger: () => {
+						throw loggerError;
+					},
+				}),
+			);
+
+		const response = await handler(defaultEvent, defaultContext);
+		deepStrictEqual(response, { statusCode: 404 });
+		strictEqual(consoleError.mock.callCount(), 1);
+		strictEqual(consoleError.mock.calls[0].arguments[0], loggerError);
+	});
+
 	test("It should use default logger (console.error) when no logger is provided", async (t) => {
 		const error = new Error("something bad happened");
 

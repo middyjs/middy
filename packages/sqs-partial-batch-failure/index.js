@@ -44,11 +44,19 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 			// redaction can never change which records are reported failed.
 			const safeRequest = omit(request, omitPathTree, mask);
 			const safeRecords = safeRequest.event.Records;
+			// FIFO: "your function should stop processing messages after the
+			// first failure and return all failed and unprocessed messages in
+			// batchItemFailures". FIFO queue names end in `.fifo`.
+			// https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html
+			const fifo = Records[0]?.eventSourceARN?.endsWith(".fifo") === true;
+			let failed = false;
 			for (const [idx, record] of Records.entries()) {
 				// A handler that did not return Promise.allSettled results (null, a
 				// plain object) has no entry for any record, so every record fails.
 				const { status } = response?.[idx] ?? {};
-				if (status === "fulfilled") continue;
+				if (status === "fulfilled" && !failed) continue;
+				// In FIFO every record after the first failure is reported too.
+				failed = fifo;
 				batchItemFailures.push({ itemIdentifier: record.messageId });
 				if (typeof logger === "function") {
 					logger(safeRequest, {

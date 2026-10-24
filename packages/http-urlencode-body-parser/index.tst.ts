@@ -5,6 +5,7 @@ import type {
 	APIGatewayProxyEventV2,
 } from "aws-lambda";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import urlEncodeBodyParser, { type Event } from "./index.js";
 
 test("use with default options", () => {
@@ -22,6 +23,7 @@ test("use with all options", () => {
 	const middleware = urlEncodeBodyParser({
 		disableContentTypeCheck: true,
 		disableContentTypeError: true,
+		maxKeys: 5000,
 	});
 	expect(middleware).type.toBe<
 		middy.MiddlewareObj<
@@ -45,4 +47,22 @@ test("allow specifying the event type", () => {
 	expect(albMiddleware).type.toBe<
 		middy.MiddlewareObj<Event<ALBEvent>, unknown, Error>
 	>();
+});
+
+test("httpUrlencodeBodyParserValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.Options;
+	expect(
+		indexModule.httpUrlencodeBodyParserValidateOptions(options),
+	).type.toBe<indexModule.Options>();
+});
+
+test("parsed body is an object, not the raw string", () => {
+	expect<{ a: string }>().type.toBeAssignableTo<
+		Event<APIGatewayEvent>["body"]
+	>();
+	expect<{ a: string }>().type.toBeAssignableTo<Event["body"]>();
+});
+
+test("rejects misspelled option", () => {
+	expect(urlEncodeBodyParser).type.not.toBeCallableWith({ maxKey: 10 });
 });

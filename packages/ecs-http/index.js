@@ -1,8 +1,8 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import cluster from "node:cluster";
-import http from "node:http";
 import { availableParallelism } from "node:os";
+import { Readable } from "node:stream";
 import { validateOptions } from "@middy/util";
 
 const name = "ecs-http";
@@ -15,19 +15,26 @@ const defaults = {
 	timeout: 60_000,
 	bodyLimit: 10 * 1024 * 1024,
 	trustedProxies: 1,
+	// ECS sends SIGKILL stopTimeout (default 30s) after SIGTERM; 5s is left for
+	// the primary to see its workers exit and exit itself.
+	// https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#container_definition_timeout
+	gracefulShutdownMs: 25_000,
 };
 
 const optionSchema = {
 	type: "object",
 	properties: {
 		handler: { instanceof: "Function" },
+		loadHandler: { instanceof: "Function" },
 		port: { type: "integer", minimum: 0, maximum: 65535 },
+		host: { type: "string" },
 		eventVersion: { type: "string", enum: ["1.0", "2.0", "alb"] },
 		requestContext: { type: "object", additionalProperties: true },
 		workers: { type: "integer", minimum: 1 },
 		timeout: { type: "integer", minimum: 0 },
 		bodyLimit: { type: "integer", minimum: 0 },
 		trustedProxies: { type: "integer", minimum: 0 },
+		gracefulShutdownMs: { type: "integer", minimum: 0 },
 		contextOverride: {
 			type: "object",
 			properties: {
@@ -36,12 +43,18 @@ const optionSchema = {
 			additionalProperties: false,
 		},
 	},
-	required: ["handler"],
 	additionalProperties: false,
 };
 
-export const ecsHttpValidateOptions = (options) =>
+export const ecsHttpValidateOptions = (options) => {
 	validateOptions(pkg, optionSchema, options);
+	if ((options.handler === undefined) === (options.loadHandler === undefined)) {
+		throw new TypeError("Pass exactly one of 'handler' or 'loadHandler'", {
+			cause: { package: pkg },
+		});
+	}
+	return options;
+};
 
 const ecsEnvKeys = ["accountId", "region", "taskArn", "family", "revision"];
 const ecsEnvPrefix = "MIDDY_ECS_";
@@ -62,7 +75,10 @@ export const fetchEcsMetadata = async (
 			region: arnParts[3],
 			taskArn: arn || undefined,
 			family: task.Family,
-			revision: task.Revision != null ? String(task.Revision) : undefined,
+			revision:
+				task.Revision !== undefined && task.Revision !== null
+					? String(task.Revision)
+					: undefined,
 		};
 	} catch {
 		return {};
@@ -71,7 +87,7 @@ export const fetchEcsMetadata = async (
 
 const writeEcsEnv = (meta, env = process.env) => {
 	for (const key of ecsEnvKeys) {
-		if (meta[key] != null)
+		if (meta[key] !== undefined && meta[key] !== null)
 			env[`${ecsEnvPrefix}${key.toUpperCase()}`] = meta[key];
 	}
 };
@@ -80,7 +96,7 @@ export const readEcsEnv = (env = process.env) => {
 	const out = {};
 	for (const key of ecsEnvKeys) {
 		const v = env[`${ecsEnvPrefix}${key.toUpperCase()}`];
-		if (v != null) out[key] = v;
+		if (v !== undefined && v !== null) out[key] = v;
 	}
 	return out;
 };
@@ -129,8 +145,31 @@ const buildMultiValueHeaders = (rawHeaders) => {
 const ipv6WithPort = /^\[([^\]]+)\]:\d+$/;
 const ipv4WithPort = /^([^:]+):\d+$/;
 const stripClientPort = (hop) => {
+	// Both port forms need a colon; a plain IPv4 hop skips the regexes.
+	if (!hop.includes(":")) return hop;
 	const match = ipv6WithPort.exec(hop) ?? ipv4WithPort.exec(hop);
 	return match ? match[1] : hop;
+};
+
+// The trustedProxies-th hop from the end, without splitting the whole header.
+const hopFromEnd = (xff, trustedProxies) => {
+	let end = xff.length;
+	for (let i = 1; i < trustedProxies; i++) {
+		end = xff.lastIndexOf(",", end - 1);
+		if (end === -1) return undefined;
+	}
+	return xff.slice(xff.lastIndexOf(",", end - 1) + 1, end).trim();
+};
+
+const clientIpFromHeaders = (headers, trustedProxies = 1) => {
+	if (trustedProxies > 0) {
+		const xff = headers["x-forwarded-for"];
+		if (xff) {
+			const hop = hopFromEnd(xff, trustedProxies);
+			if (hop) return stripClientPort(hop);
+		}
+	}
+	return undefined;
 };
 
 // Behind ALB the client address is the hop the load balancer appends, i.e. the
@@ -138,29 +177,26 @@ const stripClientPort = (hop) => {
 // spoofed. `trustedProxies` is the number of trailing hops added by proxies
 // you control (1 for a lone ALB, 2 for CloudFront in front of ALB). 0 ignores
 // the header and uses the socket address.
-export const resolveSourceIp = (headers, socketAddress, trustedProxies = 1) => {
-	if (trustedProxies > 0) {
-		const xff = headers["x-forwarded-for"];
-		if (xff) {
-			const hop = xff.split(",").at(-trustedProxies)?.trim();
-			if (hop) return stripClientPort(hop);
-		}
-	}
-	return socketAddress ?? "";
-};
+export const resolveSourceIp = (headers, socketAddress, trustedProxies = 1) =>
+	clientIpFromHeaders(headers, trustedProxies) ?? socketAddress ?? "";
 
 // Behind ALB / API Gateway, every request carries `X-Amzn-Trace-Id`. We use it
 // as the request ID for free correlation with X-Ray and CloudWatch logs.
 // When absent (typically only in local dev or behind a non-AWS load balancer),
-export const resolveRequestId = (headers, override) =>
-	headers["x-amzn-trace-id"] ?? override?.(headers) ?? "";
+export const resolveRequestId = (
+	headers,
+	override,
+	idHeader = "x-amzn-trace-id",
+) => headers[idHeader] ?? override?.(headers) ?? "";
 
 const parseCookies = (cookieHeader) => {
 	if (!cookieHeader) return undefined;
-	return cookieHeader
-		.split(";")
-		.map((s) => s.trim())
-		.filter(Boolean);
+	const cookies = [];
+	for (const part of cookieHeader.split(";")) {
+		const cookie = part.trim();
+		if (cookie) cookies.push(cookie);
+	}
+	return cookies;
 };
 
 // Cheap path/query split. node:http has already validated the request line by
@@ -176,16 +212,20 @@ const splitUrl = (rawUrl) => {
 };
 
 // Only v1 carries multiValueQueryStringParameters; v2 would otherwise
-// allocate the multi-value map on every request and discard it.
+// allocate the multi-value map on every request and discard it. Format 2.0
+// combines duplicate query strings with commas instead.
+// https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html
 const collectQuery = (queryString) => {
+	// Most requests carry no query string; skip building URLSearchParams.
+	if (queryString === "") return undefined;
 	const single = Object.create(null);
 	const params = new URLSearchParams(queryString);
 	let size = 0;
 	for (const [k, v] of params.entries()) {
-		single[k] = v;
+		single[k] = k in single ? `${single[k]},${v}` : v;
 		size++;
 	}
-	return { single, size };
+	return size > 0 ? single : undefined;
 };
 
 // ALB splits the query string on `&`/`=` and hands over the raw substrings:
@@ -206,7 +246,10 @@ const collectQueryEncoded = (queryString) => {
 	return single;
 };
 
+const noMultiValueQuery = { single: null, multi: null };
+
 const collectQueryMultiValue = (queryString) => {
+	if (queryString === "") return noMultiValueQuery;
 	const single = Object.create(null);
 	const multi = Object.create(null);
 	const params = new URLSearchParams(queryString);
@@ -217,7 +260,7 @@ const collectQueryMultiValue = (queryString) => {
 		multi[k].push(v);
 		size++;
 	}
-	return { single, multi, size };
+	return size > 0 ? { single, multi } : noMultiValueQuery;
 };
 
 const protocolFor = (httpVersion) => `HTTP/${httpVersion}`;
@@ -242,7 +285,6 @@ export const buildEventV2 = (input) => {
 	const headers = input.headers ?? req.headers;
 	const url = input.url ?? splitUrl(req.url);
 	const requestStart = input.requestStart ?? Date.now();
-	const { single: queryStringParameters, size } = collectQuery(url.queryString);
 	return {
 		version: "2.0",
 		routeKey: "$default",
@@ -250,7 +292,7 @@ export const buildEventV2 = (input) => {
 		rawQueryString: url.queryString,
 		cookies: parseCookies(headers.cookie),
 		headers,
-		queryStringParameters: size > 0 ? queryStringParameters : undefined,
+		queryStringParameters: collectQuery(url.queryString),
 		requestContext: {
 			...requestContext,
 			requestId,
@@ -276,7 +318,6 @@ export const buildEventV1 = (input) => {
 	const {
 		single: queryStringParameters,
 		multi: multiValueQueryStringParameters,
-		size,
 	} = collectQueryMultiValue(url.queryString);
 	const v1Body = encodeBody(body, isBase64Encoded);
 	return {
@@ -285,9 +326,8 @@ export const buildEventV1 = (input) => {
 		httpMethod: req.method,
 		headers,
 		multiValueHeaders: buildMultiValueHeaders(req.headers),
-		queryStringParameters: size > 0 ? queryStringParameters : null,
-		multiValueQueryStringParameters:
-			size > 0 ? multiValueQueryStringParameters : null,
+		queryStringParameters,
+		multiValueQueryStringParameters,
 		pathParameters: null,
 		stageVariables: null,
 		requestContext: {
@@ -345,6 +385,35 @@ export const buildContext = ({
 		Math.max(0, timeout - (Date.now() - requestStart)),
 });
 
+// API Gateway REST (format 1.0) and ALB multi-value responses carry repeated
+// headers such as set-cookie in multiValueHeaders. With both maps set, API
+// Gateway merges them per header, listing a value found in both only once.
+// https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-output-format
+const mergeMultiValueHeaders = (headers, multiValueHeaders) => {
+	const keys = new Map(Object.keys(headers).map((k) => [k.toLowerCase(), k]));
+	for (const [name, values] of Object.entries(multiValueHeaders)) {
+		const key = keys.get(name.toLowerCase()) ?? name;
+		const merged = [...values];
+		const single = headers[key];
+		if (single !== undefined && !merged.includes(single)) merged.push(single);
+		headers[key] = merged;
+	}
+};
+
+const framingHeaderPattern = /^(content-length|transfer-encoding)$/i;
+const hasFramingHeader = (headers) => {
+	for (const k in headers) if (framingHeaderPattern.test(k)) return true;
+	return false;
+};
+
+// res.end only takes a string or bytes, so any other body is sent as JSON.
+const responsePayload = (body, isBase64Encoded) => {
+	if (body === undefined || body === null || body === "") return undefined;
+	if (isBase64Encoded) return Buffer.from(body, "base64");
+	if (typeof body === "string" || body instanceof Uint8Array) return body;
+	return JSON.stringify(body);
+};
+
 export const writeResponse = (res, result) => {
 	let statusCode = 200;
 	let headers = {};
@@ -365,7 +434,10 @@ export const writeResponse = (res, result) => {
 	} else {
 		const r = result ?? {};
 		statusCode = r.statusCode ?? 200;
-		headers = { ...(r.headers ?? {}) };
+		headers = { ...r.headers };
+		if (r.multiValueHeaders) {
+			mergeMultiValueHeaders(headers, r.multiValueHeaders);
+		}
 		body = r.body;
 		isBase64Encoded = r.isBase64Encoded ?? false;
 		cookies = r.cookies;
@@ -374,19 +446,49 @@ export const writeResponse = (res, result) => {
 	if (Array.isArray(cookies) && cookies.length > 0) {
 		headers["set-cookie"] = cookies;
 	}
-	res.writeHead(statusCode, headers);
-	if (body == null || body === "") {
+	// A Node Readable or web ReadableStream body is piped with chunked encoding.
+	// .pipe() costs ~35% less CPU per response than stream.pipeline(); the
+	// two cleanups pipeline() adds are done here: a failing source cuts the
+	// response off, and a response closed early (client gone) stops the source.
+	if (body?._readableState || body instanceof ReadableStream) {
+		res.writeHead(statusCode, headers);
+		const source = body._readableState ? body : Readable.fromWeb(body);
+		source.once("error", () => res.destroy());
+		res.once("close", () => source.destroy());
+		source.pipe(res);
+		return;
+	}
+	// Settle the payload before writeHead: anything that throws here still
+	// reaches writeError with the headers unsent.
+	const payload = responsePayload(body, isBase64Encoded);
+	if (payload === undefined) {
+		res.writeHead(statusCode, headers);
 		res.end();
 		return;
 	}
-	if (isBase64Encoded) {
-		res.end(Buffer.from(body, "base64"));
-		return;
-	}
-	res.end(body);
+	// writeHead flushes the headers, so without an explicit length node:http
+	// falls back to chunked encoding even for a fully buffered body.
+	const byteLength = Buffer.byteLength(payload);
+	if (!hasFramingHeader(headers)) headers["content-length"] = byteLength;
+	res.writeHead(statusCode, headers);
+	// A string whose UTF-8 length equals its length is ASCII, which latin1
+	// writes byte-for-byte. node:http reserves 3 bytes per character for a
+	// utf8 string, and past ~8 KB that costs ~30% more CPU per response.
+	const encoding =
+		typeof payload === "string" && byteLength === payload.length
+			? "latin1"
+			: undefined;
+	res.end(payload, encoding);
 };
 
 const writeError = (res, err) => {
+	// A failure after writeHead cannot become an error response; writeHead
+	// would throw ERR_HTTP_HEADERS_SENT out of the request handler. Drop the
+	// connection so the client sees the response was cut short.
+	if (res.headersSent) {
+		res.destroy();
+		return;
+	}
 	const statusCode =
 		typeof err?.statusCode === "number" && err.statusCode >= 400
 			? err.statusCode
@@ -394,8 +496,12 @@ const writeError = (res, err) => {
 	// Below 500 `err` is an object: that is where the numeric statusCode came from.
 	const message =
 		statusCode >= 500 ? "Internal Server Error" : (err.message ?? "");
-	res.writeHead(statusCode, { "content-type": "application/json" });
-	res.end(JSON.stringify({ message }));
+	const payload = JSON.stringify({ message });
+	res.writeHead(statusCode, {
+		"content-type": "application/json",
+		"content-length": Buffer.byteLength(payload),
+	});
+	res.end(payload);
 };
 
 // Returns true when the request declares a body (Content-Length > 0 or
@@ -404,27 +510,47 @@ const writeError = (res, err) => {
 // avoids the Promise + listener registrations + Buffer.concat per request.
 const requestHasBody = (headers) => {
 	const cl = headers["content-length"];
-	if (cl != null && cl !== "0" && cl !== "") return true;
-	if (headers["transfer-encoding"] != null) return true;
+	if (cl !== undefined && cl !== null && cl !== "0" && cl !== "") return true;
+	const te = headers["transfer-encoding"];
+	if (te !== undefined && te !== null) return true;
 	return false;
+};
+
+// An oversize body is answered with a 413 at once, without buffering the
+// rest. The connection stays up while node:http reads and discards what the
+// client is still sending (bounded by server.requestTimeout): destroying the
+// request, or closing the socket with body bytes unread, resets it and the
+// client never sees the 413.
+// https://www.rfc-editor.org/rfc/rfc9112#section-9.6
+const payloadTooLarge = () => {
+	const err = new Error("Payload too large");
+	err.statusCode = 413;
+	return err;
 };
 
 const readBody = (req, limit) =>
 	new Promise((resolve, reject) => {
+		if (Number(req.headers["content-length"]) > limit) {
+			return reject(payloadTooLarge());
+		}
 		const chunks = [];
 		let size = 0;
-		req.on("data", (chunk) => {
+		const onData = (chunk) => {
 			size += chunk.length;
 			if (size > limit) {
-				const err = new Error("Payload too large");
-				err.statusCode = 413;
-				req.destroy();
-				reject(err);
+				// Removing the listener stops buffering; the stream keeps flowing.
+				// https://nodejs.org/api/stream.html#event-data
+				req.removeListener("data", onData);
+				reject(payloadTooLarge());
 				return;
 			}
 			chunks.push(chunk);
-		});
-		req.once("end", () => resolve(Buffer.concat(chunks)));
+		};
+		req.on("data", onData);
+		// A body that arrived in one chunk needs no copy.
+		req.once("end", () =>
+			resolve(chunks.length === 1 ? chunks[0] : Buffer.concat(chunks, size)),
+		);
 		req.once("error", reject);
 	});
 
@@ -437,9 +563,24 @@ export const createRequestHandler = ({
 	trustedProxies,
 	invokedFunctionArn,
 	contextOverride,
+	isDraining,
 }) => {
 	const buildEvent = eventBuilders[eventVersion];
 	const requestIdOverride = contextOverride?.awsRequestId;
+	// A Lambda Web Function adds lambda-web-request-id to every request: its
+	// awsRequestId. Anywhere else that header could only come from the client.
+	const requestIdHeader = process.env.AWS_LAMBDA_HTTP_ENDPOINT
+		? "lambda-web-request-id"
+		: "x-amzn-trace-id";
+	// ALB events carry no client address (see buildEventAlb).
+	const needsSourceIp = eventVersion !== "alb";
+	// server.close() only closes idle connections; one busy when draining
+	// starts would otherwise keep serving requests on its keep-alive socket.
+	// Without keep-alive node:http sends `Connection: close` and closes the
+	// socket once the response is written.
+	const closeIfDraining = (res) => {
+		if (isDraining?.()) res.shouldKeepAlive = false;
+	};
 	return async (req, res) => {
 		const requestStart = Date.now();
 		try {
@@ -450,12 +591,18 @@ export const createRequestHandler = ({
 			const body = hasBody ? await readBody(req, bodyLimit) : EMPTY_BUFFER;
 			const isBase64Encoded =
 				hasBody && !isTextContentType(headers["content-type"]);
-			const sourceIp = resolveSourceIp(
+			// The socket address is a getpeername() call; only read it when
+			// X-Forwarded-For has no usable hop.
+			const sourceIp = needsSourceIp
+				? (clientIpFromHeaders(headers, trustedProxies) ??
+					req.socket?.remoteAddress ??
+					"")
+				: undefined;
+			const requestId = resolveRequestId(
 				headers,
-				req.socket?.remoteAddress,
-				trustedProxies,
+				requestIdOverride,
+				requestIdHeader,
 			);
-			const requestId = resolveRequestId(headers, requestIdOverride);
 			const url = splitUrl(req.url);
 			const event = buildEvent({
 				req,
@@ -475,29 +622,57 @@ export const createRequestHandler = ({
 				invokedFunctionArn,
 			});
 			const result = await handler(event, context);
+			closeIfDraining(res);
 			writeResponse(res, result);
 		} catch (err) {
+			closeIfDraining(res);
 			writeError(res, err);
 		}
 	};
 };
 
-export const drainAndExit = (server, exitImpl = process.exit) =>
+// server.close() stops new connections and closes idle ones; busy ones close
+// after their response (see closeIfDraining). A connection still open at the
+// deadline (a slow request, or one that never sent a request, which node:http
+// does not count as idle) is cut so the worker exits before ECS's SIGKILL.
+// https://nodejs.org/api/http.html#serverclosecallback
+export const drainAndExit = (
+	server,
+	exitImpl = process.exit,
+	gracefulShutdownMs = defaults.gracefulShutdownMs,
+) =>
 	new Promise((resolve) => {
+		const deadline = setTimeout(() => {
+			server.closeAllConnections();
+			exitImpl(1);
+			resolve();
+		}, gracefulShutdownMs);
 		server.close(() => {
+			clearTimeout(deadline);
 			exitImpl(0);
 			resolve();
 		});
 	});
 
 export const runWorker = async (options, deps = {}) => {
-	const httpImpl = deps.http ?? http;
+	// Loaded here, not at the top: the cluster primary never serves HTTP and
+	// node:http is the slowest import on its path to forking workers.
+	const httpImpl = deps.http ?? (await import("node:http")).default;
 	const exitImpl = deps.exit ?? process.exit;
+	// Only a process that serves requests loads the handler, so a cluster
+	// primary never imports the application.
+	const handler = options.handler ?? (await options.loadHandler());
+	if (typeof handler !== "function") {
+		throw new TypeError("loadHandler must resolve to the handler function", {
+			cause: { package: pkg },
+		});
+	}
 	const ecs = readEcsEnv();
 	const requestContext = { ...ecs, ...options.requestContext };
 	const invokedFunctionArn = composeInvokedFunctionArn(ecs);
+	let draining = false;
 	const requestHandler = createRequestHandler({
-		handler: options.handler,
+		handler,
 		eventVersion: options.eventVersion,
 		requestContext,
 		timeout: options.timeout,
@@ -505,8 +680,15 @@ export const runWorker = async (options, deps = {}) => {
 		trustedProxies: options.trustedProxies,
 		invokedFunctionArn,
 		contextOverride: options.contextOverride,
+		isDraining: () => draining,
 	});
-	const server = httpImpl.createServer(requestHandler);
+	// optimizeEmptyRequests (Node 25.1+, ignored before) hands a request with
+	// no body an already-ended stream, skipping its 'end' event machinery.
+	// https://nodejs.org/api/http.html#httpcreateserveroptions-requestlistener
+	const server = httpImpl.createServer(
+		{ optimizeEmptyRequests: true },
+		requestHandler,
+	);
 	// Tune keep-alive so behind-ALB sockets aren't recycled prematurely. ALB's
 	// default idle timeout is 60s; the server's keepAliveTimeout must be
 	// strictly greater (Node default is 5s, which thrashes connections under
@@ -517,8 +699,13 @@ export const runWorker = async (options, deps = {}) => {
 	// option (default 60s). The Node default of 300s diverges from the
 	// `getRemainingTimeInMillis` budget we expose to handlers.
 	server.requestTimeout = options.timeout;
-	await new Promise((resolve) => server.listen(options.port, resolve));
-	const onSigterm = () => drainAndExit(server, exitImpl);
+	await new Promise((resolve) =>
+		server.listen(options.port, options.host, resolve),
+	);
+	const onSigterm = () => {
+		draining = true;
+		return drainAndExit(server, exitImpl, options.gracefulShutdownMs);
+	};
 	process.once("SIGTERM", onSigterm);
 	return { server, onSigterm };
 };
@@ -584,10 +771,43 @@ export const runPrimary = async (options, deps = {}) => {
 	return { onSigterm };
 };
 
+// A Lambda Web Function always sets AWS_LAMBDA_HTTP_ENDPOINT ("host:port")
+// and only routes requests to exactly that address; ECS never sets it. After
+// SIGTERM it allows 1 s before killing the environment, so the drain ends at
+// 800 ms, leaving time for worker exits to reach the primary.
+// https://docs.aws.amazon.com/lambda/latest/dg/web-functions-revisions-env-vars.html
+// https://docs.aws.amazon.com/lambda/latest/dg/web-functions-env-lifecycle.html
+const lambdaWebDefaults = (endpoint = process.env.AWS_LAMBDA_HTTP_ENDPOINT) => {
+	if (!endpoint) return {};
+	const sep = endpoint.lastIndexOf(":");
+	return {
+		host: endpoint.slice(0, sep),
+		port: Number(endpoint.slice(sep + 1)),
+		gracefulShutdownMs: 800,
+	};
+};
+
 export const ecsHttpRunner = async (opts, deps = {}) => {
 	const clusterImpl = deps.cluster ?? cluster;
-	const options = { ...defaults, workers: availableParallelism(), ...opts };
+	const options = {
+		...defaults,
+		...lambdaWebDefaults(),
+		workers: availableParallelism(),
+		...opts,
+	};
 	ecsHttpValidateOptions(options);
+	// One worker is served from this process: a cluster would add a second
+	// process (~57 MB RSS) and its boot (~45 ms) to the first response. A
+	// crash then exits the task for the platform to replace, not a re-fork.
+	if (clusterImpl.isPrimary && options.workers === 1) {
+		writeEcsEnv(
+			await fetchEcsMetadata(
+				process.env.ECS_CONTAINER_METADATA_URI_V4,
+				deps.fetch ?? fetch,
+			),
+		);
+		return runWorker(options, deps);
+	}
 	if (clusterImpl.isPrimary) {
 		return runPrimary(options, deps);
 	}

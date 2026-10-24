@@ -115,7 +115,7 @@ const httpRouteHandler = (opts = {}) => {
 
 	const handler = (event, context, abort) => {
 		const route = getVersionRoute[resolveHttpEventVersion(event)];
-		const { method, path } = route ? route(event) : {};
+		const { method, path, encoded } = route ? route(event) : {};
 
 		if (!method) {
 			throw new Error(
@@ -162,6 +162,12 @@ const httpRouteHandler = (opts = {}) => {
 					// so `proxy` is always a string, matching the documented behavior.
 					if ("proxy" in params && params.proxy === undefined) {
 						params.proxy = "";
+					}
+					// Only `%25` and `%2F` survive normalizeRawPath, so this can't throw.
+					if (encoded) {
+						for (const key in params) {
+							params[key] = decodeURIComponent(params[key]);
+						}
 					}
 					event.pathParameters = {
 						...params,
@@ -245,6 +251,30 @@ const countSlashes = (s) => {
 	return n;
 };
 
+// RFC 3986 2.4: split into segments before decoding. Each segment is decoded,
+// then `%` and `/` are re-escaped so a `%2F` stays inside its segment.
+const regExpSegmentEscape = /[%/]/g;
+const normalizeRawPath = (rawPath) => {
+	try {
+		return rawPath
+			.split("/")
+			.map((segment) =>
+				decodeURIComponent(segment).replace(
+					regExpSegmentEscape,
+					encodeURIComponent,
+				),
+			)
+			.join("/");
+	} catch {
+		throw new HttpError(400, {
+			cause: {
+				package: pkg,
+				data: { reason: "Malformed path encoding", path: rawPath },
+			},
+		});
+	}
+};
+
 // Both VPC Lattice event structures put the query string on the path.
 const stripQueryString = (rawPath) => {
 	const q = rawPath?.indexOf("?") ?? -1;
@@ -259,7 +289,19 @@ const getVersionRoute = Object.assign(Object.create(null), {
 	"2.0": (event) => {
 		const http = event.requestContext?.http;
 		if (http) {
-			return { method: http.method, path: http.path };
+			// `requestContext.http.path` arrives already percent-decoded, so an
+			// encoded `/` is indistinguishable from a separator; route on `rawPath`.
+			// https://github.com/middyjs/middy/issues/1704
+			const { rawPath } = event;
+			if (typeof rawPath !== "string") {
+				return { method: http.method, path: http.path };
+			}
+			const encoded = rawPath.includes("%");
+			return {
+				method: http.method,
+				path: encoded ? normalizeRawPath(rawPath) : rawPath,
+				encoded,
+			};
 		}
 		// VPC Lattice V2 events also carry `version: "2.0"`, but put `method` and
 		// `path` at the top level (no `requestContext.http`; `requestContext`

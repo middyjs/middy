@@ -1,4 +1,9 @@
-import { ok, strictEqual } from "node:assert/strict";
+import {
+	rejects as assertRejects,
+	deepStrictEqual,
+	ok,
+	strictEqual,
+} from "node:assert/strict";
 import { describe, test } from "node:test";
 import { GetPublicKeyCommand, KMSClient } from "@aws-sdk/client-kms";
 import { clearCache, getInternal } from "@middy/util";
@@ -495,6 +500,46 @@ describe("@middy/kms", () => {
 		strictEqual(mock.calls().length, 2);
 	});
 
+	test("It should keep a fresh value when a superseded fetch fails late", async (t) => {
+		let rejectStale;
+		const send = t.mock.fn();
+		send.mock.mockImplementationOnce(
+			() =>
+				new Promise((resolve, reject) => {
+					rejectStale = reject;
+				}),
+		);
+		send.mock.mockImplementation(async () => ({
+			PublicKey: publicKeyDer,
+			KeySpec: keySpec,
+		}));
+		class FakeClient {
+			send = send;
+		}
+
+		const handler = middy(() => {})
+			.use(
+				kms({
+					AwsClient: FakeClient,
+					cacheExpiry: -1,
+					fetchData: { signingKey: "alias/my-signing-key" },
+				}),
+			)
+			.before(async (request) => {
+				const values = await getInternal(["signingKey"], request);
+				strictEqual(values.signingKey.publicKey, publicKeyDer);
+			});
+
+		// Prefetch in flight, entry cleared, refetch succeeds.
+		clearCache();
+		await handler(event, context);
+		rejectStale(new Error("stale"));
+		await new Promise((resolve) => setImmediate(resolve));
+
+		await handler(event, context);
+		strictEqual(send.mock.callCount(), 2);
+	});
+
 	test("It should reuse the prefetched client without recreating it", async (t) => {
 		// With prefetch enabled the client is created at construction. The before
 		// handler must reuse it (the `if (!client)` guard stays false). Kills the
@@ -541,5 +586,100 @@ describe("@middy/kms", () => {
 		} catch (e) {
 			ok(e.message.includes("contextKey"));
 		}
+	});
+
+	test("It should retry client init after a rejected attempt", async (t) => {
+		let constructed = 0;
+		class FlakyClient {
+			constructor() {
+				constructed++;
+				if (constructed === 1) throw new Error("init boom");
+			}
+			send() {
+				return Promise.resolve({ PublicKey: publicKeyDer, KeySpec: keySpec });
+			}
+		}
+		const handler = middy(() => {}).use(
+			kms({
+				AwsClient: FlakyClient,
+				cacheExpiry: 0,
+				fetchData: { signingKey: "alias/my-signing-key" },
+				disablePrefetch: true,
+			}),
+		);
+
+		// A rejected init must not be memoized for the life of the container.
+		await assertRejects(() => handler(event, context), /init boom/);
+		await handler(event, context);
+		strictEqual(constructed, 2);
+	});
+
+	test("It should rebuild the client when the assumed-role credentials are refetched", async (t) => {
+		const constructions = [];
+		class FakeClient {
+			constructor(awsClientOptions) {
+				constructions.push(awsClientOptions);
+			}
+			send() {
+				return Promise.resolve({ PublicKey: publicKeyDer, KeySpec: keySpec });
+			}
+		}
+		let credentials = Promise.resolve({ accessKeyId: "a" });
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.role = credentials;
+			})
+			.use(
+				kms({
+					AwsClient: FakeClient,
+					awsClientAssumeRole: "role",
+					cacheExpiry: 0,
+					fetchData: { signingKey: "alias/my-signing-key" },
+				}),
+			);
+
+		await handler(event, context);
+		await handler(event, context);
+		strictEqual(constructions.length, 1);
+		deepStrictEqual(constructions[0].credentials, { accessKeyId: "a" });
+
+		credentials = Promise.resolve({ accessKeyId: "b" });
+		await handler(event, context);
+		strictEqual(constructions.length, 2);
+		deepStrictEqual(constructions[1].credentials, { accessKeyId: "b" });
+	});
+
+	// A background refresh has no invocation to rebuild the client from, so it
+	// would sign with the assumed-role credentials it started with. Under
+	// awsClientAssumeRole none is scheduled; the next invocation refetches.
+	test("It should not refresh in the background under awsClientAssumeRole", async (t) => {
+		let sends = 0;
+		class FakeClient {
+			send() {
+				sends++;
+				return Promise.resolve({ PublicKey: publicKeyDer, KeySpec: keySpec });
+			}
+		}
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.role = Promise.resolve({ accessKeyId: "a" });
+			})
+			.use(
+				kms({
+					AwsClient: FakeClient,
+					awsClientAssumeRole: "role",
+					cacheExpiry: 50,
+					fetchData: { signingKey: "alias/my-signing-key" },
+				}),
+			);
+
+		await handler(event, context);
+		const afterFirst = sends;
+		t.mock.timers.tick(120);
+		await new Promise((resolve) => setImmediate(resolve));
+		strictEqual(sends, afterFirst);
+
+		await handler(event, context);
+		ok(sends > afterFirst);
 	});
 });

@@ -74,6 +74,16 @@ describe("@middy/warmup", () => {
 		strictEqual(response, "executed");
 	});
 
+	test("Should not exit with 'warmup' if the event is null", async (t) => {
+		const handler = middy(() => "executed");
+
+		handler.use(warmup());
+
+		const response = await handler(null, defaultContext);
+
+		strictEqual(response, "executed");
+	});
+
 	test("Should execute handler normally when not warming up", async (t) => {
 		let handlerCalled = false;
 		const handler = middy(() => {

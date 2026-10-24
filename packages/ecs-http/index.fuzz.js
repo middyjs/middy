@@ -1,5 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import { strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
 import {
@@ -124,5 +125,35 @@ test("fuzz resolveRequestId never throws", async () => {
 			},
 		),
 		{ numRuns: 5_000 },
+	);
+});
+
+test("fuzz resolveSourceIp picks the same hop as splitting the header", async () => {
+	const hopArb = fc.oneof(
+		fc.ipV4(),
+		fc.constantFrom("", " ", "[::1]:443", "1.2.3.4:80", "::1"),
+	);
+	await fc.assert(
+		fc.property(
+			fc.array(hopArb, { maxLength: 5 }),
+			fc.integer({ min: 0, max: 7 }),
+			(hops, trustedProxies) => {
+				const xff = hops.join(",");
+				const hop =
+					trustedProxies > 0
+						? xff.split(",").at(-trustedProxies)?.trim()
+						: undefined;
+				const expected = hop
+					? (/^\[([^\]]+)\]:\d+$/.exec(hop)?.[1] ??
+						/^([^:]+):\d+$/.exec(hop)?.[1] ??
+						hop)
+					: "sock";
+				strictEqual(
+					resolveSourceIp({ "x-forwarded-for": xff }, "sock", trustedProxies),
+					expected,
+				);
+			},
+		),
+		{ numRuns: 20_000 },
 	);
 });

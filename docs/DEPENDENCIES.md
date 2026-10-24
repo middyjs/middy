@@ -2,7 +2,7 @@
 
 Every runtime dependency shipped by a published `@middy/*` package, with its justification. This is the recorded inventory required by SPVS 1.6 V2.2.4; it is reviewed quarterly per [GOVERNANCE.md](GOVERNANCE.md) and must be updated in the same PR that adds or removes a runtime dependency.
 
-Snapshot: 55 published packages; 54 have `@middy/util` as their only runtime dependency (or none). Transitive depth is one level except where noted.
+Snapshot: 56 published packages; 50 have `@middy/util` as their only runtime dependency (or none). Transitive depth is one level except where noted.
 
 ## First-party
 

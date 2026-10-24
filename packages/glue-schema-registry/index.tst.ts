@@ -4,11 +4,13 @@ import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import glueSchemaRegistry, {
 	type Context,
 	type GlueSchemaRegistryOptions,
 	type Internal,
 	type ResolvedSchema,
+	resolveSchemaVersion,
 } from "./index.js";
 
 test("use with default options", () => {
@@ -133,4 +135,33 @@ test("contextKey literal narrows middyContext without as const", () => {
 				request.context.middyContext.custom.user,
 			).type.toBe<ResolvedSchema>();
 		});
+});
+
+test("resolveSchemaVersion accepts undefined options", () => {
+	expect(
+		resolveSchemaVersion("00000000-0000-0000-0000-000000000001", undefined, {
+			internal: {},
+		}),
+	).type.toBe<Promise<ResolvedSchema>>();
+});
+
+test("rejects misspelled option alongside fetchData", () => {
+	expect(glueSchemaRegistry).type.not.toBeCallableWith({
+		fetchData: { user: { SchemaVersionId: "abc" } },
+		cacheExpiery: 1000,
+	});
+});
+
+test("accepts cacheMaxSize", () => {
+	expect(glueSchemaRegistry).type.toBeCallableWith({
+		fetchData: { user: { SchemaVersionId: "abc" } },
+		cacheMaxSize: 10,
+	});
+});
+
+test("glueSchemaRegistryValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.GlueSchemaRegistryOptions;
+	expect(
+		indexModule.glueSchemaRegistryValidateOptions(options),
+	).type.toBe<indexModule.GlueSchemaRegistryOptions>();
 });

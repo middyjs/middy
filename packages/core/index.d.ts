@@ -152,7 +152,6 @@ export interface MiddlewareObj<
 	before?: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>;
 	after?: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>;
 	onError?: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>;
-	name?: string;
 }
 
 export interface MiddyHandlerObject {
@@ -179,6 +178,10 @@ type MiddyInputPromiseHandler<
 	TContext extends LambdaContext | DurableContextLike = LambdaContext,
 > = (event: TEvent, context: TContext) => Promise<TResult>;
 
+// Blocks inference like NoInfer but resolves to plain T once T is known;
+// NoInfer<T> stays visible in the instantiated output type.
+type ResolvedNoInfer<T> = [T][T extends any ? 0 : never];
+
 export interface MiddyfiedHandler<
 	TEvent = unknown,
 	TResult = any,
@@ -191,19 +194,24 @@ export interface MiddyfiedHandler<
 	before: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>;
 	after: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>;
 	onError: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>;
+	// NoInfer: the handler argument never drives inference, so a mismatched
+	// handler is still an error against TEvent/TResult. The event type may come
+	// from explicit type arguments or a contextual handler type (e.g.
+	// `const h: SQSHandler = ...`); the result type only from explicit type
+	// arguments, since aws-lambda's `void | Promise<TResult>` return would
+	// infer `void | TResult` and break the assignment back to that handler type.
 	handler: <
 		TInputHandlerEventProps = TEvent,
 		TInputHandlerResultProps = TResult,
 	>(
-		handler: MiddlewareHandler<
-			LambdaHandler<TInputHandlerEventProps, TInputHandlerResultProps>,
-			TContext,
-			TResult,
-			TEvent
+		handler: MiddyInputHandler<
+			NoInfer<TInputHandlerEventProps>,
+			NoInfer<TInputHandlerResultProps>,
+			WithMiddyContext<TContext>
 		>,
 	) => MiddyfiedHandler<
 		TInputHandlerEventProps,
-		TInputHandlerResultProps,
+		ResolvedNoInfer<TInputHandlerResultProps>,
 		TErr,
 		TContext,
 		TInternal
@@ -272,18 +280,6 @@ declare type UseFn<
 			>
 		: never;
 
-declare type MiddlewareHandler<
-	THandler extends LambdaHandler<any, any>,
-	TContext extends LambdaContext | DurableContextLike = LambdaContext,
-	TResult = any,
-	TEvent = unknown,
-> =
-	// The handler you write receives `context.middyContext`; the middyfied handler AWS
-	// invokes does not require it, so only the input side is widened.
-	THandler extends LambdaHandler<TEvent, TResult> // always true
-		? MiddyInputHandler<TEvent, TResult, WithMiddyContext<TContext>>
-		: never;
-
 /**
  * Middy factory function. Use it to wrap your existing handler to enable middlewares on it.
  * @param handler your original AWS Lambda function
@@ -298,12 +294,9 @@ declare function middy<
 >(
 	handler?:
 		| LambdaHandler<TEvent, TResult>
-		| MiddlewareHandler<
-				LambdaHandler<TEvent, TResult>,
-				TContext,
-				TResult,
-				TEvent
-		  >
+		// The handler you write receives `context.middyContext`; the middyfied
+		// handler AWS invokes does not require it, so only the input side is widened.
+		| MiddyInputHandler<TEvent, TResult, WithMiddyContext<TContext>>
 		| PluginObject,
 	plugin?: PluginObject,
 ): MiddyfiedHandler<TEvent, TResult, TErr, TContext, TInternal>;
@@ -323,8 +316,8 @@ declare namespace middy {
 	};
 }
 
-export declare function middyValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function middyValidateOptions<
+	TOptions extends Record<string, unknown>,
+>(options?: TOptions): TOptions;
 
 export default middy;

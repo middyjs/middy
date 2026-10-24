@@ -757,4 +757,79 @@ describe("@middy/http-error-handler", () => {
 			cause: { name: "Error", message: "loop", cause: "[Circular]" },
 		});
 	});
+
+	// ALB with multi-value headers enabled only reads `multiValueHeaders`: "You
+	// must use multiValueHeaders if you have enabled multi-value headers and
+	// headers otherwise."
+	// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+	test("It should write headers into multiValueHeaders for an ALB multi-value event", async (t) => {
+		const handler = middy(() => {
+			throw Object.assign(new HttpError(401), {
+				headers: { "WWW-Authenticate": "Bearer", Link: ["<a>", "<b>"] },
+			});
+		});
+
+		handler.use(httpErrorHandler({ logger: false }));
+
+		const response = await handler(
+			{
+				requestContext: { elb: { targetGroupArn: "arn" } },
+				multiValueHeaders: {},
+			},
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			statusCode: 401,
+			body: "Unauthorized",
+			headers: {},
+			multiValueHeaders: {
+				"Content-Type": ["text/plain"],
+				"WWW-Authenticate": ["Bearer"],
+				Link: ["<a>", "<b>"],
+			},
+		});
+	});
+
+	test("It should keep headers for an ALB event without multi-value headers", async (t) => {
+		const handler = middy(() => {
+			throw Object.assign(new HttpError(401), {
+				headers: { "WWW-Authenticate": "Bearer" },
+			});
+		});
+
+		handler.use(httpErrorHandler({ logger: false }));
+
+		const response = await handler(
+			{ requestContext: { elb: { targetGroupArn: "arn" } }, headers: {} },
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			statusCode: 401,
+			body: "Unauthorized",
+			headers: { "Content-Type": "text/plain", "WWW-Authenticate": "Bearer" },
+		});
+	});
+
+	test("It should keep headers for an API Gateway REST event with multiValueHeaders", async (t) => {
+		const handler = middy(() => {
+			throw Object.assign(new HttpError(401), {
+				headers: { "WWW-Authenticate": "Bearer" },
+			});
+		});
+
+		handler.use(httpErrorHandler({ logger: false }));
+
+		const response = await handler(
+			{ requestContext: {}, headers: {}, multiValueHeaders: {} },
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			statusCode: 401,
+			body: "Unauthorized",
+			headers: { "Content-Type": "text/plain", "WWW-Authenticate": "Bearer" },
+		});
+	});
 });

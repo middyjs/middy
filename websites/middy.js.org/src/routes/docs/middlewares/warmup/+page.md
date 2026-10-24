@@ -1,6 +1,6 @@
 ---
 title: warmup
-description: "Keep Lambda functions warm to reduce cold starts with scheduled warmup invocations."
+description: "Keep Lambda Event Functions warm to reduce cold starts with scheduled warmup invocations."
 ---
 
 Warmup middleware that helps to reduce the [cold-start issue](https://serverless.com/blog/keep-your-lambdas-warm/). Compatible by default with [`serverless-plugin-warmup`](https://www.npmjs.com/package/serverless-plugin-warmup), but it can be configured to suit your implementation.
@@ -28,7 +28,7 @@ npm install --save @middy/warmup
 ## Options
 
 - `isWarmingUp`: a function that accepts the `event` object as a parameter
-  and returns `true` if the current event is a warmup event and `false` if it's a regular execution. The default function will check if the `event` object has a `source` property set to `serverless-plugin-warmup`.
+  and returns `true` if the current event is a warmup event and `false` if it's a regular execution. The default function will check if the `event` object has a `source` property set to `serverless-plugin-warmup`; a `null` event (a direct invoke with a `null` payload) is not a warmup event.
 
 ## Sample usage
 

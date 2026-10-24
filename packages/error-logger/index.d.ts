@@ -3,7 +3,9 @@
 import type middy from "@middy/core";
 
 export interface Options {
-	logger?: (request: middy.Request) => void;
+	// Method syntax keeps the parameter bivariant, so a logger annotated with a
+	// concrete event (`middy.Request<APIGatewayProxyEvent>`) is accepted.
+	logger?(request: middy.Request): void;
 	/**
 	 * Dot-delimited paths, relative to the `request`, to strip from the copy
 	 * handed to `logger`. Use `[]` to descend into arrays, e.g.
@@ -18,8 +20,8 @@ declare function errorLogger(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
-export declare function errorLoggerValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function errorLoggerValidateOptions<TOptions extends Options>(
+	options?: TOptions,
+): TOptions;
 
 export default errorLogger;

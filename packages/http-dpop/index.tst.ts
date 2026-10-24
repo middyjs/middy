@@ -1,11 +1,18 @@
-import type middy from "@middy/core";
+import middy from "@middy/core";
 import type {
 	ALBEvent,
 	APIGatewayEvent,
 	APIGatewayProxyEventV2,
 } from "aws-lambda";
 import { expect, test } from "tstyche";
-import httpDpop, { verifyDpopProof } from "./index.js";
+import * as indexModule from "./index.js";
+import httpDpop, {
+	type Context,
+	type DpopProofClaims,
+	type Internal,
+	type Options,
+	verifyDpopProof,
+} from "./index.js";
 
 test("use with default options", () => {
 	const middleware = httpDpop();
@@ -13,7 +20,9 @@ test("use with default options", () => {
 		middy.MiddlewareObj<
 			APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent,
 			unknown,
-			Error
+			Error,
+			Context<Options>,
+			Internal
 		>
 	>();
 });
@@ -21,6 +30,7 @@ test("use with default options", () => {
 test("use with all options", () => {
 	const middleware = httpDpop({
 		payloadKey: "paseto",
+		tokenKey: "pasetoToken",
 		proofKey: "dpop",
 		confirmationClaim: "cnf",
 		origin: "https://api.example.com",
@@ -34,7 +44,9 @@ test("use with all options", () => {
 		middy.MiddlewareObj<
 			APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent,
 			unknown,
-			Error
+			Error,
+			Context<{ setToContext: true; required: true }>,
+			Internal<{ required: true }>
 		>
 	>();
 });
@@ -45,7 +57,9 @@ test("use with a single algorithm", () => {
 		middy.MiddlewareObj<
 			APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent,
 			unknown,
-			Error
+			Error,
+			Context<Options>,
+			Internal
 		>
 	>();
 });
@@ -53,15 +67,25 @@ test("use with a single algorithm", () => {
 test("allow specifying the event type", () => {
 	const apiGatewayV1Middleware = httpDpop<Options, APIGatewayEvent>();
 	expect(apiGatewayV1Middleware).type.toBe<
-		middy.MiddlewareObj<APIGatewayEvent, unknown, Error>
+		middy.MiddlewareObj<
+			APIGatewayEvent,
+			unknown,
+			Error,
+			Context<Options>,
+			Internal
+		>
 	>();
 	const apiGatewayV2Middleware = httpDpop<Options, APIGatewayProxyEventV2>();
 	expect(apiGatewayV2Middleware).type.toBe<
-		middy.MiddlewareObj<APIGatewayProxyEventV2, unknown, Error>
+		middy.MiddlewareObj<
+			APIGatewayProxyEventV2,
+			unknown,
+			Error,
+			Context<Options>,
+			Internal
+		>
 	>();
 });
-
-import type { Options } from "./index.js";
 
 test("verifyDpopProof requires the request method", () => {
 	expect(
@@ -79,4 +103,34 @@ test("verifyDpopProof requires the request method", () => {
 	expect(verifyDpopProof).type.not.toBeCallableWith("a.b.c");
 });
 
-import type { DpopProofClaims } from "./index.js";
+test("httpDpopValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.Options;
+	expect(
+		indexModule.httpDpopValidateOptions(options),
+	).type.toBe<indexModule.Options>();
+});
+
+test("internal carries the proof claims under proofKey", () => {
+	middy()
+		.use(httpDpop())
+		.before((request) => {
+			expect(request.internal.dpop).type.toBe<DpopProofClaims | undefined>();
+		});
+	middy()
+		.use(httpDpop({ proofKey: "proof", required: true }))
+		.before((request) => {
+			expect(request.internal.proof).type.toBe<DpopProofClaims>();
+		});
+});
+
+test("setToContext publishes the claims on middyContext", () => {
+	middy()
+		.use(httpDpop({ proofKey: "proof", setToContext: true, required: true }))
+		.before((request) => {
+			expect(request.context.middyContext.proof).type.toBe<DpopProofClaims>();
+		});
+});
+
+test("rejects misspelled option", () => {
+	expect(httpDpop).type.not.toBeCallableWith({ required: true, maxage: 60 });
+});

@@ -4,7 +4,7 @@ description: "Use Middy with Application Load Balancer Lambda target group event
 ---
 
 <script>
-import Callout from '@design-system/components/Callout.svelte'
+import Callout from '@willfarrell-ds/svelte/components/Callout.svelte'
 </script>
 Same as API Gateway (REST)
 
@@ -12,6 +12,17 @@ Same as API Gateway (REST)
 <Callout data-theme="warn">
 This page is a work in progress. If you want to help us to make this page better, please consider contributing on GitHub.
 </Callout>
+
+## Event flow
+
+```mermaid
+flowchart LR
+  accTitle: Application Load Balancer to Lambda
+  accDescr: Application Load Balancer to Lambda.
+  src@{ icon: "logos:aws-elb", label: "Application Load Balancer", pos: "b", h: 48 }
+  fn@{ icon: "logos:aws-lambda", label: "Lambda", pos: "b", h: 48 }
+  src --> fn
+```
 
 ## AWS Documentation
 - [Using AWS Lambda with an Application Load Balancer](https://docs.aws.amazon.com/lambda/latest/dg/services-alb.html)
@@ -37,7 +48,7 @@ import httpResponseSerializerMiddleware from '@middy/http-response-serializer'
 import httpSecurityHeadersMiddleware from '@middy/http-security-headers'
 import httpUrlencodeBodyParserMiddleware from '@middy/http-urlencode-body-parser'
 import httpUrlencodePathParametersParserMiddleware from '@middy/http-urlencode-path-parser'
-import warmupMiddleware from 'warmup'
+import warmupMiddleware from '@middy/warmup'
 
 import { handler as getHandler } from './handlers/get-user.js'
 import { handler as postHandler } from './handlers/get-user.js'
@@ -88,7 +99,7 @@ export const handler = middy({
           serializer: ({ body }) => JSON.stringify(body)
         }
       ],
-      default: 'application/json'
+      defaultContentType: 'application/json'
     })
   )
   .use(httpPartialResponseMiddleware())

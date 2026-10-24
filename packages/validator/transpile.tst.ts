@@ -5,7 +5,12 @@ import { nestedSchema, transpileFTL, transpileSchema } from "./transpile.js";
 
 test("transpileSchema returns a compiled validate function", () => {
 	const validate = transpileSchema({ type: "object" }, {});
-	expect(validate).type.toBe<ValidateFunction | AsyncValidateFunction>();
+	expect(validate).type.toBe<ValidateFunction>();
+});
+
+test("transpileSchema returns an async validate function for an $async schema", () => {
+	const validate = transpileSchema({ $async: true, type: "object" });
+	expect(validate).type.toBe<AsyncValidateFunction>();
 });
 
 test("transpileSchema accepts ajv options including keywords", () => {
@@ -13,7 +18,7 @@ test("transpileSchema accepts ajv options including keywords", () => {
 		{ type: "object" },
 		{ keywords: [{ keyword: "myKw" }] },
 	);
-	expect(validate).type.toBe<ValidateFunction | AsyncValidateFunction>();
+	expect(validate).type.toBe<ValidateFunction>();
 });
 
 test("nestedSchema returns a schema object", () => {
@@ -22,7 +27,7 @@ test("nestedSchema returns a schema object", () => {
 
 test("nestedSchema output is accepted by transpileSchema", () => {
 	const validate = transpileSchema(nestedSchema("/body", { type: "object" }));
-	expect(validate).type.toBe<ValidateFunction | AsyncValidateFunction>();
+	expect(validate).type.toBe<ValidateFunction>();
 });
 
 test("transpileFTL returns the transpiled module source", () => {
@@ -35,4 +40,11 @@ test("LocalizeFunction is the localizer shape passed to languages", () => {
 		expect(errors).type.toBeAssignableTo<unknown[] | null | undefined>();
 	};
 	expect(localize).type.toBe<LocalizeFunction>();
+});
+
+test("transpileSchema with a widened $async: boolean may return either kind", () => {
+	const schema = { $async: true as boolean, type: "object" };
+	expect(transpileSchema(schema)).type.toBe<
+		ValidateFunction | AsyncValidateFunction
+	>();
 });

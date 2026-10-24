@@ -59,8 +59,12 @@ declare function appConfigMiddleware<
 	TKey extends string = string,
 >(
 	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
-	// key narrows `middyContext` without `as const`.
-	options?: TOptions & { contextKey?: TKey },
+	// key narrows `middyContext` without `as const`. The `never` record rejects
+	// keys `AppConfigOptions` does not declare, which inference would otherwise accept.
+	options?: TOptions & { contextKey?: TKey } & Record<
+			Exclude<keyof TOptions, keyof AppConfigOptions>,
+			never
+		>,
 ): middy.MiddlewareObj<
 	unknown,
 	unknown,
@@ -69,8 +73,8 @@ declare function appConfigMiddleware<
 	Internal<TOptions>
 >;
 
-export declare function appConfigValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function appConfigValidateOptions<
+	TOptions extends AppConfigOptions,
+>(options?: TOptions): TOptions;
 
 export default appConfigMiddleware;

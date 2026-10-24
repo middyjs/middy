@@ -6,9 +6,14 @@ import { buildPathTree, omit, validateOptions } from "@middy/util";
 const name = "event-logger";
 const pkg = `@middy/${name}`;
 
+// JSON.stringify throws on BigInt, which event-normalizer produces for
+// DynamoDB numbers beyond 2^53.
+const stringifyBigInt = (_key, value) =>
+	typeof value === "bigint" ? value.toString() : value;
+
 const defaults = {
 	logger: ({ event }) => {
-		console.log(JSON.stringify({ event }));
+		console.log(JSON.stringify({ event }, stringifyBigInt));
 	},
 	omitPaths: undefined,
 	mask: undefined,
@@ -50,9 +55,15 @@ const eventLoggerMiddleware = (opts = {}) => {
 	const omitPathTree = omitPaths && buildPathTree(omitPaths);
 
 	// Block body: core treats any defined hook return as an early response, and
-	// loggers such as winston return themselves from `logger.info()`.
+	// loggers such as winston return themselves from `logger.info()`. A logger
+	// that throws is reported, not propagated: logging must not change the
+	// invocation outcome.
 	const eventLoggerMiddlewareBefore = (request) => {
-		logger(omit(request, omitPathTree, mask));
+		try {
+			logger(omit(request, omitPathTree, mask));
+		} catch (e) {
+			console.error(e);
+		}
 	};
 
 	return {

@@ -131,6 +131,43 @@ describe("@middy/http-content-negotiation", () => {
 		);
 	});
 
+	// VPC Lattice V2 delivers every header value as an array.
+	// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html
+	test("It should parse array header values from VPC Lattice V2", async (t) => {
+		const handler = middy(
+			(event, context) => context.middyContext["http-content-negotiation"],
+		);
+		handler.use(
+			httpContentNegotiation({
+				availableCharsets: ["utf-8"],
+				availableEncodings: ["gzip"],
+				availableLanguages: ["en-ca"],
+				availableMediaTypes: ["text/plain", "text/x-dvi"],
+			}),
+		);
+
+		const event = {
+			version: "2.0",
+			method: "GET",
+			headers: {
+				"accept-charset": ["utf-8"],
+				"accept-encoding": ["br", "gzip"],
+				"accept-language": ["da", "en-ca;q=0.8"],
+				accept: ["text/plain; q=0.5", "text/x-dvi; q=0.8"],
+			},
+		};
+
+		const resultingContext = await handler(event, defaultContext);
+
+		strictEqual(resultingContext.preferredCharset, "utf-8");
+		strictEqual(resultingContext.preferredEncoding, "gzip");
+		strictEqual(resultingContext.preferredLanguage, "en-ca");
+		deepStrictEqual(resultingContext.preferredMediaTypes, [
+			"text/x-dvi",
+			"text/plain",
+		]);
+	});
+
 	test("It should skip the middleware if no headers are sent", async (t) => {
 		const handler = middy((event, context) => event);
 		handler.use(

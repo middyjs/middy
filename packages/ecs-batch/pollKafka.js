@@ -1,6 +1,8 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-
+// The module object rather than a named import so a test's mock timers can
+// intercept setTimeout; a named import binds the real function at load time.
+import timers from "node:timers/promises";
 import { validateOptions } from "@middy/util";
 import { Kafka } from "kafkajs";
 
@@ -20,6 +22,8 @@ const optionSchema = {
 		eventSourceArn: { type: "string" },
 		selfManaged: { type: "boolean" },
 		heartbeatIntervalMs: { type: "integer", minimum: 1 },
+		maxRetryAttempts: { type: "integer", minimum: -1, maximum: 10000 },
+		retryDelayMs: { type: "integer", minimum: 0 },
 	},
 	required: ["brokers", "groupId", "topics"],
 	additionalProperties: false,
@@ -30,10 +34,16 @@ export const pollKafkaValidateOptions = (options) =>
 
 const noop = () => {};
 
+// Backoff before a failed batch is fetched again: retryDelayMs, doubling per
+// consecutive failure of the same record, capped at 30 s (or retryDelayMs
+// when that is larger).
+const retryDelay = (retryDelayMs, attempt) =>
+	Math.min(retryDelayMs * 2 ** (attempt - 1), Math.max(retryDelayMs, 30_000));
+
 // A Buffer is a Uint8Array; viewing either over its own memory encodes the
 // same bytes without a copy.
 const toBase64 = (val) => {
-	if (val == null) return null;
+	if (val === undefined || val === null) return null;
 	if (val instanceof Uint8Array) {
 		return Buffer.from(val.buffer, val.byteOffset, val.byteLength).toString(
 			"base64",
@@ -134,6 +144,14 @@ export const pollKafka = (opts) => {
 	const consumer = opts.consumer ?? kafka.consumer({ groupId: opts.groupId });
 	const eventSource = opts.selfManaged ? "SelfManagedKafka" : "aws:kafka";
 	const heartbeatIntervalMs = opts.heartbeatIntervalMs ?? 3000;
+	// Lambda's MaximumRetryAttempts: -1 (the default) retries until the record
+	// leaves the topic; otherwise the batch is discarded after that many retries.
+	// https://docs.aws.amazon.com/lambda/latest/dg/kafka-retry-configurations.html
+	const maxRetryAttempts = opts.maxRetryAttempts ?? -1;
+	const retryDelayMs = opts.retryDelayMs ?? 1000;
+	// Consecutive failures per topic-partition, keyed to the offset the retry
+	// starts from, so a batch that makes progress starts counting again.
+	const retries = new Map();
 
 	// Bridges kafkajs's push-mode eachBatch to the runner's pull loop. Only one
 	// batch is in flight at a time (partitionsConsumedConcurrently=1) so a
@@ -176,6 +194,55 @@ export const pollKafka = (opts) => {
 	const recordId = (batch, m) =>
 		`${batch.topic}-${batch.partition}-${m.offset}`;
 
+	// Decides what a failed batch does next. Within maxRetryAttempts it waits
+	// out the backoff (still heartbeating) and returns the failed set, so the
+	// batch is fetched again from its first failed offset. Past it, the failed
+	// records are reported and the batch is treated as processed so the
+	// partition moves on. A shutdown or a rebalance (`signal`) skips both: the
+	// batch redelivers after restart or to the partition's next owner.
+	const retryOrDiscard = async (batch, event, failed, signal, report) => {
+		const partitionKey = `${batch.topic}-${batch.partition}`;
+		const failedMessages = batch.messages.filter((m) =>
+			failed.has(recordId(batch, m)),
+		);
+		if (failedMessages.length === 0) {
+			retries.delete(partitionKey);
+			return failed;
+		}
+		if (signal.aborted) return failed;
+		const from = failedMessages[0].offset;
+		const previous = retries.get(partitionKey);
+		const attempt = previous?.from === from ? previous.attempt + 1 : 1;
+		if (maxRetryAttempts !== -1 && attempt > maxRetryAttempts) {
+			retries.delete(partitionKey);
+			report(
+				new Error("Retry attempts exhausted", {
+					cause: {
+						package: pkg,
+						data: {
+							records: failedMessages.map((m) => ({
+								topic: batch.topic,
+								partition: batch.partition,
+								offset: Number(m.offset),
+							})),
+						},
+					},
+				}),
+				event,
+			);
+			return new Set();
+		}
+		retries.set(partitionKey, { from, attempt });
+		try {
+			await timers.setTimeout(retryDelay(retryDelayMs, attempt), undefined, {
+				signal,
+			});
+		} catch {
+			// aborted: shutting down, the batch redelivers after restart
+		}
+		return failed;
+	};
+
 	const handleBatch = async (
 		{
 			batch,
@@ -185,6 +252,7 @@ export const pollKafka = (opts) => {
 			heartbeat,
 		},
 		signal,
+		report,
 	) => {
 		if (signal.aborted) return;
 		const event = buildKafkaEvent(opts, eventSource, batch);
@@ -195,13 +263,24 @@ export const pollKafka = (opts) => {
 		// heartbeats between eachBatch calls, so keep the session alive while
 		// the batch is held; heartbeat() itself throttles to heartbeatInterval
 		// and a rejection (rebalance in progress) surfaces on the commit instead.
+		// A rejection also ends a retry backoff early: the member has to rejoin
+		// within the group's rebalance timeout, and eachBatch holding the
+		// consumer would keep it from doing so.
+		const rebalance = new AbortController();
 		const beat = setInterval(
-			() => heartbeat().catch(noop),
+			() => heartbeat().catch((err) => rebalance.abort(err)),
 			heartbeatIntervalMs,
 		).unref();
 		let failed;
 		try {
 			failed = await ackGate;
+			failed = await retryOrDiscard(
+				batch,
+				event,
+				failed,
+				AbortSignal.any([signal, rebalance.signal]),
+				report,
+			);
 		} finally {
 			clearInterval(beat);
 		}
@@ -223,7 +302,7 @@ export const pollKafka = (opts) => {
 	return {
 		source: eventSource,
 		consumer,
-		async *poll(signal) {
+		async *poll(signal, report = noop) {
 			if (!started) {
 				consumer.on(consumer.events.CRASH, onCrash);
 				await consumer.connect();
@@ -250,7 +329,7 @@ export const pollKafka = (opts) => {
 				eachBatchAutoResolve: false,
 				partitionsConsumedConcurrently: 1,
 				eachBatch: (payload) => {
-					inflight = handleBatch(payload, signal);
+					inflight = handleBatch(payload, signal, report);
 					return inflight;
 				},
 			});

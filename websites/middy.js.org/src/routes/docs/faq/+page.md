@@ -48,7 +48,11 @@ Each fetch-data middleware writes to `request.internal` under its `internalKey`.
 
 ## Can I cache values between invocations?
 
-Yes. The fetch-data middlewares (`ssm`, `secrets-manager`, `appconfig`, `dynamodb`, `s3`, `sts`, `rds-signer`, `dsql-signer`, `kms`, `service-discovery`) accept `cacheKey` and `cacheExpiry`. Cached values persist across warm invocations of the same container. Use `cacheExpiry: -1` for forever, a positive number for milliseconds, or `0` to disable caching.
+Yes. The fetch-data middlewares (`ssm`, `secrets-manager`, `appconfig`, `dynamodb`, `s3`, `sts`, `rds-signer`, `dsql-signer`, `kms`, `service-discovery`) accept `cacheKey` and `cacheExpiry`. Cached values persist across warm invocations of the same container. Use `cacheExpiry: -1` for forever, a positive number up to `86400000` (24h) for a duration in milliseconds, or `0` to disable caching. A value above `86400000` is read as a unix timestamp (ms) to expire at. One before 2001-01-01 (`978307200000`) can only be a mistyped duration (25h would land in 1970 and silently disable the cache), so it throws when the middleware is created. A real timestamp keeps working after it passes: the entry is expired and every invocation fetches again, with no background refresh. For a lifetime over 24h without that cliff, use `-1`.
+
+Instances of the same middleware share a cache entry through `cacheKey` (the package name by default). To run two instances that fetch different data side by side, give each its own `cacheKey`, plus its own `contextKey` (and `internalKey` where the middleware has one); reusing a `cacheKey` for different data throws a `TypeError`.
+
+All middlewares share one cache per container. `cacheMaxSize` (default 128) caps that whole cache, not one middleware's entries: storing an entry past the cap evicts the entry that expires soonest, whichever middleware it belongs to, and that entry is refetched on its next use. Set it no lower than the total number of cache entries your function needs: one per `cacheKey`, plus one (`<cacheKey>:schemaVersions`, holding every version) per `glue-schema-registry` `cacheKey` that resolves schema versions.
 
 ## How do I fetch secrets from a different AWS account?
 
@@ -72,7 +76,7 @@ Yes. A middyfied handler is a plain async function `(event, context) => result`.
 
 ## Is Middy compatible with AWS Lambda Powertools?
 
-Yes, and they are complementary. Middy is the middleware engine that composes everything (validation, parsing, error mapping, secrets, CORS, security headers, partial batches, routers). Powertools provides AWS-blessed observability primitives (Logger, Tracer, Metrics) that drop into Middy's `.use()` chain. Recommended pattern: Middy as the engine, Powertools middlewares for observability. See the [Lambda Powertools integration](/docs/integrations/lambda-powertools) and [Middy + Powertools](/docs/compare/powertools).
+Yes, and they are complementary. Middy is the middleware engine that composes everything (validation, parsing, error mapping, secrets, CORS, security headers, partial batches, routers). Powertools provides AWS-blessed observability primitives (Logger, Tracer, Metrics) that drop into Middy's `.use()` chain. Recommended pattern: Middy as the engine, Powertools middlewares for observability. See the [Lambda Powertools integration](/docs/integrations/lambda-powertools).
 
 ## Why am I getting `Unsupported Media Type` (415)?
 

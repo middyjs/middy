@@ -3,10 +3,15 @@ import type {
 	APIGatewayProxyResultV2,
 	APIGatewayProxyWebsocketEventV2,
 	APIGatewayProxyWebsocketHandlerV2,
-	Context,
+	Handler as LambdaHandler,
 } from "aws-lambda";
 import { expect, test } from "tstyche";
-import wsRouterHandler, { type RouteHandler } from "./index.js";
+import type { RouteContext } from "./index.js";
+import * as indexModule from "./index.js";
+import wsRouterHandler, {
+	type RouteHandler,
+	type RouterHandler,
+} from "./index.js";
 
 const connectLambdaHandler: APIGatewayProxyWebsocketHandlerV2 = async () => {
 	return {
@@ -33,10 +38,7 @@ const middleware = wsRouterHandler([
 	},
 ]);
 expect(middleware).type.toBe<
-	middy.MiddyfiedHandler<
-		APIGatewayProxyWebsocketEventV2,
-		APIGatewayProxyResultV2
-	>
+	RouterHandler<APIGatewayProxyWebsocketEventV2, APIGatewayProxyResultV2>
 >();
 
 const middlewareWithOptions = wsRouterHandler({
@@ -55,10 +57,7 @@ const middlewareWithOptions = wsRouterHandler({
 	},
 });
 expect(middlewareWithOptions).type.toBe<
-	middy.MiddyfiedHandler<
-		APIGatewayProxyWebsocketEventV2,
-		APIGatewayProxyResultV2
-	>
+	RouterHandler<APIGatewayProxyWebsocketEventV2, APIGatewayProxyResultV2>
 >();
 
 const middlewareWithReturnResponse = wsRouterHandler({
@@ -71,10 +70,7 @@ const middlewareWithReturnResponse = wsRouterHandler({
 	notFoundResponse: ({ routeKey }) => ({ statusCode: 404, body: routeKey }),
 });
 expect(middlewareWithReturnResponse).type.toBe<
-	middy.MiddyfiedHandler<
-		APIGatewayProxyWebsocketEventV2,
-		APIGatewayProxyResultV2
-	>
+	RouterHandler<APIGatewayProxyWebsocketEventV2, APIGatewayProxyResultV2>
 >();
 
 // `Route.handler` has one call signature, so an inline arrow gets `event` and
@@ -85,7 +81,7 @@ test("inline handler: event and context are contextually typed", () => {
 			routeKey: "$connect",
 			handler: async (event, context) => {
 				expect(event).type.toBe<APIGatewayProxyWebsocketEventV2>();
-				expect(context).type.toBe<Context>();
+				expect(context).type.toBe<RouteContext>();
 				return { statusCode: 200 };
 			},
 		},
@@ -95,10 +91,7 @@ test("inline handler: event and context are contextually typed", () => {
 		},
 	]);
 	expect(router).type.toBe<
-		middy.MiddyfiedHandler<
-			APIGatewayProxyWebsocketEventV2,
-			APIGatewayProxyResultV2
-		>
+		RouterHandler<APIGatewayProxyWebsocketEventV2, APIGatewayProxyResultV2>
 	>();
 });
 
@@ -114,10 +107,7 @@ test("middyfied handler as a route handler", () => {
 		},
 	]);
 	expect(router).type.toBe<
-		middy.MiddyfiedHandler<
-			APIGatewayProxyWebsocketEventV2,
-			APIGatewayProxyResultV2
-		>
+		RouterHandler<APIGatewayProxyWebsocketEventV2, APIGatewayProxyResultV2>
 	>();
 });
 
@@ -130,4 +120,52 @@ test("RouteHandler type", () => {
 	).type.toBeAssignableTo<
 		RouteHandler<APIGatewayProxyWebsocketEventV2, APIGatewayProxyResultV2>
 	>();
+});
+
+test("the router is a plain handler that middy() wraps", () => {
+	const router = wsRouterHandler([
+		{ routeKey: "$connect", handler: async () => ({ statusCode: 200 }) },
+	]);
+	expect(router).type.not.toHaveProperty("use");
+	expect(middy(router)).type.toBe<
+		middy.MiddyfiedHandler<
+			APIGatewayProxyWebsocketEventV2,
+			APIGatewayProxyResultV2
+		>
+	>();
+});
+
+test("the router is assignable to the aws-lambda Handler type", () => {
+	const router = wsRouterHandler([
+		{ routeKey: "$connect", handler: async () => ({ statusCode: 200 }) },
+	]);
+	expect(router).type.toBeAssignableTo<
+		LambdaHandler<APIGatewayProxyWebsocketEventV2, APIGatewayProxyResultV2>
+	>();
+});
+
+test("wsRouterValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.Options;
+	expect(
+		indexModule.wsRouterValidateOptions(options),
+	).type.toBe<indexModule.Options>();
+});
+
+test("route handler context carries middyContext", () => {
+	wsRouterHandler([
+		{
+			routeKey: "$connect",
+			handler: async (_event, context) => {
+				expect(context.middyContext).type.toBe<Record<string, unknown>>();
+				return { statusCode: 200 };
+			},
+		},
+	]);
+});
+
+test("rejects misspelled option", () => {
+	expect(wsRouterHandler).type.not.toBeCallableWith({
+		routes: [],
+		notFoundResponce: () => ({}),
+	});
 });

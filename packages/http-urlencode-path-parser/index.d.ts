@@ -11,8 +11,9 @@ declare function urlEncodePathParser(): middy.MiddlewareObj<
 	Error
 >;
 
-export declare function httpUrlencodePathParserValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function httpUrlencodePathParserValidateOptions<
+	// The middleware takes no options, so any key fails validation.
+	TOptions extends Record<string, never>,
+>(options?: TOptions): TOptions;
 
 export default urlEncodePathParser;

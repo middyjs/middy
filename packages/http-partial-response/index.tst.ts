@@ -1,5 +1,6 @@
 import type middy from "@middy/core";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import httpPartialResponse, { type Options } from "./index.js";
 
 test("use with default options", () => {
@@ -15,4 +16,17 @@ test("use with all options", () => {
 
 test("Options type", () => {
 	expect<Options>().type.toBeAssignableTo<{ filteringKeyName?: string }>();
+});
+
+test("httpPartialResponseValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.Options;
+	expect(
+		indexModule.httpPartialResponseValidateOptions(options),
+	).type.toBe<indexModule.Options>();
+});
+
+test("rejects misspelled option", () => {
+	expect(httpPartialResponse).type.not.toBeCallableWith({
+		filteringKey: "fields",
+	});
 });

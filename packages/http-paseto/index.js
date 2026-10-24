@@ -32,6 +32,8 @@ const defaults = {
 	maxTokenAge: undefined,
 	expectedClaims: undefined,
 	payloadKey: "paseto",
+	// Defaults to `${payloadKey}Token`.
+	tokenKey: undefined,
 	setToContext: false,
 };
 
@@ -68,6 +70,7 @@ const optionSchema = {
 			},
 		},
 		payloadKey: { type: "string" },
+		tokenKey: { type: "string" },
 		setToContext: { type: "boolean" },
 	},
 	additionalProperties: false,
@@ -116,12 +119,21 @@ const importKey = async (entry) => {
 	return PublicKeyFromCryptoKey(cryptoKey);
 };
 
+// ALB with multi-value headers enabled sends `multiValueHeaders` and no
+// `headers`. Read it directly so this does not depend on http-event-normalizer
+// running first.
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+const eventHeaders = (event) => event?.headers ?? event?.multiValueHeaders;
+
 // HTTP API payload 2.0 strips the Cookie header and delivers each cookie as a
 // `name=value` entry of `event.cookies`. The header is searched first, so an
 // event that somehow carries both keeps its header semantics.
 const readCookieValue = (event, cookieName) => {
-	const headers = event?.headers;
-	const cookieHeader = headers?.cookie ?? headers?.Cookie;
+	const headers = eventHeaders(event);
+	const rawCookie = headers?.cookie ?? headers?.Cookie;
+	const cookieHeader = Array.isArray(rawCookie)
+		? rawCookie.join(";")
+		: rawCookie;
 	const prefix = `${cookieName}=`;
 	const isMatch = (c) => typeof c === "string" && c.trim().startsWith(prefix);
 	let match = cookieHeader ? cookieHeader.split(";").find(isMatch) : undefined;
@@ -142,11 +154,11 @@ const readCookieValue = (event, cookieName) => {
 const AUTH_SCHEMES = new Set(["bearer", "dpop"]);
 
 const readHeaderValue = (event, headerName) => {
-	const headers = event?.headers;
+	const headers = eventHeaders(event);
 	if (!headers) return undefined;
 	const lowerName = headerName.toLowerCase();
 	const rawValue = headers[headerName] ?? headers[lowerName];
-	// Proxies (ALB multiValueHeaders, repeated headers) can deliver arrays.
+	// ALB multiValueHeaders and repeated headers deliver arrays.
 	const raw = Array.isArray(rawValue) ? rawValue[0] : rawValue;
 	if (!raw) return undefined;
 	// Authorization header carries the `Bearer <token>` scheme; strip it.
@@ -165,8 +177,20 @@ const readQueryValue = (event, paramName) => {
 	return value || undefined;
 };
 
+// RFC 6750 §3: a 401 names the scheme it wants. §3.1: a request that presented
+// no token gets the bare challenge, one whose token was refused gets
+// `invalid_token`. `http-error-handler` copies `error.headers` onto the response.
+const unauthorized = (reason, challenge = 'Bearer error="invalid_token"') => {
+	const error = new HttpError(401, {
+		cause: { package: pkg, data: { reason } },
+	});
+	error.headers = { "WWW-Authenticate": challenge };
+	return error;
+};
+
 const httpPasetoMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
+	const tokenKey = options.tokenKey ?? `${options.payloadKey}Token`;
 
 	if (options.internalKey === undefined) {
 		throw new TypeError("No key source configured: set internalKey", {
@@ -193,12 +217,7 @@ const httpPasetoMiddleware = (opts = {}) => {
 			const token = source(event);
 			if (token) return token;
 		}
-		throw new HttpError(401, {
-			cause: {
-				package: pkg,
-				data: { reason: "No token found in configured sources" },
-			},
-		});
+		throw unauthorized("No token found in configured sources", "Bearer");
 	};
 
 	const baseVerifyOptions = {
@@ -221,12 +240,7 @@ const httpPasetoMiddleware = (opts = {}) => {
 		const token = parseToken(request.event);
 
 		if (!token.startsWith("v4.public.")) {
-			throw new HttpError(401, {
-				cause: {
-					package: pkg,
-					data: { reason: "Unsupported PASETO version or purpose" },
-				},
-			});
+			throw unauthorized("Unsupported PASETO version or purpose");
 		}
 
 		const result = await getInternal(options.internalKey, request);
@@ -292,9 +306,7 @@ const httpPasetoMiddleware = (opts = {}) => {
 			}
 		}
 		if (payload === undefined) {
-			throw new HttpError(401, {
-				cause: { package: pkg, data: { reason: failure.message } },
-			});
+			throw unauthorized(failure.message);
 		}
 
 		// Claims the caller declared mandatory, compared with strict equality and
@@ -302,17 +314,15 @@ const httpPasetoMiddleware = (opts = {}) => {
 		// payload this rejected.
 		for (const [claim, expected] of expectedClaims) {
 			if (payload[claim] !== expected) {
-				throw new HttpError(401, {
-					cause: {
-						package: pkg,
-						data: {
-							reason: `Claim '${claim}' is '${payload[claim]}', expected '${expected}'`,
-						},
-					},
-				});
+				throw unauthorized(
+					`Claim '${claim}' is '${payload[claim]}', expected '${expected}'`,
+				);
 			}
 		}
 
+		// The token exactly as verified, so @middy/http-dpop can hash the one
+		// that was checked (RFC 9449 §4.3) whichever source it came from.
+		request.internal[tokenKey] = token;
 		request.internal[options.payloadKey] = payload;
 		if (options.setToContext) {
 			setContextNamespace(request, options.payloadKey, payload);

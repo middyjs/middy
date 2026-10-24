@@ -5,7 +5,7 @@
   <p>
     <a href="https://github.com/middyjs/middy/actions/workflows/test-unit.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-unit.yml/badge.svg" alt="GitHub Actions unit test status"></a>
     <a href="https://github.com/middyjs/middy/actions/workflows/test-dast.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-dast.yml/badge.svg" alt="GitHub Actions dast test status"></a>
-    <a href="https://github.com/middyjs/middy/actions/workflows/test-perf.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-perf.yml/badge.svg" alt="GitHub Actions perf test status"></a>
+    <a href="https://github.com/middyjs/middy/actions/workflows/test-bench.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-bench.yml/badge.svg" alt="GitHub Actions bench test status"></a>
     <a href="https://github.com/middyjs/middy/actions/workflows/test-sast.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-sast.yml/badge.svg" alt="GitHub Actions SAST test status"></a>
     <a href="https://github.com/middyjs/middy/actions/workflows/test-lint.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-lint.yml/badge.svg" alt="GitHub Actions lint test status"></a>
     <br/>
@@ -49,7 +49,7 @@ For documentation and examples, refer to the main [Middy monorepo on GitHub](htt
 
 ## Workers and stateful sources
 
-`workers` defaults to `availableParallelism()`. This is correct for queue-style sources (SQS, Kafka with consumer groups, RabbitMQ work queues) where multiple competing consumers increase throughput. For shard-based sources where exactly-one consumer per shard is required (Kinesis Data Streams, DynamoDB Streams), set `workers: 1` and scale by running one ECS task per shard.
+`workers` defaults to `availableParallelism()` for queue-style sources (SQS, Kafka with consumer groups, RabbitMQ work queues) where multiple competing consumers increase throughput. Shard-based sources (Kinesis Data Streams, DynamoDB Streams) need exactly one consumer per shard: `workers` defaults to `1` for them and any other value throws at startup. Scale those by running one ECS task per shard.
 
 ## Contributing
 

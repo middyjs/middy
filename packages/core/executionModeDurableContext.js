@@ -13,18 +13,20 @@ export const executionModeDurableContext = (
 ) => {
 	const middy = withDurableExecution(async (event, context) => {
 		const request = middyRequest(event, context);
-		plugin.requestStart(request);
 
-		// normalize context with executionModeStandard
+		// normalize context with executionModeStandard, before requestStart so
+		// the hook sees the same context shape as in the other modes.
 		// https://docs.aws.amazon.com/lambda/latest/dg/typescript-context.html
 		// The SDK keeps the Lambda context (including `tenantId`, which it reads
 		// from there itself) under `lambdaContext`; `executionContext` only
 		// carries `durableExecutionArn`.
 		// Idea: Use Proxy instead of copying. Faster for common use case?
 		copyKeys(request.context, request.context.lambdaContext, lambdaContextKeys);
+		plugin.requestStart(request);
 
-		// See executionModeStandard for the .cause-chaining rationale.
-		let handlerError;
+		// Run requestEnd, then rethrow the request error. `hasError` (not
+		// truthiness) tracks the catch so thrown falsy primitives still reject.
+		let requestError;
 		let hasError = false;
 		let response;
 		try {
@@ -37,22 +39,24 @@ export const executionModeDurableContext = (
 				plugin,
 			);
 		} catch (err) {
-			handlerError = err;
+			requestError = err;
 			hasError = true;
 		}
 		try {
 			const requestEndResult = plugin.requestEnd(request);
 			if (requestEndResult instanceof Promise) await requestEndResult;
 		} catch (hookErr) {
-			if (hasError) {
-				if (typeof handlerError === "object" && handlerError !== null) {
-					handlerError.cause ??= hookErr;
-				}
-			} else {
-				throw hookErr;
-			}
+			if (!hasError) throw hookErr;
+			// Keep both errors: attaching the hook error as `.cause` was silently
+			// dropped for middy errors (they carry cause:{package}) and threw a
+			// TypeError on frozen errors.
+			throw new AggregateError(
+				[requestError, hookErr],
+				"Error thrown in requestEnd hook",
+				{ cause: { package: "@middy/core" } },
+			);
 		}
-		if (hasError) throw handlerError;
+		if (hasError) throw requestError;
 		return response;
 	});
 	middy.handler = (replaceLambdaHandler) => {

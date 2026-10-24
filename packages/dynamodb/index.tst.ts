@@ -4,6 +4,7 @@ import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import dynamodb, { type Context, dynamoDbParam } from "./index.js";
 
 const options = {
@@ -251,4 +252,18 @@ test("contextKey literal narrows middyContext without as const", () => {
 				request.context.middyContext.custom.configurationObjFromDynamo,
 			).type.toBe<Record<string, any>>();
 		});
+});
+
+test("rejects misspelled option alongside fetchData", () => {
+	expect(dynamodb).type.not.toBeCallableWith({
+		fetchData: { item: { TableName: "t", Key: { pk: { S: "k" } } } },
+		cacheExpiery: 1000,
+	});
+});
+
+test("dynamodbValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.DynamoDbOptions;
+	expect(
+		indexModule.dynamodbValidateOptions(options),
+	).type.toBe<indexModule.DynamoDbOptions>();
 });

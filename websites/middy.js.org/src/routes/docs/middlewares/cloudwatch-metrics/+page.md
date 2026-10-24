@@ -3,7 +3,7 @@ title: cloudwatch-metrics
 description: "Emit custom CloudWatch metrics from Lambda using AWS Embedded Metrics with Middy."
 ---
 
-This middleware publishes an instance of [MetricLogger](https://github.com/awslabs/aws-embedded-metrics-node#metriclogger) to `context.middyContext['cloudwatch-metrics']`. This instance can be used to easily generate custom metrics from Lambda functions without requiring custom batching code, making blocking network requests or relying on 3rd party software.
+This middleware publishes an instance of [MetricLogger](https://github.com/awslabs/aws-embedded-metrics-node#metriclogger) to `context.middyContext['cloudwatch-metrics']`. This instance can be used to easily generate custom metrics from Lambda Event Functions without requiring custom batching code, making blocking network requests or relying on 3rd party software.
 
 Metrics collected with this logger are then available for querying within [AWS CloudWatch Log Insights](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/AnalyzingLogData.html)
 
@@ -21,7 +21,7 @@ npm install --save @middy/cloudwatch-metrics
 
 - `namespace` (`string`) (optional): Defaults to `aws-embedded-metrics`. Sets the CloudWatch [namespace](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_concepts.html#Namespace) that extracted metrics should be published to.
 - `dimensions` (`Record<String, String> | Record<String, String>[]`) (optional): Explicitly overrides all dimensions. This will remove the default dimensions. You can provide an empty array to record all metrics without dimensions. For dimensions defaults and configuration see the [aws-embedded-metrics docs](https://github.com/awslabs/aws-embedded-metrics-node/tree/v4.1.0#configuration).
-- `onFlushError` (`(error: Error) => void`) (optional): Called when flushing metrics to CloudWatch fails, in both the `after` and `onError` phases. Flush errors are otherwise swallowed so a metrics outage never fails the handler; pass a callback to surface IAM or network misconfiguration to your logger.
+- `onFlushError` (`(error: Error) => void`) (optional): Called when flushing metrics to CloudWatch fails, in the `after` or `onError` phase. Each invocation flushes its own logger once, so an `onError` after a flushed `after` emits nothing more, and a nested `middy()` never flushes the outer invocation's logger. Flush errors are otherwise swallowed so a metrics outage never fails the handler; pass a callback to surface IAM or network misconfiguration to your logger.
 - `contextKey` (`string`) (optional): Defaults to `'cloudwatch-metrics'`. The key under `context.middyContext` the MetricLogger is published to. Set `contextKey: 'metrics'` for a shorter read in the handler.
 
 ## Sample usage

@@ -23,6 +23,17 @@ describe("@middy/dsql-signer", () => {
 		getRemainingTimeInMillis: () => 1000,
 	};
 
+	test("It should not mutate the caller's fetchData", () => {
+		class AwsClient {
+			getDbConnectAuthToken = async () => "token";
+		}
+		const entry = { region: "us-east-1" };
+		const fetchData = { token: entry };
+		dsqlSigner({ AwsClient, fetchData, disablePrefetch: true });
+		strictEqual(fetchData.token, entry);
+		deepStrictEqual(entry, { region: "us-east-1" });
+	});
+
 	test("It should set token to internal storage (token)", async (t) => {
 		const getDbConnectAuthToken = t.mock.fn(
 			async () =>
@@ -989,5 +1000,16 @@ describe("@middy/dsql-signer", () => {
 		await handler(defaultEvent, defaultContext);
 
 		strictEqual(getDbConnectAuthToken.mock.callCount(), 2);
+	});
+
+	test("dsqlSignerValidateOptions accepts cacheMaxSize and rejects values below 1", () => {
+		dsqlSignerValidateOptions({ cacheMaxSize: 10 });
+		try {
+			dsqlSignerValidateOptions({ cacheMaxSize: 0 });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("cacheMaxSize"));
+		}
 	});
 });

@@ -1,5 +1,6 @@
 import type middy from "@middy/core";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import httpCors, { type Options } from "./index.js";
 
 test("use with default options", () => {
@@ -21,9 +22,26 @@ test("use with all options", () => {
 		requestMethods: ["GET", "POST"], // Filter preflight by Access-Control-Request-Method
 		cacheControl: "proxy-revalidate", // Cache-Control,
 		vary: "Origin",
-		getOrigin: (incomingOrigin: string, options: Options) => {
+		getOrigin: (incomingOrigin: string | undefined, options: Options) => {
 			return "foo.bar.com";
 		},
 	});
 	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
+});
+
+test("httpCorsValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.Options;
+	expect(
+		indexModule.httpCorsValidateOptions(options),
+	).type.toBe<indexModule.Options>();
+});
+
+test("getOrigin receives undefined when the request has no Origin", () => {
+	expect<Parameters<NonNullable<Options["getOrigin"]>>[0]>().type.toBe<
+		string | undefined
+	>();
+});
+
+test("rejects misspelled option", () => {
+	expect(httpCors).type.not.toBeCallableWith({ orign: "foo.bar.com" });
 });

@@ -14,8 +14,11 @@ export interface SsmExtensionOptions {
 	cacheKey?: string;
 	cacheKeyExpiry?: { [key: string]: number };
 	cacheExpiry?: number;
+	cacheMaxSize?: number;
 	setToContext?: boolean;
 	contextKey?: string;
+	/** Returns the session token sent to the extension; defaults to `AWS_SESSION_TOKEN`. */
+	awsSessionToken?: () => string | undefined | Promise<string | undefined>;
 }
 
 export type Context<TOptions extends SsmExtensionOptions | undefined> =
@@ -51,8 +54,12 @@ declare function ssmExtension<
 	TKey extends string = string,
 >(
 	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
-	// key narrows `middyContext` without `as const`.
-	options?: TOptions & { contextKey?: TKey },
+	// key narrows `middyContext` without `as const`. The `never` record rejects
+	// keys `SsmExtensionOptions` does not declare, which inference would otherwise accept.
+	options?: TOptions & { contextKey?: TKey } & Record<
+			Exclude<keyof TOptions, keyof SsmExtensionOptions>,
+			never
+		>,
 ): middy.MiddlewareObj<
 	unknown,
 	any,
@@ -61,8 +68,8 @@ declare function ssmExtension<
 	Internal<TOptions>
 >;
 
-export declare function ssmExtensionValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function ssmExtensionValidateOptions<
+	TOptions extends SsmExtensionOptions,
+>(options?: TOptions): TOptions;
 
 export default ssmExtension;

@@ -1,5 +1,5 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
-import { describe, test } from "node:test";
+import { after, before, describe, test } from "node:test";
 import { LocalDurableTestRunner } from "@aws/durable-execution-sdk-js-testing";
 import { isExecutionModeDurable } from "@middy/util";
 import { executionModeDurableContext } from "./executionModeDurableContext.js";
@@ -15,19 +15,21 @@ const _context = {};
 const thenKey = "then";
 const createThenable = (onThen) => ({ [thenKey]: onThen });
 
-// Scoped under a describe so the durable runner setup/teardown beforeEach hooks
-// register on this suite, not the shared root. Under the node-test runner
-// (isolation:"none") a root-level beforeEach runs before every test in every
-// core file; the durable setup would then run before the timer-mocked
-// index/streamify tests and vice versa.
+// Scoped under a describe so the durable runner setup/teardown hooks register
+// on this suite, not the shared root, where under the node-test runner
+// (isolation:"none") they would wrap the timer-mocked index/streamify tests too.
+// One checkpoint worker serves the whole suite, and `skipTime` is off: its
+// sinon fake clock clears and swallows the test runner's own timers, so under
+// process isolation (`npm run test:unit`) the subtests never reached the parent
+// and the file reported as a single test. None of these tests wait on durable
+// timers. Each `runner.run` holds a fixed 100ms in the SDK, so they run
+// concurrently.
 describe("@middy/core/DurableContext", () => {
-	describe("executionModeDurableContext", () => {
-		test.beforeEach(async () => {
-			await LocalDurableTestRunner.setupTestEnvironment({
-				skipTime: true,
-			});
+	describe("executionModeDurableContext", { concurrency: true }, () => {
+		before(async () => {
+			await LocalDurableTestRunner.setupTestEnvironment();
 		});
-		test.afterEach(async () => {
+		after(async () => {
 			await LocalDurableTestRunner.teardownTestEnvironment();
 		});
 
@@ -183,9 +185,7 @@ describe("@middy/core/DurableContext", () => {
 			strictEqual(execution.getError().errorMessage, "requestEnd failed");
 		});
 
-		test("Should keep a primitive handler error when requestEnd also throws in durable context", async (t) => {
-			// Primitives cannot carry a `cause`; assigning one throws in strict mode,
-			// so the guard must skip the assignment and keep the handler error.
+		test("Should throw AggregateError for a primitive handler error when requestEnd also throws in durable context", async (t) => {
 			const handler = middy({
 				executionMode: executionModeDurableContext,
 				requestEnd: () => {
@@ -199,14 +199,13 @@ describe("@middy/core/DurableContext", () => {
 			const execution = await runner.run({ payload: {} });
 
 			strictEqual(execution.getStatus(), "FAILED");
-			// The durable SDK reports a non-Error throw as "Unknown error". Assigning
-			// a cause to the primitive instead would surface a TypeError message.
-			strictEqual(execution.getError().errorMessage, "Unknown error");
+			strictEqual(
+				execution.getError().errorMessage,
+				"Error thrown in requestEnd hook",
+			);
 		});
 
-		test("Should keep a null handler error when requestEnd also throws in durable context", async (t) => {
-			// `typeof null === "object"`, so only the explicit null check keeps the
-			// `cause` assignment off it.
+		test("Should throw AggregateError for a null handler error when requestEnd also throws in durable context", async (t) => {
 			const handler = middy({
 				executionMode: executionModeDurableContext,
 				requestEnd: () => {
@@ -220,7 +219,10 @@ describe("@middy/core/DurableContext", () => {
 			const execution = await runner.run({ payload: {} });
 
 			strictEqual(execution.getStatus(), "FAILED");
-			strictEqual(execution.getError().errorMessage, "Unknown error");
+			strictEqual(
+				execution.getError().errorMessage,
+				"Error thrown in requestEnd hook",
+			);
 		});
 
 		test("Should not await a thenable returned by requestEnd in durable context", async (t) => {
@@ -261,7 +263,7 @@ describe("@middy/core/DurableContext", () => {
 			strictEqual(execution.getError().errorMessage, "requestEnd failed");
 		});
 
-		test("Should preserve handler error when requestEnd hook also throws in durable context", async (t) => {
+		test("Should throw AggregateError when handler and requestEnd hook both throw in durable context", async (t) => {
 			const handlerErr = new Error("handler failed");
 			const hookErr = new Error("requestEnd failed");
 			const handler = middy({
@@ -277,7 +279,10 @@ describe("@middy/core/DurableContext", () => {
 			const execution = await runner.run({ payload: {} });
 
 			strictEqual(execution.getStatus(), "FAILED");
-			strictEqual(execution.getError().errorMessage, "handler failed");
+			strictEqual(
+				execution.getError().errorMessage,
+				"Error thrown in requestEnd hook",
+			);
 		});
 
 		test("Should propagate handler error with no requestEnd error in durable context", async (t) => {

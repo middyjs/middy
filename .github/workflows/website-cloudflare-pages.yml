@@ -60,14 +60,26 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           registry-url: "https://registry.npmjs.org"
           package-manager-cache: false # deployed artifacts must never touch the shared Actions cache
+      - name: Set env
+        # A pre-release stays off the live site, same rule as release.yml.
+        run: |
+          tag=$(npm pkg get version | xargs)
+          prerelease=$([ "${tag##*-*}" ] && echo false || echo true)
+          {
+            echo "tag=${tag}"
+            echo "prerelease=${prerelease}"
+          } >> "$GITHUB_ENV"
+          echo "${tag}: prerelease=${prerelease}"
       # allowed-endpoints: >
       #   registry.npmjs.org:443
       - name: Install dependencies
+        if: ${{ env.prerelease == 'false' }}
         run: |
           npm ci --ignore-scripts --workspace websites/${{ env.DOMAIN_NAME }}
       # allowed-endpoints: >
       #   registry.npmjs.org:443
       - name: Build website
+        if: ${{ env.prerelease == 'false' }}
         working-directory: websites/${{ env.DOMAIN_NAME }}
         run: |
           npm run build
@@ -77,6 +89,7 @@ jobs:
       #   sparrow.cloudflare.com:443
       #   workers.cloudflare.com:443
       - name: Publish website
+        if: ${{ env.prerelease == 'false' }}
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         env:
           WRANGLER_SEND_METRICS: "false"

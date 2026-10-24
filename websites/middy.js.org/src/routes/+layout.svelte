@@ -1,11 +1,11 @@
 <script>
-import "@styles/above.css";
+import "#styles/above.css";
 
-import BodyFooter from "@components/BodyFooter.svelte";
-import BodyHeader from "@components/BodyHeader.svelte";
-import bootstrapUrl from "@scripts/bootstrap.js?worker&url";
-import belowStyles from "@styles/below.css?url";
-import printStyles from "@styles/print.css?url";
+import BodyFooter from "#components/BodyFooter.svelte";
+import BodyHeader from "#components/BodyHeader.svelte";
+import bootstrapUrl from "#scripts/bootstrap.js?worker&url";
+import belowStyles from "#styles/below.css?url";
+import printStyles from "#styles/print.css?url";
 
 const { children } = $props();
 </script>

@@ -242,7 +242,7 @@ describe("@middy/http-urlencode-path-parser", () => {
 			ok(false, "expected throw");
 		} catch (e) {
 			ok(e instanceof TypeError);
-			strictEqual(e.message, "Option '' must be object");
+			strictEqual(e.message, "options must be an object");
 			strictEqual(e.cause.package, "@middy/http-urlencode-path-parser");
 		}
 	});

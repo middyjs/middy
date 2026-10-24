@@ -14,11 +14,7 @@ import {
 test("fuzz `jsonSafeParse` w/ `anything`", async () => {
 	await fc.assert(
 		fc.asyncProperty(fc.anything(), async (value) => {
-			try {
-				jsonSafeParse(value);
-			} catch (_e) {
-				// Expected to not throw
-			}
+			jsonSafeParse(value);
 		}),
 		{
 			numRuns: 10_000,
@@ -48,11 +44,7 @@ test("fuzz `jsonSafeParse` roundtrip: parse then stringify equals original JSON"
 test("fuzz `sanitizeKey` w/ `string`", async () => {
 	await fc.assert(
 		fc.asyncProperty(fc.string(), async (key) => {
-			try {
-				sanitizeKey(key);
-			} catch (_e) {
-				// Expected to not throw
-			}
+			sanitizeKey(key);
 		}),
 		{
 			numRuns: 10_000,
@@ -90,12 +82,10 @@ test("fuzz `sanitizeKey` output contains only valid chars", async () => {
 
 test("fuzz `normalizeHttpResponse` w/ `anything`", async () => {
 	await fc.assert(
+		// The argument is the middy request (always an object); its `response`
+		// is what varies.
 		fc.asyncProperty(fc.anything(), async (response) => {
-			try {
-				normalizeHttpResponse(response);
-			} catch (_e) {
-				// Expected to not throw
-			}
+			normalizeHttpResponse({ response });
 		}),
 		{
 			numRuns: 10_000,
@@ -108,7 +98,7 @@ test("fuzz `HttpError` w/ valid HTTP status code", async () => {
 	const validStatusCodes = [
 		400, 401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414,
 		415, 416, 417, 418, 421, 422, 423, 424, 425, 426, 428, 429, 431, 451, 500,
-		501, 502, 503, 504, 505, 506, 507, 508, 509, 510, 511,
+		501, 502, 503, 504, 505, 506, 507, 508, 510, 511,
 	];
 	await fc.assert(
 		fc.asyncProperty(
@@ -129,13 +119,24 @@ test("fuzz `HttpError` w/ valid HTTP status code", async () => {
 });
 
 test("fuzz `getInternal` w/ `object`", async () => {
+	// Every documented `variables` form: boolean, a path, a list of paths, or a
+	// remap of output names to paths (string values, per index.d.ts).
+	const variablesArb = fc.oneof(
+		fc.boolean(),
+		fc.string(),
+		fc.array(fc.string()),
+		fc.dictionary(fc.string(), fc.string()),
+	);
 	await fc.assert(
-		fc.asyncProperty(fc.object(), fc.object(), async (variables, internal) => {
+		fc.asyncProperty(variablesArb, fc.object(), async (variables, internal) => {
 			const request = { internal };
 			try {
 				await getInternal(variables, request);
-			} catch (_e) {
-				// Expected to handle various inputs
+			} catch (e) {
+				// Two keys that sanitize to the same name is the only documented throw.
+				if (!(e instanceof TypeError && e.cause?.package === "@middy/util")) {
+					throw e;
+				}
 			}
 		}),
 		{

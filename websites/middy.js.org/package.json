@@ -2,7 +2,7 @@
 	"name": "middy.js.org",
 	"description": "SvelteKit SSR",
 	"private": true,
-	"version": "8.0.0-alpha.1",
+	"version": "8.0.0-alpha.2",
 	"type": "module",
 	"scripts": {
 		"prestart": "node src/scripts/build-docs-mtimes.mjs",
@@ -21,23 +21,33 @@
 		"release:deploy": "wrangler pages deploy"
 	},
 	"dependencies": {
-		"@willfarrell-ds/svelte": "0.0.0-beta.0",
-		"@willfarrell-ds/vanilla": "0.0.0-beta.0",
+		"@willfarrell-ds/svelte": "0.0.0-beta.1",
+		"@willfarrell-ds/vanilla": "0.0.0-beta.1",
 		"hast-util-to-string": "3.0.1",
 		"mdast-util-to-string": "4.0.0"
 	},
 	"devDependencies": {
-		"@sveltejs/adapter-cloudflare": "^7.0.0",
-		"@sveltejs/kit": "^2.0.0",
+		"@iconify-json/logos": "1.2.16",
+		"@sveltejs/adapter-cloudflare": "^8.0.0",
+		"@sveltejs/kit": "^3.0.0",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
-		"@willfarrell-ds/cli": "0.0.0-beta.0",
+		"@willfarrell-ds/cli": "0.0.0-beta.1",
 		"mdsvex": "^0.12.0",
+		"mermaid-isomorphic": "3.1.0",
+		"playwright": "1.64.1",
 		"svelte": "^5.0.0",
 		"svgo": "^4.0.0",
 		"unist-util-visit": "^5.0.0",
 		"vite": "^8.0.0",
 		"vite-plugin-mkcert": "^2.0.0",
 		"vite-plugin-sri": "^0.0.2",
-		"wrangler": "^4.0.0"
+		"wrangler": "^4.134.0"
+	},
+	"imports": {
+		"#components/*": "./src/components/*",
+		"#hooks/*": "./src/hooks/*",
+		"#lib/*": "./src/lib/*",
+		"#scripts/*": "./src/scripts/*",
+		"#styles/*": "./src/styles/*"
 	}
 }

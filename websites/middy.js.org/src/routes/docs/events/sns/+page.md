@@ -5,6 +5,25 @@ description: "Process Amazon SNS notifications on AWS Lambda with Middy: per-rec
 
 Process SNS notifications in a Lambda subscribed to an SNS topic.
 
+## Event flow
+
+```mermaid
+flowchart LR
+  accTitle: SNS to Lambda
+  accDescr: SNS to Lambda; SNS to SQS to Lambda; SQS to EventBridge Pipes to Lambda.
+  src@{ icon: "logos:aws-sns", label: "SNS", pos: "b", h: 48 }
+  fn@{ icon: "logos:aws-lambda", label: "Lambda", pos: "b", h: 48 }
+  sqs@{ icon: "logos:aws-sqs", label: "SQS", pos: "b", h: 48 }
+  pipes@{ icon: "logos:aws-eventbridge", label: "EventBridge Pipes", pos: "b", h: 48 }
+  src --> fn
+  src --> sqs
+  sqs --> fn
+  sqs --> pipes
+  pipes --> fn
+```
+
+Every hop through SNS, SQS, EventBridge, or EventBridge Pipes wraps the event Lambda receives in that service's envelope. [`@middy/event-normalizer`](/docs/middlewares/event-normalizer) unwraps the SNS and SQS envelopes.
+
 ## AWS documentation
 
 - [Using AWS Lambda with Amazon SNS](https://docs.aws.amazon.com/lambda/latest/dg/with-sns.html)
@@ -45,7 +64,7 @@ export const handler = middy()
 
 - **`Sns.Message` is always a string.** If you publish JSON, you have to `JSON.parse(record.Sns.Message)` or use `eventNormalizer`.
 - **No partial-batch support.** SNS-to-Lambda is fire-and-forget per record. For retry semantics, fan out via SQS (SNS -> SQS -> Lambda) and use the [SQS event page](/docs/events/sqs).
-- **DLQ vs on-failure destination.** Configure a DLQ or an `OnFailure` destination on the Lambda function for failed invocations; SNS itself does not redeliver.
+- **DLQ vs on-failure destination.** Configure a DLQ or an `OnFailure` destination on the Lambda Event Function for failed invocations; SNS itself does not redeliver.
 - **Message size.** SNS has a 256 KB message limit; use the Extended Client Library if you need larger.
 
 ## Related

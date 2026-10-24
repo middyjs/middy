@@ -21,11 +21,13 @@ export interface Options {
 	contentTypeOptions?: {
 		action?: string;
 	};
-	originAgentCluster?: boolean;
+	/** `{}` is the default; the object form takes no properties. */
+	originAgentCluster?: boolean | Record<string, never>;
 	referrerPolicy?: {
 		policy?: string;
 	};
-	xssProtection?: boolean;
+	/** The object form takes no properties. */
+	xssProtection?: boolean | Record<string, never>;
 	contentSecurityPolicy?: Record<string, string>;
 	contentSecurityPolicyReportOnly?: boolean;
 	crossOriginEmbedderPolicy?: {
@@ -61,8 +63,8 @@ declare function httpSecurityHeaders(
 	options?: WithBoolValues<Options>,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
-export declare function httpSecurityHeadersValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function httpSecurityHeadersValidateOptions<
+	TOptions extends WithBoolValues<Options>,
+>(options?: TOptions): TOptions;
 
 export default httpSecurityHeaders;

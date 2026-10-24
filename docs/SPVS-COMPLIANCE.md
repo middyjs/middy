@@ -124,7 +124,7 @@ Evidence links point to files in this repository unless otherwise noted.
 | V2.4.5 | 2 | Third-party SAST on latest version | :white_check_mark: | semgrep container image pinned by digest; Trivy action pinned by SHA; Dependabot tracks updates weekly |
 | V2.4.6 | 2 | Third-party SAST updated at least monthly | :white_check_mark: | Dependabot |
 | V2.4.7 | 2 | Secrets-detection tool runs at least monthly | :white_check_mark: | TruffleHog + gitleaks in [test-sast.yml](../.github/workflows/test-sast.yml) on every PR + weekly cron |
-| V2.4.8 | 2 | Secrets-detection tool on latest version | :white_check_mark: | TruffleHog and gitleaks actions pinned by SHA; Dependabot tracks updates weekly |
+| V2.4.8 | 2 | Secrets-detection tool on latest version | :white_check_mark: | TruffleHog action pinned by SHA, Dependabot tracks updates weekly; gitleaks CLI pinned by version + SHA256, bumped by hand at each release ([RELEASE.md](RELEASE.md#1-prepare-release)) |
 | V2.4.9 | 2 | Secrets-detection tool consistently updated | :white_check_mark: | Dependabot |
 | V2.4.10 | 2 | IaC scanner runs at least monthly | :no_entry_sign: | No production IaC shipped from this repo |
 | V2.4.11 | 2 | IaC scanner on latest version | :no_entry_sign: | N/A |
@@ -162,7 +162,7 @@ Evidence links point to files in this repository unless otherwise noted.
 
 | ID | Level | Requirement | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| V3.1.1 | 1 | Build servers hardened and regularly patched | :white_check_mark: | Ephemeral GitHub-hosted `ubuntu-latest` runners (auto-patched); every job pins `step-security/harden-runner` (audit egress, telemetry disabled) with one documented exception: the `semgrep` job in [test-sast.yml](../.github/workflows/test-sast.yml) runs inside the digest-pinned `semgrep/semgrep` container where harden-runner cannot install. See [release.yml](../.github/workflows/release.yml) and all `test-*` workflows |
+| V3.1.1 | 1 | Build servers hardened and regularly patched | :white_check_mark: | Ephemeral GitHub-hosted `ubuntu-latest` runners (auto-patched); every job pins `step-security/harden-runner` (`egress-policy: block` with a per-job allowlist, except TruffleHog in audit mode; sudo and telemetry disabled) with one documented exception: the `semgrep` job in [test-sast.yml](../.github/workflows/test-sast.yml) runs inside the digest-pinned `semgrep/semgrep` container where harden-runner cannot install. See [release.yml](../.github/workflows/release.yml) and all `test-*` workflows |
 | V3.1.2 | 2 | Access to build servers restricted | :white_check_mark: | GitHub-managed; no self-hosted runners |
 | V3.1.3 | 2 | Build servers monitored for unauthorised access | :white_check_mark: | `harden-runner` egress audit logs accessible via the StepSecurity dashboard; org audit log available to admins |
 | V3.1.4 | - | Build systems hardened per platform/industry guidelines | :white_check_mark: | `step-security/harden-runner` on every job; ephemeral GitHub-hosted runners; zizmor GitHub Actions hardening enforced as a required check |
@@ -325,7 +325,7 @@ The 1.6 control set (`1.6/OWASP_SPVS_1.6_-en_Requirements.csv`) is incident-deri
 | V3.1.6 | High | Runners ephemeral or re-imaged on schedule | :white_check_mark: | GitHub-hosted ephemeral runners only |
 | V3.1.7 | Critical | Install/build egress denied by default, allowlist only | :white_check_mark: | `egress-policy: block` with a per-job `allowed-endpoints` allowlist on every workflow job. Two documented exceptions: semgrep (pinned container, harden-runner cannot install) and TruffleHog (verification egress is data-dependent by design; audit mode). See [PIPELINE.md](PIPELINE.md) hardening conventions |
 | V3.2.1 | High | Secrets to shared/reusable pipelines limited to the one job that needs them | :white_check_mark: | No reusable-workflow secret inheritance; secrets injected per step only where needed |
-| V3.2.2 | High | No org-wide secrets; credentials restricted per project | :white_check_mark: | Repo-scoped secrets only (`GITLEAKS_LICENSE`, Cloudflare pair); no org-level secrets (maintainer attestation) |
+| V3.2.2 | High | No org-wide secrets; credentials restricted per project | :white_check_mark: | Repo-scoped secrets only (Cloudflare pair); no org-level secrets (maintainer attestation) |
 | V3.2.3 | High | No static-token fallback beside OIDC publishing | :white_check_mark: | No `NPM_TOKEN` exists anywhere; OIDC is the only publish path |
 | V3.3.1 | High | Security scanning tools integrity-checked before running | :white_check_mark: | All scanner actions SHA-pinned; scanner container digest-pinned |
 | V3.3.2 | Critical | Install/build runtime instrumentation alerts on unlisted processes/destinations | :large_orange_diamond: | `harden-runner` enforces per-job network allowlists and alerts blocked events via the StepSecurity insights page; process-level allowlisting not configured. Known gap |

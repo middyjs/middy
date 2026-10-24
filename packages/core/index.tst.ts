@@ -7,15 +7,19 @@ import { executionModeStandard } from "@middy/core/executionModeStandard";
 import { executionModeStreamifyResponse } from "@middy/core/executionModeStreamifyResponse";
 import type {
 	APIGatewayProxyEvent,
+	APIGatewayProxyHandler,
 	APIGatewayProxyResult,
 	Handler as AWSLambdaHandler,
 	Context,
 	S3Event,
+	SQSEvent,
+	SQSHandler,
 } from "aws-lambda";
 import { expect, test } from "tstyche";
 import middy, {
 	type DurableContextLike,
 	type MiddyfiedHandler,
+	middyValidateOptions,
 	type PluginExecutionMode,
 	type PluginExecutionModeCore,
 	type PluginExecutionModeLambdaHandler,
@@ -124,6 +128,42 @@ test("a six-argument custom mode is assignable to PluginExecutionMode", () => {
 	expect(
 		() => async () => "ok",
 	).type.not.toBeAssignableTo<PluginExecutionMode>();
+});
+
+test(".handler() output is assignable to aws-lambda handler types", () => {
+	// A contextual aws-lambda handler type drives inference of the .handler()
+	// generics; the parameter must stay a real handler type, not `never`.
+	expect(() => {
+		const apiHandler: APIGatewayProxyHandler = middy<
+			APIGatewayProxyEvent,
+			APIGatewayProxyResult
+		>().handler(async () => ({ statusCode: 200, body: "" }));
+		return apiHandler;
+	}).type.not.toRaiseError();
+	expect(() => {
+		const sqsHandler: SQSHandler = middy().handler(async (event) => {
+			expect(event).type.toBe<SQSEvent>();
+		});
+		return sqsHandler;
+	}).type.not.toRaiseError();
+});
+
+test(".handler() accepts explicit event and result generics", () => {
+	const sqsHandler = middy().handler<SQSEvent, void>(async (event) => {
+		expect(event).type.toBe<SQSEvent>();
+	});
+	expect(sqsHandler).type.toBe<middy.MiddyfiedHandler<SQSEvent, void>>();
+});
+
+test("MiddlewareObj has no name property", () => {
+	expect<middy.MiddlewareObj>().type.not.toHaveProperty("name");
+});
+
+test("middyValidateOptions returns the options it was given", () => {
+	expect(middyValidateOptions({ timeoutEarlyInMillis: 5 })).type.toBe<{
+		timeoutEarlyInMillis: number;
+	}>();
+	expect(middyValidateOptions()).type.toBe<Record<string, unknown>>();
 });
 
 // extends Handler type from aws-lambda

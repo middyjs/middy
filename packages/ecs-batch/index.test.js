@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 import {
 	deepStrictEqual,
+	match,
 	notStrictEqual,
 	ok,
 	rejects,
@@ -9,8 +10,9 @@ import {
 	throws,
 } from "node:assert/strict";
 import nodeCluster from "node:cluster";
-import { getEventListeners } from "node:events";
+import { EventEmitter, getEventListeners } from "node:events";
 import { readFileSync } from "node:fs";
+import { availableParallelism } from "node:os";
 import { describe, mock, test } from "node:test";
 import amqplib from "amqplib";
 import stompit from "stompit";
@@ -50,6 +52,8 @@ mock.method(process, "exit", (code) => {
 });
 
 const noop = () => {};
+const uuidPattern =
+	/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const settleMacrotask = () => new Promise((r) => setImmediate(r));
 const pendingTimeouts = () =>
@@ -225,7 +229,7 @@ describe("@middy/ecs-batch", () => {
 			signal: new AbortController().signal,
 			contextOverride: {},
 		});
-		strictEqual(captured.awsRequestId, "");
+		match(captured.awsRequestId, uuidPattern);
 	});
 
 	test("runPollLoop invokes handler then acknowledge per event", async () => {
@@ -249,19 +253,22 @@ describe("@middy/ecs-batch", () => {
 		deepStrictEqual(poller.acked[0].response, { batchItemFailures: [] });
 	});
 
-	test("runPollLoop awsRequestId is empty string by default", async () => {
-		const poller = stubPoller([{ Records: [1] }]);
-		let captured;
+	test("runPollLoop awsRequestId is a fresh random UUID per batch by default", async () => {
+		const poller = stubPoller([{ Records: [1] }, { Records: [2] }]);
+		const ids = [];
 		await runPollLoop({
 			poller,
 			handler: async (_event, context) => {
-				captured = context;
+				ids.push(context.awsRequestId);
 				return { batchItemFailures: [] };
 			},
 			timeout: 1000,
 			signal: new AbortController().signal,
 		});
-		strictEqual(captured.awsRequestId, "");
+		strictEqual(ids.length, 2);
+		match(ids[0], uuidPattern);
+		match(ids[1], uuidPattern);
+		notStrictEqual(ids[0], ids[1]);
 	});
 
 	test("runPollLoop uses contextOverride.awsRequestId when provided", async () => {
@@ -718,20 +725,74 @@ describe("@middy/ecs-batch", () => {
 
 	test("ecsBatchRunner rejects invalid options", async () => {
 		await rejects(ecsBatchRunner({}), TypeError);
+		await rejects(
+			ecsBatchRunner(
+				{ handler: noop, poller: stubPoller(), unknown: true },
+				{ cluster: { isPrimary: true } },
+			),
+			(err) => {
+				strictEqual(err.cause.package, "@middy/ecs-batch");
+				return true;
+			},
+		);
 	});
 
-	test("ecsBatchRunner default workers fallback uses availableParallelism", async () => {
-		// Pass workers: undefined explicitly; the spread default supplies a value.
-		const fakeCluster = { isPrimary: true, workers: {}, fork: noop, on: noop };
-		const { onSigterm } = await ecsBatchRunner(
-			{
-				handler: async () => ({ batchItemFailures: [] }),
-				poller: stubPoller(),
+	const countForks = async (poller, extra = {}) => {
+		let forks = 0;
+		const fakeCluster = {
+			isPrimary: true,
+			workers: {},
+			fork: () => {
+				forks += 1;
 			},
+			on: noop,
+		};
+		const { onSigterm } = await ecsBatchRunner(
+			{ handler: async () => ({ batchItemFailures: [] }), poller, ...extra },
 			{ cluster: fakeCluster, fetch: async () => ({ ok: false }) },
 		);
 		process.removeListener("SIGTERM", onSigterm);
+		return forks;
+	};
+
+	test("ecsBatchRunner default workers fallback uses availableParallelism", async () => {
+		strictEqual(await countForks(stubPoller()), availableParallelism());
 	});
+
+	// Every worker runs its own poller, and the Kinesis and DynamoDB Streams
+	// pollers have no shard coordination: N workers read every shard N times.
+	for (const source of ["aws:kinesis", "aws:dynamodb"]) {
+		test(`ecsBatchRunner defaults workers to 1 for ${source}`, async () => {
+			strictEqual(await countForks({ ...stubPoller(), source }), 1);
+		});
+
+		test(`ecsBatchRunner accepts workers: 1 for ${source}`, async () => {
+			strictEqual(
+				await countForks({ ...stubPoller(), source }, { workers: 1 }),
+				1,
+			);
+		});
+
+		test(`ecsBatchRunner rejects workers > 1 for ${source}`, async () => {
+			await rejects(
+				ecsBatchRunner(
+					{ handler: noop, poller: { ...stubPoller(), source }, workers: 2 },
+					{ cluster: { isPrimary: true } },
+				),
+				(err) => {
+					strictEqual(
+						err.message,
+						`workers must be 1 for ${source}: every worker would read every shard`,
+					);
+					deepStrictEqual(err.cause, {
+						package: "@middy/ecs-batch",
+						data: { source, workers: 2 },
+					});
+					return true;
+				},
+			);
+		});
+	}
 
 	test("runWorker uses default abortController when none injected", async () => {
 		const poller = stubPoller([{ Records: [1] }]);
@@ -1011,11 +1072,12 @@ describe("@middy/ecs-batch", () => {
 			value.Records[0].eventSourceARN,
 			"arn:aws:kinesis:us-east-1:111:stream/stream",
 		);
-		const last = await it.next();
-		strictEqual(last.done, true);
+		await poller.acknowledge(value, {});
+		// NextShardIterator null: the shard is closed.
+		await rejects(it.next(), { name: "SourceClosedError" });
 	});
 
-	test("pollDynamoDBStreams.acknowledge is a no-op (covers function decl)", async () => {
+	test("pollDynamoDBStreams.acknowledge tolerates an event without Records", async () => {
 		const poller = pollDynamoDBStreams({
 			streamArn: "arn",
 			shardId: "0",
@@ -1151,7 +1213,7 @@ describe("@middy/ecs-batch", () => {
 		strictEqual(r.done, true);
 	});
 
-	test("pollKinesis.acknowledge is a no-op", async () => {
+	test("pollKinesis.acknowledge tolerates an event without Records", async () => {
 		const poller = pollKinesis({
 			streamName: "s",
 			shardId: "0",
@@ -1265,6 +1327,150 @@ describe("@middy/ecs-batch", () => {
 		strictEqual(sent[0].input.VisibilityTimeout, 30);
 	});
 
+	// A message not deleted before its visibility timeout expires is received
+	// again, and deleting it later with the earlier receipt handle fails. The
+	// queue default is 30 s, below the runner's 60 s default timeout.
+	// https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html
+	// https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_ReceiveMessage.html
+	const firstReceiveInput = async (options, pollOptions) => {
+		const sent = [];
+		const ac = new AbortController();
+		const client = {
+			send: async (cmd) => {
+				sent.push(cmd);
+				ac.abort();
+				return { Messages: [] };
+			},
+		};
+		const poller = pollSqs({
+			queueUrl: "https://sqs.us-east-1.amazonaws.com/1/q",
+			client,
+			...options,
+		});
+		await poller.poll(ac.signal, noop, pollOptions).next();
+		return sent[0].input;
+	};
+
+	test("pollSqs defaults VisibilityTimeout to cover the runner timeout plus acknowledge headroom", async () => {
+		strictEqual(
+			(await firstReceiveInput({}, { timeout: 60_000 })).VisibilityTimeout,
+			90,
+		);
+		strictEqual(
+			(await firstReceiveInput({}, { timeout: 60_001 })).VisibilityTimeout,
+			91,
+		);
+	});
+
+	test("pollSqs keeps an explicit visibilityTimeout over the runner timeout", async () => {
+		strictEqual(
+			(await firstReceiveInput({ visibilityTimeout: 600 }, { timeout: 60_000 }))
+				.VisibilityTimeout,
+			600,
+		);
+	});
+
+	test("pollSqs leaves VisibilityTimeout to the queue without a timeout or option", async () => {
+		strictEqual(
+			"VisibilityTimeout" in (await firstReceiveInput({}, undefined)),
+			false,
+		);
+		strictEqual(
+			"VisibilityTimeout" in (await firstReceiveInput({}, {})),
+			false,
+		);
+	});
+
+	test("pollSqs exposes its configured visibilityTimeout", () => {
+		const queueUrl = "https://sqs.us-east-1.amazonaws.com/1/q";
+		strictEqual(
+			pollSqs({ queueUrl, client: {}, visibilityTimeout: 45 })
+				.visibilityTimeout,
+			45,
+		);
+		strictEqual(pollSqs({ queueUrl, client: {} }).visibilityTimeout, undefined);
+	});
+
+	test("runPollLoop passes the runner timeout to the poller", async () => {
+		const seen = [];
+		const poller = {
+			source: "test",
+			poll(_signal, _onError, options) {
+				seen.push(options);
+				return [];
+			},
+			acknowledge: noop,
+		};
+		await runPollLoop({
+			poller,
+			handler: noop,
+			timeout: 1234,
+			signal: new AbortController().signal,
+		});
+		deepStrictEqual(seen, [{ timeout: 1234 }]);
+	});
+
+	test("ecsBatchRunner rejects an SQS visibilityTimeout that does not outlast the timeout", async () => {
+		const queueUrl = "https://sqs.us-east-1.amazonaws.com/1/q";
+		for (const [visibilityTimeout, timeout] of [
+			[60, undefined],
+			[0, undefined],
+			[10, 10_000],
+		]) {
+			await rejects(
+				ecsBatchRunner(
+					{
+						handler: noop,
+						poller: pollSqs({ queueUrl, client: {}, visibilityTimeout }),
+						...(timeout === undefined ? {} : { timeout }),
+						workers: 1,
+					},
+					{ cluster: { isPrimary: true } },
+				),
+				(err) => {
+					strictEqual(
+						err.message,
+						"visibilityTimeout must outlast timeout: messages would be received again mid-batch",
+					);
+					deepStrictEqual(err.cause, {
+						package: "@middy/ecs-batch",
+						data: { visibilityTimeout, timeout: timeout ?? 60_000 },
+					});
+					return true;
+				},
+			);
+		}
+	});
+
+	test("ecsBatchRunner accepts an SQS visibilityTimeout that outlasts the timeout, or none", async () => {
+		const queueUrl = "https://sqs.us-east-1.amazonaws.com/1/q";
+		for (const visibilityTimeout of [61, undefined]) {
+			strictEqual(
+				await countForks(pollSqs({ queueUrl, client: {}, visibilityTimeout }), {
+					workers: 1,
+				}),
+				1,
+			);
+		}
+		strictEqual(
+			await countForks(
+				pollSqs({ queueUrl, client: {}, visibilityTimeout: 11 }),
+				{ workers: 1, timeout: 10_000 },
+			),
+			1,
+		);
+	});
+
+	test("ecsBatchRunner checks visibilityTimeout only for SQS", async () => {
+		strictEqual(
+			await countForks(
+				{ ...stubPoller(), visibilityTimeout: 1 },
+				{ workers: 1, timeout: 10_000 },
+			),
+			1,
+		);
+	});
+
 	test("pollSqs poll rethrows non-abort errors", async () => {
 		const client = {
 			send: async () => {
@@ -1357,6 +1563,7 @@ describe("@middy/ecs-batch", () => {
 						{ PartitionKey: "p", SequenceNumber: "2", Data: "literal-string" },
 						{ PartitionKey: "p", SequenceNumber: "3", Data: 42 },
 						{ PartitionKey: "p", SequenceNumber: "4", Data: null },
+						{ PartitionKey: "p", SequenceNumber: "5" },
 					],
 				};
 			},
@@ -1375,6 +1582,7 @@ describe("@middy/ecs-batch", () => {
 			Buffer.from("42").toString("base64"),
 		);
 		strictEqual(value.Records[3].kinesis.data, "");
+		strictEqual(value.Records[4].kinesis.data, "");
 	});
 
 	test("pollKinesis aborts cleanly during GetShardIterator", async () => {
@@ -1732,6 +1940,7 @@ describe("@middy/ecs-batch", () => {
 	test("pollKafka yields aws:kafka event from eachBatch and commits offsets on ack", async () => {
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
+			retryDelayMs: 0,
 			brokers: ["b1"],
 			groupId: "g",
 			topics: ["t1"],
@@ -1989,6 +2198,7 @@ describe("@middy/ecs-batch", () => {
 	test("pollKafka skips the commit call when the first record failed", async () => {
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
+			retryDelayMs: 0,
 			brokers: ["b1"],
 			groupId: "g",
 			topics: ["t1"],
@@ -2124,6 +2334,7 @@ describe("@middy/ecs-batch", () => {
 			groupId: "g",
 			topics: ["t1"],
 			consumer,
+			retryDelayMs: 0,
 		});
 		const ac = new AbortController();
 		const seen = [];
@@ -2148,7 +2359,8 @@ describe("@middy/ecs-batch", () => {
 			.then(() => {
 				firstSettled = true;
 			});
-		await settleMacrotask();
+		// retryDelayMs 0 still waits one timer tick.
+		await sleep(5);
 		strictEqual(firstSettled, true, "eachBatch returns for the failed batch");
 		await firstEachBatch;
 		deepStrictEqual(first.calls.resolved, []);
@@ -2211,6 +2423,7 @@ describe("@middy/ecs-batch", () => {
 		process.on("unhandledRejection", guard);
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
+			retryDelayMs: 0,
 			brokers: ["b1"],
 			groupId: "g",
 			topics: ["t1"],
@@ -2269,7 +2482,8 @@ describe("@middy/ecs-batch", () => {
 		const nacked = [];
 		const subscriptions = [];
 		let subscribeCb;
-		return {
+		// stompit clients are EventEmitters ("error", "end").
+		return Object.assign(new EventEmitter(), {
 			acked,
 			nacked,
 			subscriptions,
@@ -2288,7 +2502,7 @@ describe("@middy/ecs-batch", () => {
 			disconnect() {
 				this.disconnectCalls++;
 			},
-		};
+		});
 	};
 
 	const fakeStompMessage = (id, body) => ({
@@ -2508,7 +2722,7 @@ describe("@middy/ecs-batch", () => {
 		strictEqual(stomp.acked.length, 0);
 	});
 
-	test("pollAmq nacks message on body read failure and ignores subscribe errors", async () => {
+	test("pollAmq nacks message on body read failure", async () => {
 		const stomp = makeFakeStompClient();
 		const poller = pollAmq({
 			connectOptions: {},
@@ -2528,10 +2742,115 @@ describe("@middy/ecs-batch", () => {
 			},
 		};
 		cb(null, failingMsg);
-		cb(new Error("subscription-failed")); // ignored path
 		for (let i = 0; i < 5; i++) await Promise.resolve();
 		strictEqual(stomp.nacked.length, 1);
 		ac.abort();
+	});
+
+	test("pollAmq lets an in-flight batch acknowledge on abort, then disconnects", async () => {
+		// SIGTERM lands while the handler runs: the connection must stay open for
+		// the acknowledge that follows, or every message redelivers.
+		const log = [];
+		const stomp = makeFakeStompClient();
+		const ack = stomp.ack;
+		stomp.ack = (msg) => {
+			if (stomp.disconnectCalls) throw new Error("not connected");
+			log.push("ack");
+			ack(msg);
+		};
+		const disconnect = stomp.disconnect;
+		stomp.disconnect = function () {
+			log.push("disconnect");
+			disconnect.call(this);
+		};
+		const poller = pollAmq({
+			...amqBase,
+			batchSize: 1,
+			batchWindowMs: 0,
+			client: stomp,
+		});
+		const ac = new AbortController();
+		const errors = [];
+		const loop = runPollLoop({
+			poller,
+			handler: async () => {
+				log.push("handler start");
+				ac.abort();
+				await sleep(10);
+				log.push("handler done");
+				return { batchItemFailures: [] };
+			},
+			timeout: 1000,
+			signal: ac.signal,
+			onError: (err) => errors.push(err),
+		});
+		for (let i = 0; i < 8; i++) await Promise.resolve();
+		stomp.subscribeCb()(null, fakeStompMessage("m1", "body"));
+		await loop;
+		deepStrictEqual(errors, []);
+		deepStrictEqual(log, [
+			"handler start",
+			"handler done",
+			"ack",
+			"disconnect",
+		]);
+	});
+
+	// stompit drops its connect-time "error" listener once connected, and a
+	// dropped socket emits "error" on the client: unheard, it would be an
+	// uncaught exception instead of reaching onError.
+	test("pollAmq fails the poll when the client emits an error", async () => {
+		const stomp = makeFakeStompClient();
+		const poller = pollAmq({ ...amqBase, client: stomp });
+		const ac = new AbortController();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		const err = new Error("socket hang up");
+		stomp.emit("error", err);
+		await rejects(firstNext, (e) => e === err);
+		strictEqual(stomp.disconnectCalls, 1);
+		strictEqual(getEventListeners(ac.signal, "abort").length, 0);
+	});
+
+	test("pollAmq fails the poll when the subscription reports an error", async () => {
+		const stomp = makeFakeStompClient();
+		const poller = pollAmq({ ...amqBase, client: stomp });
+		const ac = new AbortController();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		const err = new Error("subscription-failed");
+		stomp.subscribeCb()(err);
+		await rejects(firstNext, (e) => e === err);
+	});
+
+	test("pollAmq raises an error that lands while a batch is in flight without settling the batch", async () => {
+		const stomp = makeFakeStompClient();
+		const poller = pollAmq({
+			...amqBase,
+			batchSize: 1,
+			batchWindowMs: 0,
+			client: stomp,
+		});
+		const ac = new AbortController();
+		const it = poller.poll(ac.signal);
+		const { firstNext } = await drainPollSetup(it);
+		stomp.subscribeCb()(null, fakeStompMessage("m1", "body"));
+		strictEqual((await firstNext).done, false);
+		const err = new Error("socket hang up");
+		stomp.emit("error", err);
+		await rejects(it.next(), (e) => e === err);
+		deepStrictEqual(stomp.nacked, []);
+	});
+
+	test("pollAmq swallows client.disconnect errors when the poll fails", async () => {
+		const stomp = makeFakeStompClient();
+		stomp.disconnect = () => {
+			throw new Error("disc-fail");
+		};
+		const poller = pollAmq({ ...amqBase, client: stomp });
+		const ac = new AbortController();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		const err = new Error("socket hang up");
+		stomp.emit("error", err);
+		await rejects(firstNext, (e) => e === err);
 	});
 
 	// --- pollRmq ----------------------------------------------------------------
@@ -2547,7 +2866,8 @@ describe("@middy/ecs-batch", () => {
 		const prefetches = [];
 		const consumes = [];
 		let consumeCb;
-		return {
+		// amqplib channels are EventEmitters ("error", "close").
+		return Object.assign(new EventEmitter(), {
 			acked,
 			nacked,
 			nackArgs,
@@ -2561,6 +2881,11 @@ describe("@middy/ecs-batch", () => {
 			async consume(queue, cb, opts) {
 				consumes.push({ queue, opts });
 				consumeCb = cb;
+				return { consumerTag: "ctag-1" };
+			},
+			cancels: [],
+			async cancel(consumerTag) {
+				this.cancels.push(consumerTag);
 			},
 			ack(msg) {
 				acked.push(msg);
@@ -2572,7 +2897,7 @@ describe("@middy/ecs-batch", () => {
 			async close() {
 				this.closeCalls++;
 			},
-		};
+		});
 	};
 
 	const makeFakeRmqConnection = (channel) => ({
@@ -2618,7 +2943,6 @@ describe("@middy/ecs-batch", () => {
 		});
 		cb(mkMsg(1, "a"));
 		cb(mkMsg(2, "b"));
-		cb(null); // null msg (consumer cancel) is ignored
 
 		const { value } = await firstNext;
 		strictEqual(value.eventSource, "aws:rmq");
@@ -2696,6 +3020,99 @@ describe("@middy/ecs-batch", () => {
 		});
 		await firstNext;
 		ac.abort();
+	});
+
+	test("pollRmq lets an in-flight batch acknowledge on abort, then closes", async () => {
+		// SIGTERM lands while the handler runs: the channel must stay open for
+		// the acknowledge that follows, or every delivery redelivers.
+		const log = [];
+		const channel = makeFakeRmqChannel();
+		const ack = channel.ack;
+		channel.ack = (msg) => {
+			if (channel.closeCalls) throw new Error("Channel closed");
+			log.push("ack");
+			ack(msg);
+		};
+		channel.cancel = async (consumerTag) => {
+			log.push(`cancel ${consumerTag}`);
+		};
+		const close = channel.close;
+		channel.close = async function () {
+			log.push("channel.close");
+			await close.call(this);
+		};
+		const poller = pollRmq({
+			queue: "q",
+			batchSize: 1,
+			batchWindowMs: 0,
+			connection: {
+				async createChannel() {
+					return channel;
+				},
+				async close() {
+					log.push("connection.close");
+				},
+			},
+			channel,
+		});
+		const ac = new AbortController();
+		const errors = [];
+		const loop = runPollLoop({
+			poller,
+			handler: async () => {
+				log.push("handler start");
+				ac.abort();
+				await sleep(10);
+				log.push("handler done");
+				return { batchItemFailures: [] };
+			},
+			timeout: 1000,
+			signal: ac.signal,
+			onError: (err) => errors.push(err),
+		});
+		for (let i = 0; i < 8; i++) await Promise.resolve();
+		channel.consumeCb()({
+			fields: { deliveryTag: 1, redelivered: false },
+			properties: {},
+			content: Buffer.from("x"),
+		});
+		await loop;
+		deepStrictEqual(errors, []);
+		deepStrictEqual(log, [
+			"handler start",
+			"cancel ctag-1",
+			"handler done",
+			"ack",
+			"channel.close",
+			"connection.close",
+		]);
+	});
+
+	test("pollRmq closes the channel and connection when the poll ends on abort while idle", async () => {
+		const channel = makeFakeRmqChannel();
+		const connection = makeFakeRmqConnection(channel);
+		const poller = pollRmq({ queue: "q", connection, channel });
+		const ac = new AbortController();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		ac.abort();
+		strictEqual((await firstNext).done, true);
+		deepStrictEqual(channel.cancels, ["ctag-1"]);
+		strictEqual(channel.closeCalls, 1);
+		strictEqual(connection.closeCalls, 1);
+	});
+
+	test("pollRmq swallows a cancel error on abort", async () => {
+		const channel = makeFakeRmqChannel();
+		channel.cancel = async () => {
+			throw new Error("cancel-fail");
+		};
+		const connection = makeFakeRmqConnection(channel);
+		const poller = pollRmq({ queue: "q", connection, channel });
+		const ac = new AbortController();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		ac.abort();
+		strictEqual((await firstNext).done, true);
+		strictEqual(channel.closeCalls, 1);
 	});
 
 	test("pollRmq swallows close errors during abort", async () => {
@@ -3354,6 +3771,7 @@ describe("@middy/ecs-batch", () => {
 		const fixture = loadFixture("msk.standard");
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
+			retryDelayMs: 0,
 			brokers: fixture.bootstrapServers.split(","),
 			groupId: "g",
 			topics: ["mytopic"],
@@ -3390,6 +3808,7 @@ describe("@middy/ecs-batch", () => {
 		const fixture = loadFixture("kafka.self-managed");
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
+			retryDelayMs: 0,
 			brokers: fixture.bootstrapServers.split(","),
 			groupId: "g",
 			topics: ["mytopic"],
@@ -3736,7 +4155,7 @@ describe("@middy/ecs-batch", () => {
 		strictEqual(remaining, 60_000);
 		await onSigterm();
 		strictEqual(drained, true);
-		// 20 ms is well inside the 110 s budget, so the deadline never fired.
+		// 20 ms is well inside the 25 s budget, so the deadline never fired.
 		deepStrictEqual(exits, [0]);
 	});
 
@@ -3800,6 +4219,15 @@ describe("@middy/ecs-batch", () => {
 				revision: "7",
 			},
 		);
+		deepStrictEqual(readEcsEnv({ MIDDY_ECS_FAMILY: null }), {});
+	});
+
+	test("fetchEcsMetadata leaves a null Revision unset", async () => {
+		const meta = await fetchEcsMetadata("http://x", async () => ({
+			ok: true,
+			json: async () => ({ Family: "fam", Revision: null }),
+		}));
+		strictEqual(meta.revision, undefined);
 	});
 
 	test("fetchEcsMetadata skips the request when no metadata URI is set", async () => {
@@ -3887,6 +4315,14 @@ describe("@middy/ecs-batch", () => {
 			// process.env stringifies assignments, so an unknown field has to be
 			// skipped rather than written as the string "undefined".
 			deepStrictEqual(readEcsEnv(), { family: "fam" });
+			clearEcsEnv();
+			const nulled = await runPrimary(
+				{ workers: 0 },
+				{ cluster, fetch: withMeta({ Family: null }) },
+			);
+			process.removeListener("SIGTERM", nulled.onSigterm);
+			// Nor as the string "null".
+			deepStrictEqual(readEcsEnv(), {});
 		} finally {
 			delete process.env.ECS_CONTAINER_METADATA_URI_V4;
 			clearEcsEnv();
@@ -4905,7 +5341,85 @@ describe("@middy/ecs-batch", () => {
 		}
 	});
 
-	test("pollRmq ignores the null delivery amqplib sends when the consumer is cancelled", async () => {
+	// "If the consumer is cancelled by RabbitMQ, the message callback will be
+	// invoked with null." https://amqp-node.github.io/amqplib/channel_api.html#channel_consume
+	test("pollRmq fails the poll when RabbitMQ cancels the consumer", async () => {
+		const channel = makeFakeRmqChannel();
+		const poller = pollRmq({
+			queue: "q",
+			connection: makeFakeRmqConnection(channel),
+			channel,
+		});
+		const ac = new AbortController();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		channel.consumeCb()(null);
+		await rejects(firstNext, (err) => {
+			strictEqual(err.message, "Consumer cancelled by RabbitMQ");
+			deepStrictEqual(err.cause, {
+				package: "@middy/ecs-batch/pollRmq",
+				data: { queue: "q" },
+			});
+			return true;
+		});
+		ac.abort();
+	});
+
+	test("pollRmq closes the connection when the poll fails, even if the channel close fails", async () => {
+		const channel = makeFakeRmqChannel();
+		channel.close = async () => {
+			throw new Error("Channel closed");
+		};
+		const connection = makeFakeRmqConnection(channel);
+		const poller = pollRmq({ queue: "q", connection, channel });
+		const ac = new AbortController();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		channel.consumeCb()(null);
+		await rejects(firstNext, { message: "Consumer cancelled by RabbitMQ" });
+		strictEqual(connection.closeCalls, 1);
+		strictEqual(getEventListeners(ac.signal, "abort").length, 0);
+	});
+
+	// A channel emits "close" when it or its connection closes, after "error"
+	// when the server closed it with one.
+	// https://amqp-node.github.io/amqplib/channel_api.html#channel-events
+	test("pollRmq fails the poll when the channel or its connection closes", async () => {
+		const channel = makeFakeRmqChannel();
+		const poller = pollRmq({
+			queue: "q",
+			connection: makeFakeRmqConnection(channel),
+			channel,
+		});
+		const ac = new AbortController();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		channel.emit("close");
+		await rejects(firstNext, (err) => {
+			strictEqual(err.message, "Channel closed");
+			deepStrictEqual(err.cause, {
+				package: "@middy/ecs-batch/pollRmq",
+				data: { queue: "q" },
+			});
+			return true;
+		});
+		ac.abort();
+	});
+
+	test("pollRmq fails the poll with the error the channel was closed with", async () => {
+		const channel = makeFakeRmqChannel();
+		const poller = pollRmq({
+			queue: "q",
+			connection: makeFakeRmqConnection(channel),
+			channel,
+		});
+		const ac = new AbortController();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		const closeError = new Error("Channel closed by server: 404 (NOT-FOUND)");
+		channel.emit("error", closeError);
+		channel.emit("close");
+		await rejects(firstNext, (err) => err === closeError);
+		ac.abort();
+	});
+
+	test("pollRmq raises a close that lands while a batch is in flight without settling the batch", async () => {
 		const channel = makeFakeRmqChannel();
 		const poller = pollRmq({
 			queue: "q",
@@ -4915,18 +5429,19 @@ describe("@middy/ecs-batch", () => {
 			batchWindowMs: 5,
 		});
 		const ac = new AbortController();
-		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
-		channel.consumeCb()(null);
+		const it = poller.poll(ac.signal);
+		const { firstNext } = await drainPollSetup(it);
 		channel.consumeCb()({
 			fields: { deliveryTag: 1 },
 			properties: {},
 			content: Buffer.from("a"),
 		});
-		const { value } = await firstNext;
-		deepStrictEqual(
-			value.rmqMessagesByQueue["q::/"].map((r) => r.data),
-			[Buffer.from("a").toString("base64")],
-		);
+		await firstNext;
+		channel.emit("close");
+		// The closed channel already requeued the delivery; settling it on the
+		// dead channel would throw over the reason the poll failed.
+		await rejects(it.next(), { message: "Channel closed" });
+		deepStrictEqual(channel.nacked, []);
 		ac.abort();
 	});
 
@@ -5394,7 +5909,7 @@ describe("@middy/ecs-batch", () => {
 		];
 		for (const batchItemFailures of cases) {
 			const consumer = makeFakeKafkaConsumer();
-			const poller = pollKafka({ ...kafkaBase, consumer });
+			const poller = pollKafka({ retryDelayMs: 0, ...kafkaBase, consumer });
 			const ac = new AbortController();
 			const it = poller.poll(ac.signal);
 			const { firstNext } = await drainKafkaSetup(it);
@@ -5728,5 +6243,1572 @@ describe("@middy/ecs-batch", () => {
 			.next();
 		strictEqual(value.Records[0].awsRegion, undefined);
 		strictEqual(value.Records[0].eventSourceARN, undefined);
+	});
+
+	// --- stream checkpointing and queue release --------------------------------
+
+	// A shard whose iterators are record positions: GetShardIterator seeks to
+	// the named sequence number (or the start), GetRecords returns every record
+	// from the iterator's position onward.
+	const makeFakeShard = (seqs, toRecord, seqParam) => {
+		const sent = [];
+		return {
+			sent,
+			send: async (cmd) => {
+				sent.push(cmd);
+				// A poller that never redelivers spins on the drained shard.
+				if (sent.length > 20) throw new Error("runaway poll");
+				if (cmd.constructor.name === "GetShardIteratorCommand") {
+					const seq = cmd.input[seqParam];
+					return {
+						ShardIterator: String(seq === undefined ? 0 : seqs.indexOf(seq)),
+					};
+				}
+				const pos = Number(cmd.input.ShardIterator);
+				const read = seqs.slice(pos, pos + cmd.input.Limit);
+				return {
+					NextShardIterator: String(pos + read.length),
+					Records: read.map(toRecord),
+				};
+			},
+		};
+	};
+
+	const kinesisShard = (seqs) =>
+		makeFakeShard(
+			seqs,
+			(seq) => ({ PartitionKey: "p", SequenceNumber: seq, Data: "" }),
+			"StartingSequenceNumber",
+		);
+	const kinesisSeqs = (event) =>
+		event.Records.map((r) => r.kinesis.sequenceNumber);
+
+	// Runs the loop until `responses` is exhausted; a function entry throws.
+	const deliver = async (poller, toSeqs, responses) => {
+		const ac = new AbortController();
+		const deliveries = [];
+		const errors = [];
+		await runPollLoop({
+			poller,
+			timeout: 1000,
+			signal: ac.signal,
+			onError: (err) => errors.push(err),
+			handler: async (event) => {
+				deliveries.push(toSeqs(event));
+				const response = responses[deliveries.length - 1];
+				if (deliveries.length === responses.length) ac.abort();
+				if (typeof response === "function") return response();
+				return response;
+			},
+		});
+		return { deliveries, errors };
+	};
+	const boom = () => {
+		throw new Error("boom");
+	};
+
+	test("pollKinesis redelivers the batch from its first record when the handler throws", async () => {
+		const client = kinesisShard(["1", "2", "3"]);
+		const poller = pollKinesis({
+			retryDelayMs: 0,
+			streamName: "s",
+			shardId: "0",
+			pollingDelay: 0,
+			client,
+		});
+		const { deliveries } = await deliver(poller, kinesisSeqs, [boom, {}]);
+		deepStrictEqual(deliveries, [
+			["1", "2", "3"],
+			["1", "2", "3"],
+		]);
+		const seek = client.sent.filter(
+			(c) => c.constructor.name === "GetShardIteratorCommand",
+		)[1];
+		strictEqual(seek.input.ShardIteratorType, "AT_SEQUENCE_NUMBER");
+		strictEqual(seek.input.StartingSequenceNumber, "1");
+	});
+
+	const seeks = (client) =>
+		client.sent
+			.filter((c) => c.constructor.name === "GetShardIteratorCommand")
+			.map((c) => c.input.StartingSequenceNumber ?? c.input.SequenceNumber);
+
+	test("pollKinesis re-reads from the lowest failed sequence number on a partial batch failure", async () => {
+		const client = kinesisShard(["1", "2", "3"]);
+		const poller = pollKinesis({
+			retryDelayMs: 0,
+			streamName: "s",
+			shardId: "0",
+			pollingDelay: 0,
+			client,
+		});
+		const { deliveries, errors } = await deliver(poller, kinesisSeqs, [
+			{ batchItemFailures: [{ itemIdentifier: "3" }, { itemIdentifier: "2" }] },
+			{},
+		]);
+		deepStrictEqual(deliveries, [
+			["1", "2", "3"],
+			["2", "3"],
+		]);
+		deepStrictEqual(seeks(client), [undefined, "2"]);
+		strictEqual(errors.length, 0);
+	});
+
+	test("pollKinesis advances past a fully successful batch without seeking", async () => {
+		const client = kinesisShard(["1", "2", "3"]);
+		const poller = pollKinesis({
+			streamName: "s",
+			shardId: "0",
+			pollingDelay: 1,
+			client,
+		});
+		const ac = new AbortController();
+		const it = poller.poll(ac.signal);
+		const { value } = await it.next();
+		await poller.acknowledge(value, { batchItemFailures: [] });
+		// The next read starts where the batch ended, so the drained shard
+		// returns nothing and the poller waits out pollingDelay.
+		const next = it.next();
+		await settleMacrotask();
+		ac.abort();
+		strictEqual((await next).done, true);
+		deepStrictEqual(seeks(client), [undefined]);
+		strictEqual(client.sent.at(-1).input.ShardIterator, "3");
+	});
+
+	test("pollKinesis redelivers the whole batch and raises on an invalid batchItemFailures entry", async () => {
+		const client = kinesisShard(["1", "2", "3"]);
+		const poller = pollKinesis({
+			retryDelayMs: 0,
+			streamName: "s",
+			shardId: "0",
+			pollingDelay: 0,
+			client,
+		});
+		const { deliveries, errors } = await deliver(poller, kinesisSeqs, [
+			{ batchItemFailures: [{ itemIdentifier: "" }] },
+			{},
+		]);
+		deepStrictEqual(deliveries, [
+			["1", "2", "3"],
+			["1", "2", "3"],
+		]);
+		strictEqual(errors.length, 1);
+		strictEqual(errors[0].message, "Invalid batchItemFailures entry");
+		deepStrictEqual(errors[0].cause, {
+			package: "@middy/ecs-batch/pollKinesis",
+			data: { itemIdentifier: "" },
+		});
+	});
+
+	test("pollKinesis stops without seeking when a re-seek is aborted or the loop was aborted", async () => {
+		const ac = new AbortController();
+		let seekCalls = 0;
+		const client = {
+			send: async (cmd, { abortSignal }) => {
+				if (cmd.constructor.name === "GetShardIteratorCommand") {
+					seekCalls++;
+					if (seekCalls === 1) return { ShardIterator: "0" };
+					ac.abort();
+					throw abortSignal.reason;
+				}
+				return {
+					NextShardIterator: "1",
+					Records: [{ PartitionKey: "p", SequenceNumber: "1", Data: "" }],
+				};
+			},
+		};
+		const poller = pollKinesis({
+			retryDelayMs: 0,
+			streamName: "s",
+			shardId: "0",
+			client,
+		});
+		const it = poller.poll(ac.signal);
+		await it.next();
+		strictEqual((await it.next()).done, true);
+		strictEqual(seekCalls, 2);
+	});
+
+	test("pollKinesis rethrows a non-abort error from the re-seek", async () => {
+		let seekCalls = 0;
+		const client = {
+			send: async (cmd) => {
+				if (cmd.constructor.name === "GetShardIteratorCommand") {
+					seekCalls++;
+					if (seekCalls === 1) return { ShardIterator: "0" };
+					throw new Error("throttled");
+				}
+				return {
+					NextShardIterator: "1",
+					Records: [{ PartitionKey: "p", SequenceNumber: "1", Data: "" }],
+				};
+			},
+		};
+		const poller = pollKinesis({
+			retryDelayMs: 0,
+			streamName: "s",
+			shardId: "0",
+			client,
+		});
+		const it = poller.poll(new AbortController().signal);
+		await it.next();
+		await rejects(it.next(), /throttled/);
+	});
+
+	const dynamodbShard = (seqs) =>
+		makeFakeShard(
+			seqs,
+			(seq) => ({
+				eventID: seq,
+				eventName: "INSERT",
+				dynamodb: { SequenceNumber: seq },
+			}),
+			"SequenceNumber",
+		);
+	const dynamodbSeqs = (event) =>
+		event.Records.map((r) => r.dynamodb.SequenceNumber);
+	const dynamodbBase = {
+		streamArn: "arn:aws:dynamodb:us-east-1:111:table/t/stream/1",
+		shardId: "0",
+		pollingDelay: 0,
+		retryDelayMs: 0,
+	};
+
+	test("pollDynamoDBStreams redelivers the batch from its first record when the handler throws", async () => {
+		const client = dynamodbShard(["1", "2", "3"]);
+		const poller = pollDynamoDBStreams({ ...dynamodbBase, client });
+		const { deliveries } = await deliver(poller, dynamodbSeqs, [boom, {}]);
+		deepStrictEqual(deliveries, [
+			["1", "2", "3"],
+			["1", "2", "3"],
+		]);
+		const seek = client.sent.filter(
+			(c) => c.constructor.name === "GetShardIteratorCommand",
+		)[1];
+		strictEqual(seek.input.ShardIteratorType, "AT_SEQUENCE_NUMBER");
+		strictEqual(seek.input.SequenceNumber, "1");
+		strictEqual(seek.input.StreamArn, dynamodbBase.streamArn);
+		strictEqual(seek.input.ShardId, "0");
+	});
+
+	test("pollDynamoDBStreams re-reads from the lowest failed sequence number on a partial batch failure", async () => {
+		const client = dynamodbShard(["1", "2", "3"]);
+		const poller = pollDynamoDBStreams({ ...dynamodbBase, client });
+		const { deliveries, errors } = await deliver(poller, dynamodbSeqs, [
+			{ batchItemFailures: [{ itemIdentifier: "3" }, { itemIdentifier: "2" }] },
+			{},
+		]);
+		deepStrictEqual(deliveries, [
+			["1", "2", "3"],
+			["2", "3"],
+		]);
+		deepStrictEqual(seeks(client), [undefined, "2"]);
+		strictEqual(errors.length, 0);
+	});
+
+	test("pollDynamoDBStreams advances past a fully successful batch without seeking", async () => {
+		const client = dynamodbShard(["1", "2", "3"]);
+		const poller = pollDynamoDBStreams({
+			...dynamodbBase,
+			pollingDelay: 1,
+			client,
+		});
+		const ac = new AbortController();
+		const it = poller.poll(ac.signal);
+		const { value } = await it.next();
+		await poller.acknowledge(value, {});
+		const next = it.next();
+		await settleMacrotask();
+		ac.abort();
+		strictEqual((await next).done, true);
+		deepStrictEqual(seeks(client), [undefined]);
+		strictEqual(client.sent.at(-1).input.ShardIterator, "3");
+	});
+
+	test("pollDynamoDBStreams redelivers the whole batch and raises on an invalid batchItemFailures entry", async () => {
+		const client = dynamodbShard(["1", "2", "3"]);
+		const poller = pollDynamoDBStreams({ ...dynamodbBase, client });
+		const { deliveries, errors } = await deliver(poller, dynamodbSeqs, [
+			{ batchItemFailures: [{ itemIdentifier: null }] },
+			{},
+		]);
+		deepStrictEqual(deliveries, [
+			["1", "2", "3"],
+			["1", "2", "3"],
+		]);
+		strictEqual(errors.length, 1);
+		deepStrictEqual(errors[0].cause, {
+			package: "@middy/ecs-batch/pollDynamoDBStreams",
+			data: { itemIdentifier: null },
+		});
+	});
+
+	const oneDynamodbRecord = {
+		NextShardIterator: "1",
+		Records: [{ eventID: "1", dynamodb: { SequenceNumber: "1" } }],
+	};
+
+	test("pollDynamoDBStreams stops when the re-seek is aborted", async () => {
+		const ac = new AbortController();
+		let seekCalls = 0;
+		const client = {
+			send: async (cmd, { abortSignal }) => {
+				if (cmd.constructor.name === "GetShardIteratorCommand") {
+					seekCalls++;
+					if (seekCalls === 1) return { ShardIterator: "0" };
+					ac.abort();
+					throw abortSignal.reason;
+				}
+				return oneDynamodbRecord;
+			},
+		};
+		const poller = pollDynamoDBStreams({ ...dynamodbBase, client });
+		const it = poller.poll(ac.signal);
+		await it.next();
+		strictEqual((await it.next()).done, true);
+		strictEqual(seekCalls, 2);
+	});
+
+	test("pollDynamoDBStreams rethrows a non-abort error from the re-seek", async () => {
+		let seekCalls = 0;
+		const client = {
+			send: async (cmd) => {
+				if (cmd.constructor.name === "GetShardIteratorCommand") {
+					seekCalls++;
+					// Only the re-seek fails: treated as trimmed, the next seek would
+					// carry on.
+					if (seekCalls === 2) throw new Error("throttled");
+					return { ShardIterator: "0" };
+				}
+				return oneDynamodbRecord;
+			},
+		};
+		const poller = pollDynamoDBStreams({ ...dynamodbBase, client });
+		const it = poller.poll(new AbortController().signal);
+		await it.next();
+		await rejects(it.next(), /throttled/);
+	});
+
+	const rmqMessage = (tag) => ({
+		fields: { deliveryTag: tag, redelivered: false },
+		properties: {},
+		content: Buffer.from("x"),
+	});
+
+	test("pollRmq requeues every delivery of a batch the handler threw on", async () => {
+		const channel = makeFakeRmqChannel();
+		const poller = pollRmq({
+			queue: "q",
+			batchSize: 2,
+			connection: makeFakeRmqConnection(channel),
+			channel,
+		});
+		const ac = new AbortController();
+		const errors = [];
+		const loop = runPollLoop({
+			poller,
+			timeout: 1000,
+			signal: ac.signal,
+			onError: (err) => errors.push(err),
+			handler: boom,
+		});
+		for (let i = 0; i < 8; i++) await Promise.resolve();
+		channel.consumeCb()(rmqMessage(1));
+		channel.consumeCb()(rmqMessage(2));
+		for (let i = 0; i < 16; i++) await settleMacrotask();
+		deepStrictEqual(
+			channel.nacked.map((m) => m.fields.deliveryTag),
+			[1, 2],
+		);
+		deepStrictEqual(channel.nackArgs, [
+			[false, true],
+			[false, true],
+		]);
+		strictEqual(channel.acked.length, 0);
+		strictEqual(errors.length, 1);
+		ac.abort();
+		await loop;
+	});
+
+	test("pollAmq nacks every message of a batch the handler threw on", async () => {
+		const stomp = makeFakeStompClient();
+		const poller = pollAmq({
+			connectOptions: {},
+			destination: "/queue/q",
+			batchSize: 2,
+			client: stomp,
+		});
+		const ac = new AbortController();
+		const errors = [];
+		const loop = runPollLoop({
+			poller,
+			timeout: 1000,
+			signal: ac.signal,
+			onError: (err) => errors.push(err),
+			handler: boom,
+		});
+		for (let i = 0; i < 8; i++) await Promise.resolve();
+		stomp.subscribeCb()(null, fakeStompMessage("id-1", "a"));
+		stomp.subscribeCb()(null, fakeStompMessage("id-2", "b"));
+		for (let i = 0; i < 16; i++) await settleMacrotask();
+		deepStrictEqual(
+			stomp.nacked.map((m) => m.headers["message-id"]),
+			["id-1", "id-2"],
+		);
+		strictEqual(stomp.acked.length, 0);
+		strictEqual(errors.length, 1);
+		ac.abort();
+		await loop;
+	});
+
+	test("pollRmq settles a batch the handler threw on only once", async () => {
+		const channel = makeFakeRmqChannel();
+		const poller = pollRmq({
+			queue: "q",
+			batchSize: 1,
+			connection: makeFakeRmqConnection(channel),
+			channel,
+		});
+		const ac = new AbortController();
+		const thrown = [];
+		const loop = runPollLoop({
+			poller,
+			timeout: 1000,
+			signal: ac.signal,
+			handler: async (event) => {
+				thrown.push(event);
+				throw new Error("boom");
+			},
+		});
+		for (let i = 0; i < 8; i++) await Promise.resolve();
+		channel.consumeCb()(rmqMessage(1));
+		for (let i = 0; i < 16; i++) await settleMacrotask();
+		strictEqual(channel.nacked.length, 1);
+		// The requeue already settled it: a late acknowledge has nothing left.
+		await poller.acknowledge(thrown[0], { batchItemFailures: [] });
+		strictEqual(channel.acked.length, 0);
+		strictEqual(channel.nacked.length, 1);
+		ac.abort();
+		await loop;
+	});
+
+	test("pollRmq leaves a batch the handler threw on during shutdown to the channel close", async () => {
+		const channel = makeFakeRmqChannel();
+		const poller = pollRmq({
+			queue: "q",
+			batchSize: 1,
+			connection: makeFakeRmqConnection(channel),
+			channel,
+		});
+		const ac = new AbortController();
+		const loop = runPollLoop({
+			poller,
+			timeout: 1000,
+			signal: ac.signal,
+			handler: async () => {
+				ac.abort();
+				throw new Error("boom");
+			},
+		});
+		for (let i = 0; i < 8; i++) await Promise.resolve();
+		channel.consumeCb()(rmqMessage(1));
+		await loop;
+		strictEqual(channel.nacked.length, 0);
+		strictEqual(channel.acked.length, 0);
+		strictEqual(channel.closeCalls, 1);
+	});
+
+	test("pollAmq settles a batch the handler threw on only once", async () => {
+		const stomp = makeFakeStompClient();
+		const poller = pollAmq({
+			connectOptions: {},
+			destination: "/queue/q",
+			batchSize: 1,
+			client: stomp,
+		});
+		const ac = new AbortController();
+		const thrown = [];
+		const loop = runPollLoop({
+			poller,
+			timeout: 1000,
+			signal: ac.signal,
+			handler: async (event) => {
+				thrown.push(event);
+				throw new Error("boom");
+			},
+		});
+		for (let i = 0; i < 8; i++) await Promise.resolve();
+		stomp.subscribeCb()(null, fakeStompMessage("id-1", "a"));
+		for (let i = 0; i < 16; i++) await settleMacrotask();
+		strictEqual(stomp.nacked.length, 1);
+		// The NACK already settled it: a late acknowledge has nothing left.
+		await poller.acknowledge(thrown[0], { batchItemFailures: [] });
+		strictEqual(stomp.acked.length, 0);
+		strictEqual(stomp.nacked.length, 1);
+		ac.abort();
+		await loop;
+	});
+
+	test("pollAmq leaves a batch the handler threw on during shutdown to the broker", async () => {
+		const stomp = makeFakeStompClient();
+		const poller = pollAmq({
+			connectOptions: {},
+			destination: "/queue/q",
+			batchSize: 1,
+			client: stomp,
+		});
+		const ac = new AbortController();
+		const loop = runPollLoop({
+			poller,
+			timeout: 1000,
+			signal: ac.signal,
+			handler: async () => {
+				ac.abort();
+				throw new Error("boom");
+			},
+		});
+		for (let i = 0; i < 8; i++) await Promise.resolve();
+		stomp.subscribeCb()(null, fakeStompMessage("id-1", "a"));
+		await loop;
+		strictEqual(stomp.nacked.length, 0);
+		strictEqual(stomp.acked.length, 0);
+		strictEqual(stomp.disconnectCalls, 1);
+	});
+
+	test("ecsBatchRunner defaults gracefulShutdownMs to 25 s, inside ECS's default 30 s stopTimeout", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout"] });
+		const poller = {
+			source: "test",
+			async *poll() {
+				yield { Records: [1] };
+				// Never drains.
+				await new Promise(noop);
+			},
+			acknowledge: noop,
+		};
+		const exits = [];
+		const { onSigterm } = await ecsBatchRunner(
+			{ handler: noop, poller },
+			{ cluster: { isPrimary: false }, exit: (code) => exits.push(code) },
+		);
+		process.removeListener("SIGTERM", onSigterm);
+		const drain = onSigterm();
+		await settleMacrotask();
+		t.mock.timers.tick(24_999);
+		await settleMacrotask();
+		deepStrictEqual(exits, []);
+		t.mock.timers.tick(1);
+		await drain;
+		deepStrictEqual(exits, [1]);
+	});
+
+	// --- retry limits and backoff ----------------------------------------------
+
+	test("pollKafka discards a batch past maxRetryAttempts, commits past it and reports it", async () => {
+		const consumer = makeFakeKafkaConsumer();
+		const poller = pollKafka({
+			brokers: ["b1"],
+			groupId: "g",
+			topics: ["t1"],
+			consumer,
+			maxRetryAttempts: 1,
+			retryDelayMs: 0,
+		});
+		const ac = new AbortController();
+		const errors = [];
+		const loop = runPollLoop({
+			poller,
+			handler: boom,
+			timeout: 1000,
+			signal: ac.signal,
+			onError: (err) => errors.push(err),
+		});
+		await settleMacrotask();
+		const uncommitted = {
+			topics: [{ topic: "t1", partitions: [{ partition: 0, offset: "7" }] }],
+		};
+		// The first delivery and its one retry fail; the retry is the last.
+		const first = makeKafkaBatchPayload(kafkaBatchOf("5", "6"), uncommitted);
+		await consumer.runHandler()(first.payload);
+		deepStrictEqual(first.calls.resolved, []);
+		const retry = makeKafkaBatchPayload(kafkaBatchOf("5", "6"), uncommitted);
+		await consumer.runHandler()(retry.payload);
+		deepStrictEqual(retry.calls.resolved, ["5", "6"]);
+		deepStrictEqual(retry.calls.commits, [uncommitted]);
+		ac.abort();
+		await loop;
+		deepStrictEqual(
+			errors.map((e) => e.message),
+			["boom", "boom", "Retry attempts exhausted"],
+		);
+		deepStrictEqual(errors[2].cause, {
+			package: "@middy/ecs-batch/pollKafka",
+			data: {
+				records: [
+					{ topic: "t1", partition: 0, offset: 5 },
+					{ topic: "t1", partition: 0, offset: 6 },
+				],
+			},
+		});
+	});
+
+	// Drives one kafkajs eachBatch through a runPollLoop whose handler answers
+	// with `respond(event)`; resolves with the payload's recorded calls.
+	const kafkaRetryHarness = (options) => {
+		const consumer = makeFakeKafkaConsumer();
+		const poller = pollKafka({
+			brokers: ["b1"],
+			groupId: "g",
+			topics: ["t1"],
+			consumer,
+			...options,
+		});
+		const ac = new AbortController();
+		const errors = [];
+		let respond = boom;
+		const loop = runPollLoop({
+			poller,
+			handler: async (event) => respond(event),
+			timeout: 1000,
+			signal: ac.signal,
+			onError: (err) => errors.push(err),
+		});
+		return {
+			errors,
+			ac,
+			loop,
+			setResponse: (fn) => {
+				respond = fn;
+			},
+			deliver: (...offsets) => {
+				const batch = makeKafkaBatchPayload(kafkaBatchOf(...offsets));
+				batch.done = consumer.runHandler()(batch.payload);
+				return batch;
+			},
+			deliverTo: (partition, ...offsets) => {
+				const batch = makeKafkaBatchPayload({
+					...kafkaBatchOf(...offsets),
+					partition,
+				});
+				batch.done = consumer.runHandler()(batch.payload);
+				return batch;
+			},
+		};
+	};
+	const kafkaFailures = (...offsets) => ({
+		batchItemFailures: offsets.map((offset) => ({
+			itemIdentifier: { partition: "t1-0", offset },
+		})),
+	});
+
+	test("pollKafka backs off exponentially between retries of the same record, heartbeating meanwhile", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+		const h = kafkaRetryHarness({ retryDelayMs: 100, heartbeatIntervalMs: 40 });
+		await settleMacrotask();
+		for (const expected of [100, 200, 400]) {
+			const batch = h.deliver("5");
+			let settled = false;
+			batch.done.then(() => {
+				settled = true;
+			});
+			await settleMacrotask();
+			t.mock.timers.tick(expected - 1);
+			await settleMacrotask();
+			strictEqual(settled, false, `still backing off before ${expected} ms`);
+			t.mock.timers.tick(1);
+			await batch.done;
+			deepStrictEqual(batch.calls.resolved, []);
+			ok(batch.calls.heartbeats >= 2);
+		}
+		h.ac.abort();
+		await h.loop;
+	});
+
+	test("pollKafka caps the backoff at 30 s, or at retryDelayMs when larger", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout"] });
+		const waits = async (retryDelayMs, attempts) => {
+			const h = kafkaRetryHarness({ retryDelayMs });
+			await settleMacrotask();
+			const out = [];
+			for (let i = 0; i < attempts; i++) {
+				const batch = h.deliver("5");
+				let settled = false;
+				batch.done.then(() => {
+					settled = true;
+				});
+				let waited = 0;
+				while (!settled) {
+					await settleMacrotask();
+					if (settled) break;
+					t.mock.timers.tick(1000);
+					waited += 1000;
+				}
+				out.push(waited);
+			}
+			h.ac.abort();
+			await h.loop;
+			return out;
+		};
+		deepStrictEqual(await waits(10_000, 4), [10_000, 20_000, 30_000, 30_000]);
+		deepStrictEqual(await waits(40_000, 2), [40_000, 40_000]);
+	});
+
+	test("pollKafka stops backing off when shut down", async () => {
+		const h = kafkaRetryHarness({ retryDelayMs: 60_000 });
+		await settleMacrotask();
+		const batch = h.deliver("5");
+		await settleMacrotask();
+		h.ac.abort();
+		await batch.done;
+		await h.loop;
+		deepStrictEqual(batch.calls.resolved, []);
+	});
+
+	test("pollKafka counts retries per failed offset, so progress starts the count again", async () => {
+		const h = kafkaRetryHarness({ maxRetryAttempts: 1, retryDelayMs: 0 });
+		await settleMacrotask();
+		h.setResponse(() => kafkaFailures(5));
+		await h.deliver("5", "6").done;
+		// 5 now succeeds and 6 fails: a first failure of 6, not a second retry.
+		h.setResponse(() => kafkaFailures(6));
+		const second = h.deliver("5", "6");
+		await second.done;
+		deepStrictEqual(second.calls.resolved, ["5"]);
+		// A success clears the count for the partition.
+		h.setResponse(() => ({ batchItemFailures: [] }));
+		await h.deliver("6").done;
+		h.setResponse(() => kafkaFailures(7));
+		const fourth = h.deliver("7");
+		await fourth.done;
+		deepStrictEqual(fourth.calls.resolved, []);
+		h.ac.abort();
+		await h.loop;
+		deepStrictEqual(h.errors, []);
+	});
+
+	test("pollKafka counts retries per partition, even at the same offset", async () => {
+		const h = kafkaRetryHarness({ maxRetryAttempts: 1, retryDelayMs: 0 });
+		await settleMacrotask();
+		await h.deliverTo(0, "5").done;
+		// Partition 1's offset 5 is another record: its first failure, not a
+		// second retry of partition 0's.
+		const other = h.deliverTo(1, "5");
+		await other.done;
+		deepStrictEqual(other.calls.resolved, []);
+		h.ac.abort();
+		await h.loop;
+		deepStrictEqual(
+			h.errors.map((e) => e.message),
+			["boom", "boom"],
+		);
+	});
+
+	test("pollKafka discards only the failed records of a partial failure past maxRetryAttempts", async () => {
+		const h = kafkaRetryHarness({ maxRetryAttempts: 0, retryDelayMs: 0 });
+		await settleMacrotask();
+		h.setResponse(() => kafkaFailures(6));
+		const batch = h.deliver("5", "6", "7");
+		await batch.done;
+		deepStrictEqual(batch.calls.resolved, ["5", "6", "7"]);
+		h.ac.abort();
+		await h.loop;
+		strictEqual(h.errors.length, 1);
+		deepStrictEqual(h.errors[0].cause.data, {
+			records: [{ topic: "t1", partition: 0, offset: 6 }],
+		});
+	});
+
+	test("pollKafka retries forever by default", async () => {
+		const h = kafkaRetryHarness({ retryDelayMs: 0 });
+		await settleMacrotask();
+		for (let i = 0; i < 12; i++) {
+			const batch = h.deliver("5");
+			await batch.done;
+			deepStrictEqual(batch.calls.resolved, []);
+		}
+		h.ac.abort();
+		await h.loop;
+		strictEqual(h.errors.length, 12);
+	});
+
+	test("pollKafkaValidateOptions bounds maxRetryAttempts to Lambda's -1..10000 and retryDelayMs to >= 0", () => {
+		const base = { brokers: ["b"], groupId: "g", topics: ["t"] };
+		pollKafkaValidateOptions({ ...base, maxRetryAttempts: -1 });
+		pollKafkaValidateOptions({ ...base, maxRetryAttempts: 10000 });
+		pollKafkaValidateOptions({ ...base, retryDelayMs: 0 });
+		throws(() => pollKafkaValidateOptions({ ...base, maxRetryAttempts: -2 }));
+		throws(() =>
+			pollKafkaValidateOptions({ ...base, maxRetryAttempts: 10001 }),
+		);
+		throws(() => pollKafkaValidateOptions({ ...base, retryDelayMs: -1 }));
+	});
+
+	test("pollKinesis skips a batch past maxRetryAttempts and reports it", async () => {
+		const client = kinesisShard(["1", "2", "3"]);
+		const poller = pollKinesis({
+			streamName: "s",
+			shardId: "shard-0",
+			pollingDelay: 0,
+			limit: 1,
+			maxRetryAttempts: 1,
+			retryDelayMs: 0,
+			client,
+		});
+		const { deliveries, errors } = await deliver(poller, kinesisSeqs, [
+			boom,
+			boom,
+			{},
+		]);
+		deepStrictEqual(deliveries, [["1"], ["1"], ["2"]]);
+		deepStrictEqual(
+			errors.map((e) => e.message),
+			["boom", "boom", "Retry attempts exhausted"],
+		);
+		deepStrictEqual(errors[2].cause, {
+			package: "@middy/ecs-batch/pollKinesis",
+			data: { shardId: "shard-0", sequenceNumbers: ["1"] },
+		});
+	});
+
+	test("pollDynamoDBStreams skips a batch past maxRetryAttempts and reports it", async () => {
+		const client = dynamodbShard(["1", "2", "3"]);
+		const poller = pollDynamoDBStreams({
+			...dynamodbBase,
+			limit: 1,
+			maxRetryAttempts: 0,
+			client,
+		});
+		const { deliveries, errors } = await deliver(poller, dynamodbSeqs, [
+			() => ({ batchItemFailures: [{ itemIdentifier: "1" }] }),
+			{},
+		]);
+		deepStrictEqual(deliveries, [["1"], ["2"]]);
+		deepStrictEqual(errors[0].cause, {
+			package: "@middy/ecs-batch/pollDynamoDBStreams",
+			data: { shardId: "0", sequenceNumbers: ["1"] },
+		});
+	});
+
+	test("pollDynamoDBStreams skips a batch after maxRetryAttempts retries and reports it", async () => {
+		const client = dynamodbShard(["1", "2", "3"]);
+		const poller = pollDynamoDBStreams({
+			...dynamodbBase,
+			limit: 1,
+			maxRetryAttempts: 1,
+			client,
+		});
+		const { deliveries, errors } = await deliver(poller, dynamodbSeqs, [
+			boom,
+			boom,
+			{},
+		]);
+		deepStrictEqual(deliveries, [["1"], ["1"], ["2"]]);
+		deepStrictEqual(
+			errors.map((e) => e.message),
+			["boom", "boom", "Retry attempts exhausted"],
+		);
+	});
+
+	for (const [name, makePoller] of [
+		[
+			"pollKinesis",
+			(client, opts) =>
+				pollKinesis({ streamName: "s", shardId: "0", client, ...opts }),
+		],
+		[
+			"pollDynamoDBStreams",
+			(client, opts) =>
+				pollDynamoDBStreams({
+					streamArn: dynamodbBase.streamArn,
+					shardId: "0",
+					client,
+					...opts,
+				}),
+		],
+	]) {
+		const shard = name === "pollKinesis" ? kinesisShard : dynamodbShard;
+
+		test(`${name} backs off exponentially before re-reading a failed batch`, async (t) => {
+			t.mock.timers.enable({ apis: ["setTimeout"] });
+			const client = shard(["1"]);
+			const poller = makePoller(client, { retryDelayMs: 100 });
+			const it = poller.poll(new AbortController().signal);
+			await it.next();
+			for (const expected of [100, 200, 400]) {
+				let settled = false;
+				const next = it.next().then((r) => {
+					settled = true;
+					return r;
+				});
+				await settleMacrotask();
+				t.mock.timers.tick(expected - 1);
+				await settleMacrotask();
+				strictEqual(settled, false, `still backing off before ${expected} ms`);
+				t.mock.timers.tick(1);
+				strictEqual((await next).done, false);
+			}
+			strictEqual(seeks(client).length, 4);
+		});
+
+		test(`${name} counts retries per sequence number and starts again after progress`, async () => {
+			const client = shard(["1", "2"]);
+			const poller = makePoller(client, {
+				maxRetryAttempts: 1,
+				retryDelayMs: 0,
+				pollingDelay: 0,
+			});
+			const toSeqs = name === "pollKinesis" ? kinesisSeqs : dynamodbSeqs;
+			const fail = (seq) => () => ({
+				batchItemFailures: [{ itemIdentifier: seq }],
+			});
+			const { deliveries, errors } = await deliver(poller, toSeqs, [
+				fail("1"),
+				fail("2"),
+				{},
+			]);
+			// 1 fails, then 2 fails: the second failure is 2's first, within the
+			// one retry allowed, so nothing is discarded.
+			deepStrictEqual(deliveries, [["1", "2"], ["1", "2"], ["2"]]);
+			strictEqual(errors.length, 0);
+		});
+
+		test(`${name} discards without an onError when polled outside the runner`, async () => {
+			const client = shard(["1", "2"]);
+			const poller = makePoller(client, { maxRetryAttempts: 0, limit: 1 });
+			const it = poller.poll(new AbortController().signal);
+			await it.next();
+			// Not acknowledged: the batch failed and has no retry left.
+			const { value } = await it.next();
+			const toSeqs = name === "pollKinesis" ? kinesisSeqs : dynamodbSeqs;
+			deepStrictEqual(toSeqs(value), ["2"]);
+			strictEqual(seeks(client).length, 1);
+		});
+
+		test(`${name}.acknowledge treats no response as success and rejects a null entry`, async () => {
+			const poller = makePoller(shard(["1"]), {});
+			const { value } = await poller.poll(new AbortController().signal).next();
+			await poller.acknowledge(value, undefined);
+			await poller.acknowledge(value, null);
+			await rejects(
+				poller.acknowledge(value, { batchItemFailures: [null] }),
+				(err) => {
+					strictEqual(err.message, "Invalid batchItemFailures entry");
+					deepStrictEqual(err.cause.data, { itemIdentifier: undefined });
+					return true;
+				},
+			);
+		});
+
+		test(`${name} neither retries nor discards a batch the handler threw on during shutdown`, async () => {
+			const client = shard(["1"]);
+			const poller = makePoller(client, { maxRetryAttempts: 0 });
+			const toSeqs = name === "pollKinesis" ? kinesisSeqs : dynamodbSeqs;
+			const { errors } = await deliver(poller, toSeqs, [boom]);
+			deepStrictEqual(
+				errors.map((e) => e.message),
+				["boom"],
+			);
+			strictEqual(seeks(client).length, 1);
+		});
+
+		test(`${name} stops backing off when shut down`, async () => {
+			const ac = new AbortController();
+			const client = shard(["1"]);
+			const poller = makePoller(client, { retryDelayMs: 60_000 });
+			const it = poller.poll(ac.signal);
+			await it.next();
+			const next = it.next();
+			await settleMacrotask();
+			ac.abort();
+			strictEqual((await next).done, true);
+			strictEqual(seeks(client).length, 1);
+		});
+
+		test(`${name}Validate bounds maxRetryAttempts to Lambda's -1..10000 and retryDelayMs to >= 0`, () => {
+			const validate =
+				name === "pollKinesis"
+					? pollKinesisValidateOptions
+					: pollDynamoDBStreamsValidateOptions;
+			const base =
+				name === "pollKinesis"
+					? { streamName: "s", shardId: "0" }
+					: { streamArn: dynamodbBase.streamArn, shardId: "0" };
+			validate({ ...base, maxRetryAttempts: -1, retryDelayMs: 0 });
+			validate({ ...base, maxRetryAttempts: 10000 });
+			throws(() => validate({ ...base, maxRetryAttempts: -2 }));
+			throws(() => validate({ ...base, maxRetryAttempts: 10001 }));
+			throws(() => validate({ ...base, retryDelayMs: -1 }));
+		});
+	}
+
+	test("pollKafka starts the count again after a success or a discard of the same offset", async () => {
+		// A rebalance can hand an offset over again after it was committed.
+		const h = kafkaRetryHarness({ maxRetryAttempts: 1, retryDelayMs: 0 });
+		await settleMacrotask();
+		const resolvedAfter = async (response) => {
+			h.setResponse(() => response);
+			const batch = h.deliver("5");
+			await batch.done;
+			return batch.calls.resolved;
+		};
+		deepStrictEqual(await resolvedAfter(kafkaFailures(5)), []);
+		deepStrictEqual(await resolvedAfter({ batchItemFailures: [] }), ["5"]);
+		// A first failure again, not a second retry.
+		deepStrictEqual(await resolvedAfter(kafkaFailures(5)), []);
+		deepStrictEqual(await resolvedAfter(kafkaFailures(5)), ["5"]);
+		// Discarded, so counting starts over.
+		deepStrictEqual(await resolvedAfter(kafkaFailures(5)), []);
+		h.ac.abort();
+		await h.loop;
+		deepStrictEqual(
+			h.errors.map((e) => e.message),
+			["Retry attempts exhausted"],
+		);
+	});
+
+	test("pollKafka neither counts nor discards a batch released by shutdown", async () => {
+		const consumer = makeFakeKafkaConsumer();
+		const poller = pollKafka({
+			brokers: ["b1"],
+			groupId: "g",
+			topics: ["t1"],
+			consumer,
+			maxRetryAttempts: 0,
+			retryDelayMs: 0,
+		});
+		const ac = new AbortController();
+		const errors = [];
+		const loop = runPollLoop({
+			poller,
+			handler: async () => {
+				ac.abort();
+				throw new Error("boom");
+			},
+			timeout: 1000,
+			signal: ac.signal,
+			onError: (err) => errors.push(err),
+		});
+		await settleMacrotask();
+		const batch = makeKafkaBatchPayload(kafkaBatchOf("5"));
+		await consumer.runHandler()(batch.payload);
+		await loop;
+		deepStrictEqual(batch.calls.resolved, []);
+		deepStrictEqual(
+			errors.map((e) => e.message),
+			["boom"],
+		);
+	});
+
+	for (const [name, makePoller, shard, toSeqs] of [
+		[
+			"pollKinesis",
+			(client) =>
+				pollKinesis({
+					streamName: "s",
+					shardId: "0",
+					pollingDelay: 0,
+					retryDelayMs: 0,
+					client,
+				}),
+			kinesisShard,
+			kinesisSeqs,
+		],
+		[
+			"pollDynamoDBStreams",
+			(client) => pollDynamoDBStreams({ ...dynamodbBase, client }),
+			dynamodbShard,
+			dynamodbSeqs,
+		],
+	]) {
+		test(`${name} retries forever by default`, async () => {
+			// Eight retries stay under the fake shard's runaway guard.
+			const responses = Array.from({ length: 8 }, () => boom);
+			responses.push({});
+			const { deliveries, errors } = await deliver(
+				makePoller(shard(["1"])),
+				toSeqs,
+				responses,
+			);
+			deepStrictEqual(
+				deliveries,
+				Array.from({ length: 9 }, () => ["1"]),
+			);
+			strictEqual(errors.length, 8);
+		});
+	}
+
+	// --- trimmed, expired and closed shards ------------------------------------
+
+	const awsError = (name) => Object.assign(new Error(name), { name });
+
+	test("pollDynamoDBStreams reports records trimmed while retrying and continues from TRIM_HORIZON", async () => {
+		const seekTypes = [];
+		const client = {
+			send: async (cmd) => {
+				if (cmd.constructor.name === "GetShardIteratorCommand") {
+					seekTypes.push(cmd.input.ShardIteratorType);
+					if (cmd.input.ShardIteratorType === "AT_SEQUENCE_NUMBER") {
+						throw awsError("TrimmedDataAccessException");
+					}
+					return { ShardIterator: cmd.input.ShardIteratorType };
+				}
+				const seq = cmd.input.ShardIterator === "TRIM_HORIZON" ? "5" : "1";
+				return {
+					NextShardIterator: "next",
+					Records: [{ eventID: seq, dynamodb: { SequenceNumber: seq } }],
+				};
+			},
+		};
+		const poller = pollDynamoDBStreams({ ...dynamodbBase, client });
+		const { deliveries, errors } = await deliver(poller, dynamodbSeqs, [
+			boom,
+			{},
+		]);
+		deepStrictEqual(deliveries, [["1"], ["5"]]);
+		deepStrictEqual(seekTypes, [
+			"LATEST",
+			"AT_SEQUENCE_NUMBER",
+			"TRIM_HORIZON",
+		]);
+		deepStrictEqual(
+			errors.map((e) => e.message),
+			["boom", "Records trimmed from the stream"],
+		);
+		deepStrictEqual(errors[1].cause, {
+			package: "@middy/ecs-batch/pollDynamoDBStreams",
+			data: { shardId: "0", sequenceNumbers: ["1"] },
+		});
+	});
+
+	// Iterators are positions: "at:<seq>", "after:<seq>" or the initial type.
+	// GetRecords on "stale" throws ExpiredIteratorException.
+	const expiringShard = (seqs, toRecord, seqParam, expireOnce = new Set()) => {
+		const seekInputs = [];
+		const send = async (cmd) => {
+			if (cmd.constructor.name === "GetShardIteratorCommand") {
+				const type = cmd.input.ShardIteratorType;
+				seekInputs.push([type, cmd.input[seqParam]]);
+				if (type === "AT_SEQUENCE_NUMBER")
+					return { ShardIterator: `at:${cmd.input[seqParam]}` };
+				if (type === "AFTER_SEQUENCE_NUMBER")
+					return { ShardIterator: `after:${cmd.input[seqParam]}` };
+				return { ShardIterator: "start:" };
+			}
+			const it = cmd.input.ShardIterator;
+			if (it === "stale" || expireOnce.delete(it)) {
+				throw awsError("ExpiredIteratorException");
+			}
+			const [kind, seq] = it.split(":");
+			const pos =
+				kind === "start" ? 0 : seqs.indexOf(seq) + (kind === "after" ? 1 : 0);
+			// Hand back an iterator that has expired by the time it is used.
+			return {
+				NextShardIterator: "stale",
+				Records: seqs.slice(pos, pos + 1).map(toRecord),
+			};
+		};
+		return { seekInputs, send };
+	};
+
+	for (const [name, makePoller, toRecord, seqParam, toSeqs] of [
+		[
+			"pollKinesis",
+			(client, opts) =>
+				pollKinesis({
+					streamName: "s",
+					shardId: "0",
+					pollingDelay: 0,
+					retryDelayMs: 0,
+					client,
+					...opts,
+				}),
+			(seq) => ({ PartitionKey: "p", SequenceNumber: seq, Data: "" }),
+			"StartingSequenceNumber",
+			kinesisSeqs,
+		],
+		[
+			"pollDynamoDBStreams",
+			(client, opts) =>
+				pollDynamoDBStreams({ ...dynamodbBase, client, ...opts }),
+			(seq) => ({ eventID: seq, dynamodb: { SequenceNumber: seq } }),
+			"SequenceNumber",
+			dynamodbSeqs,
+		],
+	]) {
+		test(`${name} re-seeks after the last processed record when its iterator expired`, async () => {
+			const client = expiringShard(["1", "2", "3"], toRecord, seqParam);
+			const { deliveries, errors } = await deliver(makePoller(client), toSeqs, [
+				{},
+				{},
+				{},
+			]);
+			deepStrictEqual(deliveries, [["1"], ["2"], ["3"]]);
+			deepStrictEqual(client.seekInputs, [
+				["LATEST", undefined],
+				["AFTER_SEQUENCE_NUMBER", "1"],
+				["AFTER_SEQUENCE_NUMBER", "2"],
+			]);
+			strictEqual(errors.length, 0);
+		});
+
+		test(`${name} re-seeks at the retried record when the retry's iterator expired`, async () => {
+			const client = expiringShard(
+				["1", "2"],
+				toRecord,
+				seqParam,
+				new Set(["at:1"]),
+			);
+			const { deliveries } = await deliver(makePoller(client), toSeqs, [
+				boom,
+				{},
+			]);
+			deepStrictEqual(deliveries, [["1"], ["1"]]);
+			deepStrictEqual(client.seekInputs, [
+				["LATEST", undefined],
+				["AT_SEQUENCE_NUMBER", "1"],
+				["AT_SEQUENCE_NUMBER", "1"],
+			]);
+		});
+
+		test(`${name} re-seeks after a discarded batch when the iterator expired`, async () => {
+			const client = expiringShard(["1", "2"], toRecord, seqParam);
+			const poller = makePoller(client, { maxRetryAttempts: 0 });
+			const { deliveries, errors } = await deliver(poller, toSeqs, [boom, {}]);
+			deepStrictEqual(deliveries, [["1"], ["2"]]);
+			deepStrictEqual(client.seekInputs, [
+				["LATEST", undefined],
+				["AFTER_SEQUENCE_NUMBER", "1"],
+			]);
+			deepStrictEqual(
+				errors.map((e) => e.message),
+				["boom", "Retry attempts exhausted"],
+			);
+		});
+	}
+
+	test("pollDynamoDBStreams starts from TRIM_HORIZON when an expired iterator's position was trimmed", async () => {
+		const seekInputs = [];
+		const client = {
+			send: async (cmd) => {
+				if (cmd.constructor.name === "GetShardIteratorCommand") {
+					const type = cmd.input.ShardIteratorType;
+					seekInputs.push(type);
+					if (type === "AFTER_SEQUENCE_NUMBER") {
+						throw awsError("TrimmedDataAccessException");
+					}
+					return { ShardIterator: type };
+				}
+				if (cmd.input.ShardIterator === "stale") {
+					throw awsError("ExpiredIteratorException");
+				}
+				const seq = cmd.input.ShardIterator === "TRIM_HORIZON" ? "9" : "1";
+				return {
+					NextShardIterator: "stale",
+					Records: [{ eventID: seq, dynamodb: { SequenceNumber: seq } }],
+				};
+			},
+		};
+		const poller = pollDynamoDBStreams({ ...dynamodbBase, client });
+		const { deliveries, errors } = await deliver(poller, dynamodbSeqs, [
+			{},
+			{},
+		]);
+		deepStrictEqual(deliveries, [["1"], ["9"]]);
+		deepStrictEqual(seekInputs, [
+			"LATEST",
+			"AFTER_SEQUENCE_NUMBER",
+			"TRIM_HORIZON",
+		]);
+		// No retry was pending: nothing known to be lost beyond the trim.
+		deepStrictEqual(errors[0].cause.data, {
+			shardId: "0",
+			sequenceNumbers: [],
+		});
+	});
+
+	test("pollDynamoDBStreams reports no lost records when trimmed before any batch, then again from TRIM_HORIZON", async () => {
+		let seekCalls = 0;
+		const client = {
+			send: async (cmd) => {
+				if (cmd.constructor.name === "GetShardIteratorCommand") {
+					seekCalls++;
+					// Each re-seek after an expired iterator lands on trimmed records.
+					if (seekCalls === 2 || seekCalls === 4) {
+						throw awsError("TrimmedDataAccessException");
+					}
+					return { ShardIterator: String(seekCalls) };
+				}
+				if (cmd.input.ShardIterator !== "5") {
+					throw awsError("ExpiredIteratorException");
+				}
+				return {
+					NextShardIterator: "next",
+					Records: [{ eventID: "9", dynamodb: { SequenceNumber: "9" } }],
+				};
+			},
+		};
+		const poller = pollDynamoDBStreams({
+			...dynamodbBase,
+			shardIteratorType: "AT_SEQUENCE_NUMBER",
+			sequenceNumber: "1",
+			client,
+		});
+		const { deliveries, errors } = await deliver(poller, dynamodbSeqs, [{}]);
+		deepStrictEqual(deliveries, [["9"]]);
+		deepStrictEqual(
+			errors.map((e) => e.cause.data),
+			[
+				{ shardId: "0", sequenceNumbers: [] },
+				{ shardId: "0", sequenceNumbers: [] },
+			],
+		);
+	});
+
+	test("pollKinesis fails the poll with the child shards once its shard is closed", async () => {
+		const childShards = [
+			{ ShardId: "shardId-1", ParentShards: ["shardId-0"], HashKeyRange: {} },
+		];
+		const client = {
+			send: async (cmd) => {
+				if (cmd.constructor.name === "GetShardIteratorCommand") {
+					return { ShardIterator: "i" };
+				}
+				return {
+					NextShardIterator: null,
+					ChildShards: childShards,
+					Records: [{ PartitionKey: "p", SequenceNumber: "1", Data: "" }],
+				};
+			},
+		};
+		const poller = pollKinesis({
+			streamName: "s",
+			shardId: "shardId-0",
+			client,
+		});
+		const handled = [];
+		await rejects(
+			runPollLoop({
+				poller,
+				timeout: 1000,
+				signal: new AbortController().signal,
+				handler: async (event) => {
+					handled.push(kinesisSeqs(event));
+					return {};
+				},
+			}),
+			{
+				name: "SourceClosedError",
+				message: "Shard closed",
+				cause: {
+					package: "@middy/ecs-batch/pollKinesis",
+					data: { shardId: "shardId-0", childShards },
+				},
+			},
+		);
+		// The shard's last records are still delivered first.
+		deepStrictEqual(handled, [["1"]]);
+	});
+
+	test("pollDynamoDBStreams fails the poll once its shard is closed, also on an empty read", async () => {
+		for (const NextShardIterator of [null, undefined]) {
+			const client = {
+				send: async (cmd) => {
+					if (cmd.constructor.name === "GetShardIteratorCommand") {
+						return { ShardIterator: "i" };
+					}
+					return { NextShardIterator, Records: [] };
+				},
+			};
+			const poller = pollDynamoDBStreams({ ...dynamodbBase, client });
+			await rejects(poller.poll(new AbortController().signal).next(), {
+				name: "SourceClosedError",
+				message: "Shard closed",
+				cause: {
+					package: "@middy/ecs-batch/pollDynamoDBStreams",
+					data: { shardId: "0" },
+				},
+			});
+		}
+	});
+
+	test("pollKinesis fails the poll once a discarded batch was the closed shard's last", async () => {
+		const client = {
+			send: async (cmd) => {
+				if (cmd.constructor.name === "GetShardIteratorCommand") {
+					return { ShardIterator: "i" };
+				}
+				return {
+					NextShardIterator: null,
+					Records: [{ PartitionKey: "p", SequenceNumber: "1", Data: "" }],
+				};
+			},
+		};
+		const poller = pollKinesis({
+			streamName: "s",
+			shardId: "0",
+			maxRetryAttempts: 0,
+			client,
+		});
+		const it = poller.poll(new AbortController().signal);
+		await it.next();
+		await rejects(it.next(), { name: "SourceClosedError" });
+	});
+
+	test("runWorker exits 2 when its source closed for good", async () => {
+		const closed = Object.assign(new Error("Shard closed"), {
+			name: "SourceClosedError",
+		});
+		const errors = [];
+		const exits = [];
+		const poller = {
+			source: "test",
+			async *poll() {
+				yield { Records: [1] };
+				throw closed;
+			},
+			acknowledge: noop,
+		};
+		const { onSigterm } = await runWorker(
+			{
+				handler: async () => ({}),
+				poller,
+				timeout: 1000,
+				gracefulShutdownMs: 1000,
+				onError: (err) => errors.push(err),
+			},
+			{ exit: (code) => exits.push(code) },
+		);
+		await settleMacrotask();
+		process.removeListener("SIGTERM", onSigterm);
+		deepStrictEqual(errors, [closed]);
+		deepStrictEqual(exits, [2]);
+	});
+
+	test("runPrimary stops the task with exit code 2 when a worker's source closed", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 0 });
+		const cluster = makeFakeCluster();
+		const exits = [];
+		const { onSigterm } = await runPrimary(
+			{ workers: 2 },
+			{ cluster, fetch: noMeta, exit: (code) => exits.push(code) },
+		);
+		process.removeListener("SIGTERM", onSigterm);
+		cluster.exit(1, 2);
+		// No replacement: the source would only be closed again.
+		t.mock.timers.tick(60_000);
+		strictEqual(cluster.forks, 2);
+		// The other worker drains as on SIGTERM.
+		deepStrictEqual(cluster.killed, [[2, "SIGTERM"]]);
+		deepStrictEqual(exits, []);
+		cluster.exit(2, 0);
+		deepStrictEqual(exits, [2]);
+	});
+
+	test("pollKafka cuts the backoff short when a heartbeat is rejected by a rebalance", async () => {
+		const consumer = makeFakeKafkaConsumer();
+		const poller = pollKafka({
+			brokers: ["b1"],
+			groupId: "g",
+			topics: ["t1"],
+			consumer,
+			retryDelayMs: 60_000,
+			heartbeatIntervalMs: 5,
+		});
+		const ac = new AbortController();
+		const loop = runPollLoop({
+			poller,
+			handler: boom,
+			timeout: 1000,
+			signal: ac.signal,
+		});
+		await settleMacrotask();
+		const batch = makeKafkaBatchPayload(kafkaBatchOf("5"));
+		batch.payload.heartbeat = async () => {
+			throw new Error("The group is rebalancing, so a rejoin is needed");
+		};
+		let settled = false;
+		const done = consumer
+			.runHandler()(batch.payload)
+			.then(
+				() => {
+					settled = true;
+				},
+				() => {
+					settled = true;
+				},
+			);
+		await sleep(50);
+		strictEqual(settled, true, "eachBatch returns so kafkajs can rejoin");
+		await done;
+		deepStrictEqual(batch.calls.resolved, []);
+		ac.abort();
+		await loop;
+	});
+
+	test("pollKafka discards without an onError when polled outside the runner", async () => {
+		const consumer = makeFakeKafkaConsumer();
+		const poller = pollKafka({
+			brokers: ["b1"],
+			groupId: "g",
+			topics: ["t1"],
+			consumer,
+			maxRetryAttempts: 0,
+		});
+		const ac = new AbortController();
+		const it = poller.poll(ac.signal);
+		const { firstNext } = await drainKafkaSetup(it);
+		const batch = makeKafkaBatchPayload(kafkaBatchOf("5"));
+		const done = consumer.runHandler()(batch.payload);
+		await firstNext;
+		// Resumed without an acknowledgement: every record failed, no retry left.
+		const next = it.next();
+		await done;
+		deepStrictEqual(batch.calls.resolved, ["5"]);
+		ac.abort();
+		await next;
+	});
+
+	test("pollKinesis treats a NextShardIterator the SDK left out as a closed shard", async () => {
+		// The SDK's JSON deserializer drops a null member rather than keeping it.
+		const client = {
+			send: async (cmd) => {
+				if (cmd.constructor.name === "GetShardIteratorCommand") {
+					return { ShardIterator: "i" };
+				}
+				return { Records: [] };
+			},
+		};
+		const poller = pollKinesis({ streamName: "s", shardId: "0", client });
+		await rejects(poller.poll(new AbortController().signal).next(), {
+			name: "SourceClosedError",
+		});
+	});
+
+	test("runWorker exits 1 when a poller throws a non-error value", async () => {
+		const exits = [];
+		const errors = [];
+		const poller = {
+			source: "test",
+			// biome-ignore lint/correctness/useYield: fails before its first batch
+			async *poll() {
+				throw undefined;
+			},
+			acknowledge: noop,
+		};
+		const { onSigterm } = await runWorker(
+			{
+				handler: noop,
+				poller,
+				timeout: 1000,
+				gracefulShutdownMs: 1000,
+				onError: (err) => errors.push(err),
+			},
+			{ exit: (code) => exits.push(code) },
+		);
+		await settleMacrotask();
+		process.removeListener("SIGTERM", onSigterm);
+		deepStrictEqual(errors, [undefined]);
+		deepStrictEqual(exits, [1]);
 	});
 });

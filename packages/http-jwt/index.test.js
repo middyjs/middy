@@ -1,4 +1,4 @@
-import { ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { generateKeyPair } from "node:crypto";
 import { describe, test } from "node:test";
 import { promisify } from "node:util";
@@ -70,9 +70,17 @@ const jwksFixture = async ({
 	return { privateKey, publicKey, jwk, kid, alg };
 };
 
-const signToken = async ({ privateKey, alg, kid, iss, aud, claims = {} }) => {
+const signToken = async ({
+	privateKey,
+	alg,
+	kid,
+	typ = "at+jwt",
+	iss,
+	aud,
+	claims = {},
+}) => {
 	const sjwt = new SignJWT({ ...claims })
-		.setProtectedHeader({ alg, kid })
+		.setProtectedHeader({ alg, kid, typ })
 		.setIssuedAt()
 		.setExpirationTime("1h");
 	if (iss) sjwt.setIssuer(iss);
@@ -125,7 +133,7 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const token = await new SignJWT({ sub: "user-1", role: "admin" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -146,7 +154,7 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const token = await new SignJWT({ sub: "user-1" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -165,7 +173,7 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const token = await new SignJWT({ sub: "user-1" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -177,6 +185,48 @@ describe("@middy/http-jwt", () => {
 
 		const result = await handler(makeEvent(`Bearer ${token}`), ctx);
 		strictEqual(result.middyContext.auth.sub, "user-1");
+	});
+
+	// RFC 9449 §4.3 check 11: `ath` must hash the access token that was
+	// presented and verified. Publishing the verified token lets @middy/http-dpop
+	// hash exactly that one rather than re-reading a header.
+	test('It should publish the verified token at payloadKey + "Token" by default', async (t) => {
+		const secret = "super-secret-key-for-testing-1234";
+		const token = await new SignJWT({ sub: "user-1" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
+			.setIssuedAt()
+			.setExpirationTime("1h")
+			.sign(Buffer.from(secret));
+
+		const handler = middy(() => {})
+			.use(
+				httpJwt({ secretKey: secret, algorithm: "HS256", payloadKey: "auth" }),
+			)
+			.after((request) => {
+				strictEqual(request.internal.authToken, token);
+			});
+
+		await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
+	});
+
+	test("It should publish the verified token at a custom tokenKey", async (t) => {
+		const secret = "super-secret-key-for-testing-1234";
+		const token = await new SignJWT({ sub: "user-1" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
+			.setIssuedAt()
+			.setExpirationTime("1h")
+			.sign(Buffer.from(secret));
+
+		let internal;
+		const handler = middy(() => {})
+			.use(httpJwt({ secretKey: secret, algorithm: "HS256", tokenKey: "raw" }))
+			.after((request) => {
+				internal = request.internal;
+			});
+
+		await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
+		strictEqual(internal.raw, token);
+		strictEqual(internal.jwtToken, undefined);
 	});
 
 	test("It should verify with RS256 using internalKey", async (t) => {
@@ -193,7 +243,7 @@ describe("@middy/http-jwt", () => {
 		);
 
 		const token = await new SignJWT({ sub: "user-2" })
-			.setProtectedHeader({ alg: "RS256" })
+			.setProtectedHeader({ alg: "RS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(importedPrivate);
@@ -223,7 +273,7 @@ describe("@middy/http-jwt", () => {
 		// secret. With a raw string key and a mixed RS256+HS256 allowlist this would
 		// otherwise verify (classic RS/HS algorithm confusion).
 		const forged = await new SignJWT({ sub: "attacker" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.sign(Buffer.from(publicPem));
 
 		const handler = middy(() => true)
@@ -285,7 +335,7 @@ describe("@middy/http-jwt", () => {
 		// it is unchanged; pair with `@middy/http-dpop` to require the proof, which
 		// is the only thing that can read the token's `cnf` claim.
 		const token = await new SignJWT({ sub: "user-1" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setExpirationTime("1h")
 			.sign(new TextEncoder().encode("secret"));
 
@@ -306,7 +356,7 @@ describe("@middy/http-jwt", () => {
 		);
 
 		const token = await new SignJWT({ sub: "x" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from("wrong-secret"));
@@ -328,7 +378,7 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const token = await new SignJWT({ sub: "user-1" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("-1s")
 			.sign(Buffer.from(secret));
@@ -352,7 +402,7 @@ describe("@middy/http-jwt", () => {
 			sub: "user-1",
 			aud: "https://api.example.com",
 		})
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -375,7 +425,7 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const token = await new SignJWT({ sub: "user-1" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.setIssuer("wrong-issuer")
@@ -391,6 +441,107 @@ describe("@middy/http-jwt", () => {
 
 		try {
 			await handler(makeEvent(`Bearer ${token}`), defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+		}
+	});
+
+	test("It should reject a typ JWT token by default (RFC 9068 at+jwt)", async (t) => {
+		const secret = "super-secret-key-for-testing-1234";
+		const token = await new SignJWT({ sub: "user-1" })
+			.setProtectedHeader({ alg: "HS256", typ: "JWT" })
+			.setIssuedAt()
+			.setExpirationTime("1h")
+			.sign(Buffer.from(secret));
+
+		const handler = middy(() => {}).use(
+			httpJwt({ secretKey: secret, algorithm: "HS256" }),
+		);
+
+		try {
+			await handler(makeEvent(`Bearer ${token}`), defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+		}
+	});
+
+	test("It should compare typ as jose does: case-insensitive, application/ prefix optional, header required", async (t) => {
+		const secret = "super-secret-key-for-testing-1234";
+		const sign = (header) =>
+			new SignJWT({ sub: "user-1" })
+				.setProtectedHeader(header)
+				.setIssuedAt()
+				.setExpirationTime("1h")
+				.sign(Buffer.from(secret));
+
+		const handler = middy((event, context) => context.middyContext.jwt).use(
+			httpJwt({ secretKey: secret, algorithm: "HS256" }),
+		);
+
+		for (const typ of ["at+jwt", "application/at+jwt", "AT+JWT"]) {
+			const result = await handler(
+				makeEvent(`Bearer ${await sign({ alg: "HS256", typ })}`),
+				defaultContext,
+			);
+			strictEqual(result.sub, "user-1");
+		}
+
+		try {
+			await handler(
+				makeEvent(`Bearer ${await sign({ alg: "HS256" })}`),
+				defaultContext,
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+		}
+	});
+
+	test("It should skip the typ check when typ is null", async (t) => {
+		const secret = "super-secret-key-for-testing-1234";
+		const sign = (header) =>
+			new SignJWT({ sub: "user-1" })
+				.setProtectedHeader(header)
+				.setIssuedAt()
+				.setExpirationTime("1h")
+				.sign(Buffer.from(secret));
+
+		const handler = middy((event, context) => context.middyContext.jwt).use(
+			httpJwt({ secretKey: secret, algorithm: "HS256", typ: null }),
+		);
+
+		for (const header of [{ alg: "HS256" }, { alg: "HS256", typ: "JWT" }]) {
+			const result = await handler(
+				makeEvent(`Bearer ${await sign(header)}`),
+				defaultContext,
+			);
+			strictEqual(result.sub, "user-1");
+		}
+	});
+
+	test("It should reject a token whose typ header does not match the typ option", async (t) => {
+		const secret = "super-secret-key-for-testing-1234";
+		const sign = (typ) =>
+			new SignJWT({ sub: "user-1" })
+				.setProtectedHeader({ alg: "HS256", typ })
+				.setIssuedAt()
+				.setExpirationTime("1h")
+				.sign(Buffer.from(secret));
+
+		const handler = middy((event, context) => context.middyContext.jwt).use(
+			httpJwt({ secretKey: secret, algorithm: "HS256", typ: "at+jwt" }),
+		);
+
+		const result = await handler(
+			makeEvent(`Bearer ${await sign("at+jwt")}`),
+			defaultContext,
+		);
+		strictEqual(result.sub, "user-1");
+
+		try {
+			await handler(makeEvent(`Bearer ${await sign("JWT")}`), defaultContext);
 			ok(false, "expected throw");
 		} catch (e) {
 			strictEqual(e.statusCode, 401);
@@ -421,7 +572,7 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const token = await new SignJWT({ sub: "user-1" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -442,7 +593,7 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const token = await new SignJWT({ sub: "user-1" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -467,7 +618,7 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const token = await new SignJWT({ sub: "user-1" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -535,7 +686,7 @@ describe("@middy/http-jwt", () => {
 		);
 
 		const token = await new SignJWT({ sub: "user-kms" })
-			.setProtectedHeader({ alg: "RS256" })
+			.setProtectedHeader({ alg: "RS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(importedPrivate);
@@ -571,7 +722,7 @@ describe("@middy/http-jwt", () => {
 			"RS256",
 		);
 		const token = await new SignJWT({ sub: "user-kms" })
-			.setProtectedHeader({ alg: "RS256" })
+			.setProtectedHeader({ alg: "RS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(importedPrivate);
@@ -619,7 +770,7 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const token = await new SignJWT({ sub: "user-ssm" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -641,7 +792,7 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const token = await new SignJWT({ sub: "user-1" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -667,7 +818,7 @@ describe("@middy/http-jwt", () => {
 		);
 
 		const token = await new SignJWT({ sub: "user-override" })
-			.setProtectedHeader({ alg: "RS256" })
+			.setProtectedHeader({ alg: "RS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(importedPrivate);
@@ -726,7 +877,7 @@ describe("@middy/http-jwt", () => {
 		);
 
 		const token = await new SignJWT({ sub: "user-narrow" })
-			.setProtectedHeader({ alg: "RS256" })
+			.setProtectedHeader({ alg: "RS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(importedPrivate);
@@ -760,7 +911,7 @@ describe("@middy/http-jwt", () => {
 		);
 
 		const token = await new SignJWT({ sub: "user-unknown-spec" })
-			.setProtectedHeader({ alg: "RS256" })
+			.setProtectedHeader({ alg: "RS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(importedPrivate);
@@ -793,7 +944,7 @@ describe("@middy/http-jwt", () => {
 		);
 
 		const token = await new SignJWT({ sub: "user-bare-rsa" })
-			.setProtectedHeader({ alg: "RS256" })
+			.setProtectedHeader({ alg: "RS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(importedPrivate);
@@ -816,7 +967,7 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const token = await new SignJWT({ sub: "user-hs256" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -837,7 +988,7 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const token = await new SignJWT({ sub: "user-hdr" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -862,7 +1013,7 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const token = await new SignJWT({ sub: "user-hdr-lower" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -905,7 +1056,7 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const token = await new SignJWT({ sub: "user-qs" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -948,13 +1099,13 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const cookieToken = await new SignJWT({ sub: "from-cookie" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
 
 		const headerToken = await new SignJWT({ sub: "from-header" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -987,7 +1138,7 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const token = await new SignJWT({ sub: "from-header" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -1013,7 +1164,7 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const token = await new SignJWT({ sub: "from-query" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -1049,11 +1200,54 @@ describe("@middy/http-jwt", () => {
 		}
 	});
 
+	test("It should challenge with a bare Bearer when no token is presented (RFC 6750 3.1)", async (t) => {
+		const handler = middy(() => {}).use(
+			httpJwt({ secretKey: "s", algorithm: "HS256" }),
+		);
+
+		try {
+			await handler({ headers: {} }, defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			deepStrictEqual(e.headers, { "WWW-Authenticate": "Bearer" });
+		}
+	});
+
+	test("It should challenge with invalid_token when the token is refused", async (t) => {
+		const handler = middy(() => {}).use(
+			httpJwt({ secretKey: "s", algorithm: "HS256" }),
+		);
+
+		try {
+			await handler(makeEvent("Bearer not.a.jwt"), defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			deepStrictEqual(e.headers, {
+				"WWW-Authenticate": 'Bearer error="invalid_token"',
+			});
+		}
+	});
+
+	test("It should send WWW-Authenticate through http-error-handler", async (t) => {
+		const handler = middy(() => {})
+			.use(httpErrorHandler({ logger: false }))
+			.use(httpJwt({ secretKey: "s", algorithm: "HS256" }));
+
+		const response = await handler(makeEvent("Bearer x.y.z"), defaultContext);
+		strictEqual(response.statusCode, 401);
+		strictEqual(
+			response.headers["WWW-Authenticate"],
+			'Bearer error="invalid_token"',
+		);
+	});
+
 	test("It should fall through when Authorization header has wrong number of parts", async (t) => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const token = await new SignJWT({ sub: "from-query-malformed" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -1082,7 +1276,7 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const token = await new SignJWT({ sub: "from-query-fallback" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -1137,6 +1331,147 @@ describe("@middy/http-jwt", () => {
 			);
 			strictEqual(result.jwt.iss, iss);
 			strictEqual(result.jwt.aud, "clientA");
+		} finally {
+			fetchStub.restore();
+		}
+	});
+
+	test("issuers: typ option rejects a token with a different typ header", async (t) => {
+		const { privateKey, jwk, kid } = await jwksFixture();
+		const iss = "https://idp.example.com/poolA";
+		const jwksUri = nextJwksUri();
+		const sign = (typ) =>
+			signToken({ privateKey, alg: "RS256", kid, typ, iss, aud: "clientA" });
+
+		const fetchStub = installFetch({
+			[jwksUri]: jwksResponse({ keys: [jwk] }),
+		});
+		try {
+			const handler = middy((event, context) => context.middyContext).use(
+				httpJwt({
+					issuers: { [iss]: { jwksUri, audience: "clientA" } },
+					algorithm: "RS256",
+					typ: "at+jwt",
+				}),
+			);
+			const result = await handler(
+				{ headers: { authorization: `Bearer ${await sign("at+jwt")}` } },
+				{ ...defaultContext },
+			);
+			strictEqual(result.jwt.iss, iss);
+
+			try {
+				await handler(
+					{ headers: { authorization: `Bearer ${await sign("JWT")}` } },
+					{ ...defaultContext },
+				);
+				ok(false, "expected throw");
+			} catch (e) {
+				strictEqual(e.statusCode, 401);
+			}
+		} finally {
+			fetchStub.restore();
+		}
+	});
+
+	test("issuers: typ defaults to at+jwt and null disables the check", async (t) => {
+		const { privateKey, jwk, kid } = await jwksFixture();
+		const iss = "https://idp.example.com/poolA";
+		const jwksUri = nextJwksUri();
+		const sign = (typ) =>
+			signToken({ privateKey, alg: "RS256", kid, typ, iss, aud: "clientA" });
+		const idToken = await sign("JWT");
+		const untyped = await new SignJWT({})
+			.setProtectedHeader({ alg: "RS256", kid })
+			.setIssuer(iss)
+			.setAudience("clientA")
+			.setExpirationTime("1h")
+			.sign(privateKey);
+
+		const fetchStub = installFetch({
+			[jwksUri]: jwksResponse({ keys: [jwk] }),
+		});
+		const makeHandler = (opts) =>
+			middy((event, context) => context.middyContext).use(
+				httpJwt({
+					issuers: { [iss]: { jwksUri, audience: "clientA" } },
+					algorithm: "RS256",
+					...opts,
+				}),
+			);
+		const call = (handler, token) =>
+			handler(
+				{ headers: { authorization: `Bearer ${token}` } },
+				{ ...defaultContext },
+			);
+		try {
+			const strict = makeHandler({});
+			for (const token of [idToken, untyped]) {
+				try {
+					await call(strict, token);
+					ok(false, "expected throw");
+				} catch (e) {
+					strictEqual(e.statusCode, 401);
+				}
+			}
+			const lax = makeHandler({ typ: null });
+			for (const token of [idToken, untyped]) {
+				strictEqual((await call(lax, token)).jwt.iss, iss);
+			}
+		} finally {
+			fetchStub.restore();
+		}
+	});
+
+	test("issuers: a per-issuer typ overrides the top-level typ", async (t) => {
+		const a = await jwksFixture({ kid: "kid-a" });
+		const b = await jwksFixture({ kid: "kid-b", slot: 1 });
+		const issA = "https://idp.example.com/poolA";
+		const issB = "https://idp.example.com/poolB";
+		const jwksUriA = nextJwksUri();
+		const jwksUriB = nextJwksUri();
+		const fetchStub = installFetch({
+			[jwksUriA]: jwksResponse({ keys: [a.jwk] }),
+			[jwksUriB]: jwksResponse({ keys: [b.jwk] }),
+		});
+		const call = (handler, token) =>
+			handler(
+				{ headers: { authorization: `Bearer ${token}` } },
+				{ ...defaultContext },
+			);
+		try {
+			const handler = middy((event, context) => context.middyContext).use(
+				httpJwt({
+					issuers: {
+						[issA]: { jwksUri: jwksUriA, typ: null },
+						[issB]: { jwksUri: jwksUriB },
+					},
+					algorithm: "RS256",
+					audience: null,
+				}),
+			);
+			const tokenA = await signToken({
+				privateKey: a.privateKey,
+				alg: "RS256",
+				kid: a.kid,
+				typ: "JWT",
+				iss: issA,
+			});
+			strictEqual((await call(handler, tokenA)).jwt.iss, issA);
+
+			const tokenB = await signToken({
+				privateKey: b.privateKey,
+				alg: "RS256",
+				kid: b.kid,
+				typ: "JWT",
+				iss: issB,
+			});
+			try {
+				await call(handler, tokenB);
+				ok(false, "expected throw");
+			} catch (e) {
+				strictEqual(e.statusCode, 401);
+			}
 		} finally {
 			fetchStub.restore();
 		}
@@ -1260,6 +1595,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [issConfigured]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -1306,6 +1642,7 @@ describe("@middy/http-jwt", () => {
 						[issB]: { jwksUri: uriB },
 					},
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -1319,6 +1656,304 @@ describe("@middy/http-jwt", () => {
 				strictEqual(e.statusCode, 401);
 				strictEqual(e.cause.package, "@middy/http-jwt");
 			}
+		} finally {
+			fetchStub.restore();
+		}
+	});
+
+	test("issuers: a key cached for one issuer is not reused for another issuer with the same kid", async (t) => {
+		const fixA = await jwksFixture({ kid: "k1" });
+		const fixB = await jwksFixture({ kid: "k1", slot: 1 });
+		const issA = "https://idp.example.com/poolA";
+		const issB = "https://idp.example.com/poolB";
+		const uriA = nextJwksUri();
+		const uriB = nextJwksUri();
+		const tokenB = await signToken({
+			privateKey: fixB.privateKey,
+			alg: "RS256",
+			kid: "k1",
+			iss: issB,
+		});
+		// Signed by pool B's key, claiming pool A.
+		const forged = await signToken({
+			privateKey: fixB.privateKey,
+			alg: "RS256",
+			kid: "k1",
+			iss: issA,
+		});
+		const tokenA = await signToken({
+			privateKey: fixA.privateKey,
+			alg: "RS256",
+			kid: "k1",
+			iss: issA,
+		});
+
+		const fetchStub = installFetch({
+			[uriA]: jwksResponse({ keys: [fixA.jwk] }),
+			[uriB]: jwksResponse({ keys: [fixB.jwk] }),
+		});
+		try {
+			const handler = middy((event, context) => context.middyContext).use(
+				httpJwt({
+					issuers: {
+						[issA]: { jwksUri: uriA },
+						[issB]: { jwksUri: uriB },
+					},
+					algorithm: "RS256",
+					audience: null,
+					disablePrefetch: true,
+				}),
+			);
+			const rB = await handler(
+				{ headers: { authorization: `Bearer ${tokenB}` } },
+				{ ...defaultContext },
+			);
+			strictEqual(rB.jwt.iss, issB);
+			try {
+				await handler(
+					{ headers: { authorization: `Bearer ${forged}` } },
+					{ ...defaultContext },
+				);
+				ok(false, "expected throw");
+			} catch (e) {
+				strictEqual(e.statusCode, 401);
+				strictEqual(e.cause.package, "@middy/http-jwt");
+			}
+			const rA = await handler(
+				{ headers: { authorization: `Bearer ${tokenA}` } },
+				{ ...defaultContext },
+			);
+			strictEqual(rA.jwt.iss, issA);
+		} finally {
+			fetchStub.restore();
+		}
+	});
+
+	test("issuers: top-level audience applies when the entry sets none", async (t) => {
+		const { privateKey, jwk, kid } = await jwksFixture();
+		const iss = "https://idp.example.com/pool";
+		const jwksUri = nextJwksUri();
+		const good = await signToken({
+			privateKey,
+			alg: "RS256",
+			kid,
+			iss,
+			aud: "clientA",
+		});
+		const bad = await signToken({
+			privateKey,
+			alg: "RS256",
+			kid,
+			iss,
+			aud: "other",
+		});
+
+		const fetchStub = installFetch({
+			[jwksUri]: jwksResponse({ keys: [jwk] }),
+		});
+		try {
+			const handler = middy((event, context) => context.middyContext).use(
+				httpJwt({
+					issuers: { [iss]: { jwksUri } },
+					audience: "clientA",
+					algorithm: "RS256",
+					disablePrefetch: true,
+				}),
+			);
+			const r = await handler(
+				{ headers: { authorization: `Bearer ${good}` } },
+				{ ...defaultContext },
+			);
+			strictEqual(r.jwt.aud, "clientA");
+			try {
+				await handler(
+					{ headers: { authorization: `Bearer ${bad}` } },
+					{ ...defaultContext },
+				);
+				ok(false, "expected throw");
+			} catch (e) {
+				strictEqual(e.statusCode, 401);
+			}
+		} finally {
+			fetchStub.restore();
+		}
+	});
+
+	test("issuers: entry audience overrides top-level audience", async (t) => {
+		const { privateKey, jwk, kid } = await jwksFixture();
+		const iss = "https://idp.example.com/pool";
+		const jwksUri = nextJwksUri();
+		const token = await signToken({
+			privateKey,
+			alg: "RS256",
+			kid,
+			iss,
+			aud: "clientB",
+		});
+
+		const fetchStub = installFetch({
+			[jwksUri]: jwksResponse({ keys: [jwk] }),
+		});
+		try {
+			const handler = middy((event, context) => context.middyContext).use(
+				httpJwt({
+					issuers: { [iss]: { jwksUri, audience: "clientB" } },
+					audience: "clientA",
+					algorithm: "RS256",
+					disablePrefetch: true,
+				}),
+			);
+			const r = await handler(
+				{ headers: { authorization: `Bearer ${token}` } },
+				{ ...defaultContext },
+			);
+			strictEqual(r.jwt.aud, "clientB");
+		} finally {
+			fetchStub.restore();
+		}
+	});
+
+	// RFC 9068 section 4: the resource server MUST validate that `aud` identifies
+	// it. A shared issuer signs tokens for every client it serves, so without an
+	// audience any of them would pass. Opting out takes an explicit `null`.
+	test("issuers: an issuer with no audience and no top-level audience throws at construction", async (t) => {
+		const iss = "https://idp.example.com/pool";
+		try {
+			httpJwt({
+				issuers: { [iss]: { jwksUri: nextJwksUri() } },
+				algorithm: "RS256",
+				disablePrefetch: true,
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes(`issuers['${iss}'].audience`), e.message);
+			strictEqual(e.cause.package, "@middy/http-jwt");
+		}
+	});
+
+	test("issuers: entry audience: null opts out of the aud check over a top-level audience", async (t) => {
+		const { privateKey, jwk, kid } = await jwksFixture();
+		const iss = "https://idp.example.com/pool";
+		const jwksUri = nextJwksUri();
+		const token = await signToken({
+			privateKey,
+			alg: "RS256",
+			kid,
+			iss,
+			aud: "other",
+		});
+
+		const fetchStub = installFetch({
+			[jwksUri]: jwksResponse({ keys: [jwk] }),
+		});
+		try {
+			const handler = middy((event, context) => context.middyContext).use(
+				httpJwt({
+					issuers: { [iss]: { jwksUri, audience: null } },
+					audience: "clientA",
+					algorithm: "RS256",
+					disablePrefetch: true,
+				}),
+			);
+			const r = await handler(
+				{ headers: { authorization: `Bearer ${token}` } },
+				{ ...defaultContext },
+			);
+			strictEqual(r.jwt.aud, "other");
+		} finally {
+			fetchStub.restore();
+		}
+	});
+
+	test("issuers: entry audience still applies over a top-level audience: null", async (t) => {
+		const { privateKey, jwk, kid } = await jwksFixture();
+		const iss = "https://idp.example.com/pool";
+		const jwksUri = nextJwksUri();
+		const good = await signToken({
+			privateKey,
+			alg: "RS256",
+			kid,
+			iss,
+			aud: "clientB",
+		});
+		const bad = await signToken({
+			privateKey,
+			alg: "RS256",
+			kid,
+			iss,
+			aud: "clientA",
+		});
+
+		const fetchStub = installFetch({
+			[jwksUri]: jwksResponse({ keys: [jwk] }),
+		});
+		try {
+			const handler = middy((event, context) => context.middyContext).use(
+				httpJwt({
+					issuers: { [iss]: { jwksUri, audience: "clientB" } },
+					audience: null,
+					algorithm: "RS256",
+					disablePrefetch: true,
+				}),
+			);
+			const r = await handler(
+				{ headers: { authorization: `Bearer ${good}` } },
+				{ ...defaultContext },
+			);
+			strictEqual(r.jwt.aud, "clientB");
+			try {
+				await handler(
+					{ headers: { authorization: `Bearer ${bad}` } },
+					{ ...defaultContext },
+				);
+				ok(false, "expected throw");
+			} catch (e) {
+				strictEqual(e.statusCode, 401);
+				strictEqual(e.cause.data.reason, 'unexpected "aud" claim value');
+			}
+		} finally {
+			fetchStub.restore();
+		}
+	});
+
+	test("issuers: a key rotated under the same kid replaces the cached key once the JWKS is refetched", async (t) => {
+		const fixOld = await jwksFixture({ kid: "k" });
+		const fixNew = await jwksFixture({ kid: "k", slot: 1 });
+		const iss = "https://idp.example.com/rotating";
+		const jwksUri = nextJwksUri();
+		const sign = (fix) =>
+			signToken({ privateKey: fix.privateKey, alg: "RS256", kid: "k", iss });
+		let current = fixOld;
+
+		const fetchStub = installFetch({
+			[jwksUri]: () => jwksResponse({ keys: [current.jwk] })(),
+		});
+		try {
+			const handler = middy((event, context) => context.middyContext).use(
+				httpJwt({
+					issuers: { [iss]: { jwksUri } },
+					algorithm: "RS256",
+					audience: null,
+					cacheExpiry: 1,
+					cooldownDuration: 0,
+					disablePrefetch: true,
+				}),
+			);
+			const call = (token) =>
+				handler(
+					{ headers: { authorization: `Bearer ${token}` } },
+					{ ...defaultContext },
+				);
+
+			strictEqual((await call(await sign(fixOld))).jwt.iss, iss);
+
+			current = fixNew;
+			await new Promise((resolve) => setTimeout(resolve, 5));
+
+			strictEqual((await call(await sign(fixNew))).jwt.iss, iss);
+			const retired = await call(await sign(fixOld)).catch((e) => e);
+			strictEqual(retired.statusCode, 401);
 		} finally {
 			fetchStub.restore();
 		}
@@ -1343,6 +1978,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -1369,7 +2005,7 @@ describe("@middy/http-jwt", () => {
 		// Sign an HS256 token (so its protected header says alg: HS256).
 		const hsSecret = "shared-secret";
 		const token = await new SignJWT({})
-			.setProtectedHeader({ alg: "HS256", kid: "test-kid" })
+			.setProtectedHeader({ alg: "HS256", kid: "test-kid", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.setIssuer(iss)
@@ -1383,6 +2019,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -1415,6 +2052,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -1444,6 +2082,7 @@ describe("@middy/http-jwt", () => {
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
+				audience: null,
 			});
 			// Wait long enough for the warm-up fetch to complete and be swallowed.
 			await new Promise((r) => setTimeout(r, 30));
@@ -1474,6 +2113,7 @@ describe("@middy/http-jwt", () => {
 					[issB]: { jwksUri: uriB },
 				},
 				algorithm: "RS256",
+				audience: null,
 			});
 			// give the warm-up promises a chance to fire
 			await new Promise((r) => setTimeout(r, 30));
@@ -1497,6 +2137,7 @@ describe("@middy/http-jwt", () => {
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
+				audience: null,
 				disablePrefetch: true,
 			});
 			await new Promise((r) => setTimeout(r, 30));
@@ -1520,6 +2161,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -1555,6 +2197,7 @@ describe("@middy/http-jwt", () => {
 	test("issuers: factory throws when algorithm is missing", () => {
 		try {
 			httpJwt({
+				audience: null,
 				issuers: { "https://idp.example.com": { jwksUri: "https://x/jwks" } },
 			});
 			ok(false, "expected throw");
@@ -1569,6 +2212,7 @@ describe("@middy/http-jwt", () => {
 			httpJwt({
 				issuers: { "https://idp.example.com": { jwksUri: "https://x/jwks" } },
 				algorithm: [],
+				audience: null,
 			});
 			ok(false, "expected throw");
 		} catch (e) {
@@ -1582,6 +2226,7 @@ describe("@middy/http-jwt", () => {
 			httpJwt({
 				issuers: { "https://idp.example.com": { jwksUri: "https://x/jwks" } },
 				algorithm: "none",
+				audience: null,
 			});
 			ok(false, "expected throw");
 		} catch (e) {
@@ -1662,6 +2307,7 @@ describe("@middy/http-jwt", () => {
 						[issEc]: { jwksUri: uriEc, algorithm: "ES256" }, // overrides
 					},
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -1690,6 +2336,7 @@ describe("@middy/http-jwt", () => {
 					},
 				},
 				algorithm: "RS256",
+				audience: null,
 			});
 			ok(false, "expected throw");
 		} catch (e) {
@@ -1721,7 +2368,7 @@ describe("@middy/http-jwt", () => {
 			iss,
 		});
 		const tokenHs = await new SignJWT({})
-			.setProtectedHeader({ alg: "HS256", kid: "rsa-1" })
+			.setProtectedHeader({ alg: "HS256", kid: "rsa-1", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.setIssuer(iss)
@@ -1735,6 +2382,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri, algorithm: ["RS256", "ES256"] } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -1778,6 +2426,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -1813,6 +2462,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -1842,6 +2492,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri, algorithm: ["RS256", "ES256"] } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -1865,7 +2516,7 @@ describe("@middy/http-jwt", () => {
 		const iss = "https://idp.example.com/pool";
 		const jwksUri = nextJwksUri();
 		const token = await new SignJWT({})
-			.setProtectedHeader({ alg: "RS256", kid: "anything" })
+			.setProtectedHeader({ alg: "RS256", kid: "anything", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.setIssuer(iss)
@@ -1885,6 +2536,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -1908,7 +2560,7 @@ describe("@middy/http-jwt", () => {
 		const iss = "https://idp.example.com/pool";
 		const jwksUri = nextJwksUri();
 		const token = await new SignJWT({})
-			.setProtectedHeader({ alg: "RS256", kid: "bad-jwk" })
+			.setProtectedHeader({ alg: "RS256", kid: "bad-jwk", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.setIssuer(iss)
@@ -1932,6 +2584,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -1956,7 +2609,7 @@ describe("@middy/http-jwt", () => {
 		const jwksUri = nextJwksUri();
 		// Token expired 1 second ago.
 		const token = await new SignJWT({})
-			.setProtectedHeader({ alg: "RS256", kid })
+			.setProtectedHeader({ alg: "RS256", kid, typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("-1s")
 			.setIssuer(iss)
@@ -1970,6 +2623,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					clockTolerance: 5,
 					disablePrefetch: true,
 				}),
@@ -1997,6 +2651,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -2018,7 +2673,7 @@ describe("@middy/http-jwt", () => {
 	test("setToContext: false (default) writes only to internal, not context", async (t) => {
 		const secret = "super-secret-key-for-testing-1234";
 		const token = await new SignJWT({ sub: "user-internal-only" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -2047,7 +2702,7 @@ describe("@middy/http-jwt", () => {
 	test("setToContext: true writes to both internal and context", async (t) => {
 		const secret = "super-secret-key-for-testing-1234";
 		const token = await new SignJWT({ sub: "user-both" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -2095,6 +2750,21 @@ describe("@middy/http-jwt", () => {
 		}
 	});
 
+	test("httpJwtValidateOptions accepts a string or null typ and rejects any other type", () => {
+		httpJwtValidateOptions({
+			internalKey: "k",
+			algorithm: "HS256",
+			typ: "at+jwt",
+		});
+		httpJwtValidateOptions({ internalKey: "k", algorithm: "HS256", typ: null });
+		try {
+			httpJwtValidateOptions({ internalKey: "k", algorithm: "HS256", typ: 1 });
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.cause?.package, "@middy/http-jwt");
+		}
+	});
+
 	test("httpJwtValidateOptions accepts the issuers shape", () => {
 		httpJwtValidateOptions({
 			issuers: {
@@ -2102,9 +2772,16 @@ describe("@middy/http-jwt", () => {
 					jwksUri: "https://idp.example.com/.well-known/jwks.json",
 					audience: "client",
 					algorithm: ["RS256", "ES256"],
+					typ: null,
+				},
+				"https://other.example.com": {
+					jwksUri: "https://other.example.com/.well-known/jwks.json",
+					audience: null,
+					typ: "at+jwt",
 				},
 			},
 			algorithm: "RS256",
+			audience: null,
 			cacheExpiry: 1000,
 			cooldownDuration: 100,
 			disablePrefetch: true,
@@ -2121,10 +2798,56 @@ describe("@middy/http-jwt", () => {
 		}
 	});
 
+	// ALB with multi-value headers enabled sends `multiValueHeaders` and no `headers`.
+	// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+	test("It should read the Authorization header from ALB multiValueHeaders", async (t) => {
+		const secret = "super-secret-key-for-testing-1234";
+		const token = await new SignJWT({ sub: "user-alb-mv" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
+			.setIssuedAt()
+			.setExpirationTime("1h")
+			.sign(Buffer.from(secret));
+
+		const handler = middy((event, context) => context.middyContext).use(
+			httpJwt({ secretKey: secret, algorithm: "HS256" }),
+		);
+
+		const result = await handler(
+			{ multiValueHeaders: { authorization: [`Bearer ${token}`] } },
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.jwt.sub, "user-alb-mv");
+	});
+
+	test("It should read the token cookie from ALB multiValueHeaders", async (t) => {
+		const secret = "super-secret-key-for-testing-1234";
+		const token = await new SignJWT({ sub: "user-alb-cookie" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
+			.setIssuedAt()
+			.setExpirationTime("1h")
+			.sign(Buffer.from(secret));
+
+		const handler = middy((event, context) => context.middyContext).use(
+			httpJwt({
+				secretKey: secret,
+				algorithm: "HS256",
+				tokenCookieName: "session",
+			}),
+		);
+
+		const result = await handler(
+			{ multiValueHeaders: { cookie: ["a=1", `session=${token}`] } },
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.jwt.sub, "user-alb-cookie");
+	});
+
 	test("It should accept Authorization header delivered as an array (multiValueHeaders / repeated headers)", async (t) => {
 		const secret = "super-secret-key-for-testing-1234";
 		const token = await new SignJWT({ sub: "user-array-hdr" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -2144,7 +2867,7 @@ describe("@middy/http-jwt", () => {
 	test("It should strip RFC 6265 surrounding double-quotes from a cookie value", async (t) => {
 		const secret = "super-secret-key-for-testing-1234";
 		const token = await new SignJWT({ sub: "user-quoted-cookie" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -2165,16 +2888,39 @@ describe("@middy/http-jwt", () => {
 		strictEqual(result.jwt.sub, "user-quoted-cookie");
 	});
 
-	test("It should accept a token without exp by default", async (t) => {
+	test("It should reject a token without exp by default", async (t) => {
+		// RFC 9068 section 2.2: exp is REQUIRED in a JWT access token, and jose
+		// only checks exp when present, so an exp-less token would never expire.
 		const secret = "super-secret-key-for-testing-1234";
 		// No setExpirationTime: token has no exp claim.
 		const token = await new SignJWT({ sub: "user-no-exp" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
+			.setIssuedAt()
+			.sign(Buffer.from(secret));
+
+		const handler = middy(() => {}).use(
+			httpJwt({ secretKey: secret, algorithm: "HS256" }),
+		);
+
+		try {
+			await handler(makeEvent(`Bearer ${token}`), defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.data.reason, 'missing required "exp" claim');
+		}
+	});
+
+	test("It should accept a token without exp when requireExp is false", async (t) => {
+		const secret = "super-secret-key-for-testing-1234";
+		// No setExpirationTime: token has no exp claim.
+		const token = await new SignJWT({ sub: "user-no-exp" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.sign(Buffer.from(secret));
 
 		const handler = middy((event, context) => context.middyContext).use(
-			httpJwt({ secretKey: secret, algorithm: "HS256" }),
+			httpJwt({ secretKey: secret, algorithm: "HS256", requireExp: false }),
 		);
 
 		const result = await handler(makeEvent(`Bearer ${token}`), {
@@ -2187,7 +2933,7 @@ describe("@middy/http-jwt", () => {
 	test("It should reject a token without exp when requireExp is set", async (t) => {
 		const secret = "super-secret-key-for-testing-1234";
 		const token = await new SignJWT({ sub: "user-no-exp" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.sign(Buffer.from(secret));
 
@@ -2207,7 +2953,7 @@ describe("@middy/http-jwt", () => {
 	test("It should accept a token with exp when requireExp is set", async (t) => {
 		const secret = "super-secret-key-for-testing-1234";
 		const token = await new SignJWT({ sub: "user-has-exp" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -2227,12 +2973,17 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 		// Issued 2 hours ago, no exp claim.
 		const token = await new SignJWT({ sub: "user-stale" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt(Math.floor(Date.now() / 1000) - 7200)
 			.sign(Buffer.from(secret));
 
 		const handler = middy(() => {}).use(
-			httpJwt({ secretKey: secret, algorithm: "HS256", maxTokenAge: "1h" }),
+			httpJwt({
+				secretKey: secret,
+				algorithm: "HS256",
+				maxTokenAge: "1h",
+				requireExp: false,
+			}),
 		);
 
 		try {
@@ -2250,7 +3001,7 @@ describe("@middy/http-jwt", () => {
 		const jwksUri = nextJwksUri();
 		// No setExpirationTime: token has no exp claim.
 		const token = await new SignJWT({})
-			.setProtectedHeader({ alg: "RS256", kid })
+			.setProtectedHeader({ alg: "RS256", kid, typ: "at+jwt" })
 			.setIssuedAt()
 			.setIssuer(iss)
 			.sign(privateKey);
@@ -2263,6 +3014,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					requireExp: true,
 					disablePrefetch: true,
 				}),
@@ -2288,7 +3040,7 @@ describe("@middy/http-jwt", () => {
 		const jwksUri = nextJwksUri();
 		// Issued 2 hours ago, no exp claim.
 		const token = await new SignJWT({})
-			.setProtectedHeader({ alg: "RS256", kid })
+			.setProtectedHeader({ alg: "RS256", kid, typ: "at+jwt" })
 			.setIssuedAt(Math.floor(Date.now() / 1000) - 7200)
 			.setIssuer(iss)
 			.sign(privateKey);
@@ -2301,7 +3053,9 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					maxTokenAge: "1h",
+					requireExp: false,
 					disablePrefetch: true,
 				}),
 			);
@@ -2334,6 +3088,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					requireExp: true,
 					disablePrefetch: true,
 				}),
@@ -2351,7 +3106,7 @@ describe("@middy/http-jwt", () => {
 	test("It should resolve a hyphenated internalKey without a spurious 500", async (t) => {
 		const secret = "super-secret-key-for-testing-1234";
 		const token = await new SignJWT({ sub: "user-hyphen-key" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -2372,7 +3127,7 @@ describe("@middy/http-jwt", () => {
 	test("It should resolve a dotted nested internalKey without a spurious 500", async (t) => {
 		const secret = "super-secret-key-for-testing-1234";
 		const token = await new SignJWT({ sub: "user-dotted-key" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -2410,7 +3165,7 @@ describe("@middy/http-jwt", () => {
 			alg,
 		);
 		const token = await new SignJWT({ sub: `kms-${alg}` })
-			.setProtectedHeader({ alg })
+			.setProtectedHeader({ alg, typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(importedPrivate);
@@ -2577,6 +3332,10 @@ describe("@middy/http-jwt", () => {
 		);
 	});
 
+	test("httpJwtValidateOptions rejects non-string tokenKey", () => {
+		expectInvalidOption({ tokenKey: 123 }, "Option 'tokenKey' must be string");
+	});
+
 	test("httpJwtValidateOptions rejects non-boolean setToContext", () => {
 		expectInvalidOption(
 			{ setToContext: "yes" },
@@ -2628,7 +3387,7 @@ describe("@middy/http-jwt", () => {
 	const buildToken = async (sub) => {
 		const secret = "super-secret-key-for-testing-1234";
 		const token = await new SignJWT({ sub })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -2807,7 +3566,7 @@ describe("@middy/http-jwt", () => {
 		// return parts[1] (the valid token) and verify it (200). Real -> 401.
 		const secret = "super-secret-key-for-testing-1234";
 		const token = await new SignJWT({ sub: "user-3parts" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -2942,6 +3701,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -2979,6 +3739,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [issConfigured]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3010,6 +3771,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3047,6 +3809,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3069,7 +3832,7 @@ describe("@middy/http-jwt", () => {
 		const iss = "https://idp.example.com/pool";
 		const jwksUri = nextJwksUri();
 		const token = await new SignJWT({})
-			.setProtectedHeader({ alg: "RS256", kid: "anything" })
+			.setProtectedHeader({ alg: "RS256", kid: "anything", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.setIssuer(iss)
@@ -3088,6 +3851,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3124,6 +3888,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3160,6 +3925,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri, algorithm: ["RS256", "ES256"] } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3185,7 +3951,7 @@ describe("@middy/http-jwt", () => {
 		const iss = "https://idp.example.com/pool";
 		const jwksUri = nextJwksUri();
 		const token = await new SignJWT({})
-			.setProtectedHeader({ alg: "RS256", kid: "bad-jwk" })
+			.setProtectedHeader({ alg: "RS256", kid: "bad-jwk", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.setIssuer(iss)
@@ -3206,6 +3972,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3229,7 +3996,7 @@ describe("@middy/http-jwt", () => {
 			httpJwt({ secretKey: "correct-secret", algorithm: "HS256" }),
 		);
 		const token = await new SignJWT({ sub: "x" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from("wrong-secret"));
@@ -3247,7 +4014,7 @@ describe("@middy/http-jwt", () => {
 	test("It should reject a token whose aud is not the configured audience (internalKey path)", async (t) => {
 		const secret = "super-secret-key-for-testing-1234";
 		const token = await new SignJWT({ sub: "user-1", aud: "wrong-aud" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -3269,7 +4036,7 @@ describe("@middy/http-jwt", () => {
 	test("It should accept any aud when no audience is configured (internalKey path)", async (t) => {
 		const secret = "super-secret-key-for-testing-1234";
 		const token = await new SignJWT({ sub: "user-anyaud", aud: "anything" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -3282,10 +4049,26 @@ describe("@middy/http-jwt", () => {
 		strictEqual(result.jwt.sub, "user-anyaud");
 	});
 
+	test("It should accept a token without aud when audience is null (internalKey path)", async (t) => {
+		const secret = "super-secret-key-for-testing-1234";
+		const token = await new SignJWT({ sub: "user-nullaud" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
+			.setIssuedAt()
+			.setExpirationTime("1h")
+			.sign(Buffer.from(secret));
+		const handler = middy((event, context) => context.middyContext).use(
+			httpJwt({ secretKey: secret, algorithm: "HS256", audience: null }),
+		);
+		const result = await handler(makeEvent(`Bearer ${token}`), {
+			...defaultContext,
+		});
+		strictEqual(result.jwt.sub, "user-nullaud");
+	});
+
 	test("It should accept any iss when no issuer is configured (internalKey path)", async (t) => {
 		const secret = "super-secret-key-for-testing-1234";
 		const token = await new SignJWT({ sub: "user-anyiss" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.setIssuer("some-issuer")
@@ -3303,7 +4086,7 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 		// expired 30s ago, default clockTolerance 0 -> must reject.
 		const token = await new SignJWT({ sub: "user-exp" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("-30s")
 			.sign(Buffer.from(secret));
@@ -3321,7 +4104,7 @@ describe("@middy/http-jwt", () => {
 	test("It should accept an expired token within a generous clockTolerance (internalKey path)", async (t) => {
 		const secret = "super-secret-key-for-testing-1234";
 		const token = await new SignJWT({ sub: "user-tol" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("-30s")
 			.sign(Buffer.from(secret));
@@ -3337,11 +4120,16 @@ describe("@middy/http-jwt", () => {
 	test("It should forward maxTokenAge on the internalKey path (rejects stale token)", async (t) => {
 		const secret = "super-secret-key-for-testing-1234";
 		const token = await new SignJWT({ sub: "user-stale-ik" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt(Math.floor(Date.now() / 1000) - 7200)
 			.sign(Buffer.from(secret));
 		const handler = middy(() => {}).use(
-			httpJwt({ secretKey: secret, algorithm: "HS256", maxTokenAge: "1h" }),
+			httpJwt({
+				secretKey: secret,
+				algorithm: "HS256",
+				maxTokenAge: "1h",
+				requireExp: false,
+			}),
 		);
 		try {
 			await handler(makeEvent(`Bearer ${token}`), defaultContext);
@@ -3389,7 +4177,7 @@ describe("@middy/http-jwt", () => {
 		}
 	});
 
-	test("issuers: accepts any aud when no per-issuer audience configured", async (t) => {
+	test("issuers: accepts any aud when audience is null", async (t) => {
 		const { privateKey, jwk, kid } = await jwksFixture();
 		const iss = "https://idp.example.com/pool";
 		const jwksUri = nextJwksUri();
@@ -3407,6 +4195,7 @@ describe("@middy/http-jwt", () => {
 			const handler = middy((event, context) => context.middyContext).use(
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
+					audience: null,
 					algorithm: "RS256",
 					disablePrefetch: true,
 				}),
@@ -3426,7 +4215,7 @@ describe("@middy/http-jwt", () => {
 		const iss = "https://idp.example.com/pool";
 		const jwksUri = nextJwksUri();
 		const token = await new SignJWT({})
-			.setProtectedHeader({ alg: "RS256", kid })
+			.setProtectedHeader({ alg: "RS256", kid, typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("-60s")
 			.setIssuer(iss)
@@ -3439,6 +4228,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3474,6 +4264,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [issA]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3492,7 +4283,7 @@ describe("@middy/http-jwt", () => {
 	test("It should NOT fall back to the Authorization header when a custom source is configured", async (t) => {
 		const secret = "super-secret-key-for-testing-1234";
 		const token = await new SignJWT({ sub: "user-auth" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -3524,6 +4315,7 @@ describe("@middy/http-jwt", () => {
 		const m = realHttpJwt({
 			issuers: { "https://idp.example.com": { jwksUri: "https://x/jwks" } },
 			algorithm: "RS256",
+			audience: null,
 			disablePrefetch: true,
 		});
 		ok(typeof m.before === "function");
@@ -3552,6 +4344,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3603,6 +4396,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					cooldownDuration: 0,
 					disablePrefetch: true,
 				}),
@@ -3635,6 +4429,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					cacheExpiry: 0,
 					cooldownDuration: 0,
 					disablePrefetch: true,
@@ -3671,6 +4466,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3716,6 +4512,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3760,6 +4557,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -3798,6 +4596,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					cooldownDuration: 0,
 					cacheExpiry: 600_000,
 					disablePrefetch: true,
@@ -3822,14 +4621,14 @@ describe("@middy/http-jwt", () => {
 		}
 	});
 
-	test("issuers: a token without exp verifies when requireExp is not set", async (t) => {
-		// No requireExp option: a token lacking exp must verify. A mutant forcing
+	test("issuers: a token without exp verifies when requireExp is false", async (t) => {
+		// requireExp: false: a token lacking exp must verify. A mutant forcing
 		// requiredClaims:['exp'] unconditionally would reject it (401).
 		const { privateKey, jwk, kid } = await jwksFixture();
 		const iss = "https://idp.example.com/pool";
 		const jwksUri = nextJwksUri();
 		const token = await new SignJWT({})
-			.setProtectedHeader({ alg: "RS256", kid })
+			.setProtectedHeader({ alg: "RS256", kid, typ: "at+jwt" })
 			.setIssuedAt()
 			.setIssuer(iss)
 			.sign(privateKey);
@@ -3841,6 +4640,8 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
+					requireExp: false,
 					disablePrefetch: true,
 				}),
 			);
@@ -4153,6 +4954,7 @@ describe("@middy/http-jwt", () => {
 				setToContext: true,
 				algorithm: alg,
 				issuers: { [iss]: { jwksUri } },
+				audience: null,
 				expectedClaims: { token_use: "access" },
 			}),
 		);
@@ -4316,7 +5118,7 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const token = await new SignJWT({ sub: "user-1" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -4346,7 +5148,7 @@ describe("@middy/http-jwt", () => {
 
 		const sign = (sub) =>
 			new SignJWT({ sub })
-				.setProtectedHeader({ alg: "HS256" })
+				.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 				.setIssuedAt()
 				.setExpirationTime("1h")
 				.sign(Buffer.from(secret));
@@ -4376,7 +5178,7 @@ describe("@middy/http-jwt", () => {
 		const secret = "super-secret-key-for-testing-1234";
 
 		const token = await new SignJWT({ sub: "user-1" })
-			.setProtectedHeader({ alg: "HS256" })
+			.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 			.setIssuedAt()
 			.setExpirationTime("1h")
 			.sign(Buffer.from(secret));
@@ -4442,6 +5244,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 					jwksTimeoutMs: 10,
 				}),
@@ -4475,7 +5278,11 @@ describe("@middy/http-jwt", () => {
 			[jwksUri]: jwksResponse({ keys: [jwk] }),
 		});
 		try {
-			httpJwt({ issuers: { [iss]: { jwksUri } }, algorithm: "RS256" });
+			httpJwt({
+				issuers: { [iss]: { jwksUri } },
+				algorithm: "RS256",
+				audience: null,
+			});
 			await new Promise((resolve) => setImmediate(resolve));
 			strictEqual(fetchStub.calls.length, 1);
 			ok(fetchStub.calls[0].init.signal instanceof AbortSignal);
@@ -4503,6 +5310,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -4546,6 +5354,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -4582,6 +5391,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -4609,6 +5419,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -4648,6 +5459,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -4681,6 +5493,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -4721,6 +5534,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 					jwksTimeoutMs: undefined,
 				}),
@@ -4751,6 +5565,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -4791,6 +5606,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 					cooldownDuration: 30_000,
 				}),
@@ -4839,6 +5655,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 				}),
 			);
@@ -4887,6 +5704,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					disablePrefetch: true,
 					jwksTimeoutMs: 10,
 					cooldownDuration: 30_000,
@@ -4936,6 +5754,7 @@ describe("@middy/http-jwt", () => {
 					httpJwt({
 						issuers: { [iss]: { jwksUri } },
 						algorithm: "RS256",
+						audience: null,
 						disablePrefetch: true,
 						jwksTimeoutMs: 10,
 					}),
@@ -4966,6 +5785,7 @@ describe("@middy/http-jwt", () => {
 					httpJwt({
 						issuers: { [iss]: { jwksUri } },
 						algorithm: "RS256",
+						audience: null,
 						disablePrefetch: true,
 					}),
 				);
@@ -4999,6 +5819,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					cooldownDuration: 0,
 					disablePrefetch: true,
 				}),
@@ -5029,6 +5850,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					cacheExpiry: 1000,
 					cooldownDuration: 0,
 					disablePrefetch: true,
@@ -5068,6 +5890,7 @@ describe("@middy/http-jwt", () => {
 				httpJwt({
 					issuers: { [iss]: { jwksUri } },
 					algorithm: "RS256",
+					audience: null,
 					cooldownDuration: 30_000,
 					disablePrefetch: true,
 				}),

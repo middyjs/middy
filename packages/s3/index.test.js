@@ -1076,4 +1076,42 @@ describe("@middy/s3", () => {
 		await handler(defaultEvent, defaultContext);
 		strictEqual(constructed, 1);
 	});
+
+	// A background refresh has no invocation to rebuild the client from, so it
+	// would sign with the assumed-role credentials it started with. Under
+	// awsClientAssumeRole none is scheduled; the next invocation refetches.
+	test("It should not refresh in the background under awsClientAssumeRole", async (t) => {
+		t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+		let sends = 0;
+		class FakeClient {
+			send() {
+				sends++;
+				return Promise.resolve({
+					ContentType: "text/plain",
+					Body: s3Response("v"),
+				});
+			}
+		}
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.role = Promise.resolve({ accessKeyId: "a" });
+			})
+			.use(
+				s3({
+					AwsClient: FakeClient,
+					awsClientAssumeRole: "role",
+					cacheExpiry: 50,
+					fetchData: { key: { Bucket: "b", Key: "k" } },
+				}),
+			);
+
+		await handler(defaultEvent, defaultContext);
+		const afterFirst = sends;
+		t.mock.timers.tick(120);
+		await new Promise((resolve) => setImmediate(resolve));
+		strictEqual(sends, afterFirst);
+
+		await handler(defaultEvent, defaultContext);
+		ok(sends > afterFirst);
+	});
 });

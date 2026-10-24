@@ -32,8 +32,12 @@ declare function eventBatchParser(
 	options?: EventBatchParserOptions,
 ): middy.MiddlewareObj;
 
-export declare function eventBatchParserValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+// Key under which a record that failed to parse carries its error.
+// Equal to Symbol.for("@middy/event-batch-parser/error").
+export declare const parseErrorKey: unique symbol;
+
+export declare function eventBatchParserValidateOptions<
+	TOptions extends EventBatchParserOptions,
+>(options?: TOptions): TOptions;
 
 export default eventBatchParser;

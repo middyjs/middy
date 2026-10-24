@@ -19,8 +19,8 @@ npm install --save @middy/event-logger
 
 ## Options
 
-- `logger` function (default logs `{event}` via `console.log`): logging function that receives the [request object](/docs/writing-middlewares/request-object). Must be a function; to disable logging, omit the middleware. The return value is ignored, so a logger that returns itself (winston, for example) is safe
-- `omitPaths` string[] (default `[]`): paths to remove from the copy handed to `logger`. Paths are dot-delimited and relative to the `request`, with `[]` to descend into arrays. This is the simple way to keep sensitive data out of your logs. Examples: `event.headers.authorization`, `event.Records.[].body`, `internal.DB_PASSWORD`
+- `logger` function (default logs `{event}` via `console.log`): logging function that receives the [request object](/docs/writing-middlewares/intro). Must be a function; to disable logging, omit the middleware. The return value is ignored, so a logger that returns itself (winston, for example) is safe. A logger that throws does not change the invocation outcome; the failure is reported through `console.error`. The default logger serializes `BigInt` values as strings.
+- `omitPaths` string[] (default `[]`): paths to remove from the copy handed to `logger`. Paths are dot-delimited and relative to the `request`, with `[]` to descend into arrays. This is the simple way to keep sensitive data out of your logs. Examples: `event.headers.authorization`, `event.multiValueHeaders.authorization`, `event.Records.[].body`, `internal.DB_PASSWORD`. Segments match keys case-insensitively, so `event.headers.authorization` also covers `Authorization`. A path cannot reach inside a string, so an unparsed `event.body` is only redactable as a whole.
 - `mask` string: string to replace omitted values with, instead of removing the key. Example: `***omitted***`
 
 The logger receives the whole `request`, so `request.internal` and `request.context.middyContext` are reachable. Those are where middlewares such as [ssm](/docs/middlewares/ssm) and [secrets-manager](/docs/middlewares/secrets-manager) publish resolved secrets. The default logger only prints `event`; a custom one should either stay narrow or add the relevant `omitPaths`.
@@ -51,7 +51,11 @@ import eventLogger from '@middy/event-logger'
 export const handler = middy()
   .use(
     eventLogger({
-      omitPaths: ['event.headers.authorization', 'internal.DB_PASSWORD'],
+      omitPaths: [
+        'event.headers.authorization',
+        'event.multiValueHeaders.authorization',
+        'internal.DB_PASSWORD'
+      ],
       mask: '[redacted]'
     })
   )

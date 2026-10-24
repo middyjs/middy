@@ -5,7 +5,7 @@ import type {
 	APIGatewayProxyEventV2,
 } from "aws-lambda";
 import { expect, test } from "tstyche";
-import jsonBodyParser from "./index.js";
+import jsonBodyParser, * as indexModule from "./index.js";
 
 test("use with default options", () => {
 	const middleware = jsonBodyParser();
@@ -120,4 +120,11 @@ test("allow specifying the event type", () => {
 	expect(albMiddleware).type.toBe<
 		middy.MiddlewareObj<ALBEvent, unknown, Error>
 	>();
+});
+
+test("httpJsonBodyParserValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.Options;
+	expect(
+		indexModule.httpJsonBodyParserValidateOptions(options),
+	).type.toBe<indexModule.Options>();
 });

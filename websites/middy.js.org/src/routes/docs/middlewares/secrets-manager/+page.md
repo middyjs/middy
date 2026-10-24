@@ -26,17 +26,17 @@ npm install --save-dev @aws-sdk/client-secrets-manager
 
 - `AwsClient` (object) (default `SecretsManagerClient`): SecretsManagerClient class constructor (i.e. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-secrets-manager`.
 - `awsClientOptions` (object) (optional): Options to pass to SecretsManagerClient class constructor.
-- `awsClientAssumeRole` (string) (optional): Internal key where secrets are stored. See [@middy/sts](/docs/middlewares/sts) on to set this.
+- `awsClientAssumeRole` (string) (optional): Internal key where secrets are stored. See [@middy/sts](/docs/middlewares/sts) on how to set this. With it set, cached entries are not refreshed in the background (a refresh has no invocation to take fresh credentials from); an expired entry is refetched by the next invocation. It fails the invocation with `Credentials missing for assumed role` when the credentials are not in `request.internal` (a mistyped key, or `@middy/sts` registered after this middleware), rather than falling back to the function's own role; register `sts` first.
 - `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSv3Client` from `aws-xray-sdk` in.
 - `fetchData` (object) (required): Mapping of internal key name to API request parameter `SecretId`.
 - `fetchRotationDate` (boolean|object) (default `false`): Boolean to apply to all or mapping of internal key name to boolean. This indicates which secrets should also be described so the cache expires at their `NextRotationDate`. The cache expires at the soonest `NextRotationDate` or after `cacheExpiry`, whichever comes first; a secret without a rotation schedule falls back to `cacheExpiry`. A `NextRotationDate` that has already passed (the rotation is overdue) keeps the cache for 60 seconds before the secret is described again. If secrets have different rotation schedules, use multiple instances of this middleware.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
-- `cacheKey` (string) (default `secrets-manager`): Cache key for the fetched data responses. Must be unique across all middleware.
+- `cacheKey` (string) (default `@middy/secrets-manager`): Cache key for the fetched data responses. Each instance of this middleware needs its own `cacheKey`: reusing one with a different `fetchData`, `awsClientOptions`, `awsClientAssumeRole` or `AwsClient` throws a `TypeError`.
 - `cacheKeyExpiry` (object) (default `{}`): Per-`cacheKey` expiry override, `{ [cacheKey]: cacheExpiry }`; a unix timestamp in ms above 86400000 is treated as an absolute expiry.
 - `cacheMaxSize` (number) (default `128`): Maximum number of entries kept in the shared middleware cache; the oldest expiring entry is evicted when exceeded.
-- `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
+- `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms. Values above `86400000` are unix timestamps (ms): one before 2001-01-01 (`978307200000`) can only be a mistyped duration and throws at construction, while a real timestamp that has passed just leaves the entry expired.
 - `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext['secrets-manager']`.
-- `contextKey` (string) (default `secrets-manager`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.
+- `contextKey` (string) (default `secrets-manager`): The key under `context.middyContext` used when `setToContext` is `true`. To run two instances side by side, override it and set a distinct `cacheKey` on each.
 
 NOTES:
 
@@ -131,7 +131,6 @@ export const handler = middy()
 
 - [`@middy/sts`](/docs/middlewares/sts) - assume a role in a different account before fetching the secret (`awsClientAssumeRole`).
 - [`@middy/http-jwt`](/docs/middlewares/http-jwt) - source the JWT verification key from a Secrets Manager secret.
-- [Secrets rotation recipe](/docs/recipes/secrets-rotation) - force-refresh the cache on auth failure.
 
 ## See also
 

@@ -39,6 +39,7 @@ export interface GlueSchemaRegistryOptions<AwsGlueClient = GlueClient>
 		| "cacheKey"
 		| "cacheExpiry"
 		| "cacheKeyExpiry"
+		| "cacheMaxSize"
 		| "setToContext"
 		| "contextKey"
 	> {
@@ -73,8 +74,12 @@ declare function glueSchemaRegistry<
 	TKey extends string = string,
 >(
 	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
-	// key narrows `middyContext` without `as const`.
-	options?: TOptions & { contextKey?: TKey },
+	// key narrows `middyContext` without `as const`. The `never` record rejects
+	// keys `GlueSchemaRegistryOptions` does not declare, which inference would otherwise accept.
+	options?: TOptions & { contextKey?: TKey } & Record<
+			Exclude<keyof TOptions, keyof GlueSchemaRegistryOptions>,
+			never
+		>,
 ): middy.MiddlewareObj<
 	unknown,
 	unknown,
@@ -83,13 +88,13 @@ declare function glueSchemaRegistry<
 	Internal<TOptions>
 >;
 
-export declare function glueSchemaRegistryValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function glueSchemaRegistryValidateOptions<
+	TOptions extends GlueSchemaRegistryOptions,
+>(options?: TOptions): TOptions;
 
 export declare function resolveSchemaVersion(
 	schemaVersionId: string,
-	options: GlueSchemaRegistryOptions,
+	options: GlueSchemaRegistryOptions | undefined,
 	request: { internal: Record<string, unknown> },
 ): Promise<ResolvedSchema>;
 

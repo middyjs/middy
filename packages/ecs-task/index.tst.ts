@@ -1,5 +1,6 @@
 import type { Handler as LambdaHandler } from "aws-lambda";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import ecsTaskRunner, {
 	type EcsTaskRunnerOptions,
 	ecsTaskValidateOptions,
@@ -45,7 +46,14 @@ test("ecsTaskRunner returns Promise", () => {
 	expect(result).type.toBe<Promise<unknown>>();
 });
 
-test("ecsTaskValidateOptions accepts a record", () => {
-	expect(ecsTaskValidateOptions).type.toBeCallableWith({});
+test("ecsTaskValidateOptions rejects options missing required keys", () => {
+	expect(ecsTaskValidateOptions).type.not.toBeCallableWith({});
 	expect(ecsTaskValidateOptions).type.toBeCallableWith();
+});
+
+test("ecsTaskValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.EcsTaskRunnerOptions;
+	expect(
+		indexModule.ecsTaskValidateOptions(options),
+	).type.toBe<indexModule.EcsTaskRunnerOptions>();
 });

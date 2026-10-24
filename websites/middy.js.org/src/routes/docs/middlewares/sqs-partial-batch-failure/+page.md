@@ -25,7 +25,7 @@ npm install --save-dev @aws-sdk/client-sqs
 
 ## Sample usage
 
-Parallel processing example (works for Standard queues and FIFO queues _when ordering of side‑effects is not required_):
+Parallel processing example, for Standard queues. On a FIFO queue every record after the first failure is reported and redelivered, even one that succeeded, so use the sequential FIFO example below there:
 
 ```javascript
 import middy from '@middy/core'
@@ -61,27 +61,30 @@ export const handler = middy().use(sqsBatch()).handler(lambdaHandler);
 
 ```
 
-FIFO queue example (preserves processing order):
+FIFO queue example (preserves processing order). AWS says that for a FIFO queue "your function should stop processing messages after the first failure and return all failed and unprocessed messages in `batchItemFailures`" ([Handling errors for an SQS event source](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html)), so the loop stops at the first failure:
 
 ```javascript
 import middy from '@middy/core'
 import sqsBatch from '@middy/sqs-partial-batch-failure'
 
 const lambdaHandler = async (event, context) => {
-  const statusPromises = [];
-  for (const [idx, record] of Object.entries(event.Records)) {
+  const statuses = []
+  for (const record of event.Records) {
     try {
-      await processMessageAsync(record)
-      statusPromises.push(Promise.resolve());
-    } catch (error) {
-      statusPromises.push(Promise.reject(error));
+      const value = await processMessageAsync(record)
+      statuses.push({ status: 'fulfilled', value })
+    } catch (reason) {
+      statuses.push({ status: 'rejected', reason })
+      break // records after this one are reported as unprocessed
     }
   }
-  return Promise.allSettled(statusPromises);
+  return statuses
 }
 
 export const handler = middy().use(sqsBatch()).handler(lambdaHandler)
 ```
+
+For a FIFO queue (an `eventSourceARN` ending in `.fifo`) the middleware reports every record from the first one that is not fulfilled onward, whether the handler stopped there (as above) or went on and processed later records anyway. Records past the end of the returned array count as failed. `logger` is called for each reported record; `reason` is `undefined` for a record that has no rejection of its own.
 
 ## Important
 

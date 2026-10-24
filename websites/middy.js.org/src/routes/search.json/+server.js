@@ -1,4 +1,4 @@
-import { getDocsFiles, getDocsRoutes } from "$lib/docs-content.js";
+import { getDocsFiles, getDocsRoutes } from "#lib/docs-content.js";
 
 export const prerender = true;
 

@@ -6,7 +6,7 @@ const name = "warmup";
 const pkg = `@middy/${name}`;
 
 const defaults = {
-	isWarmingUp: (event) => event.source === "serverless-plugin-warmup",
+	isWarmingUp: (event) => event?.source === "serverless-plugin-warmup",
 };
 
 const optionSchema = {

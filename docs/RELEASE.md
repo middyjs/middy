@@ -32,8 +32,9 @@ At a given point in time, if you want to draft a new release, you need to follow
 ### 1. Prepare release
 
 - Work lands on `develop` through pull requests; a release is the merge of `develop` into `main`. Nothing is committed to `main` directly, and the `main` ruleset requires two approving reviews, CODEOWNERS review and every status check in [.github/rulesets/main.json](../.github/rulesets/main.json).
+- Bump the gitleaks CLI in [test-sast.yml](../.github/workflows/test-sast.yml) if a newer [release](https://github.com/gitleaks/gitleaks/releases) exists: update `GITLEAKS_VERSION` and `GITLEAKS_SHA256` together (from `gitleaks_<version>_checksums.txt`). Dependabot cannot track it.
 - Do the version bump on `develop`, or on a `release/X.Y.Z` branch off `develop` when it needs several commits or a review before it lands there.
-- `develop` moves to the next version as soon as a release is cut (it is `8.0.0-alpha.0` now), so a patch for a shipped line does not start from `develop`. It lands on that line's maintenance branch (`7.x`), see [Maintenance releases](#maintenance-releases).
+- `develop` moves to the next version as soon as a release is cut (a pre-release of the next major, such as `8.0.0-alpha.N`).
 
 ### 2. Version bump
 
@@ -60,7 +61,7 @@ At a given point in time, if you want to draft a new release, you need to follow
 Publishing is two-phase: CI stages, a maintainer approves.
 
 1. [release.yml](../.github/workflows/release.yml) runs build -> GitHub release -> publish. The Build job runs each workspace's `build` script (today only `rds`, which fetches the certificate modules `npm ci --ignore-scripts` skips), refuses to pack unless every workspace carries the root version, `package-lock.json` links every `@middy/*` dependency to its workspace and `packages/rds/certificates` holds at least 35 modules, then copies the root `LICENSE` into each package directory (gitignored) so every tarball ships it. Approve the `npm-publish` environment when the Publish job requests review.
-2. The Publish job verifies the provenance attestation of every tarball, then runs `npm stage publish` for each one under the dist-tag the Build job chose (see [Dist-tags](#dist-tags)) and fails on the first that does not stage, so a green job means every tarball the Build job packed is staged: nothing is live yet. `npm run release:staged` lists what is queued, with the actor and shasum behind each entry.
+2. The Publish job verifies the provenance attestation of every tarball, then runs `npm stage publish` for each one under the dist-tag the Build job chose (see [Dist-tags](#dist-tags)). Tarballs already staged or published (`E409`) are skipped, so a run that failed part way can be re-run. Any other failure does not stop the loop: the job tries every tarball, then fails naming each one that did not stage (typically a new package with no trusted publisher yet). A green job means every tarball the Build job packed is staged: nothing is live yet. `npm run release:staged` lists what is queued, with the actor and shasum behind each entry.
 3. Run `npm run release:approve` (requires npm login with 2FA) to take the release live. It only approves staged ids matching the release version, and refuses when the number of staged ids differs from the number of workspaces.
 
 All packages are published using OpenID Connect with a stage-only trusted publisher. Each new package must be configured first.
@@ -72,15 +73,9 @@ All packages are published using OpenID Connect with a stage-only trusted publis
 
 ### 5. New packages
 
-npm only lets you configure a trusted publisher on a package that already exists, so the first publish of a new package is manual, with 2FA. Do this before the release PR merges: the Publish job stages every workspace and fails on the first one that cannot be staged.
+npm only lets you configure a trusted publisher on a package that already exists, so the first publish of a new package is manual, with 2FA. Do this before the release PR merges: the Publish job tries every workspace and fails at the end naming each one that cannot be staged.
 
-Not yet published as of 8.0.0-alpha.0:
-
-- `@middy/ecs-batch`
-- `@middy/ecs-http`
-- `@middy/ecs-task`
-- `@middy/event-logger`
-- `@middy/response-logger`
+Every current workspace is already on npm; this section applies to the next new package.
 
 For each package:
 
@@ -97,10 +92,10 @@ For each package:
    ```
 
 2. On npmjs.com, open the package settings and set **Publishing access** and the trusted publisher to the values listed above.
-3. After the release is approved, point `latest` at the released version. Pre-releases are staged under `next`, and the five packages above have no stable version for `latest` to protect, so without this step `npm install @middy/<name>` resolves to the deprecated placeholder:
+3. After the release is approved, point `latest` at the released version. Pre-releases are staged under `next`, and a new package has no stable version for `latest` to protect, so without this step `npm install @middy/<name>` resolves to the deprecated placeholder:
 
    ```bash
-   npm dist-tag add @middy/<name>@8.0.0-alpha.0 latest
+   npm dist-tag add @middy/<name>@<version> latest
    ```
 
 ### 6. Removed packages
@@ -122,41 +117,14 @@ gh api -X PUT repos/middyjs/middy/rulesets/<id> --input .github/rulesets/main.js
 gh api -X PUT repos/middyjs/middy/rulesets/<id> --input .github/rulesets/develop.json
 ```
 
-## Maintenance releases
+When a required check is renamed or removed, update (PUT) the ruleset before merging the PR that removes the old workflow. A required check that no workflow produces any more stays pending forever and blocks every merge, including the one that would fix the ruleset. The reverse applies to a new required check: merge the workflow that produces it first, then PUT.
 
-A shipped major line is patched from a long-lived `<major>.x` branch once `develop` has moved on to the next major. For 7.x:
+## Dist-tags
 
-1. Create the branch from the last tag of the line, once:
-
-   ```bash
-   git checkout -b 7.x 7.9.2
-   git push origin 7.x
-   ```
-
-2. Protect it like `main`. [.github/rulesets/maintenance.json](../.github/rulesets/maintenance.json) is `main.json` with the branch condition set to `refs/heads/[0-9]*.x`, so one ruleset covers every maintenance branch (ruleset fnmatch has no `+`; the Actions branch filter in `release.yml` supports it and uses `[0-9]+.x`). It is not live yet; create it once, then update it with PUT like the others:
-
-   ```bash
-   gh api -X POST repos/middyjs/middy/rulesets --input .github/rulesets/maintenance.json
-   gh api -X PUT repos/middyjs/middy/rulesets/<id> --input .github/rulesets/maintenance.json
-   ```
-
-3. Hotfix PRs target `7.x` instead of `main`. Bump the version as in step 2 (`npm run release:sync` included), on the hotfix branch or on a `release/7.9.3` branch off `7.x`. Merging triggers [release.yml](../.github/workflows/release.yml) exactly as on `main`; steps 3 and 4 apply unchanged, with `7.x` in place of `main` when tagging.
-4. Port the fix forward to `develop` in a separate PR.
-
-### Dist-tags
-
-`release.yml` picks the npm dist-tag in the Build job from the version and the registry's current `@middy/core`:
-
-| Version | Dist-tag |
-| --- | --- |
-| Pre-release (`X.Y.Z-alpha.N`) | `next` |
-| Stable, at or above the registry's `latest` | `latest` |
-| Stable, below the registry's `latest` (a `7.9.3` after `8.0.0`) | the major line, `7.x` |
-
-So a maintenance release never moves `latest` backwards, and `npm install @middy/core@7.x` follows the line. There is no publish script to edit.
+`release.yml` picks the npm dist-tag in the Build job from the version: a pre-release (`X.Y.Z-alpha.N`) is staged under `next`, a stable version under `latest`. There is no publish script to edit.
 
 ## Setting up new major release
 
 - `package.json`: update `engines` versions
 - Update the Node.js versions used by CI to the current AWS Lambda runtimes: the `node-version` matrix in `test-unit.yml` and `NODE_VERSION` in the other workflows under `.github/workflows/`, then apply the Rulesets step above because the unit check names include the version.
-- Nothing to change for npm: `release.yml` picks the dist-tag from the version, see [Dist-tags](#dist-tags). Once the new major is on `latest`, patches for the previous line go through its maintenance branch, see [Maintenance releases](#maintenance-releases).
+- Nothing to change for npm: `release.yml` picks the dist-tag from the version, see [Dist-tags](#dist-tags).

@@ -47,7 +47,13 @@ const createHttpResponse = () => ({
 });
 
 describe("@middy/http-response-serializer", () => {
-	for (const [key] of [["Content-Type"], ["content-type"]]) {
+	// Header names are case-insensitive (RFC 9110 §5.1), so any casing counts.
+	for (const [key] of [
+		["Content-Type"],
+		["content-type"],
+		["Content-type"],
+		["CONTENT-TYPE"],
+	]) {
 		test(`${key} skips response serialization`, async (t) => {
 			const handlerResponse = Object.assign({}, createHttpResponse(), {
 				headers: {
@@ -638,6 +644,80 @@ describe("@middy/http-response-serializer", () => {
 			},
 			body: '{"message":"Hello World"}',
 		});
+	});
+
+	// RFC 9110 8.3.1: `media-type = type "/" subtype parameters`.
+	for (const contentType of [
+		"application/json; charset=utf-8",
+		"application/json;charset=UTF-8",
+		'text/plain; charset="utf-8"; format=flowed',
+	]) {
+		test(`It should set a defaultContentType with parameters: ${contentType}`, async (t) => {
+			const handler = middy(() => createHttpResponse()).use(
+				httpResponseSerializer({
+					serializers: [
+						{ regex: /^(application|text)\//, serializer: () => "x" },
+					],
+					defaultContentType: contentType,
+				}),
+			);
+
+			const response = await handler({ headers: {} }, defaultContext);
+
+			strictEqual(response.headers["Content-Type"], contentType);
+		});
+	}
+
+	for (const contentType of [
+		"application/json; charset=utf-8\r\nSet-Cookie: a=b",
+		"application/json; charset",
+		"application/json; charset=\u0000",
+		'application/json; charset="a\nb"',
+	]) {
+		test(`It should not reflect an unsafe media type: ${JSON.stringify(contentType)}`, async (t) => {
+			const handler = middy(() => createHttpResponse()).use(
+				httpResponseSerializer({
+					serializers: [{ regex: /^application\//, serializer: () => "x" }],
+					defaultContentType: contentType,
+				}),
+			);
+
+			const response = await handler({ headers: {} }, defaultContext);
+
+			ok(!Object.hasOwn(response.headers, "Content-Type"));
+		});
+	}
+
+	// ALB with multi-value headers enabled reads and writes `multiValueHeaders`
+	// only. https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+	test("It should skip serialization when multiValueHeaders already carry Content-Type", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: "Hello World",
+			multiValueHeaders: { "content-type": ["text/csv"] },
+		})).use(httpResponseSerializer(standardConfiguration));
+
+		const response = await handler({ headers: {} }, defaultContext);
+
+		strictEqual(response.body, "Hello World");
+		strictEqual(response.headers["Content-Type"], undefined);
+	});
+
+	test("It should write Content-Type to multiValueHeaders when the response uses them", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: "Hello World",
+			multiValueHeaders: { "Set-Cookie": ["a=1", "b=2"] },
+		})).use(httpResponseSerializer(standardConfiguration));
+
+		const response = await handler({ headers: {} }, defaultContext);
+
+		deepStrictEqual(response.multiValueHeaders, {
+			"Set-Cookie": ["a=1", "b=2"],
+			"Content-Type": ["application/json"],
+		});
+		strictEqual(response.headers["Content-Type"], undefined);
+		strictEqual(response.body, '{"message":"Hello World"}');
 	});
 
 	test("onError skips serialization when request.response is undefined", async (t) => {

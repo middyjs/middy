@@ -123,10 +123,19 @@ export const pollRmq = (opts) => {
 	const pending = [];
 	const inflight = new WeakMap();
 	let resolveNext;
+	let failure;
 
 	const wakeReader = () => {
 		resolveNext?.();
 		resolveNext = undefined;
+	};
+
+	// A consumer that can no longer deliver would leave the loop parked
+	// forever. Fail the poll instead: the worker reports it through onError,
+	// exits 1 and the primary re-forks it.
+	const fail = (err) => {
+		failure = err;
+		wakeReader();
 	};
 
 	return {
@@ -136,53 +145,106 @@ export const pollRmq = (opts) => {
 			if (!channel) channel = await connection.createChannel();
 			await channel.prefetch(prefetch);
 
-			const onAbort = async () => {
-				wakeReader();
-				try {
-					await channel.close();
-					await connection.close();
-				} catch {
-					// best-effort
-				}
-			};
-			signal.addEventListener("abort", onAbort, { once: true });
+			// A channel emits "close" when it or its connection closes, after
+			// "error" when the server closed it with one; an unheard "error" would
+			// throw out of amqplib's socket handler instead of reaching onError.
+			// https://amqp-node.github.io/amqplib/channel_api.html#channel-events
+			let closeError;
+			channel.on("error", (err) => {
+				closeError = err;
+			});
+			channel.once("close", () =>
+				fail(
+					closeError ??
+						new Error("Channel closed", {
+							cause: { package: pkg, data: { queue: opts.queue } },
+						}),
+				),
+			);
 
-			await channel.consume(
+			const { consumerTag } = await channel.consume(
 				opts.queue,
 				(msg) => {
-					if (!msg) return;
+					// RabbitMQ cancelled the consumer (queue deleted, node failover):
+					// amqplib then invokes the callback with null.
+					// https://amqp-node.github.io/amqplib/channel_api.html#channel_consume
+					if (msg === null) {
+						fail(
+							new Error("Consumer cancelled by RabbitMQ", {
+								cause: { package: pkg, data: { queue: opts.queue } },
+							}),
+						);
+						return;
+					}
 					pending.push(msg);
 					wakeReader();
 				},
 				{ noAck: false },
 			);
 
-			while (!signal.aborted) {
-				if (pending.length === 0) {
-					await new Promise((r) => {
-						resolveNext = r;
-					});
-					continue;
+			// On abort only stop new deliveries and wake the reader: the batch in
+			// flight still has to be acknowledged on this channel. A cancelled
+			// consumer keeps its unacknowledged deliveries; closing the channel,
+			// once the poll ends, requeues whatever is left.
+			// https://www.rabbitmq.com/docs/consumers#consumer-cancellation
+			const onAbort = async () => {
+				wakeReader();
+				try {
+					await channel.cancel(consumerTag);
+				} catch {
+					// best-effort: the channel is closed in finally either way
 				}
-				const deadline = Date.now() + batchWindowMs;
-				while (
-					pending.length < batchSize &&
-					Date.now() < deadline &&
-					!signal.aborted
-				) {
-					await timers.setTimeout(Math.min(50, deadline - Date.now()));
+			};
+			signal.addEventListener("abort", onAbort);
+
+			try {
+				while (!signal.aborted) {
+					if (failure) throw failure;
+					if (pending.length === 0) {
+						await new Promise((r) => {
+							resolveNext = r;
+						});
+						continue;
+					}
+					const deadline = Date.now() + batchWindowMs;
+					while (
+						pending.length < batchSize &&
+						Date.now() < deadline &&
+						!signal.aborted
+					) {
+						await timers.setTimeout(Math.min(50, deadline - Date.now()));
+					}
+					if (signal.aborted) return;
+					const taken = pending.splice(0, batchSize);
+					const event = {
+						eventSource: "aws:rmq",
+						eventSourceArn: opts.eventSourceArn,
+						rmqMessagesByQueue: {
+							[queueKey]: taken.map(buildRmqRecord),
+						},
+					};
+					inflight.set(event, taken);
+					yield event;
+					// The runner resumes here after acknowledging the batch, or after the
+					// handler threw. A batch still in flight was never acknowledged:
+					// requeue every delivery so it redelivers instead of holding the
+					// prefetch window until the consumer stalls. On shutdown, closing the
+					// channel when the poll ends requeues unacknowledged deliveries
+					// instead, as it does when the poll fails.
+					// https://www.rabbitmq.com/docs/confirms
+					if (signal.aborted) return;
+					if (failure) throw failure;
+					const unsettled = inflight.get(event);
+					if (unsettled) {
+						inflight.delete(event);
+						for (const msg of unsettled) channel.nack(msg, false, true);
+					}
 				}
-				if (signal.aborted) return;
-				const taken = pending.splice(0, batchSize);
-				const event = {
-					eventSource: "aws:rmq",
-					eventSourceArn: opts.eventSourceArn,
-					rmqMessagesByQueue: {
-						[queueKey]: taken.map(buildRmqRecord),
-					},
-				};
-				inflight.set(event, taken);
-				yield event;
+			} finally {
+				signal.removeEventListener("abort", onAbort);
+				// best-effort: either may already be closed
+				await channel.close().catch(() => {});
+				await connection.close().catch(() => {});
 			}
 		},
 		async acknowledge(event, response) {

@@ -3,7 +3,7 @@ import middy from "@middy/core";
 import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { expect, test } from "tstyche";
-import dsqlSigner from "./index.js";
+import dsqlSigner, * as indexModule from "./index.js";
 
 test("use with default options", () => {
 	const middleware = dsqlSigner();
@@ -85,7 +85,10 @@ test("rejects options the middleware does not honour", () => {
 	expect(dsqlSigner).type.not.toBeCallableWith({
 		awsClientCapture: (client: DsqlSigner) => client,
 	});
-	expect(dsqlSigner).type.not.toBeCallableWith({ cacheMaxSize: 10 });
+});
+
+test("accepts cacheMaxSize", () => {
+	expect(dsqlSigner).type.toBeCallableWith({ cacheMaxSize: 10 });
 });
 
 test("contextKey literal narrows middyContext without as const", () => {
@@ -100,4 +103,20 @@ test("contextKey literal narrows middyContext without as const", () => {
 		.before(async (request) => {
 			expect(request.context.middyContext.custom.foo).type.toBe<string>();
 		});
+});
+
+test("rejects misspelled option alongside fetchData", () => {
+	expect(dsqlSigner).type.not.toBeCallableWith({
+		fetchData: {
+			foo: { hostname: "cluster.dsql.ca-central-1.on.aws", username: "admin" },
+		},
+		cacheExpiery: 1000,
+	});
+});
+
+test("dsqlSignerValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.DsqlSignerOptions;
+	expect(
+		indexModule.dsqlSignerValidateOptions(options),
+	).type.toBe<indexModule.DsqlSignerOptions>();
 });

@@ -31,6 +31,7 @@ NOTES:
 - Static routes (those without `{var}`) are evaluated first, followed by Dynamic routes (those with `{var}`) evaluated in the order they appear.
 - A method-specific route wins over an `ANY` route on the same path regardless of registration order, static or dynamic; the `ANY` route serves the remaining methods. Static `ANY` routes are consulted after the method-specific static routes and before any dynamic route; dynamic `ANY` routes are evaluated after every method-specific dynamic route, each group in the order they appear.
 - Registering a path twice for the same method throws `Duplicate route`, static or dynamic, and so does registering it twice through `ANY`. Two dynamic paths that differ only in parameter name (`/user/{id}` and `/user/{userId}`) match the same requests and count as duplicates.
+- A route handler wrapped in `middy()` reads the router stack's `context.middyContext` values. It runs on a context derived from the router's, so its own writes (to `middyContext` or the context root) never reach the router's middleware.
 
 ## Sample usage
 
@@ -130,7 +131,7 @@ export const handler = middy()
 
 `routes[].handler` is typed as `RouteHandler<TEvent, TResult>`, a single call signature `(event, context) => TResult | Promise<TResult>` that a plain Lambda handler, a `middy()` handler and an inline arrow all satisfy. An inline `handler: (event, context) => ...` gets `event` and `context` typed from the router's generics (default `APIGatewayProxyEvent` and `APIGatewayProxyResult`), or from a typed sibling route.
 
-The router returns a `MiddyfiedHandler<TEvent, TResult>`. Wrapping it with `middy().handler(httpRouterHandler(routes))` needs the same generics on `middy`, because `middy()` alone defaults its event to `unknown`; alternatively pass the router straight into `middy()` and attach middleware with `.use()`.
+The router returns a plain handler function, `RouterHandler<TEvent, TResult>`, not a `MiddyfiedHandler`, so it has no `.use()`. Wrapping it with `middy().handler(httpRouterHandler(routes))` needs the same generics on `middy`, because `middy()` alone defaults its event to `unknown`; alternatively pass the router straight into `middy()` and attach middleware with `.use()`.
 
 ```typescript
 import middy from '@middy/core'

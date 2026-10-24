@@ -4,7 +4,7 @@ description: "Use Middy with VPC Lattice Lambda target events for service networ
 ---
 
 <script>
-import Callout from '@design-system/components/Callout.svelte'
+import Callout from '@willfarrell-ds/svelte/components/Callout.svelte'
 </script>
 
 
@@ -13,6 +13,17 @@ This page is a work in progress. If you want to help us to make this page better
 </Callout>
 
 We recommend using `@middy/http-event-normalizer` if you place to use any of the following: `@middy/http-json-body-parser`, `@middy/http-multipart-body-parser`, `@middy/http-urlencode-body-parser`, `@middy/http-partial-response`
+
+## Event flow
+
+```mermaid
+flowchart LR
+  accTitle: VPC Lattice to Lambda
+  accDescr: VPC Lattice to Lambda.
+  src@{ icon: "logos:aws-vpc", label: "VPC Lattice", pos: "b", h: 48 }
+  fn@{ icon: "logos:aws-lambda", label: "Lambda", pos: "b", h: 48 }
+  src --> fn
+```
 
 ## AWS Documentation
 
@@ -38,8 +49,9 @@ import httpResponseSerializerMiddleware from '@middy/http-response-serializer'
 import httpSecurityHeadersMiddleware from '@middy/http-security-headers'
 import httpUrlencodeBodyParserMiddleware from '@middy/http-urlencode-body-parser'
 import httpUrlencodePathParametersParserMiddleware from '@middy/http-urlencode-path-parser'
-import validatorMiddleware from 'validator'
-import warmupMiddleware from 'warmup'
+import validatorMiddleware from '@middy/validator'
+import { transpileSchema } from '@middy/validator/transpile'
+import warmupMiddleware from '@middy/warmup'
 
 import eventSchema from './eventSchema.json' with { type: 'json' }
 import responseSchema from './responseSchema.json' with { type: 'json' }
@@ -77,11 +89,16 @@ export const handler = middy({
           serializer: ({ body }) => JSON.stringify(body)
         }
       ],
-      default: 'application/json'
+      defaultContentType: 'application/json'
     })
   )
   .use(httpPartialResponseMiddleware())
-  .use(validatorMiddleware({ eventSchema, responseSchema }))
+  .use(
+    validatorMiddleware({
+      eventSchema: transpileSchema(eventSchema),
+      responseSchema: transpileSchema(responseSchema)
+    })
+  )
   .use(httpErrorHandlerMiddleware())
   .handler((event, context, { signal }) => {
     // ...

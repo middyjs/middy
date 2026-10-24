@@ -499,6 +499,45 @@ describe("@middy/http-header-normalizer", () => {
 		strictEqual(resultingEvent.headers.foo, "a,b");
 	});
 
+	// RFC 6265 §5.4: cookie-pairs are joined by "; ", never ",".
+	test("It should join an array-valued Cookie default with a semicolon", async (t) => {
+		const handler = middy()
+			.use(httpHeaderNormalizer({ defaultHeaders: { Cookie: ["a=1", "b=2"] } }))
+			.handler((event) => event);
+
+		const resultingEvent = await handler(
+			{ headers: {}, multiValueHeaders: {} },
+			defaultContext,
+		);
+
+		strictEqual(resultingEvent.headers.cookie, "a=1; b=2");
+		deepStrictEqual(resultingEvent.multiValueHeaders.cookie, ["a=1", "b=2"]);
+	});
+
+	test("It should split a string default into trimmed values for multiValueHeaders", async (t) => {
+		const handler = middy()
+			.use(
+				httpHeaderNormalizer({
+					defaultHeaders: {
+						Accept: "text/html, application/json",
+						Cookie: "a=1; b=2",
+					},
+				}),
+			)
+			.handler((event) => event);
+
+		const resultingEvent = await handler(
+			{ multiValueHeaders: {} },
+			defaultContext,
+		);
+
+		deepStrictEqual(resultingEvent.multiValueHeaders.accept, [
+			"text/html",
+			"application/json",
+		]);
+		deepStrictEqual(resultingEvent.multiValueHeaders.cookie, ["a=1", "b=2"]);
+	});
+
 	test("It should not merge any defaults into headers when defaultHeaders is empty", async (t) => {
 		const handler = middy((event, context) => event);
 

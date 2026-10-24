@@ -1,6 +1,5 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import type middy from "@middy/core";
 import type {
 	ALBEvent,
 	ALBResult,
@@ -9,6 +8,7 @@ import type {
 	APIGatewayProxyResult,
 	APIGatewayProxyResultV2,
 	Context,
+	Handler,
 } from "aws-lambda";
 
 export type Method =
@@ -21,14 +21,19 @@ export type Method =
 	| "HEAD"
 	| "ANY";
 
+// middy seeds `context.middyContext` on every invocation of the wrapping
+// `middy()` handler, which the router forwards to the route handler.
+export type RouteContext = Context & { middyContext: Record<string, unknown> };
+
 // One call signature that a plain Lambda handler, a middyfied handler and an
 // inline arrow all satisfy. A union of `Handler | MiddyfiedHandler` gave an
 // inline `handler: (event, context) => ...` no contextual type (their parameter
-// lists differ), so `event` was an implicit `any`. The rest parameter absorbs
-// Lambda's `callback` and middy's `opts`; the router itself passes neither.
+// lists differ), so `event` was an implicit `any`. The rest parameter takes the
+// router's own third argument, which it forwards as is (middy's `{ signal }`
+// when wrapped).
 export type RouteHandler<TEvent, TResult> = (
 	event: TEvent,
-	context: Context,
+	context: RouteContext,
 	...rest: any[]
 	// biome-ignore lint/suspicious/noConfusingVoidType: Lambda's `Handler` returns `void | Promise<TResult>`, and `undefined` would refuse it
 ) => void | TResult | Promise<TResult>;
@@ -44,7 +49,18 @@ export type RouteNotFoundResponseFn = (input: {
 	path: string;
 }) => unknown;
 
-// TODO v8: returns a plain handler fn, not MiddyfiedHandler (breaking type fix)
+// The router is a plain function, not a middyfied handler: wrap it with
+// `middy()` to attach middleware. It returns whatever the matched route handler
+// returns and forwards its third argument (middy's `{ signal }` when wrapped)
+// to that handler untouched. It is also an aws-lambda `Handler`, so it can be
+// exported as a Lambda handler or assigned to one directly.
+export type RouterHandler<TEvent, TResult> = Handler<TEvent, TResult> &
+	((
+		event: TEvent,
+		context: Context,
+		...rest: any[]
+	) => TResult | Promise<TResult>);
+
 declare function httpRouterHandler<
 	TEvent extends
 		| ALBEvent
@@ -61,10 +77,10 @@ declare function httpRouterHandler<
 				routes: Array<Route<TEvent, TResult>>;
 				notFoundResponse?: RouteNotFoundResponseFn;
 		  },
-): middy.MiddyfiedHandler<TEvent, TResult>;
+): RouterHandler<TEvent, TResult>;
 
-export declare function httpRouterValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function httpRouterValidateOptions<TOptions extends object>(
+	options?: TOptions,
+): TOptions;
 
 export default httpRouterHandler;

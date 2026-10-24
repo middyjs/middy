@@ -22,6 +22,7 @@ export interface AppConfigExtensionOptions {
 	cacheKey?: string;
 	cacheKeyExpiry?: { [key: string]: number };
 	cacheExpiry?: number;
+	cacheMaxSize?: number;
 	setToContext?: boolean;
 	contextKey?: string;
 }
@@ -61,8 +62,12 @@ declare function appConfigExtension<
 	TKey extends string = string,
 >(
 	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
-	// key narrows `middyContext` without `as const`.
-	options?: TOptions & { contextKey?: TKey },
+	// key narrows `middyContext` without `as const`. The `never` record rejects
+	// keys `AppConfigExtensionOptions` does not declare, which inference would otherwise accept.
+	options?: TOptions & { contextKey?: TKey } & Record<
+			Exclude<keyof TOptions, keyof AppConfigExtensionOptions>,
+			never
+		>,
 ): middy.MiddlewareObj<
 	unknown,
 	any,
@@ -71,8 +76,8 @@ declare function appConfigExtension<
 	Internal<TOptions>
 >;
 
-export declare function appConfigExtensionValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function appConfigExtensionValidateOptions<
+	TOptions extends AppConfigExtensionOptions,
+>(options?: TOptions): TOptions;
 
 export default appConfigExtension;

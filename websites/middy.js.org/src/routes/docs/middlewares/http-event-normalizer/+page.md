@@ -16,6 +16,10 @@ This middleware normalizes the API Gateway, ALB, Function URLs, and VPC Lattice 
 
 > Important note : API Gateway HTTP API format 2.0 doesn't have `multiValueQueryStringParameters` fields. Duplicate query strings are combined with commas and included in the `queryStringParameters` field.
 
+ALB with [multi-value headers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers) enabled sends `multiValueHeaders` and `multiValueQueryStringParameters` in place of `headers` and `queryStringParameters`. When `headers` is absent this middleware derives it: repeated values are joined with `, ` (RFC 9110 §5.3), except `Cookie`, whose values are joined with `; ` (RFC 6265 §5.4). `queryStringParameters` takes the last value of each key, which is what ALB itself sends with multi-value off. Put this middleware before the body parsers, [`http-cors`](/docs/middlewares/http-cors) and [`http-content-negotiation`](/docs/middlewares/http-content-negotiation), which read `headers` only.
+
+ALB query parameters are URL-decoded here, since ALB passes them on encoded. The decoded maps have a null prototype, so a key that decodes to `__proto__` stays an ordinary own property.
+
 ## Install
 
 To install this middleware you can use NPM:

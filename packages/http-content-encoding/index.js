@@ -1,7 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 
-import { Readable } from "node:stream";
+import { pipeline, Readable } from "node:stream";
 import { ReadableStream } from "node:stream/web";
 import {
 	createBrotliCompress as brotliCompressStream,
@@ -99,19 +99,26 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 		}
 
 		// Encoding not supported, already encoded, or doesn't need to
-		const eventCacheControl =
-			request.event?.headers?.["cache-control"] ??
-			request.event?.headers?.["Cache-Control"];
+		const eventCacheControl = readHeader(
+			request.event?.headers,
+			request.event?.multiValueHeaders,
+			"cache-control",
+		);
 		if (eventCacheControl?.includes("no-transform")) {
 			addHeaderPart(response, "Cache-Control", "no-transform");
 		}
-		const responseCacheControl =
-			response.headers["Cache-Control"] ?? response.headers["cache-control"];
+		const responseCacheControl = readHeader(
+			response.headers,
+			response.multiValueHeaders,
+			"cache-control",
+		);
 		const isNodeStream = response.body?._readableState;
 		const isWebStream = response.body instanceof ReadableStream;
-		const responseContentEncoding =
-			response.headers["Content-Encoding"] ??
-			response.headers["content-encoding"];
+		const responseContentEncoding = readHeader(
+			response.headers,
+			response.multiValueHeaders,
+			"content-encoding",
+		);
 		if (
 			response.isBase64Encoded ||
 			responseContentEncoding ||
@@ -142,18 +149,17 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 			const contentEncodingStream = contentEncodingStreams[contentEncoding](
 				options[contentEncoding],
 			);
-			request.response.headers["Content-Encoding"] = contentEncoding;
-			if (isNodeStream) {
-				request.response.body = request.response.body.pipe(
-					contentEncodingStream,
-				);
-			} else {
-				// The outer guard leaves only a web stream here.
-				request.response.body = Readable.toWeb(
-					Readable.fromWeb(response.body).pipe(contentEncodingStream),
-				);
-			}
-			addHeaderPart(response, "Vary", "Accept-Encoding");
+			markEncoded(response, contentEncoding);
+			// pipeline, not .pipe(): a source that fails destroys the encoder with
+			// the same error, so the response stream errors instead of hanging and
+			// nothing escapes as an uncaught exception. The error reaches whoever
+			// consumes the body, so the callback has nothing left to do.
+			const source = isNodeStream
+				? response.body
+				: // The outer guard leaves only a web stream here.
+					Readable.fromWeb(response.body);
+			const encoded = pipeline(source, contentEncodingStream, noop);
+			request.response.body = isNodeStream ? encoded : Readable.toWeb(encoded);
 			return;
 		}
 		// isString/isBuffer, use sync compression (avoids stream overhead)
@@ -167,10 +173,9 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 
 		// Only apply encoding if it's smaller
 		if (compressed.length < inputBuffer.length) {
-			response.headers["Content-Encoding"] = contentEncoding;
+			markEncoded(response, contentEncoding);
 			response.body = compressed.toString("base64");
 			response.isBase64Encoded = true;
-			addHeaderPart(response, "Vary", "Accept-Encoding");
 		}
 
 		request.response = response;
@@ -187,9 +192,77 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 	};
 };
 
-// header in official name, lowercase variant handled
+const noop = () => {};
+
+// ALB with multi-value headers enabled sends and expects `multiValueHeaders`
+// only, so both maps are read and a response that uses `multiValueHeaders` is
+// written there.
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+const readHeader = (headers, multiValueHeaders, lowerName) => {
+	for (const map of [headers, multiValueHeaders]) {
+		if (!map) continue;
+		for (const key of Object.keys(map)) {
+			if (key.toLowerCase() === lowerName) {
+				const value = map[key];
+				return Array.isArray(value) ? value.join(", ") : value;
+			}
+		}
+	}
+	return undefined;
+};
+
+const weakenETag = (value) => (value.startsWith("W/") ? value : `W/${value}`);
+
+// The encoded body is a different representation: Content-Length described the
+// unencoded one (RFC 9110 §8.6), and a strong ETag has to change with the
+// content coding (RFC 9110 §8.8.3), so it is weakened. A weak one is kept.
+const encodedHeaders = (map, isMultiValue) => {
+	const headers = {};
+	for (const key of Object.keys(map)) {
+		const lower = key.toLowerCase();
+		if (lower === "content-length") continue;
+		const value = map[key];
+		if (lower !== "etag") {
+			headers[key] = value;
+		} else {
+			headers[key] = isMultiValue ? value.map(weakenETag) : weakenETag(value);
+		}
+	}
+	return headers;
+};
+
+const markEncoded = (response, contentEncoding) => {
+	response.headers = encodedHeaders(response.headers, false);
+	if (response.multiValueHeaders) {
+		response.multiValueHeaders = encodedHeaders(
+			response.multiValueHeaders,
+			true,
+		);
+		response.multiValueHeaders["Content-Encoding"] = [contentEncoding];
+	} else {
+		response.headers["Content-Encoding"] = contentEncoding;
+	}
+	addHeaderPart(response, "Vary", "Accept-Encoding");
+};
+
+// header in official name, lowercase variant handled. A response that uses
+// multiValueHeaders gets the value as one more line of that header.
 const addHeaderPart = (response, header, value) => {
 	const headerLower = header.toLowerCase();
+	if (response.multiValueHeaders) {
+		const existing = Object.keys(response.multiValueHeaders).find(
+			(key) => key.toLowerCase() === headerLower,
+		);
+		if (existing) {
+			response.multiValueHeaders[existing] = [
+				...response.multiValueHeaders[existing],
+				value,
+			];
+		} else {
+			response.multiValueHeaders[header] = [value];
+		}
+		return;
+	}
 	const sanitizedHeader = response.headers[headerLower] ? headerLower : header;
 	response.headers[sanitizedHeader] ??= "";
 	response.headers[sanitizedHeader] &&=

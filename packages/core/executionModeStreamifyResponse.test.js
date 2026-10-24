@@ -1,4 +1,4 @@
-import { ok, rejects, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
 import { Readable, Writable } from "node:stream";
 import { describe, test } from "node:test";
 import {
@@ -108,6 +108,32 @@ describe("@middy/core/StreamifyResponse", () => {
 			strictEqual(chunkResponse(), input);
 		});
 
+		test("Should keep the outer middyContext intact under a nested executionModeStreamifyResponse", async (t) => {
+			const { responseStream } = createResponseStreamMockAndCapture();
+			const seen = {};
+			const inner = middy({
+				executionMode: executionModeStreamifyResponse,
+			}).handler((event, context) => {
+				seen.innerX = context.middyContext.x;
+				return "";
+			});
+			const outer = middy((event, context) =>
+				inner(event, responseStream, context),
+			)
+				.before((request) => {
+					request.context.middyContext.x = "outer";
+				})
+				.after((request) => {
+					seen.outerX = request.context.middyContext.x;
+					seen.outerIsOwn = Object.hasOwn(request.context.middyContext, "x");
+				});
+
+			await outer(event, { ...context });
+			strictEqual(seen.innerX, "outer");
+			strictEqual(seen.outerX, "outer");
+			strictEqual(seen.outerIsOwn, true);
+		});
+
 		test("Should throw with executionMode:executionModeStreamifyResponse using object", async (t) => {
 			const input = {};
 			const handler = middy(
@@ -125,9 +151,68 @@ describe("@middy/core/StreamifyResponse", () => {
 			} catch (e) {
 				strictEqual(
 					e.message,
-					"handler response not a Readable or ReadableStream",
+					"handler response not a string, Buffer, TypedArray, DataView, Readable or ReadableStream",
 				);
 			}
+		});
+
+		test("Should return with executionMode:executionModeStreamifyResponse using body Buffer", async (t) => {
+			const input = "x".repeat(1024);
+			const handler = middy(
+				(event, context, { signal }) => {
+					return {
+						statusCode: 200,
+						headers: { "Content-Type": "application/octet-stream" },
+						body: Buffer.from(input),
+					};
+				},
+				{
+					executionMode: executionModeStreamifyResponse,
+				},
+			);
+
+			const { responseStream, content } = createResponseStreamMockAndCapture();
+
+			const response = await handler(event, responseStream, context);
+			strictEqual(response, undefined);
+			strictEqual(content(), input);
+		});
+
+		test("Should return with executionMode:executionModeStreamifyResponse using Uint8Array", async (t) => {
+			const input = "x".repeat(1024);
+			const handler = middy(
+				(event, context, { signal }) => {
+					return new TextEncoder().encode(input);
+				},
+				{
+					executionMode: executionModeStreamifyResponse,
+				},
+			);
+
+			const { responseStream, chunkResponse } =
+				createResponseStreamMockAndCapture();
+
+			const response = await handler(event, responseStream, context);
+			strictEqual(response, undefined);
+			strictEqual(chunkResponse(), input);
+		});
+
+		test("Should return with executionMode:executionModeStreamifyResponse using a DataView over part of a buffer", async (t) => {
+			const bytes = new TextEncoder().encode("__payload__");
+			const handler = middy(
+				(event, context, { signal }) => {
+					return new DataView(bytes.buffer, 2, 7);
+				},
+				{
+					executionMode: executionModeStreamifyResponse,
+				},
+			);
+
+			const { responseStream, chunkResponse } =
+				createResponseStreamMockAndCapture();
+
+			await handler(event, responseStream, context);
+			strictEqual(chunkResponse(), "payload");
 		});
 
 		test("Should return with executionMode:executionModeStreamifyResponse using body undefined", async (t) => {
@@ -516,7 +601,7 @@ describe("@middy/core/StreamifyResponse", () => {
 			} catch (e) {
 				strictEqual(
 					e.message,
-					"handler response not a Readable or ReadableStream",
+					"handler response not a string, Buffer, TypedArray, DataView, Readable or ReadableStream",
 				);
 				strictEqual(e.cause.package, "@middy/core");
 			}
@@ -591,14 +676,15 @@ describe("@middy/core/StreamifyResponse", () => {
 			// branch's `while (position < length)` would skip it entirely. Both end
 			// up with empty output, so only the write itself tells them apart.
 			const writes = [];
-			const stream = {
-				write: (chunk) => {
-					writes.push(chunk);
-					return true;
+			const stream = new Writable({
+				write(chunk, encoding, callback) {
+					callback();
 				},
-				end: (cb) => cb?.(),
-				once: () => {},
-				on: () => {},
+			});
+			const originalWrite = stream.write.bind(stream);
+			stream.write = (chunk) => {
+				writes.push(chunk);
+				return originalWrite(chunk);
 			};
 			const handler = middy(async () => "", {
 				executionMode: executionModeStreamifyResponse,
@@ -610,8 +696,8 @@ describe("@middy/core/StreamifyResponse", () => {
 			strictEqual(writes[0], "");
 		});
 
-		// The `handlerError` these guards protect is a *stream write* failure, not
-		// the handler's throw, so it can only be a primitive if the response stream
+		// The request error in these tests is a *stream write* failure, not the
+		// handler's throw, so it can only be a primitive if the response stream
 		// itself throws one.
 		const throwingStream = (thrown) => ({
 			write: () => {
@@ -622,7 +708,7 @@ describe("@middy/core/StreamifyResponse", () => {
 			on: () => {},
 		});
 
-		test("Should keep a primitive stream error when requestEnd also throws in streamify mode", async (t) => {
+		test("Should throw AggregateError for a primitive stream error when requestEnd also throws in streamify mode", async (t) => {
 			const handler = middy(async () => "ok", {
 				executionMode: executionModeStreamifyResponse,
 				requestEnd: () => {
@@ -634,11 +720,14 @@ describe("@middy/core/StreamifyResponse", () => {
 				await handler(event, throwingStream("write boom"), context);
 				throw new Error("Expected stream error to propagate");
 			} catch (e) {
-				strictEqual(e, "write boom");
+				ok(e instanceof AggregateError);
+				strictEqual(e.message, "Error thrown in requestEnd hook");
+				deepStrictEqual(e.cause, { package: "@middy/core" });
+				strictEqual(e.errors[0], "write boom");
 			}
 		});
 
-		test("Should keep a null stream error when requestEnd also throws in streamify mode", async (t) => {
+		test("Should throw AggregateError for a null stream error when requestEnd also throws in streamify mode", async (t) => {
 			const handler = middy(async () => "ok", {
 				executionMode: executionModeStreamifyResponse,
 				requestEnd: () => {
@@ -650,13 +739,12 @@ describe("@middy/core/StreamifyResponse", () => {
 				await handler(event, throwingStream(null), context);
 				throw new Error("Expected stream error to propagate");
 			} catch (e) {
-				strictEqual(e, null);
+				ok(e instanceof AggregateError);
+				strictEqual(e.errors[0], null);
 			}
 		});
 
-		test("Should keep a primitive handler error when requestEnd also throws in streamify mode", async (t) => {
-			// Primitives cannot carry a `cause`; assigning one throws in strict mode,
-			// so the guard must skip it and let the handler error propagate.
+		test("Should throw AggregateError for a primitive handler error when requestEnd also throws in streamify mode", async (t) => {
 			const handler = middy(
 				async () => {
 					throw "boom";
@@ -674,13 +762,12 @@ describe("@middy/core/StreamifyResponse", () => {
 				await handler(event, responseStream, context);
 				throw new Error("Expected handler error to propagate");
 			} catch (e) {
-				strictEqual(e, "boom");
+				ok(e instanceof AggregateError);
+				strictEqual(e.errors[0], "boom");
 			}
 		});
 
-		test("Should keep a null handler error when requestEnd also throws in streamify mode", async (t) => {
-			// `typeof null === "object"`, so only the explicit null check keeps the
-			// `cause` assignment off it.
+		test("Should throw AggregateError for a null handler error when requestEnd also throws in streamify mode", async (t) => {
 			const handler = middy(
 				async () => {
 					throw null;
@@ -698,7 +785,8 @@ describe("@middy/core/StreamifyResponse", () => {
 				await handler(event, responseStream, context);
 				throw new Error("Expected handler error to propagate");
 			} catch (e) {
-				strictEqual(e, null);
+				ok(e instanceof AggregateError);
+				strictEqual(e.errors[0], null);
 			}
 		});
 
@@ -741,7 +829,7 @@ describe("@middy/core/StreamifyResponse", () => {
 			}
 		});
 
-		test("Should preserve pipeline error when requestEnd hook also throws in streamify mode", async (t) => {
+		test("Should throw AggregateError of pipeline and hook errors when requestEnd hook also throws in streamify mode", async (t) => {
 			const pipelineErr = new Error("pipeline failed");
 			const hookErr = new Error("requestEnd failed");
 			const handler = middy(
@@ -764,8 +852,9 @@ describe("@middy/core/StreamifyResponse", () => {
 				await handler(event, responseStream, context);
 				throw new Error("Expected pipeline error to propagate");
 			} catch (e) {
-				strictEqual(e, pipelineErr);
-				strictEqual(e.cause, hookErr);
+				ok(e instanceof AggregateError);
+				strictEqual(e.errors[0], pipelineErr);
+				strictEqual(e.errors[1], hookErr);
 			}
 		});
 
@@ -806,8 +895,10 @@ describe("@middy/core/StreamifyResponse", () => {
 			strictEqual(requestEnd.mock.callCount(), 1);
 		});
 
-		test("Should attach requestEnd error as cause when both handler and requestEnd throw in streamify mode", async (t) => {
-			const handlerErr = new Error("handler failed");
+		test("Should throw AggregateError when both handler and requestEnd throw in streamify mode", async (t) => {
+			const handlerErr = new Error("handler failed", {
+				cause: { package: "@middy/core" },
+			});
 			const hookErr = new Error("requestEnd failed");
 			const handler = middy(
 				async () => {
@@ -824,8 +915,33 @@ describe("@middy/core/StreamifyResponse", () => {
 			const { responseStream } = createResponseStreamMockAndCapture();
 			await rejects(
 				() => handler(event, responseStream, context),
-				(e) => e === handlerErr && e.cause === hookErr,
+				(e) =>
+					e instanceof AggregateError &&
+					e.errors[0] === handlerErr &&
+					e.errors[1] === hookErr &&
+					handlerErr.cause.package === "@middy/core",
 			);
+		});
+
+		test("Should not write the HTTP prelude when the body type is invalid", async (t) => {
+			// The prelude commits a 200 to the client; writing it before the body
+			// check left an unterminated stream behind the thrown error.
+			const handler = middy({
+				executionMode: executionModeStreamifyResponse,
+			}).handler(() => {
+				return { statusCode: 200, body: { data: "not a stream" } };
+			});
+
+			const { responseStream, chunkResponse } =
+				createResponseStreamMockAndCapture();
+			await rejects(
+				() => handler(event, responseStream, context),
+				(e) =>
+					e.message ===
+						"handler response not a string, Buffer, TypedArray, DataView, Readable or ReadableStream" &&
+					e.cause.package === "@middy/core",
+			);
+			strictEqual(chunkResponse(), "");
 		});
 
 		// L49 - invalid (non-stream, non-string) handler response must throw
@@ -844,7 +960,7 @@ describe("@middy/core/StreamifyResponse", () => {
 				threw = true;
 				strictEqual(
 					e.message,
-					"handler response not a Readable or ReadableStream",
+					"handler response not a string, Buffer, TypedArray, DataView, Readable or ReadableStream",
 				);
 				strictEqual(e.cause.package, "@middy/core");
 			}
@@ -925,6 +1041,35 @@ describe("@middy/core/StreamifyResponse", () => {
 			);
 		});
 
+		// Each backpressure wait races 'drain' against finished(); once 'drain'
+		// wins, the wait must abort so finished() drops its 'close' listener.
+		// Without that, every wait leaks one more listener onto the stream.
+		test("Should remove backpressure listeners after each drain", async (t) => {
+			t.mock.timers.reset();
+			const input = "x".repeat(16384 * 4);
+			const closeListeners = [];
+
+			const responseStream = new Writable({
+				highWaterMark: 1,
+				write(chunk, encoding, callback) {
+					closeListeners.push(responseStream.listenerCount("close"));
+					setImmediate(callback);
+				},
+			});
+
+			const handler = middy({
+				executionMode: executionModeStreamifyResponse,
+			}).handler(() => input);
+
+			await handler(event, responseStream, context);
+
+			strictEqual(closeListeners.length, 4);
+			deepStrictEqual(
+				closeListeners,
+				closeListeners.map(() => closeListeners[0]),
+			);
+		});
+
 		// L102 - a stream error during end() must reject the returned promise
 		test("Should reject when the response stream errors on end", async (t) => {
 			const streamErr = new Error("stream blew up");
@@ -949,6 +1094,74 @@ describe("@middy/core/StreamifyResponse", () => {
 				caught = e;
 			}
 			strictEqual(caught, streamErr);
+		});
+
+		// A response stream destroyed without an error (client gone) never
+		// emits 'finish' or 'error', so ending it must still settle, as a failure.
+		test("Should reject when the response stream was destroyed without error", {
+			timeout: 1000,
+		}, async (t) => {
+			t.mock.timers.reset();
+			const responseStream = new Writable({
+				write(chunk, encoding, callback) {
+					callback();
+				},
+			});
+			responseStream.destroy();
+
+			const handler = middy({
+				executionMode: executionModeStreamifyResponse,
+			}).handler(() => "body");
+
+			await rejects(handler(event, responseStream, context), {
+				code: "ERR_STREAM_PREMATURE_CLOSE",
+			});
+		});
+
+		// A response stream that already errored must not report the write as
+		// a success.
+		test("Should reject with the stream error when the response stream already errored", {
+			timeout: 1000,
+		}, async (t) => {
+			t.mock.timers.reset();
+			const streamErr = new Error("stream errored earlier");
+			const responseStream = new Writable({
+				write(chunk, encoding, callback) {
+					callback();
+				},
+			});
+			responseStream.on("error", () => {});
+			responseStream.destroy(streamErr);
+			// Let 'error' and 'close' fire before the handler starts writing.
+			await new Promise((resolve) => setImmediate(resolve));
+
+			const handler = middy({
+				executionMode: executionModeStreamifyResponse,
+			}).handler(() => Buffer.from("body"));
+
+			await rejects(handler(event, responseStream, context), streamErr);
+		});
+
+		// write() returns false on a destroyed stream, and a destroyed stream
+		// never emits 'drain', so the backpressure wait must also end on close.
+		test("Should reject instead of waiting for drain when the response stream closes", {
+			timeout: 1000,
+		}, async (t) => {
+			t.mock.timers.reset();
+			const responseStream = new Writable({
+				write(chunk, encoding, callback) {
+					callback();
+				},
+			});
+			responseStream.destroy();
+
+			const handler = middy({
+				executionMode: executionModeStreamifyResponse,
+			}).handler(() => "x".repeat(16384 * 2));
+
+			await rejects(handler(event, responseStream, context), {
+				code: "ERR_STREAM_PREMATURE_CLOSE",
+			});
 		});
 
 		// The writer waits out backpressure with `once(stream, "drain")`, which

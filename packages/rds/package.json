@@ -1,6 +1,6 @@
 {
 	"name": "@middy/rds",
-	"version": "8.0.0-alpha.1",
+	"version": "8.0.0-alpha.2",
 	"description": "RDS (Relational Database Service) connection middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -282,7 +282,7 @@
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --test",
 		"test:fuzz": "node --test index.fuzz.js",
-		"test:perf": "node --test index.perf.js",
+		"test:bench": "node --experimental-bench --bench 'index.bench.js'",
 		"test:mutation": "cd ../.. && MUTATE_PACKAGE=\"$(basename \"$OLDPWD\")\" stryker run"
 	},
 	"license": "MIT",
@@ -316,25 +316,34 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"peerDependencies": {
-		"pg": "^8.0.0",
-		"postgres": "^3.0.0"
+		"@types/pg": "^8.0.0",
+		"pg": "^8.23.1",
+		"postgres": "^3.0.0",
+		"@middy/core": "8.0.0-alpha.2"
 	},
 	"peerDependenciesMeta": {
+		"@types/pg": {
+			"optional": true
+		},
 		"pg": {
 			"optional": true
 		},
 		"postgres": {
 			"optional": true
+		},
+		"@middy/core": {
+			"optional": true
 		}
 	},
 	"dependencies": {
-		"@middy/util": "8.0.0-alpha.1"
+		"@middy/util": "8.0.0-alpha.2"
 	},
 	"devDependencies": {
-		"@middy/core": "8.0.0-alpha.1",
+		"@middy/core": "8.0.0-alpha.2",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^24.0.0",
-		"pg": "^8.0.0",
+		"@types/pg": "^8.0.0",
+		"pg": "^8.23.1",
 		"postgres": "^3.0.0"
 	}
 }

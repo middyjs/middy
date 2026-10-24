@@ -45,17 +45,19 @@ npm install --save-dev ajv-cmd # Optional: for pre-transpiling
 NOTES:
 
 - At least one of `eventSchema`, `contextSchema`, or `responseSchema` may be supplied.
+- Validators must be synchronous. An `$async` ajv validator or an async function throws at construction, and the TypeScript options reject `$async` validators.
 - `contextSchema` validates the whole `request.context`, which always carries the `middyContext` namespace. A schema with `additionalProperties: false` must allow it.
-- If you'd like to have the error details as part of the response, it will need to be handled separately. You can access them from `request.error.cause.data` (`reason` and the ajv `errors`). When a response fails validation the rejected response is still on `request.response` for `onError` middlewares.
+- If you'd like to have the error details as part of the response, it will need to be handled separately. You can access them from `request.error.cause.data` (`reason` and the ajv `errors`). With the default `allErrors: false`, `errors` holds at most one error. When a response fails validation the rejected response is still on `request.response` for `onError` middlewares.
 - **Important** Transpiling schemas & locales on the fly will cause a 50-150ms performance hit during cold start for simple JSON Schemas. Precompiling is highly recommended.
 
 ## transpileSchema
 
-Transpile JSON-Schema in to JavaScript. Default ajv plugins used: `ajv-formats`, `@silverbucket/ajv-formats-draft2019`, `ajv-keywords`, `ajv-errors`.
+Transpile JSON-Schema in to JavaScript. Default ajv plugins used: `ajv-formats`, `@silverbucket/ajv-formats-draft2019`, `ajv-keywords`, and `ajv-errors` (only with `allErrors: true`).
 
 - `schema` (object) (required): JSON-Schema object
 - `ajvOptions` (object) (default `undefined`): Options to pass to [ajv](https://ajv.js.org/docs/api.html#options)
-  class constructor. Defaults are `{ strict: true, coerceTypes: 'array', allErrors: true, useDefaults: 'empty', messages: true }`. `keywords` are registered after the plugins, so a custom keyword compiles under `strict: true` and a definition with the same name as a plugin keyword replaces it.
+  class constructor. Defaults are `{ strict: true, coerceTypes: 'array', allErrors: false, useDefaults: 'empty', messages: true }`. `keywords` are registered after the plugins, so a custom keyword compiles under `strict: true` and a definition with the same name as a plugin keyword replaces it.
+  With the default `allErrors: false`, validation stops at the first error, which bounds the memory and work one large or hostile payload can cost. `ajv-errors` is then not registered, and a schema using `errorMessage` throws at transpile time (`@middy/validator errorMessage requires ajvOptions { allErrors: true }`). Pass `{ allErrors: true }` to collect every error or use `errorMessage`, ideally only for small payloads bounded by `maxLength` / `maxItems`.
 
 ## nestedSchema
 
@@ -256,9 +258,9 @@ Run a build script to before running tests & deployment.
 
 bundle () {
   ajv validate ${1} --valid \
-    --strict true --coerce-types array --all-errors true --use-defaults empty
+    --strict true --coerce-types array --all-errors false --use-defaults empty
   ajv transpile ${1} \
-  --strict true --coerce-types array --all-errors true --use-defaults empty \
+  --strict true --coerce-types array --all-errors false --use-defaults empty \
   -o ${1%.json}.js
 }
 
@@ -350,4 +352,3 @@ export const handler = middy()
 
 - Pre-compile schemas with `transpileSchema` at module load time, not inside the handler.
 - Validate a payload in place with `nestedSchema` rather than repeating the envelope in a second schema.
-- [CORS and error handling recipe](/docs/recipes/cors-and-errors).

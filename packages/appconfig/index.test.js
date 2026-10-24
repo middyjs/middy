@@ -1,4 +1,9 @@
-import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
+import {
+	rejects as assertRejects,
+	deepStrictEqual,
+	ok,
+	strictEqual,
+} from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
 	AppConfigDataClient,
@@ -1129,7 +1134,7 @@ describe("@middy/appconfig", () => {
 				await getInternal(true, request);
 			});
 
-		await rejects(
+		await assertRejects(
 			() => handler(defaultEvent, defaultContext),
 			(e) => {
 				strictEqual(e.message, "Failed to resolve internal values");
@@ -1173,7 +1178,7 @@ describe("@middy/appconfig", () => {
 				await getInternal(true, request);
 			});
 
-		await rejects(() => handler(defaultEvent, defaultContext));
+		await assertRejects(() => handler(defaultEvent, defaultContext));
 	});
 
 	test("It defaults cacheExpiry to -1 (cache forever) when omitted", async (t) => {
@@ -1440,7 +1445,7 @@ describe("@middy/appconfig", () => {
 			}),
 		);
 
-		await rejects(handler(defaultEvent, defaultContext));
+		await assertRejects(handler(defaultEvent, defaultContext));
 		const callsAfterFailure = mockService.send.callCount;
 
 		await handler(defaultEvent, defaultContext);
@@ -1480,7 +1485,7 @@ describe("@middy/appconfig", () => {
 			}),
 		);
 
-		await rejects(handler(defaultEvent, defaultContext));
+		await assertRejects(handler(defaultEvent, defaultContext));
 		const callsAfterFailure = mockService.send.callCount;
 
 		await handler(defaultEvent, defaultContext);
@@ -1525,9 +1530,370 @@ describe("@middy/appconfig", () => {
 		ok(getCache("appconfig-warm-fail").value.key !== undefined);
 
 		t.mock.timers.tick(200);
-		await rejects(handler(defaultEvent, defaultContext));
+		await assertRejects(handler(defaultEvent, defaultContext));
 
 		// Without modifyCache the cache keeps the previously resolved value.
 		strictEqual(getCache("appconfig-warm-fail").value.key, undefined);
+	});
+
+	// Configuration tokens are single-use and expire after 24 hours; after a
+	// failed GetLatestConfiguration the stored token is unusable, so the next
+	// invocation must start a new session.
+	// https://docs.aws.amazon.com/appconfig/2019-10-09/APIReference/API_appconfigdata_GetLatestConfiguration.html
+	test("It should start a new session after a warm configuration fetch fails", async (t) => {
+		t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+		const mockService = mockClient(AppConfigDataClient);
+		mockService.on(StartConfigurationSessionCommand).resolves({
+			ContentType: "application/json",
+			InitialConfigurationToken: "token",
+		});
+		mockService
+			.on(GetLatestConfigurationCommand)
+			.resolvesOnce({
+				ContentType: "application/json",
+				Configuration: strToUintArray('{"option":"value"}'),
+				NextPollConfigurationToken: "next",
+			})
+			.rejectsOnce("BadRequestException")
+			.resolves({
+				ContentType: "application/json",
+				Configuration: strToUintArray('{"option":"value2"}'),
+				NextPollConfigurationToken: "next2",
+			});
+
+		const handler = middy(() => {}).use(
+			appConfig({
+				AwsClient: AppConfigDataClient,
+				cacheKey: "appconfig-warm-fail-session",
+				cacheExpiry: 100,
+				disablePrefetch: true,
+				fetchData: retryFetchData,
+				setToContext: true,
+			}),
+		);
+
+		await handler(defaultEvent, defaultContext);
+		t.mock.timers.tick(200);
+		await assertRejects(handler(defaultEvent, defaultContext));
+		t.mock.timers.tick(200);
+		await handler(defaultEvent, defaultContext);
+
+		strictEqual(
+			mockService.commandCalls(StartConfigurationSessionCommand).length,
+			2,
+		);
+		const latestCalls = mockService.commandCalls(GetLatestConfigurationCommand);
+		strictEqual(latestCalls.at(-1).args[0].input.ConfigurationToken, "token");
+	});
+
+	test("It should keep a fresh value when a superseded fetch fails late", async (t) => {
+		let rejectStale;
+		const send = t.mock.fn(async (command) =>
+			command instanceof StartConfigurationSessionCommand
+				? { InitialConfigurationToken: "token" }
+				: {
+						ContentType: "application/json",
+						Configuration: strToUintArray('{"option":"value"}'),
+						NextPollConfigurationToken: "next",
+					},
+		);
+		send.mock.mockImplementationOnce(
+			() =>
+				new Promise((resolve, reject) => {
+					rejectStale = reject;
+				}),
+		);
+		class FakeClient {
+			send = send;
+		}
+
+		// Two instances fetching the same configuration share the cache entry.
+		appConfig({
+			AwsClient: FakeClient,
+			cacheExpiry: -1,
+			fetchData: retryFetchData,
+		});
+		const handler = middy(() => {})
+			.use(
+				appConfig({
+					AwsClient: FakeClient,
+					cacheExpiry: -1,
+					fetchData: retryFetchData,
+					disablePrefetch: true,
+				}),
+			)
+			.before(async (request) => {
+				const values = await getInternal(["key"], request);
+				strictEqual(values.key.option, "value");
+			});
+
+		// Prefetch in flight, entry cleared, refetch succeeds.
+		clearCache();
+		await handler(defaultEvent, defaultContext);
+		rejectStale(new Error("stale"));
+		await new Promise((resolve) => setImmediate(resolve));
+
+		await handler(defaultEvent, defaultContext);
+		strictEqual(send.mock.callCount(), 3);
+	});
+
+	// Tokens are valid for up to 24 hours; an expired one is a
+	// BadRequestException, so one held that long is replaced by a new session.
+	// https://docs.aws.amazon.com/appconfig/2019-10-09/APIReference/API_appconfigdata_GetLatestConfiguration.html
+	test("It should start a new session instead of using a token held for 24 hours", async (t) => {
+		t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+		const mockService = mockClient(AppConfigDataClient);
+		mockService.on(StartConfigurationSessionCommand).resolves({
+			InitialConfigurationToken: "token",
+		});
+		mockService.on(GetLatestConfigurationCommand).resolves({
+			ContentType: "application/json",
+			Configuration: strToUintArray('{"option":"value"}'),
+			NextPollConfigurationToken: "next",
+		});
+
+		const handler = middy(() => {})
+			.use(
+				appConfig({
+					AwsClient: AppConfigDataClient,
+					cacheExpiry: 0,
+					disablePrefetch: true,
+					fetchData: retryFetchData,
+				}),
+			)
+			.before(async (request) => {
+				const values = await getInternal(["key"], request);
+				strictEqual(values.key.option, "value");
+			});
+
+		await handler(defaultEvent, defaultContext);
+		// Still inside the validity window (less the safety margin): the stored
+		// token is used.
+		t.mock.timers.tick(60 * 60 * 1000);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(
+			mockService.commandCalls(StartConfigurationSessionCommand).length,
+			1,
+		);
+
+		t.mock.timers.tick(24 * 60 * 60 * 1000);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(
+			mockService.commandCalls(StartConfigurationSessionCommand).length,
+			2,
+		);
+		const latestCalls = mockService.commandCalls(GetLatestConfigurationCommand);
+		strictEqual(latestCalls.at(-1).args[0].input.ConfigurationToken, "token");
+	});
+
+	test("It should start a new session once a token nears its 24 hour validity", async (t) => {
+		t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+		const mockService = mockClient(AppConfigDataClient);
+		mockService.on(StartConfigurationSessionCommand).resolves({
+			InitialConfigurationToken: "token",
+		});
+		mockService.on(GetLatestConfigurationCommand).resolves({
+			ContentType: "application/json",
+			Configuration: strToUintArray('{"option":"value"}'),
+			NextPollConfigurationToken: "next",
+		});
+
+		const handler = middy(() => {})
+			.use(
+				appConfig({
+					AwsClient: AppConfigDataClient,
+					cacheExpiry: 0,
+					disablePrefetch: true,
+					fetchData: retryFetchData,
+				}),
+			)
+			.before(async (request) => {
+				const values = await getInternal(["key"], request);
+				strictEqual(values.key.option, "value");
+			});
+
+		await handler(defaultEvent, defaultContext);
+		// Within the 5 minute margin of expiry the token is not trusted.
+		t.mock.timers.tick(24 * 60 * 60 * 1000 - 5 * 60 * 1000);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(
+			mockService.commandCalls(StartConfigurationSessionCommand).length,
+			2,
+		);
+	});
+
+	test("It should retry client init after a rejected attempt", async (t) => {
+		let constructed = 0;
+		class FlakyClient {
+			constructor() {
+				constructed++;
+				if (constructed === 1) throw new Error("init boom");
+			}
+			send() {
+				return Promise.resolve({
+					InitialConfigurationToken: "t",
+					NextPollConfigurationToken: "n",
+				});
+			}
+		}
+		const handler = middy(() => {}).use(
+			appConfig({
+				AwsClient: FlakyClient,
+				cacheExpiry: 0,
+				fetchData: {
+					key: {
+						ApplicationIdentifier: "app",
+						ConfigurationProfileIdentifier: "cpi",
+						EnvironmentIdentifier: "ei",
+					},
+				},
+				disablePrefetch: true,
+			}),
+		);
+
+		// A rejected init must not be memoized for the life of the container.
+		await assertRejects(
+			() => handler(defaultEvent, defaultContext),
+			/init boom/,
+		);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(constructed, 2);
+	});
+
+	test("It should rebuild the client when the assumed-role credentials are refetched", async (t) => {
+		const constructions = [];
+		class FakeClient {
+			constructor(awsClientOptions) {
+				constructions.push(awsClientOptions);
+			}
+			send() {
+				return Promise.resolve({
+					InitialConfigurationToken: "t",
+					NextPollConfigurationToken: "n",
+				});
+			}
+		}
+		let credentials = Promise.resolve({ accessKeyId: "a" });
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.role = credentials;
+			})
+			.use(
+				appConfig({
+					AwsClient: FakeClient,
+					awsClientAssumeRole: "role",
+					cacheExpiry: 0,
+					fetchData: {
+						key: {
+							ApplicationIdentifier: "app",
+							ConfigurationProfileIdentifier: "cpi",
+							EnvironmentIdentifier: "ei",
+						},
+					},
+				}),
+			);
+
+		await handler(defaultEvent, defaultContext);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(constructions.length, 1);
+		deepStrictEqual(constructions[0].credentials, { accessKeyId: "a" });
+
+		credentials = Promise.resolve({ accessKeyId: "b" });
+		await handler(defaultEvent, defaultContext);
+		strictEqual(constructions.length, 2);
+		deepStrictEqual(constructions[1].credentials, { accessKeyId: "b" });
+	});
+
+	// A configuration token is single-use; concurrent invocations sharing one
+	// would all but one fail with BadRequestException.
+	// https://docs.aws.amazon.com/appconfig/2019-10-09/APIReference/API_appconfigdata_GetLatestConfiguration.html
+	test("It should share one in-flight configuration fetch across concurrent invocations", async (t) => {
+		const used = new Set();
+		let seq = 0;
+		class FakeClient {
+			send(command) {
+				if (command instanceof StartConfigurationSessionCommand) {
+					return Promise.resolve({ InitialConfigurationToken: `t${seq++}` });
+				}
+				const token = command.input.ConfigurationToken;
+				if (used.has(token)) {
+					return Promise.reject(new Error("BadRequestException"));
+				}
+				used.add(token);
+				return new Promise((resolve) =>
+					setTimeout(
+						() =>
+							resolve({
+								NextPollConfigurationToken: `t${seq++}`,
+								ContentType: "application/json",
+								Configuration: strToUintArray('{"a":1}'),
+							}),
+						5,
+					),
+				);
+			}
+		}
+		const handler = middy(() => {}).use(
+			appConfig({
+				AwsClient: FakeClient,
+				cacheExpiry: 0,
+				fetchData: retryFetchData,
+				setToContext: true,
+			}),
+		);
+		await handler(defaultEvent, defaultContext);
+		const results = await Promise.allSettled([
+			handler(defaultEvent, defaultContext),
+			handler(defaultEvent, defaultContext),
+			handler(defaultEvent, defaultContext),
+		]);
+		deepStrictEqual(
+			results.map((r) => r.status),
+			["fulfilled", "fulfilled", "fulfilled"],
+		);
+	});
+
+	// A background refresh has no invocation to rebuild the client from, so it
+	// would sign with the assumed-role credentials it started with. Under
+	// awsClientAssumeRole none is scheduled; the next invocation refetches.
+	test("It should not refresh in the background under awsClientAssumeRole", async (t) => {
+		t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+		let sends = 0;
+		class FakeClient {
+			send() {
+				sends++;
+				return Promise.resolve({
+					InitialConfigurationToken: "t",
+					NextPollConfigurationToken: "n",
+				});
+			}
+		}
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.role = Promise.resolve({ accessKeyId: "a" });
+			})
+			.use(
+				appConfig({
+					AwsClient: FakeClient,
+					awsClientAssumeRole: "role",
+					cacheExpiry: 50,
+					fetchData: {
+						key: {
+							ApplicationIdentifier: "app",
+							ConfigurationProfileIdentifier: "cpi",
+							EnvironmentIdentifier: "ei",
+						},
+					},
+				}),
+			);
+
+		await handler(defaultEvent, defaultContext);
+		const afterFirst = sends;
+		t.mock.timers.tick(120);
+		await new Promise((resolve) => setImmediate(resolve));
+		strictEqual(sends, afterFirst);
+
+		await handler(defaultEvent, defaultContext);
+		ok(sends > afterFirst);
 	});
 });

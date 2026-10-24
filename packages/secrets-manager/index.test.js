@@ -1773,6 +1773,40 @@ describe("@middy/secrets-manager", () => {
 		strictEqual(constructions.length, 2);
 	});
 
+	test("It should not share a cacheKey between instances assuming different roles", async (t) => {
+		class FakeClient {
+			constructor(awsClientOptions) {
+				this.accessKeyId = awsClientOptions.credentials.accessKeyId;
+			}
+			send() {
+				return Promise.resolve({ SecretString: this.accessKeyId });
+			}
+		}
+		const handlerFor = (role, accessKeyId) =>
+			middy(() => {})
+				.before((request) => {
+					request.internal[role] = Promise.resolve({ accessKeyId });
+				})
+				.use(
+					secretsManager({
+						AwsClient: FakeClient,
+						awsClientAssumeRole: role,
+						fetchData: { key: "secret" },
+					}),
+				)
+				.before(async (request) => {
+					const { key } = await getInternal(["key"], request);
+					strictEqual(key, accessKeyId);
+				});
+
+		await handlerFor("roleA", "a")(defaultEvent, defaultContext);
+		await rejects(handlerFor("roleB", "b")(defaultEvent, defaultContext), {
+			name: "TypeError",
+			message:
+				'cacheKey "@middy/secrets-manager" is already used by a middleware fetching different data; set a distinct cacheKey (and contextKey/internalKey) on each instance',
+		});
+	});
+
 	test("It should construct the client once without awsClientAssumeRole", async (t) => {
 		let constructed = 0;
 		class FakeClient {
@@ -1848,5 +1882,39 @@ describe("@middy/secrets-manager", () => {
 		t.mock.timers.tick(60 * 1000);
 		await handler(defaultEvent, defaultContext);
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
+	});
+
+	// A background refresh has no invocation to rebuild the client from, so it
+	// would sign with the assumed-role credentials it started with. Under
+	// awsClientAssumeRole none is scheduled; the next invocation refetches.
+	test("It should not refresh in the background under awsClientAssumeRole", async (t) => {
+		let sends = 0;
+		class FakeClient {
+			send() {
+				sends++;
+				return Promise.resolve({ SecretString: "v" });
+			}
+		}
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.role = Promise.resolve({ accessKeyId: "a" });
+			})
+			.use(
+				secretsManager({
+					AwsClient: FakeClient,
+					awsClientAssumeRole: "role",
+					cacheExpiry: 50,
+					fetchData: { key: "secret" },
+				}),
+			);
+
+		await handler(defaultEvent, defaultContext);
+		const afterFirst = sends;
+		t.mock.timers.tick(120);
+		await new Promise((resolve) => setImmediate(resolve));
+		strictEqual(sends, afterFirst);
+
+		await handler(defaultEvent, defaultContext);
+		ok(sends > afterFirst);
 	});
 });

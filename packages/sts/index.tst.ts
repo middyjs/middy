@@ -4,6 +4,7 @@ import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import sts, { type AssumedRoleCredentials, type Context } from "./index.js";
 
 test("use with default options", () => {
@@ -99,4 +100,25 @@ test("contextKey literal narrows middyContext without as const", () => {
 				request.context.middyContext.custom.foo,
 			).type.toBe<AssumedRoleCredentials>();
 		});
+});
+
+test("rejects misspelled option alongside fetchData", () => {
+	expect(sts).type.not.toBeCallableWith({
+		fetchData: { foo: { RoleArn: "foo" } },
+		cacheExpiery: 1000,
+	});
+});
+
+test("accepts cacheMaxSize", () => {
+	expect(sts).type.toBeCallableWith({
+		fetchData: { foo: { RoleArn: "foo" } },
+		cacheMaxSize: 10,
+	});
+});
+
+test("stsValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.STSOptions;
+	expect(
+		indexModule.stsValidateOptions(options),
+	).type.toBe<indexModule.STSOptions>();
 });

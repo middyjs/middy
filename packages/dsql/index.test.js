@@ -1,6 +1,17 @@
-import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	ok,
+	rejects,
+	strictEqual,
+	throws,
+} from "node:assert/strict";
 import { describe, test } from "node:test";
-import { clearCache, processCache, setContextNamespace } from "@middy/util";
+import {
+	clearCache,
+	getCache,
+	processCache,
+	setContextNamespace,
+} from "@middy/util";
 import middy from "../core/index.js";
 import dsqlMiddleware, { dsqlValidateOptions } from "./index.js";
 
@@ -39,6 +50,37 @@ describe("@middy/dsql", () => {
 		await handler(defaultEvent, newContext());
 		strictEqual(client.mock.callCount(), 1);
 		strictEqual(end.mock.callCount(), 1);
+	});
+
+	test("It should not end the outer request's client when a nested middy fails to connect", async (t) => {
+		const outerDsql = buildClient(t);
+		const inner = middy(() => {}).use(
+			dsqlMiddleware({
+				client: () => {
+					throw new Error("connect failed");
+				},
+				config: { host: validHost },
+				cacheExpiry: 0,
+				cacheKey: "dsql-inner",
+				disablePrefetch: true,
+			}),
+		);
+		let endedDuringInner;
+		const handler = middy(async (event, context) => {
+			await rejects(inner(event, context), { message: "connect failed" });
+			endedDuringInner = outerDsql.end.mock.callCount();
+		}).use(
+			dsqlMiddleware({
+				client: outerDsql.client,
+				config: { host: validHost },
+				cacheExpiry: 0,
+				disablePrefetch: true,
+			}),
+		);
+
+		await handler(defaultEvent, newContext());
+		strictEqual(endedDuringInner, 0);
+		strictEqual(outerDsql.end.mock.callCount(), 1);
 	});
 
 	test("It should instantiate the client and attach it to context", async (t) => {
@@ -1413,6 +1455,36 @@ describe("@middy/dsql", () => {
 		);
 	});
 
+	test("It should reconnect with the invocation's token when it starts as the entry expires", async (t) => {
+		t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+		const { client } = buildClient(t);
+		let token = "token-1";
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.dsqlToken = token;
+			})
+			.use(
+				dsqlMiddleware({
+					client,
+					config: { host: validHost },
+					internalKey: "dsqlToken",
+					cacheKey: "dsql-token-expiry-race",
+					cacheExpiry: 20,
+					disablePrefetch: true,
+				}),
+			);
+		await handler(defaultEvent, newContext());
+		// A background reconnect has no token, so it can only fail; one that
+		// stood in the entry would fail an invocation arriving before it settled.
+		token = "token-2";
+		t.mock.timers.tick(25);
+		await handler(defaultEvent, newContext());
+		deepStrictEqual(
+			client.mock.calls.map((call) => call.arguments[0].password),
+			["token-1", "token-2"],
+		);
+	});
+
 	test("It should keep a refreshed entry when the reconnect it replaced fails", async (t) => {
 		t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
 		const { client, clients, connects } = buildDeferredClients(t);
@@ -1479,5 +1551,70 @@ describe("@middy/dsql", () => {
 			console.error = originalError;
 		}
 		deepStrictEqual(logged, []);
+	});
+
+	test("dsqlValidateOptions accepts cacheMaxSize and rejects values below 1", () => {
+		const base = { client: () => ({}), config: { host: validHost } };
+		dsqlValidateOptions({ ...base, cacheMaxSize: 10 });
+		try {
+			dsqlValidateOptions({ ...base, cacheMaxSize: 0 });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("cacheMaxSize"));
+		}
+	});
+
+	test("It should reject a mistyped duration cacheExpiry at construction when internalKey is set", (t) => {
+		const client = t.mock.fn(() => ({}));
+		for (const opts of [
+			{ cacheExpiry: 90000000 },
+			{ cacheKeyExpiry: { "@middy/dsql": 90000000 } },
+		]) {
+			throws(
+				() =>
+					dsqlMiddleware({
+						client,
+						config: { host: validHost },
+						internalKey: "token",
+						...opts,
+					}),
+				/Invalid cacheExpiry value/,
+			);
+		}
+		// Validation only: with internalKey nothing is prefetched.
+		dsqlMiddleware({
+			client,
+			config: { host: validHost },
+			internalKey: "token",
+			cacheExpiry: -1,
+		});
+		strictEqual(client.mock.callCount(), 0);
+	});
+
+	// The cache entry keeps its fetch for refreshes; it must not close over the
+	// request of the invocation that created it (holding that request, and its
+	// IAM token, for the entry's lifetime).
+	test("It should not retain the creating request in the cached fetch", async (t) => {
+		const client = t.mock.fn(() => ({ end: async () => {} }));
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.token = "token-a";
+			})
+			.use(
+				dsqlMiddleware({
+					client,
+					config: { host: validHost },
+					internalKey: "token",
+					cacheExpiry: -1,
+				}),
+			);
+		await handler(defaultEvent, newContext());
+		strictEqual(client.mock.calls[0].arguments[0].password, "token-a");
+
+		await getCache("@middy/dsql").middlewareFetch({
+			internal: { token: "token-b" },
+		});
+		strictEqual(client.mock.calls[1].arguments[0].password, "token-b");
 	});
 });

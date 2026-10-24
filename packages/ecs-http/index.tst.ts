@@ -8,6 +8,7 @@ import type {
 	Handler as LambdaHandler,
 } from "aws-lambda";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import ecsHttpRunner, {
 	type EcsHttpRunnerOptions,
 	type EventVersion,
@@ -76,12 +77,14 @@ test("EcsHttpRunnerOptions accepts all optional fields", () => {
 	const options: EcsHttpRunnerOptions = {
 		handler: lambdaHandlerV2,
 		port: 8080,
+		host: "127.0.0.1",
 		eventVersion: "2.0",
 		requestContext: { accountId: "111" },
 		workers: 4,
 		timeout: 30_000,
 		bodyLimit: 1024,
 		trustedProxies: 2,
+		gracefulShutdownMs: 20_000,
 	};
 	expect(options).type.toBeAssignableTo<EcsHttpRunnerOptions>();
 });
@@ -91,7 +94,25 @@ test("ecsHttpRunner returns Promise", () => {
 	expect(result).type.toBe<Promise<unknown>>();
 });
 
-test("ecsHttpValidateOptions accepts a record", () => {
-	expect(ecsHttpValidateOptions).type.toBeCallableWith({});
+test("ecsHttpValidateOptions rejects options missing required keys", () => {
+	expect(ecsHttpValidateOptions).type.not.toBeCallableWith({});
 	expect(ecsHttpValidateOptions).type.toBeCallableWith();
+});
+
+test("ecsHttpValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.EcsHttpRunnerOptions;
+	expect(
+		indexModule.ecsHttpValidateOptions(options),
+	).type.toBe<indexModule.EcsHttpRunnerOptions>();
+});
+
+test("EcsHttpRunnerOptions takes exactly one of handler and loadHandler", () => {
+	expect({
+		loadHandler: async () => lambdaHandlerV2,
+	}).type.toBeAssignableTo<EcsHttpRunnerOptions>();
+	expect({
+		handler: lambdaHandlerV2,
+		loadHandler: async () => lambdaHandlerV2,
+	}).type.not.toBeAssignableTo<EcsHttpRunnerOptions>();
+	expect({ port: 8080 }).type.not.toBeAssignableTo<EcsHttpRunnerOptions>();
 });

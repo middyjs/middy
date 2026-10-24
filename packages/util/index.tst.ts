@@ -253,8 +253,12 @@ test("jsonSafeParse", () => {
 });
 
 test("normalizeHttpResponse", () => {
-	const normalizedResponse = util.normalizeHttpResponse(sampleRequest, {});
+	const normalizedResponse = util.normalizeHttpResponse(sampleRequest);
 	expect(normalizedResponse).type.toBe<Record<string, unknown>>();
+	expect(util.normalizeHttpResponse).type.not.toBeCallableWith(
+		sampleRequest,
+		{},
+	);
 });
 
 test("HttpError", () => {
@@ -272,6 +276,29 @@ test("HttpError properties", () => {
 	expect(err.expose).type.toBe<boolean>();
 	expect(err.message).type.toBe<string>();
 	expect(err instanceof util.HttpError).type.toBe<boolean>();
+});
+
+test("HttpError options", () => {
+	expect(util.HttpError).type.toBeConstructableWith(400, { expose: true });
+	expect(util.HttpError).type.toBeConstructableWith(400, { cause: "x" });
+	expect(util.HttpError).type.toBeConstructableWith(400, {});
+	// The message is always the reason phrase; the constructor never reads one.
+	expect(util.HttpError).type.not.toBeConstructableWith(400, {
+		message: "custom",
+	});
+	expect(util.HttpError).type.not.toBeConstructableWith(400, {
+		expose: "yes",
+	});
+});
+
+test("HttpError headers", () => {
+	const err = new util.HttpError(401);
+	expect(err.headers).type.toBe<
+		Record<string, string | string[]> | undefined
+	>();
+	err.headers = { "WWW-Authenticate": "Bearer" };
+	// No index signature: an undeclared property is a type error.
+	expect(err).type.not.toHaveProperty("somethingElse");
 });
 
 test("modifyCache", () => {
@@ -339,6 +366,17 @@ test("setCacheKeyExpiry", () => {
 	).type.toBe<void>();
 });
 
+test("cacheLearnedExpiry is internal to the cache helpers", () => {
+	// Every package optionSchema rejects it, so it is not a user-facing option.
+	expect<util.Options<unknown, unknown>>().type.not.toHaveProperty(
+		"cacheLearnedExpiry",
+	);
+	expect(util.processCache).type.toBeCallableWith(
+		{ cacheKey: "someKey", cacheExpiry: -1, cacheLearnedExpiry: {} },
+		() => undefined,
+	);
+});
+
 test("buildSetToContextSpec / assignSetToContext", () => {
 	const spec = util.buildSetToContextSpec({
 		fetchData: { "my-key": "x" },
@@ -388,11 +426,27 @@ test("isExecutionModeDurable", () => {
 	expect(
 		util.isExecutionModeDurable(sampleRequest.context),
 	).type.toBe<boolean>();
+	// called with the durable context in durable mode, and with
+	// `request?.context`
+	const durableContext = {
+		lambdaContext: sampleRequest.context,
+		executionContext: { durableExecutionArn: "arn" },
+	};
+	expect(util.isExecutionModeDurable(durableContext)).type.toBe<boolean>();
+	expect(util.isExecutionModeDurable(undefined)).type.toBe<boolean>();
+});
+
+test("resolveHttpEventVersion", () => {
+	expect(util.resolveHttpEventVersion(sampleRequest.event)).type.toBe<string>();
+	expect(
+		util.resolveHttpEventVersion({ version: "2.0", rawPath: "/" }),
+	).type.toBe<string>();
 });
 
 test("buildPathTree", () => {
 	const tree = util.buildPathTree(["event.headers.authorization"]);
 	expect(tree).type.toBe<util.PathTree>();
+	expect(util.buildPathTree([["event", "list", 0]])).type.toBe<util.PathTree>();
 });
 
 test("omit preserves the value type", () => {
@@ -402,4 +456,39 @@ test("omit preserves the value type", () => {
 		typeof sampleRequest
 	>();
 	expect(util.omit(sampleRequest)).type.toBe<typeof sampleRequest>();
+});
+
+test("validateOptions returns the options it validated", () => {
+	const schema = {
+		type: "object",
+		properties: { name: { type: "string" } },
+		additionalProperties: false,
+	} as const;
+	const options = { name: "foo" };
+	expect(util.validateOptions("@middy/test", schema, options)).type.toBe<{
+		name: string;
+	}>();
+	expect(util.validateOptions("@middy/test", schema)).type.toBe<
+		Record<string, unknown>
+	>();
+});
+
+// The d.ts carries its own structural Lambda context instead of importing
+// aws-lambda; it must stay interchangeable with the aws-lambda one.
+test("LambdaContext is interchangeable with aws-lambda Context", () => {
+	expect<util.LambdaContext>().type.toBeAssignableTo<LambdaContext>();
+	expect<LambdaContext>().type.toBeAssignableTo<util.LambdaContext>();
+	type Namespaced = util.ContextNamespace<{}, "ssm", { key: string }>;
+	expect<Namespaced>().type.toBeAssignableTo<LambdaContext>();
+	expect<Namespaced["middyContext"]["ssm"]>().type.toBe<{ key: string }>();
+	expect<Namespaced["functionName"]>().type.toBe<string>();
+});
+
+test("Request accepts an aws-lambda Context", () => {
+	expect(
+		util.contextNamespace(
+			{} as util.Request<unknown, unknown, Error, LambdaContext>,
+			"key",
+		),
+	).type.toBe<Record<string, unknown>>();
 });

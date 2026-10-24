@@ -7,9 +7,11 @@ import {
 	strictEqual,
 	throws,
 } from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { STATUS_CODES } from "node:http";
 import { Readable, Writable } from "node:stream";
 import { describe, test } from "node:test";
+import middy from "@middy/core";
 import {
 	assignSetToContext,
 	buildPathTree,
@@ -53,6 +55,19 @@ describe("@middy/util", () => {
 	});
 	test.afterEach(async (t) => {
 		t.mock.reset();
+	});
+
+	// @middy/util declares no dependencies, so its types must not need
+	// @types/aws-lambda installed.
+	test("index.d.ts does not import aws-lambda", () => {
+		const types = readFileSync(
+			new URL("./index.d.ts", import.meta.url),
+			"utf8",
+		);
+		strictEqual(
+			/^\s*(import|export)\b[^;]*["']aws-lambda["']/m.test(types),
+			false,
+		);
 	});
 
 	describe("createClient", () => {
@@ -122,6 +137,29 @@ describe("@middy/util", () => {
 					cause: { package: "@middy/util" },
 				},
 			);
+		});
+
+		test("createClient should reject when the assumed role credentials are missing", async (t) => {
+			const constructorMock = t.mock.fn();
+			const AwsClient = class {
+				constructor(...args) {
+					constructorMock(...args);
+				}
+			};
+			await rejects(
+				createClient(
+					{ AwsClient, awsClientAssumeRole: "adminRole" },
+					{ internal: { otherRole: "creds object" } },
+				),
+				{
+					message: "Credentials missing for assumed role",
+					cause: {
+						package: "@middy/util",
+						data: { awsClientAssumeRole: "adminRole" },
+					},
+				},
+			);
+			strictEqual(constructorMock.mock.callCount(), 0);
 		});
 
 		test("createClient should create AWS Client with role", async (t) => {
@@ -206,7 +244,9 @@ describe("@middy/util", () => {
 			strictEqual(awsClientCapture.mock.callCount(), 1);
 		});
 
-		test("createClient should create AWS Client without capture", async (t) => {
+		// createClient runs inside the handler, so X-Ray capture applies even
+		// when prefetch is not disabled.
+		test("createClient should create AWS Client with capture when prefetch is enabled", async (t) => {
 			const constructorMock = t.mock.fn();
 			const sendMock = t.mock.fn();
 			const AwsClient = class MockClient {
@@ -216,15 +256,18 @@ describe("@middy/util", () => {
 
 				send = sendMock;
 			};
-			const awsClientCapture = t.mock.fn();
+			const awsClientCapture = t.mock.fn((client) => client);
+			const warn = t.mock.method(console, "warn", () => {});
 
-			await createClient({
+			const client = await createClient({
 				AwsClient,
 				awsClientCapture,
 			});
 			strictEqual(constructorMock.mock.callCount(), 1);
 			strictEqual(sendMock.mock.callCount(), 0);
-			strictEqual(awsClientCapture.mock.callCount(), 0);
+			strictEqual(awsClientCapture.mock.callCount(), 1);
+			strictEqual(awsClientCapture.mock.calls[0].result, client);
+			strictEqual(warn.mock.callCount(), 0);
 		});
 	});
 
@@ -253,6 +296,68 @@ describe("@middy/util", () => {
 				cacheExpiry: 0,
 			});
 			strictEqual(prefetch, false);
+		});
+
+		test("canPrefetch should throw for a cacheExpiry that can only be a mistyped duration", async (t) => {
+			// A value above 24h is a unix timestamp, so a duration such as 25h
+			// (90000000) lands in 1970 and would silently disable the cache.
+			// Anything before 2001-01-01 cannot be a real expiry.
+			t.mock.timers.setTime(Date.parse("2026-09-22T00:00:00Z"));
+			const error = (cacheExpiry) => ({
+				name: "Error",
+				message: `Invalid cacheExpiry value: ${cacheExpiry}. Values above 86400000 (24h) are unix timestamps (ms), and one before 2001-01-01 (978307200000) is a duration over 24h; use at most 86400000, -1 (infinite) or a real timestamp`,
+				cause: { package: "@middy/util" },
+			});
+			throws(() => canPrefetch({ cacheExpiry: 90000000 }), error(90000000));
+			throws(
+				() => canPrefetch({ cacheExpiry: 978307199999 }),
+				error(978307199999),
+			);
+			throws(
+				() =>
+					canPrefetch({
+						cacheKey: "key",
+						cacheKeyExpiry: { key: 90000000 },
+						cacheExpiry: -1,
+					}),
+				error(90000000),
+			);
+			// even when prefetch is off for another reason
+			throws(
+				() => canPrefetch({ cacheExpiry: 90000000, disablePrefetch: true }),
+				error(90000000),
+			);
+			strictEqual(canPrefetch({ cacheExpiry: 86400000 }), true);
+			strictEqual(canPrefetch({ cacheExpiry: Date.now() + 100 }), true);
+		});
+
+		test("canPrefetch should accept a real unix timestamp that has passed", async (t) => {
+			// A deployment configured with an expiry date must keep booting after
+			// that date; the entry is simply expired and refetched.
+			t.mock.timers.setTime(Date.parse("2026-09-22T00:00:00Z"));
+			strictEqual(
+				canPrefetch({ cacheExpiry: Date.parse("2026-09-01T00:00:00Z") }),
+				true,
+			);
+			strictEqual(canPrefetch({ cacheExpiry: 978307200000 }), true);
+		});
+
+		test("canPrefetch should not prefetch when cacheKeyExpiry for the cacheKey is 0", async (t) => {
+			const prefetch = canPrefetch({
+				cacheKey: "key",
+				cacheKeyExpiry: { key: 0 },
+				cacheExpiry: -1,
+			});
+			strictEqual(prefetch, false);
+		});
+
+		test("canPrefetch should prefetch when cacheKeyExpiry for the cacheKey overrides a 0 cacheExpiry", async (t) => {
+			const prefetch = canPrefetch({
+				cacheKey: "key",
+				cacheKeyExpiry: { key: 100 },
+				cacheExpiry: 0,
+			});
+			strictEqual(prefetch, true);
 		});
 
 		test("canPrefetch should prefetch when cacheExpiry is a positive duration", async (t) => {
@@ -503,6 +608,32 @@ describe("@middy/util", () => {
 				deepStrictEqual(order, ["tick", "settled"]);
 			}
 		});
+
+		test("getInternal(true) reads a dotted key name directly, not as a path (sync path)", async (t) => {
+			const values = await getInternal(true, {
+				internal: { "db.password": "s3cret", db: { password: "nested" } },
+			});
+			strictEqual(values.db_password, "s3cret");
+		});
+
+		test("getInternal(true) reads a dotted key name directly, not as a path (async path)", async (t) => {
+			const values = await getInternal(true, {
+				internal: { "db.password": Promise.resolve("s3cret"), plain: 1 },
+			});
+			strictEqual(values.db_password, "s3cret");
+			strictEqual(values.plain, 1);
+		});
+
+		test("getInternal(true) surfaces a rejection stored under a dotted key name", async (t) => {
+			const reason = new Error("rejected");
+			await rejects(
+				() =>
+					getInternal(true, {
+						internal: { "db.password": Promise.reject(reason) },
+					}),
+				(e) => e instanceof AggregateError && e.errors[0] === reason,
+			);
+		});
 	});
 
 	describe("sanitizeKey", () => {
@@ -593,7 +724,22 @@ describe("@middy/util", () => {
 		});
 
 		test("returns 'vpc' when no version but event.method is present", () => {
-			strictEqual(resolveHttpEventVersion({ method: "GET" }), "vpc");
+			// VPC Lattice V1: `raw_path`, `query_string_parameters`, no `version`
+			strictEqual(
+				resolveHttpEventVersion({ method: "GET", raw_path: "/" }),
+				"vpc",
+			);
+		});
+
+		test("returns '2.0' for a VPC Lattice V2 event", () => {
+			// Lattice V2 carries `version: "2.0"` with a top-level `method`/`path`;
+			// consumers handle it in their "2.0" branch (no `requestContext.http`),
+			// while "vpc" means the V1 snake_case shape.
+			// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html#event-structure-v2
+			strictEqual(
+				resolveHttpEventVersion({ version: "2.0", method: "GET", path: "/" }),
+				"2.0",
+			);
 		});
 
 		test("defaults to '1.0' when neither version nor method is present", () => {
@@ -617,6 +763,549 @@ describe("@middy/util", () => {
 			clearCache();
 		});
 
+		test("processCache should not cache when cacheExpiry is null", async (t) => {
+			const fetchRequest = t.mock.fn(() => "value");
+			const options = {
+				cacheKey: "key",
+				cacheExpiry: null,
+			};
+			const { value } = processCache(options, fetchRequest, cacheRequest);
+			strictEqual(value, "value");
+			deepStrictEqual(getCache("key"), {});
+			clearCache();
+		});
+
+		test("processCache should refetch once the clock reaches the expiry", async (t) => {
+			// awsClientAssumeRole schedules no refresh, so only the read decides.
+			const fetchRequest = t.mock.fn(() => "value");
+			const options = {
+				cacheKey: "key",
+				cacheExpiry: 100,
+				awsClientAssumeRole: "roleKey",
+			};
+			processCache(options, fetchRequest, cacheRequest);
+			t.mock.timers.tick(99);
+			processCache(options, fetchRequest, cacheRequest);
+			strictEqual(fetchRequest.mock.callCount(), 1);
+			t.mock.timers.tick(1);
+			processCache(options, fetchRequest, cacheRequest);
+			strictEqual(fetchRequest.mock.callCount(), 2);
+			clearCache();
+		});
+
+		test("processCache should throw when a cacheKey is reused with different fetchData", async (t) => {
+			const fetchRequest = t.mock.fn(() => ({ a: "value" }));
+			processCache(
+				{ cacheKey: "shared", cacheExpiry: -1, fetchData: { a: "/one" } },
+				fetchRequest,
+				cacheRequest,
+			);
+			throws(
+				() =>
+					processCache(
+						{ cacheKey: "shared", cacheExpiry: -1, fetchData: { a: "/two" } },
+						fetchRequest,
+						cacheRequest,
+					),
+				{
+					name: "TypeError",
+					message:
+						'cacheKey "shared" is already used by a middleware fetching different data; set a distinct cacheKey (and contextKey/internalKey) on each instance',
+					cause: { package: "@middy/util", data: { cacheKey: "shared" } },
+				},
+			);
+			strictEqual(fetchRequest.mock.callCount(), 1);
+			clearCache();
+		});
+
+		test("processCache should share a cacheKey between instances with identical fetchData", async (t) => {
+			const fetchRequest = t.mock.fn(() => ({ a: "value" }));
+			processCache(
+				{ cacheKey: "shared", cacheExpiry: -1, fetchData: { a: "/one" } },
+				fetchRequest,
+				cacheRequest,
+			);
+			const { value } = processCache(
+				{ cacheKey: "shared", cacheExpiry: -1, fetchData: { a: "/one" } },
+				fetchRequest,
+				cacheRequest,
+			);
+			strictEqual(value.a, "value");
+			strictEqual(fetchRequest.mock.callCount(), 1);
+			clearCache();
+		});
+
+		// Runs processCache for two middleware instances sharing "shared" and
+		// reports whether the second one was accepted as the same owner.
+		const sharesEntry = (first, second) => {
+			const fetchRequest = () => ({ a: "value" });
+			processCache(
+				{ cacheKey: "shared", cacheExpiry: -1, ...first },
+				fetchRequest,
+				cacheRequest,
+			);
+			try {
+				processCache(
+					{ cacheKey: "shared", cacheExpiry: -1, ...second },
+					fetchRequest,
+					cacheRequest,
+				);
+				return true;
+			} catch (e) {
+				if (!(e instanceof TypeError)) throw e;
+				return false;
+			} finally {
+				clearCache();
+			}
+		};
+
+		test("processCache ownership ignores key order", async (t) => {
+			strictEqual(
+				sharesEntry(
+					{ fetchData: { a: "/a", b: "/b" } },
+					{ fetchData: { b: "/b", a: "/a" } },
+				),
+				true,
+			);
+		});
+
+		test("processCache ownership compares awsClientAssumeRole", async (t) => {
+			strictEqual(
+				sharesEntry(
+					{ fetchData: { a: "/a" }, awsClientAssumeRole: "roleA" },
+					{ fetchData: { a: "/a" }, awsClientAssumeRole: "roleA" },
+				),
+				true,
+			);
+			strictEqual(
+				sharesEntry(
+					{ fetchData: { a: "/a" }, awsClientAssumeRole: "roleA" },
+					{ fetchData: { a: "/a" }, awsClientAssumeRole: "roleB" },
+				),
+				false,
+			);
+			strictEqual(
+				sharesEntry(
+					{ fetchData: { a: "/a" } },
+					{ fetchData: { a: "/a" }, awsClientAssumeRole: "roleB" },
+				),
+				false,
+			);
+		});
+
+		test("processCache ownership compares AwsClient by identity", async (t) => {
+			const ClientA = class {};
+			const ClientB = class {};
+			strictEqual(
+				sharesEntry(
+					{ fetchData: { a: "/a" }, AwsClient: ClientA },
+					{ fetchData: { a: "/a" }, AwsClient: ClientA },
+				),
+				true,
+			);
+			strictEqual(
+				sharesEntry(
+					{ fetchData: { a: "/a" }, AwsClient: ClientA },
+					{ fetchData: { a: "/a" }, AwsClient: ClientB },
+				),
+				false,
+			);
+		});
+
+		test("processCache ownership compares URL, Date and BigInt by value", async (t) => {
+			strictEqual(
+				sharesEntry(
+					{ awsClientOptions: { endpoint: new URL("https://a.example/") } },
+					{ awsClientOptions: { endpoint: new URL("https://a.example/") } },
+				),
+				true,
+			);
+			strictEqual(
+				sharesEntry(
+					{ awsClientOptions: { endpoint: new URL("https://a.example/") } },
+					{ awsClientOptions: { endpoint: new URL("https://b.example/") } },
+				),
+				false,
+			);
+			strictEqual(
+				sharesEntry(
+					{ config: { at: new Date(1) } },
+					{ config: { at: new Date(1) } },
+				),
+				true,
+			);
+			strictEqual(
+				sharesEntry(
+					{ config: { at: new Date(1) } },
+					{ config: { at: new Date(2) } },
+				),
+				false,
+			);
+			strictEqual(
+				sharesEntry({ fetchData: { a: 1n } }, { fetchData: { a: 1n } }),
+				true,
+			);
+			strictEqual(
+				sharesEntry({ fetchData: { a: 1n } }, { fetchData: { a: 2n } }),
+				false,
+			);
+		});
+
+		test("processCache ownership compares functions and class instances by identity", async (t) => {
+			// e.g. fromTemporaryCredentials() for two different roles
+			const credentials = () => ({});
+			strictEqual(
+				sharesEntry(
+					{ awsClientOptions: { credentials } },
+					{ awsClientOptions: { credentials } },
+				),
+				true,
+			);
+			strictEqual(
+				sharesEntry(
+					{ awsClientOptions: { credentials: () => ({}) } },
+					{ awsClientOptions: { credentials: () => ({}) } },
+				),
+				false,
+			);
+			class Agent {}
+			const agent = new Agent();
+			strictEqual(
+				sharesEntry({ config: { agent } }, { config: { agent } }),
+				true,
+			);
+			strictEqual(
+				sharesEntry(
+					{ config: { agent: new Agent() } },
+					{ config: { agent: new Agent() } },
+				),
+				false,
+			);
+		});
+
+		test("processCache ownership compares Map and Set by entries", async (t) => {
+			strictEqual(
+				sharesEntry(
+					{ fetchData: { a: new Map([["k", "one"]]) } },
+					{ fetchData: { a: new Map([["k", "two"]]) } },
+				),
+				false,
+			);
+			strictEqual(
+				sharesEntry(
+					{
+						fetchData: {
+							a: new Map([
+								["x", 1],
+								["y", 2],
+							]),
+						},
+					},
+					{
+						fetchData: {
+							a: new Map([
+								["y", 2],
+								["x", 1],
+							]),
+						},
+					},
+				),
+				true,
+			);
+			strictEqual(
+				sharesEntry(
+					{ config: { hosts: new Set(["a", "b"]) } },
+					{ config: { hosts: new Set(["b", "a"]) } },
+				),
+				true,
+			);
+			strictEqual(
+				sharesEntry(
+					{ config: { hosts: new Set(["a"]) } },
+					{ config: { hosts: new Set(["b"]) } },
+				),
+				false,
+			);
+		});
+
+		test("processCache ownership tells null, undefined and missing apart", async (t) => {
+			strictEqual(
+				sharesEntry({ config: { a: null } }, { config: { a: null } }),
+				true,
+			);
+			strictEqual(
+				sharesEntry({ config: { a: null } }, { config: { a: undefined } }),
+				false,
+			);
+			strictEqual(
+				sharesEntry({ config: { a: undefined } }, { config: {} }),
+				false,
+			);
+			strictEqual(
+				sharesEntry({ config: { a: 1 } }, { config: { a: "1" } }),
+				false,
+			);
+		});
+
+		test("processCache ownership tells strings, numbers and BigInts apart", async (t) => {
+			strictEqual(
+				sharesEntry({ fetchData: { a: "1" } }, { fetchData: { a: 1n } }),
+				false,
+			);
+			strictEqual(
+				sharesEntry({ fetchData: { a: 1 } }, { fetchData: { a: 1n } }),
+				false,
+			);
+		});
+
+		test("processCache ownership keeps element boundaries", async (t) => {
+			strictEqual(
+				sharesEntry({ config: { a: [null] } }, { config: { a: [] } }),
+				false,
+			);
+			strictEqual(
+				sharesEntry({ config: { a: [1, 2] } }, { config: { a: [12] } }),
+				false,
+			);
+			strictEqual(
+				sharesEntry(
+					{
+						config: {
+							a: new Map([
+								[1, 2],
+								[34, 5],
+							]),
+						},
+					},
+					{
+						config: {
+							a: new Map([
+								[1, 23],
+								[4, 5],
+							]),
+						},
+					},
+				),
+				false,
+			);
+			strictEqual(
+				sharesEntry(
+					{ config: { a: new Set([1, 23]) } },
+					{ config: { a: new Set([12, 3]) } },
+				),
+				false,
+			);
+			// A symbol's description is not escaped, so it can mimic a key.
+			strictEqual(
+				sharesEntry(
+					{ config: { a: Symbol("p"), b: Symbol("q") } },
+					{ config: { a: Symbol('p)"b":Symbol(q') } },
+				),
+				false,
+			);
+		});
+
+		test("processCache ownership compares an object referenced twice by value", async (t) => {
+			const shared = { x: 1 };
+			strictEqual(
+				sharesEntry(
+					{ config: { a: shared, b: shared } },
+					{ config: { a: { x: 1 }, b: { x: 1 } } },
+				),
+				true,
+			);
+		});
+
+		test("processCache ownership handles cyclic options", async (t) => {
+			const config = { host: "a" };
+			config.self = config;
+			strictEqual(sharesEntry({ config }, { config }), true);
+		});
+
+		test("processCache fingerprints an options object once, not on every warm hit", async (t) => {
+			// A large config (rds ssl.ca ~170KB) must not be re-serialized per call.
+			let reads = 0;
+			const makeConfig = () => ({
+				get host() {
+					reads += 1;
+					return "a";
+				},
+			});
+			const fetchRequest = () => ({ a: "value" });
+			const first = {
+				cacheKey: "shared",
+				cacheExpiry: -1,
+				config: makeConfig(),
+			};
+			const second = {
+				cacheKey: "shared",
+				cacheExpiry: -1,
+				config: makeConfig(),
+			};
+			processCache(first, fetchRequest, cacheRequest);
+			processCache(second, fetchRequest, cacheRequest);
+			const afterFirstHits = reads;
+			for (let i = 0; i < 5; i++) {
+				processCache(first, fetchRequest, cacheRequest);
+				processCache(second, fetchRequest, cacheRequest);
+			}
+			strictEqual(reads, afterFirstHits);
+			clearCache();
+		});
+
+		test("processCache should let a cacheKey be reused with different fetchData after clearCache", async (t) => {
+			const fetchRequest = t.mock.fn(() => ({ a: "value" }));
+			processCache(
+				{ cacheKey: "shared", cacheExpiry: -1, fetchData: { a: "/one" } },
+				fetchRequest,
+				cacheRequest,
+			);
+			clearCache(["shared"]);
+			processCache(
+				{ cacheKey: "shared", cacheExpiry: -1, fetchData: { a: "/two" } },
+				fetchRequest,
+				cacheRequest,
+			);
+			strictEqual(fetchRequest.mock.callCount(), 2);
+			clearCache();
+		});
+
+		test("processCache should keep the cacheKey owner across a modified-entry refetch", async (t) => {
+			const fetchRequest = t.mock.fn(() => ({ a: "value" }));
+			const options = {
+				cacheKey: "shared",
+				cacheExpiry: -1,
+				fetchData: { a: "/one" },
+			};
+			processCache(options, fetchRequest, cacheRequest);
+			modifyCache("shared", { a: undefined });
+			processCache(options, fetchRequest, cacheRequest);
+			processCache(
+				{ ...options, fetchData: { a: "/one" } },
+				fetchRequest,
+				cacheRequest,
+			);
+			strictEqual(fetchRequest.mock.callCount(), 2);
+			throws(
+				() =>
+					processCache(
+						{ ...options, fetchData: { a: "/two" } },
+						fetchRequest,
+						cacheRequest,
+					),
+				{ name: "TypeError" },
+			);
+			clearCache();
+		});
+
+		test("processCache should throw when a cacheKey is reused with different awsClientOptions", async (t) => {
+			// Same fetchData from another region is different data.
+			const fetchRequest = t.mock.fn(() => ({ a: "value" }));
+			const options = {
+				cacheKey: "shared",
+				cacheExpiry: -1,
+				fetchData: { a: "/one" },
+			};
+			processCache(
+				{ ...options, awsClientOptions: { region: "ca-central-1" } },
+				fetchRequest,
+				cacheRequest,
+			);
+			processCache(
+				{ ...options, awsClientOptions: { region: "ca-central-1" } },
+				fetchRequest,
+				cacheRequest,
+			);
+			strictEqual(fetchRequest.mock.callCount(), 1);
+			throws(
+				() =>
+					processCache(
+						{ ...options, awsClientOptions: { region: "us-east-1" } },
+						fetchRequest,
+						cacheRequest,
+					),
+				{ name: "TypeError" },
+			);
+			clearCache();
+		});
+
+		test("processCache should throw when a cacheKey is reused with a different config", async (t) => {
+			// Connection middleware (rds, dsql) have no fetchData; config is what
+			// they fetch.
+			const fetchRequest = t.mock.fn(() => "client");
+			processCache(
+				{ cacheKey: "shared", cacheExpiry: -1, config: { host: "one" } },
+				fetchRequest,
+				cacheRequest,
+			);
+			processCache(
+				{ cacheKey: "shared", cacheExpiry: -1, config: { host: "one" } },
+				fetchRequest,
+				cacheRequest,
+			);
+			strictEqual(fetchRequest.mock.callCount(), 1);
+			throws(
+				() =>
+					processCache(
+						{ cacheKey: "shared", cacheExpiry: -1, config: { host: "two" } },
+						fetchRequest,
+						cacheRequest,
+					),
+				{ name: "TypeError" },
+			);
+			clearCache();
+		});
+
+		test("processCache should not schedule a background refresh under awsClientAssumeRole", async (t) => {
+			// A refresh has no request, so it cannot rebuild the client from the
+			// credentials sts refetched; the entry expires and the next invocation
+			// refetches with its own.
+			t.mock.timers.tick(86400001);
+			const fetchRequest = t.mock.fn(() => ({ a: "value" }));
+			const options = {
+				cacheKey: "assume-role",
+				cacheExpiry: 100,
+				awsClientAssumeRole: "roleKey",
+			};
+			processCache(options, fetchRequest, cacheRequest);
+			strictEqual(getCache("assume-role").refresh, undefined);
+			setCacheKeyExpiry(options, Date.now() + 50);
+			strictEqual(getCache("assume-role").expiry, Date.now() + 50);
+			strictEqual(getCache("assume-role").refresh, undefined);
+			t.mock.timers.tick(200);
+			strictEqual(fetchRequest.mock.callCount(), 1);
+			// still expires on time
+			processCache(options, fetchRequest, cacheRequest);
+			strictEqual(fetchRequest.mock.callCount(), 2);
+			clearCache();
+		});
+
+		test("processCache should not keep the request for a background refresh", async (t) => {
+			// A refresh runs outside any invocation: the request that stored the
+			// entry is stale by then (and may hold a large event), so it is neither
+			// kept on the entry nor handed to the refresh.
+			const fetchRequest = t.mock.fn(() => "value");
+			const request = { event: { large: true }, internal: {} };
+			processCache(
+				{ cacheKey: "no-request", cacheExpiry: 100 },
+				fetchRequest,
+				request,
+			);
+			strictEqual(fetchRequest.mock.calls[0].arguments[0], request);
+			strictEqual(
+				Object.values(getCache("no-request")).includes(request),
+				false,
+			);
+			t.mock.timers.tick(100);
+			strictEqual(fetchRequest.mock.callCount(), 2);
+			notStrictEqual(fetchRequest.mock.calls[1].arguments[0], request);
+			strictEqual(
+				Object.values(getCache("no-request")).includes(request),
+				false,
+			);
+			clearCache();
+		});
+
 		test("processCache should cache forever", async (t) => {
 			const fetchRequest = t.mock.fn(() => "value");
 			const options = {
@@ -627,13 +1316,8 @@ describe("@middy/util", () => {
 			t.mock.timers.tick(100);
 			const cacheValue = getCache("key").value;
 			strictEqual(await cacheValue, "value");
-			const { value, cache } = processCache(
-				options,
-				fetchRequest,
-				cacheRequest,
-			);
+			const { value } = processCache(options, fetchRequest, cacheRequest);
 			strictEqual(await value, "value");
-			ok(cache);
 			strictEqual(fetchRequest.mock.callCount(), 1);
 			clearCache();
 		});
@@ -725,7 +1409,7 @@ describe("@middy/util", () => {
 				cacheRequest,
 			);
 			strictEqual(fetchRequest.mock.callCount(), 2);
-			strictEqual(result.cache, undefined);
+			strictEqual(await result.value, "value");
 			clearCache();
 		});
 
@@ -745,13 +1429,8 @@ describe("@middy/util", () => {
 			t.mock.timers.tick(50);
 			const cacheValue = getCache("key").value;
 			strictEqual(await cacheValue, "value");
-			const { value, cache } = processCache(
-				options,
-				fetchRequest,
-				cacheRequest,
-			);
+			const { value } = processCache(options, fetchRequest, cacheRequest);
 			strictEqual(await value, "value");
-			strictEqual(cache, true);
 			strictEqual(fetchRequest.mock.callCount(), 1);
 			clearCache();
 		});
@@ -765,13 +1444,8 @@ describe("@middy/util", () => {
 			t.mock.timers.tick(50);
 			const cacheValue = getCache("key").value;
 			strictEqual(await cacheValue, "value");
-			const { value, cache } = processCache(
-				options,
-				fetchRequest,
-				cacheRequest,
-			);
+			const { value } = processCache(options, fetchRequest, cacheRequest);
 			strictEqual(await value, "value");
-			strictEqual(cache, true);
 			strictEqual(fetchRequest.mock.callCount(), 1);
 			clearCache();
 		});
@@ -786,13 +1460,8 @@ describe("@middy/util", () => {
 			t.mock.timers.tick(50);
 			const cacheValue = getCache("key").value;
 			strictEqual(await cacheValue, "value");
-			const { value, cache } = processCache(
-				options,
-				fetchRequest,
-				cacheRequest,
-			);
+			const { value } = processCache(options, fetchRequest, cacheRequest);
 			strictEqual(await value, "value");
-			strictEqual(cache, true);
 			strictEqual(fetchRequest.mock.callCount(), 1);
 			clearCache();
 		});
@@ -807,13 +1476,8 @@ describe("@middy/util", () => {
 			t.mock.timers.tick(50);
 			const cacheValue = getCache("key").value;
 			strictEqual(await cacheValue, "value");
-			const { value, cache } = processCache(
-				options,
-				fetchRequest,
-				cacheRequest,
-			);
+			const { value } = processCache(options, fetchRequest, cacheRequest);
 			strictEqual(await value, "value");
-			strictEqual(cache, true);
 			strictEqual(fetchRequest.mock.callCount(), 1);
 			clearCache();
 		});
@@ -966,7 +1630,9 @@ describe("@middy/util", () => {
 			clearCache();
 		});
 
-		test("processCache should cache with past unix timestamp (no refresh)", async (t) => {
+		test("processCache should fetch, not throw, with a past unix timestamp (no refresh)", async (t) => {
+			// The past-timestamp misconfiguration is rejected at construction by
+			// canPrefetch; at runtime a passed timestamp is just an expired entry.
 			const fetchRequest = t.mock.fn(() => "value");
 			t.mock.timers.tick(86400001 * 2);
 			const options = {
@@ -977,6 +1643,22 @@ describe("@middy/util", () => {
 			const cache = getCache("key-past-timestamp");
 			notStrictEqual(cache.value, undefined);
 			strictEqual(cache.refresh, undefined); // No refresh scheduled for past timestamp
+			strictEqual(fetchRequest.mock.callCount(), 1);
+			clearCache();
+		});
+
+		test("processCache should refetch, not throw, once a unix timestamp cacheExpiry has passed", async (t) => {
+			const fetchRequest = t.mock.fn(() => "value");
+			t.mock.timers.tick(86400001);
+			const options = {
+				cacheKey: "key-timestamp-passes",
+				cacheExpiry: Date.now() + 100,
+			};
+			processCache(options, fetchRequest, cacheRequest);
+			t.mock.timers.tick(200);
+			// a fresh options object carrying the same timestamp is not a misconfiguration
+			processCache({ ...options }, fetchRequest, cacheRequest);
+			strictEqual(fetchRequest.mock.callCount(), 3);
 			clearCache();
 		});
 
@@ -1285,6 +1967,26 @@ describe("@middy/util", () => {
 			3,
 			`expected exactly one auto-refresh after modify, got ${fetchRequest.mock.callCount()} calls`,
 		);
+		clearCache();
+	});
+
+	test("processCache background refresh keeps chaining when its timer fires before Date.now reaches the expiry", async (t) => {
+		// Real timers can fire ~1ms ahead of Date.now. The refresh must refetch
+		// (and schedule the next one) rather than see an unexpired entry, return
+		// it, and end the chain.
+		t.mock.timers.reset();
+		t.mock.timers.enable({ apis: ["setTimeout"] });
+		let clock = 1000000;
+		t.mock.method(Date, "now", () => clock);
+		const fetchRequest = t.mock.fn(() => ({ a: "value" }));
+		const options = { cacheKey: "refresh-early-timer", cacheExpiry: 100 };
+		processCache(options, fetchRequest);
+		for (let i = 1; i <= 3; i++) {
+			clock += 99;
+			t.mock.timers.tick(100);
+			strictEqual(fetchRequest.mock.callCount(), 1 + i);
+			clock += 1;
+		}
 		clearCache();
 	});
 
@@ -1785,6 +2487,11 @@ describe("@middy/util", () => {
 		strictEqual(decodeBody(undefined, true), undefined);
 	});
 
+	test("decodeBody should return null for null body even when isBase64Encoded is true", async (t) => {
+		// Buffer.from(null) throws too.
+		strictEqual(decodeBody(null, true), null);
+	});
+
 	// normalizeHttpResponse
 	test("normalizeHttpResponse should not change response", async (t) => {
 		const request = {
@@ -1891,6 +2598,14 @@ describe("@middy/util", () => {
 		const e = new HttpError(306);
 		strictEqual(e.message, "");
 		strictEqual(e.name, "UnknownError");
+	});
+
+	test("new HttpError(509) is an unknown code (509 is not IANA-registered)", async (t) => {
+		// https://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml
+		const e = new HttpError(509);
+		strictEqual(e.message, "");
+		strictEqual(e.name, "UnknownError");
+		strictEqual(e.statusCode, 509);
 	});
 
 	test("HttpError should default name to UnknownError for unknown status code", async (t) => {
@@ -2057,7 +2772,7 @@ describe("@middy/util", () => {
 				{ token: "tok", my_key: "val" },
 			);
 		});
-		test("cold path: awaits getInternal when any value is a Promise", async () => {
+		test("cold path: awaits pending values when any value is a Promise", async () => {
 			const spec = contextSpec("ssm", [["token", "token"]]);
 			const tokenPromise = Promise.resolve("tok-async");
 			const value = { token: tokenPromise };
@@ -2069,6 +2784,46 @@ describe("@middy/util", () => {
 			ok(pending && typeof pending.then === "function");
 			await pending;
 			strictEqual(request.context.middyContext.ssm.token, "tok-async");
+		});
+		test("cold path: resolves a dotted fetchData key from value, not as an internal path", async () => {
+			// A fetchData key such as "db.password" names one fetched value; it
+			// must not be split on "." and walked through request.internal.
+			const spec = contextSpec("ssm", [["db.password", "db_password"]]);
+			const secret = Promise.resolve("s3cret");
+			const value = { "db.password": secret };
+			const request = {
+				context: { middyContext: Object.create(null) },
+				internal: { "db.password": secret },
+			};
+			await assignSetToContext(spec, value, request);
+			strictEqual(request.context.middyContext.ssm.db_password, "s3cret");
+			// warm path yields the same result
+			const warm = { context: { middyContext: Object.create(null) } };
+			assignSetToContext(spec, { "db.password": "s3cret" }, warm);
+			strictEqual(warm.context.middyContext.ssm.db_password, "s3cret");
+		});
+		test("cold path: rejects with an AggregateError of every failed value", async () => {
+			const spec = contextSpec("ssm", [
+				["a", "a"],
+				["b", "b"],
+				["c", "c"],
+			]);
+			const errorA = new Error("a failed");
+			const errorC = new Error("c failed");
+			const value = {
+				a: Promise.reject(errorA),
+				b: Promise.resolve("ok"),
+				c: Promise.reject(errorC),
+			};
+			const request = { context: { middyContext: Object.create(null) } };
+			await rejects(assignSetToContext(spec, value, request), (e) => {
+				ok(e instanceof AggregateError);
+				strictEqual(e.message, "Failed to resolve internal values");
+				deepStrictEqual(e.errors, [errorA, errorC]);
+				deepStrictEqual(e.cause, { package: "@middy/util" });
+				return true;
+			});
+			strictEqual(request.context.middyContext.ssm, undefined);
 		});
 		test("ignores null values (treated as resolved, not promise)", () => {
 			const spec = contextSpec("ssm", [["token", "token"]]);
@@ -2177,7 +2932,6 @@ describe("@middy/util", () => {
 			506: ["VariantAlsoNegotiatesError", "Variant Also Negotiates"],
 			507: ["InsufficientStorageError", "Insufficient Storage"],
 			508: ["LoopDetectedError", "Loop Detected"],
-			509: ["BandwidthLimitExceededError", "Bandwidth Limit Exceeded"],
 			510: ["NotExtendedError", "Not Extended"],
 			511: [
 				"NetworkAuthenticationRequiredError",
@@ -2195,8 +2949,14 @@ describe("@middy/util", () => {
 
 		// util carries its own copy of the reason phrases so it does not have to
 		// import node:http. This is what stops the copy drifting from Node's.
+		// node:http also carries 509 "Bandwidth Limit Exceeded", an Apache
+		// extension that IANA never registered; util leaves it out.
+		const registeredStatusCodes = Object.fromEntries(
+			Object.entries(STATUS_CODES).filter(([code]) => code !== "509"),
+		);
+
 		test("every reason phrase matches node:http STATUS_CODES", () => {
-			for (const [code, phrase] of Object.entries(STATUS_CODES)) {
+			for (const [code, phrase] of Object.entries(registeredStatusCodes)) {
 				strictEqual(
 					new HttpError(Number(code)).message,
 					phrase,
@@ -2208,7 +2968,7 @@ describe("@middy/util", () => {
 		test("covers every code node:http knows about", () => {
 			deepStrictEqual(
 				Object.keys(expected).sort(),
-				Object.keys(STATUS_CODES).sort(),
+				Object.keys(registeredStatusCodes).sort(),
 			);
 		});
 	});
@@ -2320,6 +3080,20 @@ describe("@middy/util", () => {
 			deepStrictEqual(values, nullObj({ obj_a_b: "deep" }));
 		});
 
+		test("resolves a nested path through a missing value to undefined", async () => {
+			const request = {
+				internal: { obj: { a: "x" }, pending: Promise.resolve({ a: "x" }) },
+			};
+			deepStrictEqual(
+				await getInternal(["obj.missing.b", "obj.a"], request),
+				nullObj({ obj_missing_b: undefined, obj_a: "x" }),
+			);
+			deepStrictEqual(
+				await getInternal("pending.missing.b", request),
+				nullObj({ pending_missing_b: undefined }),
+			);
+		});
+
 		test("async path renames keys via object-form variables", async () => {
 			const request = {
 				internal: {
@@ -2340,6 +3114,13 @@ describe("@middy/util", () => {
 			ok(jsonContentTypePattern.test("application/vnd.api+json"));
 			ok(jsonContentTypePattern.test("application/ld+json; charset=utf-8"));
 			ok(jsonContentTypePattern.test("APPLICATION/JSON"));
+		});
+		// RFC 9110 5.6.6: parameters = *( OWS ";" OWS parameter )
+		test("matches whitespace before the parameter delimiter", () => {
+			ok(jsonContentTypePattern.test("application/json ;charset=utf-8"));
+			ok(jsonContentTypePattern.test("application/json\t; charset=utf-8"));
+			ok(jsonContentTypePattern.test("application/ld+json ; charset=utf-8"));
+			strictEqual(jsonContentTypePattern.test("application/json x"), false);
 		});
 		test("does not match when anchoring/structure is wrong", () => {
 			// Leading text before application/ must not match (^ anchor).
@@ -2404,6 +3185,74 @@ describe("@middy/util", () => {
 				event: { headers: { accept: "*" } },
 			});
 		});
+		test("matches path segments case-insensitively", () => {
+			// HTTP field names are case-insensitive (RFC 9110 section 5.1), so
+			// `event.headers.authorization` must also reach `Authorization`.
+			const tree = buildPathTree([
+				"event.headers.authorization",
+				"event.multiValueHeaders.Authorization",
+			]);
+			const obj = {
+				event: {
+					headers: { Authorization: "Bearer x", accept: "*" },
+					multiValueHeaders: { authorization: ["Bearer x"], accept: ["*"] },
+				},
+			};
+			deepStrictEqual(omit(obj, tree), {
+				event: {
+					headers: { accept: "*" },
+					multiValueHeaders: { accept: ["*"] },
+				},
+			});
+			deepStrictEqual(omit(obj, tree, "**"), {
+				event: {
+					headers: { Authorization: "**", accept: "*" },
+					multiValueHeaders: { authorization: "**", accept: ["*"] },
+				},
+			});
+		});
+		test("accepts non-string segments in an array path", () => {
+			const tree = buildPathTree([["event", "list", 0]]);
+			deepStrictEqual(omit({ event: { list: { 0: "s", 1: "t" } } }, tree), {
+				event: { list: { 1: "t" } },
+			});
+		});
+		test("masks every key that differs only by case when none matches exactly", () => {
+			const tree = buildPathTree(["a.token"]);
+			deepStrictEqual(omit({ a: { Token: 1, TOKEN: 2, x: 3 } }, tree, "**"), {
+				a: { Token: "**", TOKEN: "**", x: 3 },
+			});
+			deepStrictEqual(omit({ a: { Token: 1, TOKEN: 2, x: 3 } }, tree), {
+				a: { x: 3 },
+			});
+		});
+		test("only lower-cases keys as long as one of the node's segments", (t) => {
+			// The length check keeps a large batch cheap: a key that cannot match
+			// is rejected without being lower-cased.
+			const tree = buildPathTree(["records.[].body"]);
+			const obj = { records: [{ Body: "s", MessageId: "m", Attributes: {} }] };
+			const toLowerCase = t.mock.method(String.prototype, "toLowerCase");
+			const result = omit(obj, tree, "**");
+			strictEqual(toLowerCase.mock.callCount(), 1);
+			strictEqual(toLowerCase.mock.calls[0].this, "Body");
+			deepStrictEqual(result, {
+				records: [{ Body: "**", MessageId: "m", Attributes: {} }],
+			});
+		});
+		test("redacts every casing of a key, even when one matches exactly", () => {
+			// Never under-redact: `Authorization` must not survive next to an
+			// exact `authorization`.
+			const tree = buildPathTree(["event.headers.authorization"]);
+			const obj = {
+				event: { headers: { authorization: "a", Authorization: "b", x: "c" } },
+			};
+			deepStrictEqual(omit(obj, tree, "**"), {
+				event: {
+					headers: { authorization: "**", Authorization: "**", x: "c" },
+				},
+			});
+			deepStrictEqual(omit(obj, tree), { event: { headers: { x: "c" } } });
+		});
 		test("replaces a leaf with the mask when one is given", () => {
 			const tree = buildPathTree(["a.b"]);
 			deepStrictEqual(omit({ a: { b: "secret", c: 1 } }, tree, "**"), {
@@ -2447,6 +3296,52 @@ describe("@middy/util", () => {
 		test("leaves non-plain values alone", () => {
 			const date = new Date(0);
 			strictEqual(omit(date, buildPathTree(["getTime"])), date);
+		});
+		test("keeps an own __proto__ key as data when dropping a sibling", () => {
+			// Assigning it would set the copy's prototype instead, hiding the data
+			// from JSON.stringify (the log line) and exposing it as inherited props.
+			const obj = JSON.parse(
+				'{"password":"x","__proto__":{"isAdmin":true},"a":1}',
+			);
+			const out = omit(obj, buildPathTree(["password"]));
+			strictEqual(Object.getPrototypeOf(out), Object.prototype);
+			strictEqual(out.isAdmin, undefined);
+			deepStrictEqual(Object.keys(out), ["__proto__", "a"]);
+			strictEqual(JSON.stringify(out), '{"__proto__":{"isAdmin":true},"a":1}');
+			deepStrictEqual(Object.getOwnPropertyDescriptor(out, "__proto__"), {
+				value: { isAdmin: true },
+				writable: true,
+				enumerable: true,
+				configurable: true,
+			});
+		});
+		test("reads the segments of a path tree node once", (t) => {
+			const tree = buildPathTree(["password"]);
+			const keys = t.mock.method(tree, "keys");
+			omit({ password: "x" }, tree);
+			omit({ password: "y" }, tree);
+			strictEqual(keys.mock.callCount(), 1);
+		});
+		test("does not read a key that only matches a segment's length", () => {
+			let reads = 0;
+			const obj = {
+				get abc() {
+					reads += 1;
+					return "lazy";
+				},
+			};
+			strictEqual(omit(obj, buildPathTree(["xyz"])), obj);
+			strictEqual(reads, 0);
+		});
+		test("copies ordinary survivors by assignment, not defineProperty", (t) => {
+			// defineProperty is ~8x slower per key; only "__proto__" needs it.
+			const defineProperty = t.mock.method(Object, "defineProperty");
+			const out = omit(
+				{ password: "x", a: 1, b: 2 },
+				buildPathTree(["password"]),
+			);
+			strictEqual(defineProperty.mock.callCount(), 0);
+			deepStrictEqual(out, { a: 1, b: 2 });
 		});
 		test("does not mutate the input", () => {
 			const obj = { a: { b: 1 } };
@@ -2765,6 +3660,53 @@ describe("@middy/util", () => {
 			strictEqual(Object.getPrototypeOf(request.context.middyContext), null);
 		});
 
+		test("contextNamespace in a nested middy does not write into the outer namespace", async () => {
+			const writeNamespace = (key, value) => ({
+				before: (request) => {
+					contextNamespace(request, "demo")[key] = value;
+				},
+			});
+			let innerSeen;
+			let innerInherited;
+			const inner = middy()
+				.use(writeNamespace("b", 2))
+				.handler((event, context) => {
+					innerSeen = { ...context.middyContext.demo };
+					// reads still merge with the outer namespace
+					innerInherited = context.middyContext.demo.a;
+				});
+			let outerAfter;
+			const outer = middy()
+				.use(writeNamespace("a", 1))
+				.handler(async (event, context) => {
+					const outerNamespace = context.middyContext.demo;
+					await inner(event, context);
+					outerAfter = { ...outerNamespace };
+				});
+			await outer({}, {});
+			deepStrictEqual(innerSeen, { b: 2 });
+			strictEqual(innerInherited, 1);
+			deepStrictEqual(outerAfter, { a: 1 });
+		});
+
+		test("contextNamespace replaces an own namespace left undefined or null", () => {
+			for (const value of [undefined, null]) {
+				const request = { context: {} };
+				setContextNamespace(request, "demo", value);
+				contextNamespace(request, "demo").a = 1;
+				strictEqual(request.context.middyContext.demo.a, 1);
+			}
+		});
+
+		test("contextNamespace does not inherit an outer value that is not an object", () => {
+			const outer = Object.create(null);
+			outer.demo = "published";
+			const request = { context: { middyContext: Object.create(outer) } };
+			const namespace = contextNamespace(request, "demo");
+			strictEqual(Object.getPrototypeOf(namespace), null);
+			strictEqual(outer.demo, "published");
+		});
+
 		test("setContextNamespace publishes the value under the key", () => {
 			const request = { context: {} };
 			const client = { mark: "client" };
@@ -2781,6 +3723,37 @@ describe("@middy/util", () => {
 
 			strictEqual(request.context.middyContext.demo, "second");
 		});
+	});
+
+	test("processCache never evicts the entry it is inserting", async (t) => {
+		// With the cache full of never-expiring entries, the new entry has the
+		// earliest expiry; evicting it would mean the key is never cached.
+		processCache(
+			{ cacheKey: "evict-self-a", cacheExpiry: -1, cacheMaxSize: 1 },
+			() => ({ v: 1 }),
+		);
+		const fetchRequest = t.mock.fn(() => ({ v: 2 }));
+		const options = {
+			cacheKey: "evict-self-b",
+			cacheExpiry: 60000,
+			cacheMaxSize: 1,
+		};
+		processCache(options, fetchRequest);
+		processCache(options, fetchRequest);
+		strictEqual(fetchRequest.mock.callCount(), 1);
+		deepStrictEqual(getCache("evict-self-a"), {});
+		clearCache();
+	});
+
+	test("processCache with cacheMaxSize 0 caches nothing", async (t) => {
+		const options = {
+			cacheKey: "evict-size-0",
+			cacheExpiry: 100,
+			cacheMaxSize: 0,
+		};
+		processCache(options, () => ({ v: 1 }));
+		deepStrictEqual(getCache("evict-size-0"), {});
+		clearCache();
 	});
 
 	test("processCache should cancel the refresh timer of an evicted entry", async (t) => {
@@ -3279,8 +4252,8 @@ describe("@middy/util", () => {
 			strictEqual(seen.length, 1);
 			t.mock.timers.tick(1);
 			strictEqual(seen.length, 2);
-			// The refresh replays the request the entry was fetched with.
-			strictEqual(seen[1], request);
+			// The refresh runs outside an invocation; the stale request is not replayed.
+			notStrictEqual(seen[1], request);
 			// The refetched entry keeps the configured lifetime until it learns anew.
 			strictEqual(getCache(options.cacheKey).expiry, Number.POSITIVE_INFINITY);
 			strictEqual(getCache(options.cacheKey).refresh, undefined);
@@ -3844,13 +4817,21 @@ describe("@middy/util", () => {
 		// On an object node `node[seg] ??= {}` would resolve the inherited member
 		// and write the leaf onto the shared `Object.prototype.toString` function;
 		// a Map keyed by the segment has no such member to resolve.
+		test("skips prototype-polluting paths in any case", () => {
+			// Segments are lower-cased, so `Constructor` would otherwise reach a
+			// `constructor` key.
+			deepStrictEqual(
+				buildPathTree(["a.Constructor.x", "__PROTO__.y", "a.PROTOTYPE"]),
+				new Map(),
+			);
+		});
 		test("does not walk into Object.prototype members via an intermediate segment", () => {
 			const tree = buildPathTree(["event.toString.secret"]);
 			strictEqual(Object.prototype.toString.secret, undefined);
 			deepStrictEqual(
 				tree,
 				new Map([
-					["event", new Map([["toString", new Map([["secret", true]])]])],
+					["event", new Map([["tostring", new Map([["secret", true]])]])],
 				]),
 			);
 		});

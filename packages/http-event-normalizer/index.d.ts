@@ -58,8 +58,9 @@ declare function httpEventNormalizer<
 	EventType extends RequestEvent = RequestEvent,
 >(): middy.MiddlewareObj<Event<EventType>, unknown, Error>;
 
-export declare function httpEventNormalizerValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function httpEventNormalizerValidateOptions<
+	// The middleware takes no options, so any key fails validation.
+	TOptions extends Record<string, never>,
+>(options?: TOptions): TOptions;
 
 export default httpEventNormalizer;

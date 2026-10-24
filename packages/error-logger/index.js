@@ -47,9 +47,15 @@ const errorLoggerMiddleware = (opts = {}) => {
 	const omitPathTree = omitPaths && buildPathTree(omitPaths);
 
 	// Block body: core treats any defined hook return as an early response, and
-	// loggers such as winston return themselves from `logger.error()`.
+	// loggers such as winston return themselves from `logger.error()`. A logger
+	// that throws is reported, not propagated: logging must not change the
+	// invocation outcome (e.g. replace a handled 404 with an AggregateError).
 	const errorLoggerMiddlewareOnError = (request) => {
-		logger(omit(request, omitPathTree, mask));
+		try {
+			logger(omit(request, omitPathTree, mask));
+		} catch (e) {
+			console.error(e);
+		}
 	};
 	return {
 		onError: errorLoggerMiddlewareOnError,

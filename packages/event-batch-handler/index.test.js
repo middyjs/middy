@@ -1,9 +1,16 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	rejects,
+	strictEqual,
+	throws,
+} from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import middy from "../core/index.js";
 import eventBatchResponse from "../event-batch-response/index.js";
-import eventBatchHandler from "./index.js";
+import eventBatchHandler, {
+	eventBatchHandlerValidateOptions,
+} from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -99,6 +106,146 @@ describe("@middy/event-batch-handler", () => {
 		strictEqual(result[1].reason.message, "bad 2");
 	});
 
+	// FIFO: "your function should stop processing messages after the first
+	// failure and return all failed and unprocessed messages in
+	// batchItemFailures".
+	// docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html
+	const fifoEvent = (...records) => {
+		const event = sqsEvent(...records);
+		for (const record of event.Records) {
+			record.eventSource = "aws:sqs";
+			record.eventSourceARN = "arn:aws:sqs:us-east-1:123456789012:q.fifo";
+		}
+		return event;
+	};
+
+	test("FIFO SQS: stops at the first failure and rejects the rest unprocessed", async () => {
+		const seen = [];
+		const error = new Error("bad 2");
+		const handler = eventBatchHandler(async (record) => {
+			seen.push(record.id);
+			if (record.fail) throw error;
+			return record.id;
+		});
+		const result = await handler(
+			fifoEvent({ id: 1 }, { id: 2, fail: true }, { id: 3 }, { id: 4 }),
+			defaultContext,
+		);
+		deepStrictEqual(seen, [1, 2]);
+		deepStrictEqual(
+			result.map((r) => r.status),
+			["fulfilled", "rejected", "rejected", "rejected"],
+		);
+		strictEqual(result[0].value, 1);
+		strictEqual(result[1].reason, error);
+		strictEqual(
+			result[2].reason.message,
+			"Unprocessed: an earlier FIFO record failed",
+		);
+		strictEqual(result[3].reason, result[2].reason);
+		deepStrictEqual(result[2].reason.cause, {
+			package: "@middy/event-batch-handler",
+		});
+	});
+
+	test("FIFO SQS: processes records sequentially, in order", async () => {
+		const events = [];
+		const handler = eventBatchHandler(async (record) => {
+			events.push(`start-${record.id}`);
+			await new Promise((resolve) => setTimeout(resolve, 3 - record.id));
+			events.push(`end-${record.id}`);
+			return record.id;
+		});
+		const result = await handler(
+			fifoEvent({ id: 1 }, { id: 2 }),
+			defaultContext,
+		);
+		deepStrictEqual(events, ["start-1", "end-1", "start-2", "end-2"]);
+		deepStrictEqual(result, [
+			{ status: "fulfilled", value: 1 },
+			{ status: "fulfilled", value: 2 },
+		]);
+	});
+
+	test("standard SQS: a failure does not stop the remaining records", async () => {
+		const seen = [];
+		const handler = eventBatchHandler(async (record) => {
+			seen.push(record.id);
+			if (record.fail) throw new Error("bad");
+			return record.id;
+		});
+		const event = sqsEvent({ id: 1, fail: true }, { id: 2 });
+		for (const record of event.Records) {
+			record.eventSource = "aws:sqs";
+			record.eventSourceARN = "arn:aws:sqs:us-east-1:123456789012:q";
+		}
+		const result = await handler(event, defaultContext);
+		deepStrictEqual(seen, [1, 2]);
+		deepStrictEqual(
+			result.map((r) => r.status),
+			["rejected", "fulfilled"],
+		);
+	});
+
+	test("FIFO SQS: integrates with event-batch-response (failed + unprocessed reported)", async () => {
+		const lambda = middy()
+			.use(eventBatchResponse())
+			.handler(
+				eventBatchHandler((record) => {
+					if (record.fail) throw new Error("boom");
+					return record.id;
+				}),
+			);
+		const response = await lambda(
+			fifoEvent(
+				{ messageId: "m1", id: 1 },
+				{ messageId: "m2", id: 2, fail: true },
+				{ messageId: "m3", id: 3 },
+			),
+			defaultContext,
+		);
+		deepStrictEqual(response, {
+			batchItemFailures: [{ itemIdentifier: "m2" }, { itemIdentifier: "m3" }],
+		});
+	});
+
+	// Records that @middy/event-batch-parser failed to parse carry their error
+	// under this key.
+	const parseErrorKey = Symbol.for("@middy/event-batch-parser/error");
+
+	test("a record carrying a parse error is rejected without calling the record handler", async () => {
+		const seen = [];
+		const error = new Error("unparseable");
+		const handler = eventBatchHandler((record) => {
+			seen.push(record.id);
+			return record.id;
+		});
+		const event = sqsEvent({ id: 1 }, { id: 2 }, { id: 3 });
+		event.Records[1][parseErrorKey] = error;
+		const result = await handler(event, defaultContext);
+		deepStrictEqual(seen, [1, 3]);
+		deepStrictEqual(result, [
+			{ status: "fulfilled", value: 1 },
+			{ status: "rejected", reason: error },
+			{ status: "fulfilled", value: 3 },
+		]);
+	});
+
+	test("FIFO SQS: a record carrying a parse error stops processing there", async () => {
+		const seen = [];
+		const error = new Error("unparseable");
+		const handler = eventBatchHandler((record) => {
+			seen.push(record.id);
+			return record.id;
+		});
+		const event = fifoEvent({ id: 1 }, { id: 2 }, { id: 3 });
+		event.Records[1][parseErrorKey] = error;
+		const result = await handler(event, defaultContext);
+		deepStrictEqual(seen, [1]);
+		strictEqual(result[1].reason, error);
+		strictEqual(result[2].status, "rejected");
+	});
+
 	test("passes context through to the record handler", async () => {
 		const seen = [];
 		const handler = eventBatchHandler((record, context) => {
@@ -114,6 +261,21 @@ describe("@middy/event-batch-handler", () => {
 		deepStrictEqual(await handler({}, defaultContext), []);
 		deepStrictEqual(await handler(null, defaultContext), []);
 		deepStrictEqual(await handler(undefined, defaultContext), []);
+	});
+
+	test("throws for an unsupported eventSource without running a record", async () => {
+		let calls = 0;
+		const handler = eventBatchHandler(() => {
+			calls += 1;
+		});
+		const event = {
+			eventSource: "aws:rmq",
+			rmqMessagesByQueue: { "q::/": [{ data: "eA==" }] },
+		};
+		await rejects(handler(event, defaultContext), {
+			message: 'Unsupported event source "aws:rmq"',
+		});
+		strictEqual(calls, 0);
 	});
 
 	// --- Durable Functions auto-detection ----------------------------------
@@ -190,6 +352,111 @@ describe("@middy/event-batch-handler", () => {
 			caught = e;
 		}
 		strictEqual(caught, error);
+	});
+
+	test("durable context + FIFO SQS: stops stepping at the first failure", async () => {
+		const ctx = new DurableContextImpl();
+		const error = new Error("nope");
+		const handler = eventBatchHandler(async (record) => {
+			if (record.fail) throw error;
+			return record.id;
+		});
+
+		let caught;
+		try {
+			await handler(
+				fifoEvent({ id: 1 }, { id: 2, fail: true }, { id: 3 }),
+				ctx,
+			);
+		} catch (e) {
+			caught = e;
+		}
+		strictEqual(caught, error);
+		deepStrictEqual(ctx.stepCalls, ["record-0", "record-1"]);
+	});
+
+	test("durable context + FIFO SQS: all records succeed in order", async () => {
+		const ctx = new DurableContextImpl();
+		const handler = eventBatchHandler(async (record) => record.id);
+		const result = await handler(fifoEvent({ id: 1 }, { id: 2 }), ctx);
+		deepStrictEqual(result, [
+			{ status: "fulfilled", value: 1 },
+			{ status: "fulfilled", value: 2 },
+		]);
+	});
+
+	// A parse error never ran a step, so durable has no retry for it and a
+	// replay fails it the same way: it is reported per record instead of
+	// failing the invocation (which would redeliver the batch forever).
+	test("durable context: a record carrying a parse error is not stepped and is returned as a rejection", async () => {
+		const ctx = new DurableContextImpl();
+		const error = new Error("unparseable");
+		const handler = eventBatchHandler(async (record) => record.id);
+		const event = sqsEvent({ id: 1 }, { id: 2 });
+		event.Records[1][parseErrorKey] = error;
+
+		const result = await handler(event, ctx);
+		deepStrictEqual(result, [
+			{ status: "fulfilled", value: 1 },
+			{ status: "rejected", reason: error },
+		]);
+		deepStrictEqual(ctx.stepCalls, ["record-0"]);
+	});
+
+	test("durable context: a step failure still propagates when another record has a parse error", async () => {
+		const ctx = new DurableContextImpl();
+		const stepError = new Error("step-exhausted");
+		const handler = eventBatchHandler(async (record) => {
+			if (record.fail) throw stepError;
+			return record.id;
+		});
+		const event = sqsEvent({ id: 1 }, { id: 2, fail: true });
+		event.Records[0][parseErrorKey] = new Error("unparseable");
+
+		let caught;
+		try {
+			await handler(event, ctx);
+		} catch (e) {
+			caught = e;
+		}
+		strictEqual(caught, stepError);
+	});
+
+	test("durable context + FIFO SQS: a parse error stops stepping and the rest are returned unprocessed", async () => {
+		const ctx = new DurableContextImpl();
+		const error = new Error("unparseable");
+		const handler = eventBatchHandler(async (record) => record.id);
+		const event = fifoEvent({ id: 1 }, { id: 2 }, { id: 3 });
+		event.Records[1][parseErrorKey] = error;
+
+		const result = await handler(event, ctx);
+		deepStrictEqual(
+			result.map((r) => r.status),
+			["fulfilled", "rejected", "rejected"],
+		);
+		strictEqual(result[1].reason, error);
+		strictEqual(
+			result[2].reason.message,
+			"Unprocessed: an earlier FIFO record failed",
+		);
+		deepStrictEqual(ctx.stepCalls, ["record-0"]);
+	});
+
+	test("durable context: end-to-end, a parse error is reported in batchItemFailures", async () => {
+		const ctx = new DurableContextImpl();
+		const lambda = middy()
+			.use(eventBatchResponse())
+			.handler(eventBatchHandler(async (record) => record.id));
+		const event = sqsEvent(
+			{ messageId: "ok-1", id: 1 },
+			{ messageId: "bad-2", id: 2 },
+		);
+		event.Records[1][parseErrorKey] = new Error("unparseable");
+
+		const response = await lambda(event, ctx);
+		deepStrictEqual(response, {
+			batchItemFailures: [{ itemIdentifier: "bad-2" }],
+		});
 	});
 
 	test("durable context: passes the per-step child context (not the parent) to record handler", async () => {
@@ -288,5 +555,159 @@ describe("@middy/event-batch-handler", () => {
 		deepStrictEqual(response, {
 			batchItemFailures: [{ itemIdentifier: "fail-2" }],
 		});
+	});
+
+	// Counts records in flight; each holds its slot for one macrotask.
+	const trackInFlight = () => {
+		const state = { active: 0, peak: 0 };
+		state.run = async (fn) => {
+			state.active += 1;
+			state.peak = Math.max(state.peak, state.active);
+			await new Promise((resolve) => setImmediate(resolve));
+			state.active -= 1;
+			return fn();
+		};
+		return state;
+	};
+
+	test("concurrency: caps records in flight and keeps settled order", async () => {
+		const state = trackInFlight();
+		const error = new Error("boom");
+		const handler = eventBatchHandler(
+			(record) => {
+				if (record.syncThrow) throw error;
+				return state.run(() => {
+					if (record.fail) throw error;
+					return record.id;
+				});
+			},
+			{ concurrency: 2 },
+		);
+
+		const result = await handler(
+			sqsEvent(
+				{ id: 1 },
+				{ id: 2, fail: true },
+				{ id: 3, syncThrow: true },
+				{ id: 4 },
+				{ id: 5 },
+			),
+			defaultContext,
+		);
+		strictEqual(state.peak, 2);
+		deepStrictEqual(result, [
+			{ status: "fulfilled", value: 1 },
+			{ status: "rejected", reason: error },
+			{ status: "rejected", reason: error },
+			{ status: "fulfilled", value: 4 },
+			{ status: "fulfilled", value: 5 },
+		]);
+	});
+
+	test("concurrency: a batch within the limit runs every record at once", async () => {
+		const state = trackInFlight();
+		const handler = eventBatchHandler((record) => state.run(() => record.id), {
+			concurrency: 5,
+		});
+
+		const result = await handler(
+			sqsEvent({ id: 1 }, { id: 2 }, { id: 3 }),
+			defaultContext,
+		);
+		strictEqual(state.peak, 3);
+		deepStrictEqual(
+			result.map((r) => r.value),
+			[1, 2, 3],
+		);
+	});
+
+	test("concurrency: caps durable steps in flight", async () => {
+		const state = trackInFlight();
+		const ctx = new DurableContextImpl();
+		const handler = eventBatchHandler((record) => state.run(() => record.id), {
+			concurrency: 1,
+		});
+
+		const result = await handler(sqsEvent({ id: 1 }, { id: 2 }), ctx);
+		strictEqual(state.peak, 1);
+		deepStrictEqual(ctx.stepCalls, ["record-0", "record-1"]);
+		deepStrictEqual(
+			result.map((r) => r.value),
+			[1, 2],
+		);
+	});
+
+	test("concurrency: rejects invalid options", () => {
+		for (const opts of [
+			{ concurrency: 0 },
+			{ concurrency: 1.5 },
+			{ unknown: true },
+		]) {
+			throws(() => eventBatchHandler(() => {}, opts));
+		}
+		eventBatchHandlerValidateOptions({ concurrency: 1 });
+	});
+
+	test("concurrency: a batch equal to the limit takes the allSettled path", async (t) => {
+		const allSettled = t.mock.method(Promise, "allSettled");
+		const handler = eventBatchHandler((record) => record.id, {
+			concurrency: 2,
+		});
+
+		const result = await handler(
+			sqsEvent({ id: 1 }, { id: 2 }),
+			defaultContext,
+		);
+		strictEqual(allSettled.mock.callCount(), 1);
+		deepStrictEqual(
+			result.map((r) => r.value),
+			[1, 2],
+		);
+	});
+
+	test("SQS record without eventSourceARN is processed as standard", async () => {
+		const handler = eventBatchHandler((record) => record.id);
+		const result = await handler(
+			{ Records: [{ eventSource: "aws:sqs", messageId: "a", id: 1 }] },
+			defaultContext,
+		);
+		deepStrictEqual(result, [{ status: "fulfilled", value: 1 }]);
+	});
+
+	test("passes a null record to the record handler", async () => {
+		const seen = [];
+		const handler = eventBatchHandler((record) => {
+			seen.push(record);
+			return "ok";
+		});
+		const result = await handler(
+			{ eventSource: "aws:sqs", Records: [null] },
+			defaultContext,
+		);
+		deepStrictEqual(seen, [null]);
+		deepStrictEqual(result, [{ status: "fulfilled", value: "ok" }]);
+	});
+
+	test("durable: passes a null record to the record handler", async () => {
+		const ctx = new DurableContextImpl();
+		const handler = eventBatchHandler((record) => record);
+		const result = await handler(
+			{ eventSource: "aws:sqs", Records: [null] },
+			ctx,
+		);
+		deepStrictEqual(ctx.stepCalls, ["record-0"]);
+		deepStrictEqual(result, [{ status: "fulfilled", value: null }]);
+	});
+
+	test("durable: a failed step on a null record fails the invocation", async () => {
+		const ctx = new DurableContextImpl();
+		const error = new Error("boom");
+		const handler = eventBatchHandler(() => {
+			throw error;
+		});
+		await rejects(
+			handler({ eventSource: "aws:sqs", Records: [null] }, ctx),
+			error,
+		);
 	});
 });

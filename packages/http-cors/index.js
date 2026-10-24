@@ -107,19 +107,15 @@ const httpCorsMiddleware = (opts = {}) => {
 			if (originStatic[incomingOrigin]) {
 				return incomingOrigin;
 			}
+			// Never reflected, even when a response allows credentials: a browser
+			// then refuses the "*", which is the safe failure.
 			if (originAny) {
-				if (options.credentials) {
-					return incomingOrigin;
-				}
 				return "*";
 			}
 			if (originDynamic.some((regExp) => regExp.test(incomingOrigin))) {
 				return incomingOrigin;
 			}
 		} else {
-			if (incomingOrigin && options.credentials && options.origin === "*") {
-				return incomingOrigin;
-			}
 			return options.origin;
 		}
 		return null;
@@ -187,36 +183,55 @@ const httpCorsMiddleware = (opts = {}) => {
 		originDynamic.push(new RegExp(`^${regExpStr}$`));
 	}
 
+	// Fetch standard, CORS protocol: `*` is never a valid origin for a
+	// credentialed request. Reflecting every Origin in its place would let any
+	// site make credentialed requests, so the pairing is a configuration error.
+	// https://fetch.spec.whatwg.org/#cors-protocol-and-credentials
+	if (originAny && String(options.credentials) === "true") {
+		throw new Error("A wildcard origin cannot be combined with credentials", {
+			cause: { package: pkg },
+		});
+	}
+
 	const getOriginOptions = { ...options };
 	const getOriginOptionsCredentials = { ...options, credentials: true };
 	const getOriginOptionsNoCredentials = { ...options, credentials: false };
 
+	const addPreflightVary = (headers) => {
+		if (options.requestMethods?.length) {
+			addHeaderPart(headers, "Vary", "Access-Control-Request-Method");
+		}
+		if (options.requestHeaders?.length) {
+			addHeaderPart(headers, "Vary", "Access-Control-Request-Headers");
+		}
+	};
+
 	const maxAge = options.maxAge ? String(options.maxAge) : options.maxAge;
 
 	const modifyHeaders = (headers, options, request) => {
-		let credentials = options.credentials;
-		if (Object.hasOwn(headers, "Access-Control-Allow-Credentials")) {
-			credentials = headers["Access-Control-Allow-Credentials"] === "true";
+		// Header names are case-insensitive (RFC 9110 §5.1): a handler-set header
+		// in any casing counts as set, so it wins and is never sent twice.
+		const present = new Map();
+		for (const key of Object.keys(headers)) {
+			present.set(key.toLowerCase(), key);
 		}
-		if (credentials) {
+		let credentials = options.credentials;
+		const credentialsKey = present.get("access-control-allow-credentials");
+		if (credentialsKey) {
+			credentials = headers[credentialsKey] === "true";
+		} else if (credentials) {
 			headers["Access-Control-Allow-Credentials"] = String(credentials);
 		}
-		if (
-			options.headers &&
-			!Object.hasOwn(headers, "Access-Control-Allow-Headers")
-		) {
+		if (options.headers && !present.has("access-control-allow-headers")) {
 			headers["Access-Control-Allow-Headers"] = options.headers;
 		}
-		if (
-			options.methods &&
-			!Object.hasOwn(headers, "Access-Control-Allow-Methods")
-		) {
+		if (options.methods && !present.has("access-control-allow-methods")) {
 			headers["Access-Control-Allow-Methods"] = options.methods;
 		}
 
 		let newOrigin;
-		if (!Object.hasOwn(headers, "Access-Control-Allow-Origin")) {
-			const eventHeaders = request.event.headers ?? {};
+		if (!present.has("access-control-allow-origin")) {
+			const eventHeaders = readEventHeaders(request.event);
 			const incomingOrigin = headerValue(
 				eventHeaders.Origin ?? eventHeaders.origin,
 			);
@@ -249,21 +264,35 @@ const httpCorsMiddleware = (opts = {}) => {
 
 		if (
 			options.exposeHeaders &&
-			!Object.hasOwn(headers, "Access-Control-Expose-Headers")
+			!present.has("access-control-expose-headers")
 		) {
 			headers["Access-Control-Expose-Headers"] = options.exposeHeaders;
 		}
-		if (maxAge && !Object.hasOwn(headers, "Access-Control-Max-Age")) {
+		if (maxAge && !present.has("access-control-max-age")) {
 			headers["Access-Control-Max-Age"] = maxAge;
 		}
 		const httpMethod = readHttpMethod(request.event);
 		if (
 			httpMethod === "OPTIONS" &&
 			options.cacheControl &&
-			!Object.hasOwn(headers, "Cache-Control")
+			!present.has("cache-control")
 		) {
 			headers["Cache-Control"] = options.cacheControl;
 		}
+	};
+
+	// A rejected preflight still carries every Vary token its outcome depends
+	// on, so a shared cache never serves it to a request that would pass
+	// (RFC 9110 §12.5.5).
+	const rejectPreflight = (request) => {
+		const headers = {};
+		if (originVaries) {
+			addHeaderPart(headers, "Vary", "Origin");
+		}
+		addPreflightVary(headers);
+		request.response.statusCode = 204;
+		setPreflightHeaders(request, headers);
+		return request.response;
 	};
 
 	const httpCorsMiddlewareBefore = (request) => {
@@ -272,7 +301,7 @@ const httpCorsMiddleware = (opts = {}) => {
 		const method = readHttpMethod(request.event);
 		if (method === "OPTIONS") {
 			normalizeHttpResponse(request);
-			const eventHeaders = request.event.headers ?? {};
+			const eventHeaders = readEventHeaders(request.event);
 			const requestMethod = headerValue(
 				eventHeaders["Access-Control-Request-Method"] ??
 					eventHeaders["access-control-request-method"],
@@ -280,9 +309,7 @@ const httpCorsMiddleware = (opts = {}) => {
 
 			if (options.requestMethods?.length && requestMethod) {
 				if (!options.requestMethods.includes(requestMethod)) {
-					request.response.statusCode = 204;
-					request.response.headers = {};
-					return request.response;
+					return rejectPreflight(request);
 				}
 			}
 
@@ -306,27 +333,53 @@ const httpCorsMiddleware = (opts = {}) => {
 					(h) => !options.requestHeaders.includes(h),
 				);
 				if (hasDisallowedHeader) {
-					request.response.statusCode = 204;
-					request.response.headers = {};
-					return request.response;
+					return rejectPreflight(request);
 				}
 			}
 
 			const headers = {};
 			modifyHeaders(headers, options, request);
-			request.response.headers = headers;
+			addPreflightVary(headers);
+			setPreflightHeaders(request, headers);
 			request.response.statusCode = 204;
 			return request.response;
 		}
 	};
 
 	const httpCorsMiddlewareAfter = (request) => {
-		normalizeHttpResponse(request);
+		const response = normalizeHttpResponse(request);
 		// Cloned, not mutated: a handler may return a module-level constant as its
 		// `headers`, which would leak one invocation's origin into the next.
-		const headers = { ...request.response.headers };
+		const headers = { ...response.headers };
+		if (
+			typeof response.multiValueHeaders === "undefined" &&
+			!isAlbMultiValue(request.event)
+		) {
+			modifyHeaders(headers, options, request);
+			response.headers = headers;
+			return;
+		}
+		// API Gateway REST lets `multiValueHeaders` win over `headers` for the
+		// same name, and ALB with multi-value headers enabled reads only
+		// `multiValueHeaders`. Both maps are checked for what the handler set;
+		// whatever this middleware adds or changes goes into `multiValueHeaders`.
+		const multiValueHeaders = { ...response.multiValueHeaders };
+		for (const key of Object.keys(multiValueHeaders)) {
+			headers[key] = multiValueHeaders[key].join(", ");
+		}
+		const handlerHeaders = { ...headers };
 		modifyHeaders(headers, options, request);
-		request.response.headers = headers;
+		const singleValueHeaders = {};
+		for (const key of Object.keys(headers)) {
+			if (headers[key] !== handlerHeaders[key]) {
+				multiValueHeaders[key] = [headers[key]];
+			}
+			if (!Object.hasOwn(multiValueHeaders, key)) {
+				singleValueHeaders[key] = headers[key];
+			}
+		}
+		response.headers = singleValueHeaders;
+		response.multiValueHeaders = multiValueHeaders;
 	};
 	const httpCorsMiddlewareOnError = (request) => {
 		if (typeof request.response === "undefined") return;
@@ -352,6 +405,36 @@ const getVersionHttpMethod = Object.assign(Object.create(null), {
 
 const readHttpMethod = (event) =>
 	getVersionHttpMethod[resolveHttpEventVersion(event)]?.(event);
+
+// An ALB target group with multi-value headers enabled sends
+// `multiValueHeaders` and only reads them back: "You must use
+// multiValueHeaders if you have enabled multi-value headers and headers
+// otherwise." Its events are the only ones that carry `requestContext.elb`
+// together with `multiValueHeaders`.
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+const isAlbMultiValue = (event) =>
+	typeof event.requestContext?.elb !== "undefined" &&
+	typeof event.multiValueHeaders !== "undefined";
+
+// ALB with multi-value headers enabled sends only `multiValueHeaders`; their
+// arrays are read like VPC Lattice V2's.
+const readEventHeaders = (event) =>
+	event.headers ?? event.multiValueHeaders ?? {};
+
+// A preflight response is built here from nothing, so on ALB with multi-value
+// headers enabled every header goes into `multiValueHeaders`.
+const setPreflightHeaders = (request, headers) => {
+	if (!isAlbMultiValue(request.event)) {
+		request.response.headers = headers;
+		return;
+	}
+	const multiValueHeaders = {};
+	for (const key of Object.keys(headers)) {
+		multiValueHeaders[key] = [headers[key]];
+	}
+	request.response.headers = {};
+	request.response.multiValueHeaders = multiValueHeaders;
+};
 
 // VPC Lattice V2 delivers every header value as an array.
 const headerValue = (value) => (Array.isArray(value) ? value[0] : value);

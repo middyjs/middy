@@ -34,9 +34,10 @@ npm install --save @middy/rds postgres
 - `contextKey` (string) (default `rds`): Key under `context.middyContext` where the connection is published.
 - `internalKey` (string) (optional): Internal key holding the IAM token from `@middy/rds-signer` or `@middy/dsql-signer`. When set, the resolved token is merged into `config.password` before the client is built. With a positive `cacheExpiry` the connection is not refreshed in the background, since that could only replay the token of the invocation that opened it; the entry expires and the next invocation reconnects with its own token.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Automatically disabled when `internalKey` is set.
-- `cacheKey` (string) (default `@middy/rds`): Cache key for the connection. Must be unique across all middleware.
+- `cacheKey` (string) (default `@middy/rds`): Cache key for the connection. Each instance of this middleware needs its own `cacheKey`: reusing one with a different `config` throws a `TypeError`.
 - `cacheKeyExpiry` (object) (default `{}`): Per-`cacheKey` expiry override, `{ [cacheKey]: cacheExpiry }`; a unix timestamp in ms above 86400000 is treated as an absolute expiry. The override replaces `cacheExpiry` entirely, including whether the connection is closed after each invocation.
-- `cacheExpiry` (number) (default `-1`): How long to reuse the connection. `-1`: reuse forever, `0`: close after each invocation, `n`: reuse for n ms. A connection replaced by a refresh, or flagged broken by the adapter, is closed once the invocations using it finish; newer connections stay open.
+- `cacheExpiry` (number) (default `-1`): How long to reuse the connection. `-1`: reuse forever, `0`: close after each invocation (only the connection that invocation opened), `n`: reuse for n ms. A connection replaced by a refresh, or flagged broken by the adapter, is closed once the invocations using it finish; newer connections stay open. Values above `86400000` are unix timestamps (ms): one before 2001-01-01 (`978307200000`) can only be a mistyped duration and throws at construction, while a real timestamp that has passed just leaves the entry expired.
+- `cacheMaxSize` (number) (default `128`): Maximum number of entries kept in the shared middleware cache; the oldest expiring entry is evicted when exceeded.
 
 ## Secure connections (TLS)
 

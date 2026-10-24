@@ -15,6 +15,7 @@ describe("@middy/cloudwatch-metrics", () => {
 	test("cloudwatch-metrics", async (t) => {
 		const mockState = {
 			flushCalled: false,
+			flushCount: 0,
 			flushError: null, // when set, flush rejects with this error
 			namespaceValue: null,
 			dimensionsValue: null,
@@ -27,6 +28,7 @@ describe("@middy/cloudwatch-metrics", () => {
 				createMetricsLogger: () => ({
 					flush: async () => {
 						mockState.flushCalled = true;
+						mockState.flushCount += 1;
 						if (mockState.flushError) throw mockState.flushError;
 					},
 					setNamespace: (namespace) => {
@@ -67,6 +69,42 @@ describe("@middy/cloudwatch-metrics", () => {
 				handler.use(cloudwatchMetricsMiddleware());
 				await handler(defaultEvent, defaultContext);
 				strictEqual(mockState.flushCalled, true);
+			},
+		);
+
+		await t.test(
+			"It should flush once when a later after middleware throws",
+			async () => {
+				mockState.flushCount = 0;
+				const handler = middy(() => {})
+					.after(() => {
+						throw new Error("after failed");
+					})
+					.onError(() => "handled")
+					.use(cloudwatchMetricsMiddleware());
+				strictEqual(await handler(defaultEvent, defaultContext), "handled");
+				strictEqual(mockState.flushCount, 1);
+			},
+		);
+
+		await t.test(
+			"It should not flush an outer middy's logger from a nested middy",
+			async () => {
+				mockState.flushCount = 0;
+				let flushedDuringInner;
+				const inner = middy(() => {})
+					.before(() => {
+						throw new Error("before failed");
+					})
+					.onError(() => "handled")
+					.use(cloudwatchMetricsMiddleware());
+				const handler = middy(async (event, context) => {
+					await inner(event, context);
+					flushedDuringInner = mockState.flushCount;
+				}).use(cloudwatchMetricsMiddleware());
+				await handler(defaultEvent, { ...defaultContext });
+				strictEqual(flushedDuringInner, 0);
+				strictEqual(mockState.flushCount, 1);
 			},
 		);
 

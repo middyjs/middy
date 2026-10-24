@@ -20,6 +20,18 @@ export interface PollKafkaOptions {
 	 * batch. kafkajs throttles to its own heartbeatInterval. Defaults to 3000.
 	 */
 	heartbeatIntervalMs?: number;
+	/**
+	 * Retries of a failed batch before its failed records are discarded and
+	 * reported through the runner's onError, as Lambda's MaximumRetryAttempts.
+	 * -1 (the default) retries forever.
+	 */
+	maxRetryAttempts?: number;
+	/**
+	 * Backoff (ms) before a failed batch is retried, doubling per consecutive
+	 * failure of the same record up to 30 s (or this value when larger).
+	 * Defaults to 1000.
+	 */
+	retryDelayMs?: number;
 }
 
 export type KafkaEvent = MSKEvent | SelfManagedKafkaEvent;

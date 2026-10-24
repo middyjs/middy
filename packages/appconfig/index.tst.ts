@@ -4,6 +4,7 @@ import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import appConfig, { appConfigParam, type Context } from "./index.js";
 
 const options = {
@@ -187,4 +188,24 @@ test("contextKey literal narrows middyContext without as const", () => {
 				config1: string;
 			}>();
 		});
+});
+
+test("rejects misspelled option alongside fetchData", () => {
+	expect(appConfig).type.not.toBeCallableWith({
+		fetchData: {
+			config: {
+				ApplicationIdentifier: "app",
+				ConfigurationProfileIdentifier: "c",
+				EnvironmentIdentifier: "d",
+			},
+		},
+		cacheExpiery: 1000,
+	});
+});
+
+test("appConfigValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.AppConfigOptions;
+	expect(
+		indexModule.appConfigValidateOptions(options),
+	).type.toBe<indexModule.AppConfigOptions>();
 });

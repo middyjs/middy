@@ -1,0 +1,30 @@
+# Trivy license policy: SPDX allowlist, any other license fails the scan.
+# Every Trivy license scan in this repo loads it (`--config` or trivy-action `trivy-config`).
+# Not auto-loaded (only ./trivy.yaml is), so vulnerability scans keep their own settings.
+# A new dependency outside this list is rejected unless reviewed and added here.
+# https://trivy.dev/latest/docs/scanner/license/
+# https://trivy.dev/latest/docs/references/configuration/config-file/
+scan:
+  scanners:
+    - license
+exit-code: 1
+license:
+  # Allowed licenses: findings for these are dropped, everything else is reported.
+  ignored:
+    - 0BSD
+    - Apache-2.0
+    - BlueOak-1.0.0
+    - BSD-1-Clause
+    - BSD-2-Clause
+    - BSD-3-Clause
+    - CC-BY-4.0
+    - CC0-1.0
+    - ISC
+    - LGPL-3.0-or-later
+    - MIT
+    - MPL-2.0
+    - OFL-1.1
+    # Trivy normalizes Python-2.0 (argparse) to PSF-2.0.
+    - PSF-2.0
+    - Python-2.0
+    - Unlicense

@@ -1,5 +1,5 @@
 <script>
-import LayoutAsideNav from "@design-system/components/LayoutAsideNav.svelte";
+import LayoutAsideNav from "@willfarrell-ds/svelte/components/LayoutAsideNav.svelte";
 
 const nav = {
 	"Intro to Middy": {

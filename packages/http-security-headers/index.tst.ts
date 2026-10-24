@@ -1,6 +1,6 @@
 import type middy from "@middy/core";
 import { expect, test } from "tstyche";
-import httpSecurityHeaders from "./index.js";
+import httpSecurityHeaders, * as indexModule from "./index.js";
 
 test("use with default options", () => {
 	const middleware = httpSecurityHeaders();
@@ -107,4 +107,38 @@ test("allow true options", () => {
 	});
 
 	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
+});
+
+test("httpSecurityHeadersValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.Options;
+	expect(
+		indexModule.httpSecurityHeadersValidateOptions(options),
+	).type.toBe<indexModule.Options>();
+});
+
+// The runtime schema takes `true`, `false` or a property-less object (the
+// `originAgentCluster` default is `{}`).
+test("accepts the object form of originAgentCluster and xssProtection", () => {
+	const middleware = httpSecurityHeaders({
+		originAgentCluster: {},
+		xssProtection: {},
+	});
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
+	expect(indexModule.httpSecurityHeadersValidateOptions).type.toBeCallableWith({
+		originAgentCluster: {},
+		xssProtection: {},
+	});
+});
+
+test("rejects properties on the object form of originAgentCluster and xssProtection", () => {
+	expect(httpSecurityHeaders).type.not.toBeCallableWith({
+		originAgentCluster: { enabled: true },
+	});
+	expect(httpSecurityHeaders).type.not.toBeCallableWith({
+		xssProtection: { mode: "block" },
+	});
+});
+
+test("rejects misspelled option", () => {
+	expect(httpSecurityHeaders).type.not.toBeCallableWith({ frameOption: false });
 });

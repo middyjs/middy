@@ -627,6 +627,30 @@ describe("@middy/sts", () => {
 		);
 	});
 
+	test("It should share a cacheKey between instances with identical fetchData and a default RoleSessionName", async (t) => {
+		const send = t.mock.fn(async () => ({
+			Credentials: {
+				AccessKeyId: "accessKeyId",
+				SecretAccessKey: "secretAccessKey",
+				SessionToken: "sessionToken",
+			},
+		}));
+		mockClient(STSClient).on(AssumeRoleCommand).callsFake(send);
+		const handlerFor = () =>
+			middy(() => {}).use(
+				sts({
+					AwsClient: STSClient,
+					cacheExpiry: -1,
+					fetchData: { role: { RoleArn: ".../role" } },
+					disablePrefetch: true,
+				}),
+			);
+
+		await handlerFor()(defaultEvent, defaultContext);
+		await handlerFor()(defaultEvent, defaultContext);
+		strictEqual(send.mock.callCount(), 1);
+	});
+
 	test("It should preserve a provided RoleSessionName", async (t) => {
 		let captured;
 		mockClient(STSClient)
@@ -1022,5 +1046,57 @@ describe("@middy/sts", () => {
 		await handler(defaultEvent, defaultContext);
 		await handler(defaultEvent, defaultContext);
 		strictEqual(constructed, 1);
+	});
+
+	test("stsValidateOptions accepts cacheMaxSize and rejects values below 1", () => {
+		stsValidateOptions({ cacheMaxSize: 10 });
+		try {
+			stsValidateOptions({ cacheMaxSize: 0 });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("cacheMaxSize"));
+		}
+	});
+
+	// A background refresh has no invocation to rebuild the client from, so it
+	// would sign with the assumed-role credentials it started with. Under
+	// awsClientAssumeRole none is scheduled; the next invocation refetches.
+	test("It should not refresh in the background under awsClientAssumeRole", async (t) => {
+		t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+		let sends = 0;
+		class FakeClient {
+			send() {
+				sends++;
+				return Promise.resolve({
+					Credentials: {
+						AccessKeyId: "id",
+						SecretAccessKey: "secret",
+						SessionToken: "token",
+					},
+				});
+			}
+		}
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.role = Promise.resolve({ accessKeyId: "a" });
+			})
+			.use(
+				sts({
+					AwsClient: FakeClient,
+					awsClientAssumeRole: "role",
+					cacheExpiry: 50,
+					fetchData: { key: { RoleArn: "arn:aws:iam::0:role/r" } },
+				}),
+			);
+
+		await handler(defaultEvent, defaultContext);
+		const afterFirst = sends;
+		t.mock.timers.tick(120);
+		await new Promise((resolve) => setImmediate(resolve));
+		strictEqual(sends, afterFirst);
+
+		await handler(defaultEvent, defaultContext);
+		ok(sends > afterFirst);
 	});
 });

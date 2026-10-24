@@ -34,6 +34,7 @@ export interface STSOptions<AwsSTSClient = STSClient>
 		| "cacheKey"
 		| "cacheExpiry"
 		| "cacheKeyExpiry"
+		| "cacheMaxSize"
 		| "setToContext"
 		| "contextKey"
 	> {
@@ -67,8 +68,12 @@ declare function sts<
 	TKey extends string = string,
 >(
 	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
-	// key narrows `middyContext` without `as const`.
-	options?: TOptions & { contextKey?: TKey },
+	// key narrows `middyContext` without `as const`. The `never` record rejects
+	// keys `STSOptions` does not declare, which inference would otherwise accept.
+	options?: TOptions & { contextKey?: TKey } & Record<
+			Exclude<keyof TOptions, keyof STSOptions>,
+			never
+		>,
 ): middy.MiddlewareObj<
 	unknown,
 	unknown,
@@ -77,8 +82,8 @@ declare function sts<
 	Internal<TOptions>
 >;
 
-export declare function stsValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function stsValidateOptions<TOptions extends STSOptions>(
+	options?: TOptions,
+): TOptions;
 
 export default sts;

@@ -1,6 +1,6 @@
 {
 	"name": "@middy/util",
-	"version": "8.0.0-alpha.1",
+	"version": "8.0.0-alpha.2",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda (util package)",
 	"type": "module",
 	"engines": {
@@ -30,7 +30,7 @@
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --test",
 		"test:fuzz": "node --test index.fuzz.js",
-		"test:perf": "node --test index.perf.js",
+		"test:bench": "node --experimental-bench --bench 'index.bench.js'",
 		"test:mutation": "cd ../.. && MUTATE_PACKAGE=\"$(basename \"$OLDPWD\")\" stryker run"
 	},
 	"license": "MIT",
@@ -57,8 +57,8 @@
 		"url": "https://github.com/middyjs/middy/issues"
 	},
 	"devDependencies": {
-		"@aws-sdk/client-ssm": "^3.1126.0",
-		"@middy/core": "8.0.0-alpha.1",
+		"@aws-sdk/client-ssm": "^3.1140.0",
+		"@middy/core": "8.0.0-alpha.2",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^24.0.0"
 	},

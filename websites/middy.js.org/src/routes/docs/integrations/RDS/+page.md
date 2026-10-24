@@ -4,7 +4,7 @@ description: "Connect to AWS RDS from Lambda using Middy with IAM authentication
 ---
 
 <script>
-import Callout from '@design-system/components/Callout.svelte'
+import Callout from '@willfarrell-ds/svelte/components/Callout.svelte'
 </script>
 
 

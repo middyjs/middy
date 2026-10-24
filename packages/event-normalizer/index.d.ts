@@ -11,8 +11,8 @@ declare function eventNormalizer(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
-export declare function eventNormalizerValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function eventNormalizerValidateOptions<
+	TOptions extends Options,
+>(options?: TOptions): TOptions;
 
 export default eventNormalizer;

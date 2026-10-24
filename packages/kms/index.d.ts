@@ -37,8 +37,12 @@ export type Internal<TOptions extends KMSOptions | undefined> =
 
 declare function kms<TOptions extends KMSOptions, TKey extends string = string>(
 	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
-	// key narrows `middyContext` without `as const`.
-	options?: TOptions & { contextKey?: TKey },
+	// key narrows `middyContext` without `as const`. The `never` record rejects
+	// keys `KMSOptions` does not declare, which inference would otherwise accept.
+	options?: TOptions & { contextKey?: TKey } & Record<
+			Exclude<keyof TOptions, keyof KMSOptions>,
+			never
+		>,
 ): middy.MiddlewareObj<
 	unknown,
 	unknown,
@@ -47,8 +51,8 @@ declare function kms<TOptions extends KMSOptions, TKey extends string = string>(
 	Internal<TOptions>
 >;
 
-export declare function kmsValidateOptions(
-	options?: Record<string, unknown>,
-): void;
+export declare function kmsValidateOptions<TOptions extends KMSOptions>(
+	options?: TOptions,
+): TOptions;
 
 export default kms;

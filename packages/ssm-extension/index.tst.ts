@@ -2,6 +2,7 @@ import middy from "@middy/core";
 import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { expect, test } from "tstyche";
+import * as indexModule from "./index.js";
 import ssmExtension, {
 	type Context,
 	type SsmExtensionOptions,
@@ -19,6 +20,7 @@ test("use with all options", () => {
 		disablePrefetch: true,
 		cacheKey: "some-key",
 		cacheExpiry: 60 * 60 * 1000,
+		cacheMaxSize: 100,
 		setToContext: false as const,
 	};
 	expect(ssmExtension(options)).type.toBe<
@@ -116,4 +118,29 @@ test("contextKey literal narrows middyContext without as const", () => {
 				host: string;
 			}>();
 		});
+});
+
+test("accepts cacheMaxSize", () => {
+	expect(ssmExtension).type.toBeCallableWith({ cacheMaxSize: 100 });
+});
+
+test("accepts an awsSessionToken provider", () => {
+	expect(ssmExtension).type.toBeCallableWith({
+		awsSessionToken: async () => "token",
+	});
+	expect(ssmExtension).type.not.toBeCallableWith({ awsSessionToken: "token" });
+});
+
+test("rejects misspelled option alongside fetchData", () => {
+	expect(ssmExtension).type.not.toBeCallableWith({
+		fetchData: { foo: "/foo" },
+		cacheExpiery: 1000,
+	});
+});
+
+test("ssmExtensionValidateOptions accepts typed options and returns them", () => {
+	const options = {} as indexModule.SsmExtensionOptions;
+	expect(
+		indexModule.ssmExtensionValidateOptions(options),
+	).type.toBe<indexModule.SsmExtensionOptions>();
 });
