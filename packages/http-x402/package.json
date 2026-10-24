@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-x402",
-	"version": "8.0.0-alpha.1",
+	"version": "8.0.0-alpha.2",
 	"description": "x402 payment middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -65,7 +65,7 @@
 	},
 	"peerDependencies": {
 		"@x402/core": "^2.28.0",
-		"@middy/core": "8.0.0-alpha.1",
+		"@middy/core": "8.0.0-alpha.2",
 		"@types/aws-lambda": "^8.0.0"
 	},
 	"peerDependenciesMeta": {
@@ -77,10 +77,10 @@
 		}
 	},
 	"dependencies": {
-		"@middy/util": "8.0.0-alpha.1"
+		"@middy/util": "8.0.0-alpha.2"
 	},
 	"devDependencies": {
-		"@middy/core": "8.0.0-alpha.1",
+		"@middy/core": "8.0.0-alpha.2",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^24.0.0",
 		"@x402/core": "^2.28.0"

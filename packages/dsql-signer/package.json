@@ -1,6 +1,6 @@
 {
 	"name": "@middy/dsql-signer",
-	"version": "8.0.0-alpha.1",
+	"version": "8.0.0-alpha.2",
 	"description": "Aurora DSQL credentials middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -64,7 +64,7 @@
 	},
 	"peerDependencies": {
 		"@aws-sdk/dsql-signer": "^3.0.0",
-		"@middy/core": "8.0.0-alpha.1",
+		"@middy/core": "8.0.0-alpha.2",
 		"@types/aws-lambda": "^8.0.0"
 	},
 	"peerDependenciesMeta": {
@@ -76,11 +76,11 @@
 		}
 	},
 	"dependencies": {
-		"@middy/util": "8.0.0-alpha.1"
+		"@middy/util": "8.0.0-alpha.2"
 	},
 	"devDependencies": {
 		"@aws-sdk/dsql-signer": "^3.0.0",
-		"@middy/core": "8.0.0-alpha.1",
+		"@middy/core": "8.0.0-alpha.2",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^24.0.0",
 		"aws-xray-sdk": "^3.0.0"
