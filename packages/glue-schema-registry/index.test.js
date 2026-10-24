@@ -1442,6 +1442,72 @@ describe("@middy/glue-schema-registry", () => {
 		);
 	});
 
+	test("resolveSchemaVersion keeps versions already cached under its key by another copy", async () => {
+		// Another copy of this package sharing @middy/util (e.g. bundled twice)
+		// holds the entry; this copy has not tracked any version under it yet.
+		const held = "00000000-0000-0000-0000-0000000000f1";
+		const id = "00000000-0000-0000-0000-0000000000f2";
+		const mock = mockClient(GlueClient)
+			.on(GetSchemaVersionCommand)
+			.callsFake(async (input) => ({
+				SchemaVersionId: input.SchemaVersionId,
+				SchemaDefinition: AVRO_SCHEMA,
+				DataFormat: "AVRO",
+			}));
+		processCache(
+			{ cacheKey: "glue-shared:schemaVersions", cacheExpiry: -1 },
+			() => ({ [held]: Promise.resolve({ schemaVersionId: held }) }),
+		);
+
+		const resolved = await resolveSchemaVersion(
+			id,
+			{ cacheKey: "glue-shared", cacheExpiry: -1 },
+			{ internal: {}, context: {} },
+		);
+		strictEqual(resolved.schemaVersionId, id);
+		deepStrictEqual(
+			mock
+				.commandCalls(GetSchemaVersionCommand)
+				.map((call) => call.args[0].input.SchemaVersionId),
+			[id],
+		);
+		ok(getCache("glue-shared:schemaVersions").value[held]);
+	});
+
+	test("resolveSchemaVersion serves a cached version without rebuilding the client for new credentials", async () => {
+		const id = "00000000-0000-0000-0000-0000000000c1";
+		mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
+			SchemaVersionId: id,
+			SchemaDefinition: AVRO_SCHEMA,
+			DataFormat: "AVRO",
+		});
+
+		let instantiations = 0;
+		class CountingClient extends GlueClient {
+			constructor(options) {
+				super(options);
+				instantiations++;
+			}
+		}
+
+		const opts = {
+			AwsClient: CountingClient,
+			cacheKey: "glue-role-cached",
+			cacheExpiry: -1,
+			awsClientAssumeRole: "credentials",
+		};
+		await resolveSchemaVersion(id, opts, {
+			internal: { credentials: { accessKeyId: "a", secretAccessKey: "a" } },
+			context: {},
+		});
+		await resolveSchemaVersion(id, opts, {
+			internal: { credentials: { accessKeyId: "b", secretAccessKey: "b" } },
+			context: {},
+		});
+		await new Promise((resolve) => setImmediate(resolve));
+		strictEqual(instantiations, 1);
+	});
+
 	test("resolveSchemaVersion stops refetching a version whose fetch failed", async () => {
 		const good = "00000000-0000-0000-0000-00000000900d";
 		const bad = "00000000-0000-0000-0000-000000000bad";
