@@ -169,6 +169,19 @@ describe("@middy/appconfig-extension", () => {
 		strictEqual(timeout.mock.calls[0].arguments[0], 1000);
 	});
 
+	test("It should allow the fetch 30 s when the context has no getRemainingTimeInMillis", async (t) => {
+		const timeout = t.mock.method(AbortSignal, "timeout");
+		const handler = middy(() => {}).use(
+			appConfigExtension({
+				cacheExpiry: 0,
+				fetchData: { config: fetchParam },
+				disablePrefetch: true,
+			}),
+		);
+		await handler(event, {});
+		strictEqual(timeout.mock.calls[0].arguments[0], 29500);
+	});
+
 	test("It should set plain-text config value to internal storage", async (_t) => {
 		const handler = middy(() => {})
 			.use(

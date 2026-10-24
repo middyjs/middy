@@ -700,6 +700,7 @@ describe("@middy/validator", () => {
 			ok(false, "expected throw");
 		} catch (e) {
 			strictEqual(e.cause?.package, "@middy/validator");
+			deepStrictEqual(e.cause.data, { keyword: "errorMessage" });
 			ok(e.message.includes("allErrors: true"), e.message);
 		}
 	});
