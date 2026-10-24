@@ -1460,6 +1460,25 @@ describe("@middy/http-multipart-body-parser", () => {
 		);
 	});
 
+	test("It should keep a field named only by brackets as a plain field", async (t) => {
+		const handler = middy((event) => event.body);
+
+		handler.use(httpMultipartBodyParser());
+
+		const event = {
+			headers: { "content-type": "multipart/form-data; boundary=TEST" },
+			body: '--TEST\r\nContent-Disposition: form-data; name="[]"\r\n\r\n1\r\n--TEST--',
+			isBase64Encoded: false,
+		};
+
+		const response = await handler(event, defaultContext);
+
+		deepStrictEqual(
+			response,
+			Object.assign(Object.create(null), { "[]": "1" }),
+		);
+	});
+
 	test("It should fold a repeated plain field into an array instead of keeping the last value", async (t) => {
 		const handler = middy((event) => event.body);
 

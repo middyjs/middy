@@ -766,6 +766,43 @@ describe("@middy/ssm", () => {
 		}
 	});
 
+	// `ARN` is optional on a returned Parameter; one without it must not be
+	// keyed under "undefined", the result for a parameter of that name.
+	// https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_Parameter.html
+	test("It should not key a parameter without an ARN under its missing ARN", async (t) => {
+		mockClient(SSMClient)
+			.on(GetParametersCommand)
+			.resolvesOnce({
+				InvalidParameters: ["undefined"],
+				Parameters: [{ Name: "/dev/service_name/key_name", Value: "value" }],
+			});
+
+		const handler = middy(() => {}).use(
+			ssm({
+				AwsClient: SSMClient,
+				cacheExpiry: 0,
+				fetchData: {
+					missing: "undefined",
+					key: "/dev/service_name/key_name",
+				},
+				disablePrefetch: true,
+				setToContext: true,
+			}),
+		);
+
+		try {
+			await handler(event, context);
+			ok(false);
+		} catch (e) {
+			strictEqual(e.message, "Failed to resolve internal values");
+			deepStrictEqual(e.errors, [
+				new Error("InvalidParameter undefined", {
+					cause: { package: "@middy/ssm" },
+				}),
+			]);
+		}
+	});
+
 	test("It should catch if an error is returned from fetchSingle", async (t) => {
 		const mockService = mockClient(SSMClient)
 			.on(GetParametersCommand)

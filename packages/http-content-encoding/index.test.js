@@ -877,6 +877,24 @@ describe("@middy/http-content-encoding", () => {
 		]);
 	});
 
+	// Field lines of a repeated header combine with a comma (RFC 9110 §5.3), so
+	// the directives of one line never run into those of the next.
+	test("It should not join multiValueHeaders Cache-Control lines into a no-transform directive", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: compressibleBody,
+			multiValueHeaders: { "Cache-Control": ["no", "-transform"] },
+		})).use(contentEncodingStack());
+
+		const response = await handler(
+			{ headers: {} },
+			{ ...defaultContext, preferredEncoding: "gzip" },
+		);
+
+		strictEqual(response.isBase64Encoded, true);
+		deepStrictEqual(response.multiValueHeaders["Content-Encoding"], ["gzip"]);
+	});
+
 	test("It should encode Web API ReadableStream using br", async (t) => {
 		const body = compressibleBody;
 		const handler = middy((event, context) => ({

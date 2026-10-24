@@ -461,7 +461,8 @@ describe("@middy/ssm-extension", () => {
 				() => handler(event, context),
 				(e) =>
 					e.errors[0].message ===
-					"@middy/ssm-extension requires AWS_SESSION_TOKEN or the awsSessionToken option",
+						"@middy/ssm-extension requires AWS_SESSION_TOKEN or the awsSessionToken option" &&
+					e.errors[0].cause.package === "@middy/ssm-extension",
 			);
 			strictEqual(fetchCount, 0);
 		} finally {
@@ -504,6 +505,19 @@ describe("@middy/ssm-extension", () => {
 		);
 		await handler(event, { getRemainingTimeInMillis: () => 100 });
 		strictEqual(timeout.mock.calls[0].arguments[0], 1000);
+	});
+
+	test("It should allow the fetch 30 s when the context has no getRemainingTimeInMillis", async (t) => {
+		const timeout = t.mock.method(AbortSignal, "timeout");
+		const handler = middy(() => {}).use(
+			ssmExtension({
+				cacheExpiry: 0,
+				fetchData: { key: "/dev/service_name/key_name" },
+				disablePrefetch: true,
+			}),
+		);
+		await handler(event, {});
+		strictEqual(timeout.mock.calls[0].arguments[0], 29500);
 	});
 
 	test("It should preserve colons in parameter names (not percent-encoded)", async (_t) => {

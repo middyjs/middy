@@ -548,6 +548,7 @@ describe("@middy/http-cors", () => {
 	test("It should throw at construction when origin '*' is combined with credentials", async (t) => {
 		throws(() => httpCors({ origin: "*", credentials: true }), {
 			message: "A wildcard origin cannot be combined with credentials",
+			cause: { package: "@middy/http-cors" },
 		});
 	});
 
@@ -2849,6 +2850,42 @@ describe("@middy/http-cors", () => {
 				Vary: "Origin",
 			},
 		});
+	});
+
+	test("It should pass the effective credentials to a custom getOrigin", async (t) => {
+		const cases = [
+			[{}, undefined, undefined],
+			[{ credentials: true }, undefined, true],
+			[{ credentials: false }, undefined, false],
+			[{}, "true", true],
+			[{}, "false", false],
+			[{ credentials: true }, "false", false],
+		];
+		for (const [opts, header, expected] of cases) {
+			const seen = [];
+			const handler = middy((event, context) => ({
+				statusCode: 200,
+				headers:
+					header === undefined
+						? {}
+						: { "Access-Control-Allow-Credentials": header },
+			})).use(
+				httpCors({
+					...opts,
+					getOrigin: (incomingOrigin, options) => {
+						seen.push(options.credentials);
+						return incomingOrigin;
+					},
+				}),
+			);
+
+			await handler(
+				{ httpMethod: "GET", headers: { Origin: "https://example.com" } },
+				defaultContext,
+			);
+
+			deepStrictEqual(seen, [expected]);
+		}
 	});
 
 	test("It should not reflect the incoming origin when the response allows credentials with origin '*'", async (t) => {

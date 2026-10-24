@@ -1529,6 +1529,36 @@ describe("@middy/rds", () => {
 		);
 	});
 
+	test("It should reconnect with the invocation's token when it starts as the entry expires", async (t) => {
+		t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+		const { client } = buildClient(t);
+		let token = "token-1";
+		const handler = middy(() => {})
+			.before((request) => {
+				request.internal.rdsToken = token;
+			})
+			.use(
+				rdsMiddleware({
+					client,
+					config: { host: validHost },
+					internalKey: "rdsToken",
+					cacheKey: "rds-token-expiry-race",
+					cacheExpiry: 20,
+					disablePrefetch: true,
+				}),
+			);
+		await handler(defaultEvent, newContext());
+		// A background reconnect has no token, so it can only fail; one that
+		// stood in the entry would fail an invocation arriving before it settled.
+		token = "token-2";
+		t.mock.timers.tick(25);
+		await handler(defaultEvent, newContext());
+		deepStrictEqual(
+			client.mock.calls.map((call) => call.arguments[0].password),
+			["token-1", "token-2"],
+		);
+	});
+
 	test("It should keep a refreshed entry when the reconnect it replaced fails", async (t) => {
 		t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
 		const { client, clients, connects } = buildDeferredClients(t);

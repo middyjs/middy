@@ -135,7 +135,9 @@ describe("@middy/core/DurableContext", () => {
 				caught = e;
 			}
 			ok(caught instanceof AggregateError);
+			strictEqual(caught.message, "Error thrown in requestEnd hook");
 			deepStrictEqual(caught.errors, [handlerErr, hookErr]);
+			deepStrictEqual(caught.cause, { package: "@middy/core" });
 			deepStrictEqual(handlerErr.cause, { package: "@middy/core" });
 		});
 

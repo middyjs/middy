@@ -85,6 +85,7 @@ const isFifo = (records) =>
 // A batch within the limit takes the plain allSettled path.
 const settleConcurrent = async (records, run, limit) => {
 	if (records.length <= limit) return Promise.allSettled(records.map(run));
+	// Stryker disable next-line ArrayDeclaration: preallocation only, workers assign every index before return
 	const settled = new Array(records.length);
 	let next = 0;
 	const worker = async () => {
@@ -108,16 +109,16 @@ const settleConcurrent = async (records, run, limit) => {
 // Runs records one at a time in order. After the first rejection every
 // remaining record settles as rejected without being processed.
 const settleSequential = async (records, run) => {
-	const settled = new Array(records.length);
+	const settled = [];
 	let idx = 0;
 	for (; idx < records.length; idx += 1) {
 		try {
-			settled[idx] = {
+			settled.push({
 				status: "fulfilled",
 				value: await run(records[idx], idx),
-			};
+			});
 		} catch (reason) {
-			settled[idx] = { status: "rejected", reason };
+			settled.push({ status: "rejected", reason });
 			break;
 		}
 	}
@@ -125,7 +126,7 @@ const settleSequential = async (records, run) => {
 		cause: { package: pkg },
 	});
 	for (idx += 1; idx < records.length; idx += 1) {
-		settled[idx] = { status: "rejected", reason: unprocessed };
+		settled.push({ status: "rejected", reason: unprocessed });
 	}
 	return settled;
 };

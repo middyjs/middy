@@ -1160,6 +1160,7 @@ describe("@middy/event-batch-parser", () => {
 
 		const out = await handler(event, defaultContext);
 		strictEqual(out.records["t-0"][0].value, undefined);
+		strictEqual(out.records["t-0"][0][parseErrorKey], undefined);
 		deepStrictEqual(out.records["t-0"][1].value, { x: 1 });
 	});
 
@@ -1182,6 +1183,7 @@ describe("@middy/event-batch-parser", () => {
 
 		const out = await handler(event, defaultContext);
 		strictEqual(out.records["t-0"][0].value, null);
+		strictEqual(out.records["t-0"][0][parseErrorKey], undefined);
 		deepStrictEqual(out.records["t-0"][1].value, { x: 1 });
 	});
 

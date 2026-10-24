@@ -143,6 +143,9 @@ describe("@middy/event-batch-handler", () => {
 			"Unprocessed: an earlier FIFO record failed",
 		);
 		strictEqual(result[3].reason, result[2].reason);
+		deepStrictEqual(result[2].reason.cause, {
+			package: "@middy/event-batch-handler",
+		});
 	});
 
 	test("FIFO SQS: processes records sequentially, in order", async () => {
@@ -643,5 +646,68 @@ describe("@middy/event-batch-handler", () => {
 			throws(() => eventBatchHandler(() => {}, opts));
 		}
 		eventBatchHandlerValidateOptions({ concurrency: 1 });
+	});
+
+	test("concurrency: a batch equal to the limit takes the allSettled path", async (t) => {
+		const allSettled = t.mock.method(Promise, "allSettled");
+		const handler = eventBatchHandler((record) => record.id, {
+			concurrency: 2,
+		});
+
+		const result = await handler(
+			sqsEvent({ id: 1 }, { id: 2 }),
+			defaultContext,
+		);
+		strictEqual(allSettled.mock.callCount(), 1);
+		deepStrictEqual(
+			result.map((r) => r.value),
+			[1, 2],
+		);
+	});
+
+	test("SQS record without eventSourceARN is processed as standard", async () => {
+		const handler = eventBatchHandler((record) => record.id);
+		const result = await handler(
+			{ Records: [{ eventSource: "aws:sqs", messageId: "a", id: 1 }] },
+			defaultContext,
+		);
+		deepStrictEqual(result, [{ status: "fulfilled", value: 1 }]);
+	});
+
+	test("passes a null record to the record handler", async () => {
+		const seen = [];
+		const handler = eventBatchHandler((record) => {
+			seen.push(record);
+			return "ok";
+		});
+		const result = await handler(
+			{ eventSource: "aws:sqs", Records: [null] },
+			defaultContext,
+		);
+		deepStrictEqual(seen, [null]);
+		deepStrictEqual(result, [{ status: "fulfilled", value: "ok" }]);
+	});
+
+	test("durable: passes a null record to the record handler", async () => {
+		const ctx = new DurableContextImpl();
+		const handler = eventBatchHandler((record) => record);
+		const result = await handler(
+			{ eventSource: "aws:sqs", Records: [null] },
+			ctx,
+		);
+		deepStrictEqual(ctx.stepCalls, ["record-0"]);
+		deepStrictEqual(result, [{ status: "fulfilled", value: null }]);
+	});
+
+	test("durable: a failed step on a null record fails the invocation", async () => {
+		const ctx = new DurableContextImpl();
+		const error = new Error("boom");
+		const handler = eventBatchHandler(() => {
+			throw error;
+		});
+		await rejects(
+			handler({ eventSource: "aws:sqs", Records: [null] }, ctx),
+			error,
+		);
 	});
 });

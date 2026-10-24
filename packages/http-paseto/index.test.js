@@ -1178,6 +1178,14 @@ describe("@middy/http-paseto", () => {
 		);
 	});
 
+	test("httpPasetoValidateOptions accepts and enforces string type for tokenKey", () => {
+		httpPasetoValidateOptions({ tokenKey: "pasetoToken" });
+		expectOptionTypeError(
+			{ tokenKey: 123 },
+			"Option 'tokenKey' must be string",
+		);
+	});
+
 	test("httpPasetoValidateOptions accepts and enforces boolean type for setToContext", () => {
 		httpPasetoValidateOptions({ setToContext: true });
 		expectOptionTypeError(

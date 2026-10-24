@@ -1,5 +1,5 @@
 import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
-import { describe, test } from "node:test";
+import { describe, mock, test } from "node:test";
 import middy from "../core/index.js";
 import httpRouter, { httpRouterValidateOptions } from "./index.js";
 
@@ -535,7 +535,47 @@ describe("@middy/http-router", () => {
 		} catch (e) {
 			strictEqual(e.statusCode, 400);
 			strictEqual(e.cause.package, "@middy/http-router");
+			deepStrictEqual(e.cause.data, {
+				reason: "Malformed path encoding",
+				path: "/items/%E0%A4%A",
+			});
 		}
+	});
+
+	test("It should not decode a v2 rawPath that carries no percent-encoding", async (t) => {
+		const decode = mock.method(globalThis, "decodeURIComponent");
+		t.after(() => decode.mock.restore());
+		const event = {
+			version: "2.0",
+			rawPath: "/items/abc",
+			requestContext: { http: { method: "GET", path: "/items/abc" } },
+		};
+		const handler = httpRouter([
+			{
+				method: "GET",
+				path: "/items/{id}",
+				handler: (event) => event.pathParameters,
+			},
+		]);
+		const response = await handler(event, defaultContext);
+		deepStrictEqual(response, { id: "abc" });
+		strictEqual(decode.mock.callCount(), 0);
+	});
+
+	test("It should not decode path parameters of an event routed on an already-decoded path", async (t) => {
+		const event = {
+			httpMethod: "GET",
+			path: "/items/100%25",
+		};
+		const handler = httpRouter([
+			{
+				method: "GET",
+				path: "/items/{id}",
+				handler: (event) => event.pathParameters,
+			},
+		]);
+		const response = await handler(event, defaultContext);
+		deepStrictEqual(response, { id: "100%25" });
 	});
 
 	test("It should route to a VPC Lattice event", async (t) => {

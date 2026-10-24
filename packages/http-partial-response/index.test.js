@@ -467,6 +467,8 @@ describe("@middy/http-partial-response", () => {
 		["Buffer", () => Buffer.from('{"firstname":"john","lastname":"doe"}')],
 		["Node Readable", () => Readable.from(["a"])],
 		["web ReadableStream", () => new ReadableStream()],
+		["null", () => null],
+		["number", () => 42],
 	]) {
 		test(`It should leave a ${label} body untouched`, async (t) => {
 			const body = makeBody();

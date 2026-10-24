@@ -5,6 +5,7 @@ import { HttpError, validateOptions } from "@middy/util";
 const name = "http-urlencode-path-parser";
 const pkg = `@middy/${name}`;
 
+// Stryker disable next-line ObjectLiteral: with no properties, this JSON schema and an empty flat schema reject exactly the same inputs with the same messages.
 const optionSchema = {
 	type: "object",
 	properties: {},

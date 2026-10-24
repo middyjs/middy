@@ -3332,6 +3332,10 @@ describe("@middy/http-jwt", () => {
 		);
 	});
 
+	test("httpJwtValidateOptions rejects non-string tokenKey", () => {
+		expectInvalidOption({ tokenKey: 123 }, "Option 'tokenKey' must be string");
+	});
+
 	test("httpJwtValidateOptions rejects non-boolean setToContext", () => {
 		expectInvalidOption(
 			{ setToContext: "yes" },

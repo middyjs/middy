@@ -326,14 +326,10 @@ export const ecsBatchRunner = async (opts, deps = {}) => {
 	options.workers ??= availableParallelism();
 	// An SQS message whose visibility timeout lapses mid-batch is received
 	// again, and its delete after the handler fails. Unset, pollSqs derives
-	// one from the timeout.
+	// one from the timeout (and undefined * 1000 is NaN, which passes).
 	// https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html
 	const { visibilityTimeout } = options.poller;
-	if (
-		source === "aws:sqs" &&
-		visibilityTimeout !== undefined &&
-		visibilityTimeout * 1000 <= options.timeout
-	) {
+	if (source === "aws:sqs" && visibilityTimeout * 1000 <= options.timeout) {
 		throw new Error(
 			"visibilityTimeout must outlast timeout: messages would be received again mid-batch",
 			{

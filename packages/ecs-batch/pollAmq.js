@@ -172,7 +172,7 @@ export const pollAmq = (opts) => {
 			// On abort only wake the reader: the batch in flight still has to be
 			// acknowledged on this connection. Disconnecting, once the poll ends,
 			// leaves whatever is unacknowledged to the broker to redeliver.
-			signal.addEventListener("abort", wakeReader, { once: true });
+			signal.addEventListener("abort", wakeReader);
 
 			client.subscribe(
 				{ destination: opts.destination, ack: ackMode },

@@ -92,7 +92,7 @@ const taskIdFromArn = (arn) => {
 };
 
 const parsePayload = (raw) => {
-	if (raw === undefined || raw === null || raw === "") return undefined;
+	if (raw === null || raw === "") return undefined;
 	return jsonSafeParse(raw);
 };
 

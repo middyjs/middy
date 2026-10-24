@@ -512,6 +512,40 @@ describe("@middy/dynamodb", () => {
 		strictEqual(warn.mock.callCount(), 1);
 	});
 
+	test("It should build the client once when prefetching", async (t) => {
+		mockClient(DynamoDBClient)
+			.on(GetItemCommand)
+			.resolves({ Item: { value: { S: "value" } } });
+
+		let instantiations = 0;
+		class CountingClient extends DynamoDBClient {
+			constructor(options) {
+				super(options);
+				instantiations++;
+			}
+		}
+
+		const handler = middy(() => {}).use(
+			dynamodb({
+				AwsClient: CountingClient,
+				cacheExpiry: -1,
+				fetchData: {
+					key: {
+						TableName: "table",
+						Key: {
+							pk: "0000",
+						},
+					},
+				},
+			}),
+		);
+
+		await handler(defaultEvent, defaultContext);
+		await handler(defaultEvent, defaultContext);
+		// The before hook reuses the prefetched client rather than building one.
+		strictEqual(instantiations, 1);
+	});
+
 	test("It should not prefetch when cacheExpiry is 0", async (t) => {
 		const mockService = mockClient(DynamoDBClient)
 			.on(GetItemCommand)

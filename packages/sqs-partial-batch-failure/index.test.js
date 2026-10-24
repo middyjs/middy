@@ -222,6 +222,30 @@ describe("@middy/sqs-partial-batch-failure", () => {
 		strictEqual(logger.mock.callCount(), 0);
 	});
 
+	test("Should handle an empty Records array", async (t) => {
+		const handler = middy(async () => []).use(
+			sqsPartialBatchFailure({ logger: false }),
+		);
+
+		const response = await handler({ Records: [] }, defaultContext);
+		deepStrictEqual(response, { batchItemFailures: [] });
+	});
+
+	test("Should treat records without an eventSourceARN as a standard queue", async (t) => {
+		const handler = middy(async () => [
+			{ status: "rejected", reason: new Error("boom") },
+			{ status: "fulfilled" },
+		]).use(sqsPartialBatchFailure({ logger: false }));
+
+		const response = await handler(
+			{ Records: [{ messageId: "a" }, { messageId: "b" }] },
+			defaultContext,
+		);
+		deepStrictEqual(response, {
+			batchItemFailures: [{ itemIdentifier: "a" }],
+		});
+	});
+
 	test("Should handle non-function logger", async (t) => {
 		const event = createEvent.default("aws:sqs", {
 			Records: [

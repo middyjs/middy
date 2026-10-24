@@ -122,8 +122,6 @@ const malformedRecord = (err, eventSource) => {
 	});
 };
 
-const isObject = (value) => typeof value === "object" && value !== null;
-
 const normalizeS3KeyReplacePlus = /\+/g;
 const events = Object.assign(Object.create(null), {
 	// MQ (ActiveMQ)
@@ -230,12 +228,12 @@ const parseSqsBody = (body, options) => {
 	}
 };
 // An SQS body or SNS Message is producer-controlled text. Only an object can
-// carry a nested AWS event (S3 -> SQS, SNS -> SQS); one that merely looks like
-// an event but fails to normalize is left as its parsed JSON, so one record
+// carry a nested AWS event (S3 -> SQS, SNS -> SQS); any other value matches no
+// event source and passes through untouched. One that merely looks like an
+// event but fails to normalize is left as its parsed JSON, so one record
 // cannot fail the whole batch.
 const parseNestedEvent = (text, options, parse = parseEvent) => {
 	const value = protectedTextParse(text);
-	if (!isObject(value)) return value;
 	try {
 		parse(value, options);
 	} catch {

@@ -309,7 +309,7 @@ describe("@middy/http-event-normalizer", () => {
 					cookie: ["name1=value1", "name2=value2"],
 					"content-type": ["application/json"],
 				},
-				multiValueQueryStringParameters: { myKey: ["val1", "val2"] },
+				multiValueQueryStringParameters: { myKey: ["val1", "val2", "val3"] },
 			},
 			defaultContext,
 		);
@@ -321,8 +321,40 @@ describe("@middy/http-event-normalizer", () => {
 		});
 		deepStrictEqual(
 			{ ...normalizedEvent.queryStringParameters },
-			{ myKey: "val2" },
+			{ myKey: "val3" },
 		);
+	});
+
+	test("It should keep ALB headers when both headers and multiValueHeaders are present", async (t) => {
+		const handler = middy((event) => event).use(httpEventNormalizer());
+		const normalizedEvent = await handler(
+			{
+				requestContext: {
+					elb: { targetGroupArn: "arn:aws:elasticloadbalancing:" },
+				},
+				httpMethod: "GET",
+				path: "/",
+				headers: { accept: "text/html" },
+				multiValueHeaders: { accept: ["application/json"] },
+			},
+			defaultContext,
+		);
+
+		deepStrictEqual(normalizedEvent.headers, { accept: "text/html" });
+	});
+
+	test("It should not derive headers from multiValueHeaders of non-ALB events", async (t) => {
+		const handler = middy((event) => event).use(httpEventNormalizer());
+		const normalizedEvent = await handler(
+			{
+				httpMethod: "GET",
+				path: "/",
+				multiValueHeaders: { accept: ["application/json"] },
+			},
+			defaultContext,
+		);
+
+		strictEqual(normalizedEvent.headers, undefined);
 	});
 
 	test("It should keep a decoded __proto__ query key as an own property", async (t) => {

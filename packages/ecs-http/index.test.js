@@ -248,6 +248,28 @@ describe("@middy/ecs-http", () => {
 		);
 	});
 
+	test("resolveSourceIp with trustedProxies 3 takes the third hop from the end", () => {
+		strictEqual(
+			resolveSourceIp(
+				{ "x-forwarded-for": "6.6.6.6, 203.0.113.9, 130.176.0.1, 10.0.0.1" },
+				"127.0.0.1",
+				3,
+			),
+			"203.0.113.9",
+		);
+	});
+
+	test("resolveSourceIp skips the port regexes for a hop without a colon", (t) => {
+		const exec = t.mock.method(RegExp.prototype, "exec");
+		const sourceIp = resolveSourceIp(
+			{ "x-forwarded-for": "203.0.113.9" },
+			"127.0.0.1",
+		);
+		const execCalls = exec.mock.callCount();
+		strictEqual(sourceIp, "203.0.113.9");
+		strictEqual(execCalls, 0);
+	});
+
 	test("resolveSourceIp trims whitespace around the selected hop", () => {
 		strictEqual(
 			resolveSourceIp(
@@ -607,6 +629,34 @@ describe("@middy/ecs-http", () => {
 		strictEqual(event.requestContext.identity.userAgent, null);
 	});
 
+	test("buildEventV1 emits null query params for a query string with no pairs", () => {
+		const event = buildEventV1({
+			req: makeReq({ url: "/p?&" }),
+			body: Buffer.alloc(0),
+			isBase64Encoded: false,
+			requestContext: {},
+			sourceIp: "",
+			requestId: "r",
+		});
+		strictEqual(event.queryStringParameters, null);
+		strictEqual(event.multiValueQueryStringParameters, null);
+	});
+
+	test("buildEventV1 and buildEventV2 skip URLSearchParams without a query string", (t) => {
+		const searchParams = t.mock.method(globalThis, "URLSearchParams");
+		const input = {
+			req: makeReq({ url: "/p" }),
+			body: Buffer.alloc(0),
+			isBase64Encoded: false,
+			requestContext: {},
+			sourceIp: "",
+			requestId: "r",
+		};
+		buildEventV1(input);
+		buildEventV2(input);
+		strictEqual(searchParams.mock.callCount(), 0);
+	});
+
 	test("buildEventV1 base64-encodes binary body", () => {
 		const event = buildEventV1({
 			req: makeReq(),
@@ -807,6 +857,19 @@ describe("@middy/ecs-http", () => {
 		}
 	});
 
+	test("writeResponse sets content-length next to headers that only contain a framing header name", () => {
+		const res = fakeRes();
+		writeResponse(res, {
+			headers: { "x-content-length": "1", "transfer-encoding-hint": "x" },
+			body: "ok",
+		});
+		deepStrictEqual(res._calls.writeHead.headers, {
+			"x-content-length": "1",
+			"transfer-encoding-hint": "x",
+			"content-length": 2,
+		});
+	});
+
 	test("writeResponse decodes base64 body", () => {
 		const res = fakeRes();
 		writeResponse(res, {
@@ -837,6 +900,20 @@ describe("@middy/ecs-http", () => {
 		const res = fakeRes();
 		writeResponse(res, { statusCode: 200, body: "" });
 		deepStrictEqual(res._calls.writeHead, { code: 200, headers: {} });
+		deepStrictEqual(res._calls.endArgs, []);
+	});
+
+	test("writeResponse treats a null body as no body", () => {
+		const res = fakeRes();
+		writeResponse(res, { statusCode: 200, body: null });
+		deepStrictEqual(res._calls.writeHead, { code: 200, headers: {} });
+		deepStrictEqual(res._calls.endArgs, []);
+	});
+
+	test("writeResponse with isBase64Encoded and no body sends no body", () => {
+		const res = fakeRes();
+		writeResponse(res, { statusCode: 204, isBase64Encoded: true });
+		deepStrictEqual(res._calls.writeHead, { code: 204, headers: {} });
 		deepStrictEqual(res._calls.endArgs, []);
 	});
 
@@ -1177,6 +1254,13 @@ describe("@middy/ecs-http", () => {
 
 	test("readEcsEnv returns empty when no vars set", () => {
 		deepStrictEqual(readEcsEnv({}), {});
+	});
+
+	test("readEcsEnv skips null values", () => {
+		deepStrictEqual(
+			readEcsEnv({ MIDDY_ECS_REGION: "us-east-1", MIDDY_ECS_FAMILY: null }),
+			{ region: "us-east-1" },
+		);
 	});
 
 	test("fetchEcsMetadata returns {} without fetching when env unset", async () => {
@@ -1852,6 +1936,15 @@ describe("@middy/ecs-http", () => {
 		strictEqual(meta.family, "fam");
 	});
 
+	test("fetchEcsMetadata leaves a null Revision undefined", async () => {
+		const fakeFetch = async () => ({
+			ok: true,
+			json: async () => ({ Family: "fam", Revision: null }),
+		});
+		const meta = await fetchEcsMetadata("http://x", fakeFetch);
+		strictEqual(meta.revision, undefined);
+	});
+
 	test("composeInvokedFunctionArn covered via runWorker with partial env", async () => {
 		process.env.MIDDY_ECS_ACCOUNTID = "1";
 		let captured;
@@ -2077,6 +2170,77 @@ describe("@middy/ecs-http", () => {
 			strictEqual(seen.event.body, undefined);
 			strictEqual(seen.event.isBase64Encoded, false);
 		}
+	});
+
+	test("request handler: null content-length and transfer-encoding mean no body", async () => {
+		const { seen, requestHandler } = capture();
+		const req = makeReq({
+			method: "POST",
+			headers: { "content-length": null, "transfer-encoding": null },
+		});
+		const calls = await dispatch(requestHandler, req, ["x"]);
+		strictEqual(calls.writeHead.code, 200);
+		strictEqual(req.listenerCount("data"), 0);
+		strictEqual(seen.event.body, undefined);
+	});
+
+	test("request handler: a body that arrives in one chunk is not copied", async (t) => {
+		const concat = t.mock.method(Buffer, "concat");
+		const { seen, requestHandler } = capture();
+		const one = makeReq({ method: "POST", headers: { "content-length": "2" } });
+		await dispatch(requestHandler, one, ["ab"]);
+		strictEqual(seen.event.body, "ab");
+		strictEqual(concat.mock.callCount(), 0);
+		const two = makeReq({ method: "POST", headers: { "content-length": "3" } });
+		await dispatch(requestHandler, two, ["ab", "c"]);
+		strictEqual(seen.event.body, "abc");
+		strictEqual(concat.mock.callCount(), 1);
+	});
+
+	test("request handler: an ALB request never reads the socket address", async () => {
+		let reads = 0;
+		const { seen, requestHandler } = capture({ eventVersion: "alb" });
+		const req = makeReq({
+			socket: {
+				get remoteAddress() {
+					reads++;
+					return "127.0.0.1";
+				},
+			},
+		});
+		await dispatch(requestHandler, req);
+		strictEqual(seen.event.requestContext.identity, undefined);
+		strictEqual(reads, 0);
+	});
+
+	test("request handler: keeps the connection alive unless draining", async () => {
+		for (const isDraining of [undefined, () => false]) {
+			const { requestHandler } = capture({ isDraining });
+			const res = fakeRes();
+			res.shouldKeepAlive = true;
+			await requestHandler(makeReq(), res);
+			strictEqual(res._calls.writeHead.code, 200);
+			strictEqual(res.shouldKeepAlive, true);
+		}
+	});
+
+	test("request handler: closes the connection after an error response while draining", async () => {
+		const requestHandler = createRequestHandler({
+			handler: async () => {
+				throw new Error("boom");
+			},
+			eventVersion: "2.0",
+			requestContext: {},
+			timeout: 1000,
+			bodyLimit: 1024,
+			trustedProxies: 1,
+			isDraining: () => true,
+		});
+		const res = fakeRes();
+		res.shouldKeepAlive = true;
+		await requestHandler(makeReq(), res);
+		strictEqual(res._calls.writeHead.code, 500);
+		strictEqual(res.shouldKeepAlive, false);
 	});
 
 	test("request handler: chunked transfer-encoding without content-length reads the body", async () => {
@@ -2346,7 +2510,8 @@ describe("@middy/ecs-http", () => {
 			calls,
 			server,
 			http: {
-				createServer(_options, requestHandler) {
+				createServer(serverOptions, requestHandler) {
+					calls.serverOptions = serverOptions;
 					calls.requestHandler = requestHandler;
 					return server;
 				},
@@ -2494,9 +2659,48 @@ describe("@middy/ecs-http", () => {
 				{ loadHandler: async () => ({ handler: noop }), workers: 1 },
 				{ cluster: { isPrimary: false }, http, exit: noop },
 			),
-			TypeError,
+			{
+				name: "TypeError",
+				message: "loadHandler must resolve to the handler function",
+				cause: { package: "@middy/ecs-http" },
+			},
 		);
 		strictEqual(calls.requestHandler, undefined);
+	});
+
+	test("runWorker creates the server with optimizeEmptyRequests", async () => {
+		const { calls, http } = fakeHttp();
+		const { onSigterm } = await runWorker(
+			{ handler: noop, eventVersion: "2.0", requestContext: {}, port: 0 },
+			{ http, exit: noop },
+		);
+		process.removeListener("SIGTERM", onSigterm);
+		deepStrictEqual(calls.serverOptions, { optimizeEmptyRequests: true });
+	});
+
+	test("runWorker keeps connections alive until SIGTERM starts the drain", async () => {
+		const { calls, http } = fakeHttp();
+		const { onSigterm } = await runWorker(
+			{
+				handler: async () => ({ statusCode: 200, body: "" }),
+				eventVersion: "2.0",
+				requestContext: {},
+				port: 0,
+				timeout: 1000,
+				bodyLimit: 1024,
+			},
+			{ http, exit: noop },
+		);
+		process.removeListener("SIGTERM", onSigterm);
+		const before = fakeRes();
+		before.shouldKeepAlive = true;
+		await calls.requestHandler(makeReq(), before);
+		strictEqual(before.shouldKeepAlive, true);
+		await onSigterm();
+		const after = fakeRes();
+		after.shouldKeepAlive = true;
+		await calls.requestHandler(makeReq(), after);
+		strictEqual(after.shouldKeepAlive, false);
 	});
 
 	test("ecsHttpRunner with one worker outside ECS skips the metadata lookup", async (t) => {
@@ -2563,6 +2767,33 @@ describe("@middy/ecs-http", () => {
 		await dispatch(calls.requestHandler, makeReq());
 		strictEqual(seen.event.requestContext.accountId, "111");
 		strictEqual(seen.event.requestContext.family, "fam");
+	});
+
+	test("runPrimary does not export a null ECS metadata field", async (t) => {
+		withEcsEnv(t, {});
+		const uri = process.env.ECS_CONTAINER_METADATA_URI_V4;
+		process.env.ECS_CONTAINER_METADATA_URI_V4 = "http://169.254.170.2/v4";
+		t.after(() => {
+			if (uri === undefined) delete process.env.ECS_CONTAINER_METADATA_URI_V4;
+			else process.env.ECS_CONTAINER_METADATA_URI_V4 = uri;
+		});
+		const { onSigterm } = await runPrimary(
+			{ workers: 0 },
+			{
+				cluster: makeFakeCluster(),
+				exit: noop,
+				fetch: async () => ({
+					ok: true,
+					json: async () => ({
+						TaskARN: "arn:aws:ecs:us-east-1:111:task/c/abc",
+						Family: null,
+					}),
+				}),
+			},
+		);
+		process.removeListener("SIGTERM", onSigterm);
+		strictEqual(process.env.MIDDY_ECS_REGION, "us-east-1");
+		strictEqual(process.env.MIDDY_ECS_FAMILY, undefined);
 	});
 
 	test("runWorker merges ECS env and requestContext option into the event", async (t) => {
@@ -2780,6 +3011,8 @@ describe("@middy/ecs-http", () => {
 		const res = fakeRes();
 		const body = Buffer.from("raw");
 		writeResponse(res, { statusCode: 200, body });
+		// Bytes are written as-is, with no string encoding.
+		deepStrictEqual(res._calls.endArgs, [body, undefined]);
 		strictEqual(res._calls.body, body);
 	});
 
@@ -2824,6 +3057,19 @@ describe("@middy/ecs-http", () => {
 			event.queryStringParameters,
 			nullProto({ parameter1: "value1,value2", parameter2: "value" }),
 		);
+	});
+
+	test("buildEventV2 omits query params for a query string with no pairs", () => {
+		const event = buildEventV2({
+			req: makeReq({ url: "/p?&" }),
+			body: Buffer.alloc(0),
+			isBase64Encoded: false,
+			requestContext: {},
+			sourceIp: "",
+			requestId: "r",
+		});
+		strictEqual(event.rawQueryString, "&");
+		strictEqual(event.queryStringParameters, undefined);
 	});
 
 	test("writeResponse merges v1 multiValueHeaders into the response headers", () => {

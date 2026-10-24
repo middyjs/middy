@@ -64,7 +64,7 @@ const fetchTimeoutSignal = (request) =>
 	AbortSignal.timeout(
 		Math.max(
 			1000,
-			(request?.context?.getRemainingTimeInMillis?.() ?? 30_000) - 500,
+			(request.context?.getRemainingTimeInMillis?.() ?? 30_000) - 500,
 		),
 	);
 

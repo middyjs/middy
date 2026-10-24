@@ -467,7 +467,8 @@ describe("@middy/secrets-manager-extension", () => {
 				() => handler(event, context),
 				(e) =>
 					e.errors[0].message ===
-					"@middy/secrets-manager-extension requires AWS_SESSION_TOKEN or the awsSessionToken option",
+						"@middy/secrets-manager-extension requires AWS_SESSION_TOKEN or the awsSessionToken option" &&
+					e.errors[0].cause.package === "@middy/secrets-manager-extension",
 			);
 			strictEqual(fetchCount, 0);
 		} finally {
@@ -510,6 +511,19 @@ describe("@middy/secrets-manager-extension", () => {
 		);
 		await handler(event, { getRemainingTimeInMillis: () => 100 });
 		strictEqual(timeout.mock.calls[0].arguments[0], 1000);
+	});
+
+	test("It should allow the fetch 30 s when the context has no getRemainingTimeInMillis", async (t) => {
+		const timeout = t.mock.method(AbortSignal, "timeout");
+		const handler = middy(() => {}).use(
+			secretsManagerExtension({
+				cacheExpiry: 0,
+				fetchData: { token: "api_key" },
+				disablePrefetch: true,
+			}),
+		);
+		await handler(event, {});
+		strictEqual(timeout.mock.calls[0].arguments[0], 29500);
 	});
 
 	test("It should skip cached keys when re-running fetch against a modified cache", async (t) => {

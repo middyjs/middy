@@ -1101,6 +1101,10 @@ describe("@middy/http-dpop", () => {
 			required: true,
 			setToContext: true,
 		});
+		throws(() => httpDpopValidateOptions({ tokenKey: 123 }), {
+			name: "TypeError",
+			message: "Option 'tokenKey' must be string",
+		});
 	});
 
 	test("jwkThumbprint matches the RFC 7638 worked example", () => {

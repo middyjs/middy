@@ -564,12 +564,14 @@ const toAtomicAmount = (price, decimals, amountOverride) => {
 // trusted domain, so they get `localhost`, with the request path from the
 // event: `path` (ALB, Lattice V2) or `raw_path` (Lattice V1). Lattice includes
 // the query string in both, which is not part of the resource. Lattice V2 also
-// sends `version: "2.0"`, but has no `requestContext.http`.
+// sends `version: "2.0"`, so the payload is told apart by
+// `requestContext.http`, which only API Gateway HTTP API v2 and function URL
+// events carry.
 // https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html
 // https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html
 const buildResource = (event) => {
 	const requestContext = event.requestContext;
-	if (event.version === "2.0" && requestContext?.http) {
+	if (requestContext?.http) {
 		return `https://${requestContext.domainName}${requestContext.http.path}`;
 	}
 	if (requestContext?.domainName) {

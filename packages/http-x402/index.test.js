@@ -545,6 +545,53 @@ describe("@middy/http-x402", () => {
 		});
 	});
 
+	test("settle fails - keeps every policy header in any casing", async (t) => {
+		const { MockFacilitatorClient } = makeMockClient(t, defaultVerifyResult, {
+			success: false,
+			errorReason: "insufficient_funds",
+			transaction: "",
+			network: "eip155:8453",
+		});
+		const policyHeaders = {
+			Vary: "Origin",
+			"Strict-Transport-Security": "max-age=31536000",
+			"X-Content-Type-Options": "nosniff",
+			"X-Frame-Options": "DENY",
+			"X-DNS-Prefetch-Control": "off",
+			"X-Download-Options": "noopen",
+			"X-Permitted-Cross-Domain-Policies": "none",
+			"X-XSS-Protection": "0",
+			"Referrer-Policy": "no-referrer",
+			"Permissions-Policy": "camera=()",
+			"Origin-Agent-Cluster": "?1",
+			"Reporting-Endpoints": 'default="https://report.example.com"',
+			"Report-To": '{"group":"default"}',
+			"Content-Security-Policy": "default-src 'none'",
+			"Content-Security-Policy-Report-Only": "default-src 'self'",
+			"Access-Control-Allow-Origin": "https://app.example.com",
+			"Cross-Origin-Opener-Policy": "same-origin",
+		};
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: "paid",
+			headers: { ...policyHeaders, Location: "https://example.com/paid" },
+		})).use(
+			httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+		);
+
+		const response = await handler(
+			{ headers: { "payment-signature": makePaymentHeader(testPayload) } },
+			defaultContext,
+		);
+
+		strictEqual(response.statusCode, 402);
+		deepStrictEqual(response.headers, {
+			...policyHeaders,
+			"Content-Type": "application/json",
+			"PAYMENT-RESPONSE": response.headers["PAYMENT-RESPONSE"],
+		});
+	});
+
 	// http-cors and http-security-headers run their after hook before this one
 	// when .use()d after it; their headers must survive the refused settlement,
 	// or a browser cannot read the 402 at all.
@@ -741,6 +788,88 @@ describe("@middy/http-x402", () => {
 		strictEqual(response.statusCode, 200);
 		strictEqual(response.headers["PAYMENT-RESPONSE"], undefined);
 		strictEqual(response.multiValueHeaders["PAYMENT-RESPONSE"].length, 1);
+		deepStrictEqual(response.multiValueHeaders["Content-Type"], ["text/plain"]);
+	});
+
+	test("ALB multi-value: a refused settlement keeps every value of a policy header", async (t) => {
+		const { MockFacilitatorClient } = makeMockClient(t, defaultVerifyResult, {
+			success: false,
+			errorReason: "insufficient_funds",
+			transaction: "",
+			network: "eip155:8453",
+		});
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: "paid",
+			multiValueHeaders: { Vary: ["Origin", "Accept-Encoding"] },
+		})).use(
+			httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+		);
+
+		const response = await handler(
+			albMultiValueEvent({
+				"payment-signature": [makePaymentHeader(testPayload)],
+			}),
+			defaultContext,
+		);
+
+		strictEqual(response.statusCode, 402);
+		deepStrictEqual(response.multiValueHeaders.Vary, [
+			"Origin",
+			"Accept-Encoding",
+		]);
+	});
+
+	// API Gateway REST sends `multiValueHeaders` alongside `headers` and accepts
+	// either back, so a refused settlement answers in single-value `headers`.
+	test("REST multi-value: a refused settlement joins a policy header into headers", async (t) => {
+		const { MockFacilitatorClient } = makeMockClient(t, defaultVerifyResult, {
+			success: false,
+			errorReason: "insufficient_funds",
+			transaction: "",
+			network: "eip155:8453",
+		});
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: "paid",
+			multiValueHeaders: { Vary: ["Origin", "Accept-Encoding"] },
+		})).use(
+			httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+		);
+
+		const paymentHeader = makePaymentHeader(testPayload);
+		const response = await handler(
+			{
+				httpMethod: "GET",
+				headers: { "payment-signature": paymentHeader },
+				multiValueHeaders: { "payment-signature": [paymentHeader] },
+			},
+			defaultContext,
+		);
+
+		strictEqual(response.statusCode, 402);
+		strictEqual(response.multiValueHeaders, undefined);
+		strictEqual(response.headers.Vary, "Origin, Accept-Encoding");
+	});
+
+	test("REST multi-value: the unpaid challenge stays in headers", async (t) => {
+		const { MockFacilitatorClient } = makeMockClient(
+			t,
+			defaultVerifyResult,
+			defaultSettleResult,
+		);
+		const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
+			httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+		);
+
+		const response = await handler(
+			{ httpMethod: "GET", headers: {}, multiValueHeaders: {} },
+			defaultContext,
+		);
+
+		strictEqual(response.statusCode, 402);
+		strictEqual(response.multiValueHeaders, undefined);
+		strictEqual(response.headers["Content-Type"], "application/json");
 	});
 
 	test("verify and settle pass - adds PAYMENT-RESPONSE header", async (t) => {
@@ -1195,6 +1324,10 @@ describe("@middy/http-x402", () => {
 			ok(false, "expected throw");
 		} catch (e) {
 			ok(e instanceof TypeError);
+			strictEqual(
+				e.message,
+				"@middy/http-x402 human must return a boolean, not a Promise",
+			);
 			strictEqual(e.cause?.package, "@middy/http-x402");
 		}
 		strictEqual(mockVerify.mock.callCount(), 0);

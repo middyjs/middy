@@ -156,7 +156,7 @@ const hopFromEnd = (xff, trustedProxies) => {
 	let end = xff.length;
 	for (let i = 1; i < trustedProxies; i++) {
 		end = xff.lastIndexOf(",", end - 1);
-		if (end <= 0) return undefined;
+		if (end === -1) return undefined;
 	}
 	return xff.slice(xff.lastIndexOf(",", end - 1) + 1, end).trim();
 };
@@ -211,15 +211,13 @@ const splitUrl = (rawUrl) => {
 	};
 };
 
-// Most requests carry no query string; skip building URLSearchParams.
-const noQuery = { size: 0 };
-
 // Only v1 carries multiValueQueryStringParameters; v2 would otherwise
 // allocate the multi-value map on every request and discard it. Format 2.0
 // combines duplicate query strings with commas instead.
 // https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html
 const collectQuery = (queryString) => {
-	if (queryString === "") return noQuery;
+	// Most requests carry no query string; skip building URLSearchParams.
+	if (queryString === "") return undefined;
 	const single = Object.create(null);
 	const params = new URLSearchParams(queryString);
 	let size = 0;
@@ -227,7 +225,7 @@ const collectQuery = (queryString) => {
 		single[k] = k in single ? `${single[k]},${v}` : v;
 		size++;
 	}
-	return { single, size };
+	return size > 0 ? single : undefined;
 };
 
 // ALB splits the query string on `&`/`=` and hands over the raw substrings:
@@ -248,8 +246,10 @@ const collectQueryEncoded = (queryString) => {
 	return single;
 };
 
+const noMultiValueQuery = { single: null, multi: null };
+
 const collectQueryMultiValue = (queryString) => {
-	if (queryString === "") return noQuery;
+	if (queryString === "") return noMultiValueQuery;
 	const single = Object.create(null);
 	const multi = Object.create(null);
 	const params = new URLSearchParams(queryString);
@@ -260,7 +260,7 @@ const collectQueryMultiValue = (queryString) => {
 		multi[k].push(v);
 		size++;
 	}
-	return { single, multi, size };
+	return size > 0 ? { single, multi } : noMultiValueQuery;
 };
 
 const protocolFor = (httpVersion) => `HTTP/${httpVersion}`;
@@ -285,7 +285,6 @@ export const buildEventV2 = (input) => {
 	const headers = input.headers ?? req.headers;
 	const url = input.url ?? splitUrl(req.url);
 	const requestStart = input.requestStart ?? Date.now();
-	const { single: queryStringParameters, size } = collectQuery(url.queryString);
 	return {
 		version: "2.0",
 		routeKey: "$default",
@@ -293,7 +292,7 @@ export const buildEventV2 = (input) => {
 		rawQueryString: url.queryString,
 		cookies: parseCookies(headers.cookie),
 		headers,
-		queryStringParameters: size > 0 ? queryStringParameters : undefined,
+		queryStringParameters: collectQuery(url.queryString),
 		requestContext: {
 			...requestContext,
 			requestId,
@@ -319,7 +318,6 @@ export const buildEventV1 = (input) => {
 	const {
 		single: queryStringParameters,
 		multi: multiValueQueryStringParameters,
-		size,
 	} = collectQueryMultiValue(url.queryString);
 	const v1Body = encodeBody(body, isBase64Encoded);
 	return {
@@ -328,9 +326,8 @@ export const buildEventV1 = (input) => {
 		httpMethod: req.method,
 		headers,
 		multiValueHeaders: buildMultiValueHeaders(req.headers),
-		queryStringParameters: size > 0 ? queryStringParameters : null,
-		multiValueQueryStringParameters:
-			size > 0 ? multiValueQueryStringParameters : null,
+		queryStringParameters,
+		multiValueQueryStringParameters,
 		pathParameters: null,
 		stageVariables: null,
 		requestContext: {
@@ -409,6 +406,14 @@ const hasFramingHeader = (headers) => {
 	return false;
 };
 
+// res.end only takes a string or bytes, so any other body is sent as JSON.
+const responsePayload = (body, isBase64Encoded) => {
+	if (body === undefined || body === null || body === "") return undefined;
+	if (isBase64Encoded) return Buffer.from(body, "base64");
+	if (typeof body === "string" || body instanceof Uint8Array) return body;
+	return JSON.stringify(body);
+};
+
 export const writeResponse = (res, result) => {
 	let statusCode = 200;
 	let headers = {};
@@ -454,18 +459,8 @@ export const writeResponse = (res, result) => {
 		return;
 	}
 	// Settle the payload before writeHead: anything that throws here still
-	// reaches writeError with the headers unsent. res.end only takes a string
-	// or bytes, so any other body is sent as JSON.
-	let payload;
-	if (body === undefined || body === null || body === "") {
-		payload = undefined;
-	} else if (isBase64Encoded) {
-		payload = Buffer.from(body, "base64");
-	} else if (typeof body === "string" || body instanceof Uint8Array) {
-		payload = body;
-	} else {
-		payload = JSON.stringify(body);
-	}
+	// reaches writeError with the headers unsent.
+	const payload = responsePayload(body, isBase64Encoded);
 	if (payload === undefined) {
 		res.writeHead(statusCode, headers);
 		res.end();
@@ -568,7 +563,7 @@ export const createRequestHandler = ({
 	trustedProxies,
 	invokedFunctionArn,
 	contextOverride,
-	isDraining = () => false,
+	isDraining,
 }) => {
 	const buildEvent = eventBuilders[eventVersion];
 	const requestIdOverride = contextOverride?.awsRequestId;
@@ -584,7 +579,7 @@ export const createRequestHandler = ({
 	// Without keep-alive node:http sends `Connection: close` and closes the
 	// socket once the response is written.
 	const closeIfDraining = (res) => {
-		if (isDraining()) res.shouldKeepAlive = false;
+		if (isDraining?.()) res.shouldKeepAlive = false;
 	};
 	return async (req, res) => {
 		const requestStart = Date.now();

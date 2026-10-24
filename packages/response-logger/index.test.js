@@ -441,6 +441,22 @@ describe("@middy/response-logger", () => {
 		ok(logged.endsWith(`x${marker}`));
 	});
 
+	test("It should decode only the bytes it keeps, and none past maxBodyBytes", async (t) => {
+		const encoder = new TextEncoder();
+		const first = encoder.encode("abcd");
+		const decode = t.mock.method(TextDecoder.prototype, "decode");
+		const { logged } = await runWebStream(
+			webStreamOf(first, encoder.encode("efgh")),
+			{ maxBodyBytes: 4 },
+			false,
+		);
+		strictEqual(logged, "abcd...[truncated, logged 4 of 8 bytes]");
+		// A chunk that fits is decoded as-is, not through a copy, and a chunk
+		// arriving once the cap is reached is not decoded at all.
+		strictEqual(decode.mock.callCount(), 1);
+		strictEqual(decode.mock.calls[0].arguments[0], first);
+	});
+
 	test("It should log the whole body when it is exactly maxBodyBytes", async () => {
 		const { logged } = await runWebStream(webStreamOf("abcd"), {
 			maxBodyBytes: 4,

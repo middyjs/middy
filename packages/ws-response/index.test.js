@@ -734,6 +734,27 @@ describe("@middy/ws-response", () => {
 		strictEqual(constructions[0].endpoint, "https://ws.example.com");
 	});
 
+	test("It derives the endpoint without the stage for a custom domain that only contains an execute-api label", async (t) => {
+		const { FakeClient, constructions } = makeFakeClientFactory();
+		const handler = middy(() => "string").use(
+			wsResponse({ AwsClient: FakeClient }),
+		);
+		await handler(
+			{
+				requestContext: {
+					domainName: "ws.abc123.execute-api.example.com",
+					stage: "production",
+					connectionId: "conn-1",
+				},
+			},
+			defaultContext,
+		);
+		strictEqual(
+			constructions[0].endpoint,
+			"https://ws.abc123.execute-api.example.com",
+		);
+	});
+
 	test("It does not derive an endpoint when requestContext has no domainName", async (t) => {
 		const { FakeClient, constructions } = makeFakeClientFactory();
 		const handler = middy(() => "string").use(

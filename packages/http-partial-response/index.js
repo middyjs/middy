@@ -33,7 +33,7 @@ export const httpPartialResponseValidateOptions = (options) =>
 // Buffer, a Node Readable or a web ReadableStream is an object too, but
 // masking one would replace the payload with `{}`.
 const isJsonData = (value) => {
-	if (!value || typeof value !== "object") return false;
+	if (value === null || typeof value !== "object") return false;
 	if (Array.isArray(value)) return true;
 	const proto = Object.getPrototypeOf(value);
 	return proto === Object.prototype || proto === null;

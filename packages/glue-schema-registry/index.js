@@ -179,9 +179,8 @@ const resolveClientInits = new WeakMap();
 // the shared cache (`${cacheKey}:schemaVersions`, one key per version), so a
 // stream carrying many versions takes one slot of the global cacheMaxSize
 // instead of evicting other middlewares' entries. Per cacheKey this tracks the
-// ids held in that entry, oldest first (capped at cacheMaxSize), and the last
-// client, which a background refresh (it has no invocation) reuses.
-const resolveStates = new Map();
+// ids held in that entry, oldest first (capped at cacheMaxSize).
+const resolvedIds = new Map();
 
 export const resolveSchemaVersion = async (
 	schemaVersionId,
@@ -221,38 +220,37 @@ export const resolveSchemaVersion = async (
 	}
 
 	const cached = getCache(cacheKey).value;
-	let state = resolveStates.get(cacheKey);
+	let ids = resolvedIds.get(cacheKey);
 	// Nothing cached (first call, cleared, or caching disabled): start over, so
 	// only this version is fetched.
-	if (state === undefined || cached === undefined) {
-		state = { ids: new Set(), client: undefined };
-		resolveStates.set(cacheKey, state);
+	if (ids === undefined || cached === undefined) {
+		ids = new Set();
+		resolvedIds.set(cacheKey, ids);
 	}
-	if (!state.ids.has(schemaVersionId)) {
-		state.ids.add(schemaVersionId);
+	if (!ids.has(schemaVersionId)) {
+		ids.add(schemaVersionId);
 		let value = cached;
-		if (state.ids.size > (merged.cacheMaxSize ?? defaultCacheMaxSize)) {
-			const [oldest] = state.ids;
-			state.ids.delete(oldest);
+		if (ids.size > (merged.cacheMaxSize ?? defaultCacheMaxSize)) {
+			const [oldest] = ids;
+			ids.delete(oldest);
 			value = Object.fromEntries(
 				Object.entries(cached).filter(([id]) => id !== oldest),
 			);
 		}
 		// Flag the entry modified so processCache fetches the versions it does
-		// not hold yet, leaving the others cached.
-		if (cached !== undefined) modifyCache(cacheKey, value);
+		// not hold yet, leaving the others cached. A no-op when nothing is cached.
+		modifyCache(cacheKey, value);
 	}
 
-	const { ids } = state;
 	const fetchRequest = (invocation, cachedValues = {}) => {
-		if (invocation.internal !== undefined || state.client === undefined) {
-			state.client = clientInit(invocation);
-		}
+		// A background refresh (it has no invocation) gets the memoized client;
+		// none runs under awsClientAssumeRole, whose client needs the invocation.
+		const client = clientInit(invocation);
 		const values = {};
 		for (const id of ids) {
 			if (cachedValues[id]) continue;
 			const command = new GetSchemaVersionCommand({ SchemaVersionId: id });
-			values[id] = state.client
+			values[id] = client
 				.then((c) =>
 					c
 						.send(command)

@@ -1,4 +1,4 @@
-import { ok, rejects, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
 import { Readable, Writable } from "node:stream";
 import { describe, test } from "node:test";
 import {
@@ -721,6 +721,8 @@ describe("@middy/core/StreamifyResponse", () => {
 				throw new Error("Expected stream error to propagate");
 			} catch (e) {
 				ok(e instanceof AggregateError);
+				strictEqual(e.message, "Error thrown in requestEnd hook");
+				deepStrictEqual(e.cause, { package: "@middy/core" });
 				strictEqual(e.errors[0], "write boom");
 			}
 		});
@@ -1036,6 +1038,35 @@ describe("@middy/core/StreamifyResponse", () => {
 			ok(
 				firstDrain < lastWrite,
 				"a drain occurred between writes (writes were not all flushed before draining)",
+			);
+		});
+
+		// Each backpressure wait races 'drain' against finished(); once 'drain'
+		// wins, the wait must abort so finished() drops its 'close' listener.
+		// Without that, every wait leaks one more listener onto the stream.
+		test("Should remove backpressure listeners after each drain", async (t) => {
+			t.mock.timers.reset();
+			const input = "x".repeat(16384 * 4);
+			const closeListeners = [];
+
+			const responseStream = new Writable({
+				highWaterMark: 1,
+				write(chunk, encoding, callback) {
+					closeListeners.push(responseStream.listenerCount("close"));
+					setImmediate(callback);
+				},
+			});
+
+			const handler = middy({
+				executionMode: executionModeStreamifyResponse,
+			}).handler(() => input);
+
+			await handler(event, responseStream, context);
+
+			strictEqual(closeListeners.length, 4);
+			deepStrictEqual(
+				closeListeners,
+				closeListeners.map(() => closeListeners[0]),
 			);
 		});
 

@@ -1336,6 +1336,30 @@ describe("@middy/event-normalizer", () => {
 		});
 	});
 
+	test("It should keep the raw-data value of an earlier writer of the field", async (t) => {
+		const handler = middy((event) => event).use(eventNormalizer());
+
+		// An earlier in-place parser (e.g. @middy/event-batch-parser) already
+		// replaced `data` and recorded the original; it must not be overwritten
+		// by the already-replaced value this middleware sees.
+		const original = Buffer.from('{ "f": 0 }').toString("base64");
+		const record = {
+			recordId: "r-1",
+			data: Buffer.from('{ "f": 1 }').toString("base64"),
+		};
+		Object.defineProperty(record, rawDataKey, {
+			value: Object.assign(Object.create(null), { data: original }),
+		});
+		const event = {
+			deliveryStreamArn: "arn:aws:firehose:us-east-1:1:deliverystream/x",
+			records: [record],
+		};
+		const response = await handler(event, defaultContext);
+
+		deepStrictEqual(response.records[0].data, { f: 1 });
+		deepStrictEqual({ ...response.records[0][rawDataKey] }, { data: original });
+	});
+
 	test("It should still parse a benign SQS body normally after the proto guard", async (t) => {
 		const handler = middy((event) => event).use(eventNormalizer());
 

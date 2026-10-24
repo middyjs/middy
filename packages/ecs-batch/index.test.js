@@ -725,6 +725,16 @@ describe("@middy/ecs-batch", () => {
 
 	test("ecsBatchRunner rejects invalid options", async () => {
 		await rejects(ecsBatchRunner({}), TypeError);
+		await rejects(
+			ecsBatchRunner(
+				{ handler: noop, poller: stubPoller(), unknown: true },
+				{ cluster: { isPrimary: true } },
+			),
+			(err) => {
+				strictEqual(err.cause.package, "@middy/ecs-batch");
+				return true;
+			},
+		);
 	});
 
 	const countForks = async (poller, extra = {}) => {
@@ -1451,6 +1461,16 @@ describe("@middy/ecs-batch", () => {
 		);
 	});
 
+	test("ecsBatchRunner checks visibilityTimeout only for SQS", async () => {
+		strictEqual(
+			await countForks(
+				{ ...stubPoller(), visibilityTimeout: 1 },
+				{ workers: 1, timeout: 10_000 },
+			),
+			1,
+		);
+	});
+
 	test("pollSqs poll rethrows non-abort errors", async () => {
 		const client = {
 			send: async () => {
@@ -1543,6 +1563,7 @@ describe("@middy/ecs-batch", () => {
 						{ PartitionKey: "p", SequenceNumber: "2", Data: "literal-string" },
 						{ PartitionKey: "p", SequenceNumber: "3", Data: 42 },
 						{ PartitionKey: "p", SequenceNumber: "4", Data: null },
+						{ PartitionKey: "p", SequenceNumber: "5" },
 					],
 				};
 			},
@@ -1561,6 +1582,7 @@ describe("@middy/ecs-batch", () => {
 			Buffer.from("42").toString("base64"),
 		);
 		strictEqual(value.Records[3].kinesis.data, "");
+		strictEqual(value.Records[4].kinesis.data, "");
 	});
 
 	test("pollKinesis aborts cleanly during GetShardIterator", async () => {
@@ -4197,6 +4219,15 @@ describe("@middy/ecs-batch", () => {
 				revision: "7",
 			},
 		);
+		deepStrictEqual(readEcsEnv({ MIDDY_ECS_FAMILY: null }), {});
+	});
+
+	test("fetchEcsMetadata leaves a null Revision unset", async () => {
+		const meta = await fetchEcsMetadata("http://x", async () => ({
+			ok: true,
+			json: async () => ({ Family: "fam", Revision: null }),
+		}));
+		strictEqual(meta.revision, undefined);
 	});
 
 	test("fetchEcsMetadata skips the request when no metadata URI is set", async () => {
@@ -4284,6 +4315,14 @@ describe("@middy/ecs-batch", () => {
 			// process.env stringifies assignments, so an unknown field has to be
 			// skipped rather than written as the string "undefined".
 			deepStrictEqual(readEcsEnv(), { family: "fam" });
+			clearEcsEnv();
+			const nulled = await runPrimary(
+				{ workers: 0 },
+				{ cluster, fetch: withMeta({ Family: null }) },
+			);
+			process.removeListener("SIGTERM", nulled.onSigterm);
+			// Nor as the string "null".
+			deepStrictEqual(readEcsEnv(), {});
 		} finally {
 			delete process.env.ECS_CONTAINER_METADATA_URI_V4;
 			clearEcsEnv();
@@ -6537,8 +6576,10 @@ describe("@middy/ecs-batch", () => {
 			send: async (cmd) => {
 				if (cmd.constructor.name === "GetShardIteratorCommand") {
 					seekCalls++;
-					if (seekCalls === 1) return { ShardIterator: "0" };
-					throw new Error("throttled");
+					// Only the re-seek fails: treated as trimmed, the next seek would
+					// carry on.
+					if (seekCalls === 2) throw new Error("throttled");
+					return { ShardIterator: "0" };
 				}
 				return oneDynamodbRecord;
 			},
@@ -6619,6 +6660,120 @@ describe("@middy/ecs-batch", () => {
 		strictEqual(errors.length, 1);
 		ac.abort();
 		await loop;
+	});
+
+	test("pollRmq settles a batch the handler threw on only once", async () => {
+		const channel = makeFakeRmqChannel();
+		const poller = pollRmq({
+			queue: "q",
+			batchSize: 1,
+			connection: makeFakeRmqConnection(channel),
+			channel,
+		});
+		const ac = new AbortController();
+		const thrown = [];
+		const loop = runPollLoop({
+			poller,
+			timeout: 1000,
+			signal: ac.signal,
+			handler: async (event) => {
+				thrown.push(event);
+				throw new Error("boom");
+			},
+		});
+		for (let i = 0; i < 8; i++) await Promise.resolve();
+		channel.consumeCb()(rmqMessage(1));
+		for (let i = 0; i < 16; i++) await settleMacrotask();
+		strictEqual(channel.nacked.length, 1);
+		// The requeue already settled it: a late acknowledge has nothing left.
+		await poller.acknowledge(thrown[0], { batchItemFailures: [] });
+		strictEqual(channel.acked.length, 0);
+		strictEqual(channel.nacked.length, 1);
+		ac.abort();
+		await loop;
+	});
+
+	test("pollRmq leaves a batch the handler threw on during shutdown to the channel close", async () => {
+		const channel = makeFakeRmqChannel();
+		const poller = pollRmq({
+			queue: "q",
+			batchSize: 1,
+			connection: makeFakeRmqConnection(channel),
+			channel,
+		});
+		const ac = new AbortController();
+		const loop = runPollLoop({
+			poller,
+			timeout: 1000,
+			signal: ac.signal,
+			handler: async () => {
+				ac.abort();
+				throw new Error("boom");
+			},
+		});
+		for (let i = 0; i < 8; i++) await Promise.resolve();
+		channel.consumeCb()(rmqMessage(1));
+		await loop;
+		strictEqual(channel.nacked.length, 0);
+		strictEqual(channel.acked.length, 0);
+		strictEqual(channel.closeCalls, 1);
+	});
+
+	test("pollAmq settles a batch the handler threw on only once", async () => {
+		const stomp = makeFakeStompClient();
+		const poller = pollAmq({
+			connectOptions: {},
+			destination: "/queue/q",
+			batchSize: 1,
+			client: stomp,
+		});
+		const ac = new AbortController();
+		const thrown = [];
+		const loop = runPollLoop({
+			poller,
+			timeout: 1000,
+			signal: ac.signal,
+			handler: async (event) => {
+				thrown.push(event);
+				throw new Error("boom");
+			},
+		});
+		for (let i = 0; i < 8; i++) await Promise.resolve();
+		stomp.subscribeCb()(null, fakeStompMessage("id-1", "a"));
+		for (let i = 0; i < 16; i++) await settleMacrotask();
+		strictEqual(stomp.nacked.length, 1);
+		// The NACK already settled it: a late acknowledge has nothing left.
+		await poller.acknowledge(thrown[0], { batchItemFailures: [] });
+		strictEqual(stomp.acked.length, 0);
+		strictEqual(stomp.nacked.length, 1);
+		ac.abort();
+		await loop;
+	});
+
+	test("pollAmq leaves a batch the handler threw on during shutdown to the broker", async () => {
+		const stomp = makeFakeStompClient();
+		const poller = pollAmq({
+			connectOptions: {},
+			destination: "/queue/q",
+			batchSize: 1,
+			client: stomp,
+		});
+		const ac = new AbortController();
+		const loop = runPollLoop({
+			poller,
+			timeout: 1000,
+			signal: ac.signal,
+			handler: async () => {
+				ac.abort();
+				throw new Error("boom");
+			},
+		});
+		for (let i = 0; i < 8; i++) await Promise.resolve();
+		stomp.subscribeCb()(null, fakeStompMessage("id-1", "a"));
+		await loop;
+		strictEqual(stomp.nacked.length, 0);
+		strictEqual(stomp.acked.length, 0);
+		strictEqual(stomp.disconnectCalls, 1);
 	});
 
 	test("ecsBatchRunner defaults gracefulShutdownMs to 25 s, inside ECS's default 30 s stopTimeout", async (t) => {
@@ -6910,6 +7065,26 @@ describe("@middy/ecs-batch", () => {
 		});
 	});
 
+	test("pollDynamoDBStreams skips a batch after maxRetryAttempts retries and reports it", async () => {
+		const client = dynamodbShard(["1", "2", "3"]);
+		const poller = pollDynamoDBStreams({
+			...dynamodbBase,
+			limit: 1,
+			maxRetryAttempts: 1,
+			client,
+		});
+		const { deliveries, errors } = await deliver(poller, dynamodbSeqs, [
+			boom,
+			boom,
+			{},
+		]);
+		deepStrictEqual(deliveries, [["1"], ["1"], ["2"]]);
+		deepStrictEqual(
+			errors.map((e) => e.message),
+			["boom", "boom", "Retry attempts exhausted"],
+		);
+	});
+
 	for (const [name, makePoller] of [
 		[
 			"pollKinesis",
@@ -6982,6 +7157,33 @@ describe("@middy/ecs-batch", () => {
 			const { value } = await it.next();
 			const toSeqs = name === "pollKinesis" ? kinesisSeqs : dynamodbSeqs;
 			deepStrictEqual(toSeqs(value), ["2"]);
+			strictEqual(seeks(client).length, 1);
+		});
+
+		test(`${name}.acknowledge treats no response as success and rejects a null entry`, async () => {
+			const poller = makePoller(shard(["1"]), {});
+			const { value } = await poller.poll(new AbortController().signal).next();
+			await poller.acknowledge(value, undefined);
+			await poller.acknowledge(value, null);
+			await rejects(
+				poller.acknowledge(value, { batchItemFailures: [null] }),
+				(err) => {
+					strictEqual(err.message, "Invalid batchItemFailures entry");
+					deepStrictEqual(err.cause.data, { itemIdentifier: undefined });
+					return true;
+				},
+			);
+		});
+
+		test(`${name} neither retries nor discards a batch the handler threw on during shutdown`, async () => {
+			const client = shard(["1"]);
+			const poller = makePoller(client, { maxRetryAttempts: 0 });
+			const toSeqs = name === "pollKinesis" ? kinesisSeqs : dynamodbSeqs;
+			const { errors } = await deliver(poller, toSeqs, [boom]);
+			deepStrictEqual(
+				errors.map((e) => e.message),
+				["boom"],
+			);
 			strictEqual(seeks(client).length, 1);
 		});
 
@@ -7300,6 +7502,44 @@ describe("@middy/ecs-batch", () => {
 		});
 	});
 
+	test("pollDynamoDBStreams reports no lost records when trimmed before any batch, then again from TRIM_HORIZON", async () => {
+		let seekCalls = 0;
+		const client = {
+			send: async (cmd) => {
+				if (cmd.constructor.name === "GetShardIteratorCommand") {
+					seekCalls++;
+					// Each re-seek after an expired iterator lands on trimmed records.
+					if (seekCalls === 2 || seekCalls === 4) {
+						throw awsError("TrimmedDataAccessException");
+					}
+					return { ShardIterator: String(seekCalls) };
+				}
+				if (cmd.input.ShardIterator !== "5") {
+					throw awsError("ExpiredIteratorException");
+				}
+				return {
+					NextShardIterator: "next",
+					Records: [{ eventID: "9", dynamodb: { SequenceNumber: "9" } }],
+				};
+			},
+		};
+		const poller = pollDynamoDBStreams({
+			...dynamodbBase,
+			shardIteratorType: "AT_SEQUENCE_NUMBER",
+			sequenceNumber: "1",
+			client,
+		});
+		const { deliveries, errors } = await deliver(poller, dynamodbSeqs, [{}]);
+		deepStrictEqual(deliveries, [["9"]]);
+		deepStrictEqual(
+			errors.map((e) => e.cause.data),
+			[
+				{ shardId: "0", sequenceNumbers: [] },
+				{ shardId: "0", sequenceNumbers: [] },
+			],
+		);
+	});
+
 	test("pollKinesis fails the poll with the child shards once its shard is closed", async () => {
 		const childShards = [
 			{ ShardId: "shardId-1", ParentShards: ["shardId-0"], HashKeyRange: {} },
@@ -7346,23 +7586,25 @@ describe("@middy/ecs-batch", () => {
 	});
 
 	test("pollDynamoDBStreams fails the poll once its shard is closed, also on an empty read", async () => {
-		const client = {
-			send: async (cmd) => {
-				if (cmd.constructor.name === "GetShardIteratorCommand") {
-					return { ShardIterator: "i" };
-				}
-				return { NextShardIterator: null, Records: [] };
-			},
-		};
-		const poller = pollDynamoDBStreams({ ...dynamodbBase, client });
-		await rejects(poller.poll(new AbortController().signal).next(), {
-			name: "SourceClosedError",
-			message: "Shard closed",
-			cause: {
-				package: "@middy/ecs-batch/pollDynamoDBStreams",
-				data: { shardId: "0" },
-			},
-		});
+		for (const NextShardIterator of [null, undefined]) {
+			const client = {
+				send: async (cmd) => {
+					if (cmd.constructor.name === "GetShardIteratorCommand") {
+						return { ShardIterator: "i" };
+					}
+					return { NextShardIterator, Records: [] };
+				},
+			};
+			const poller = pollDynamoDBStreams({ ...dynamodbBase, client });
+			await rejects(poller.poll(new AbortController().signal).next(), {
+				name: "SourceClosedError",
+				message: "Shard closed",
+				cause: {
+					package: "@middy/ecs-batch/pollDynamoDBStreams",
+					data: { shardId: "0" },
+				},
+			});
+		}
 	});
 
 	test("pollKinesis fails the poll once a discarded batch was the closed shard's last", async () => {

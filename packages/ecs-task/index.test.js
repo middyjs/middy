@@ -195,6 +195,15 @@ describe("@middy/ecs-task", () => {
 		strictEqual(meta.family, "fam");
 	});
 
+	test("fetchEcsMetadata leaves a null Revision unset", async () => {
+		const fetchImpl = async () => ({
+			ok: true,
+			json: async () => ({ Family: "fam", Revision: null }),
+		});
+		const meta = await fetchEcsMetadata("http://meta/", fetchImpl);
+		strictEqual(meta.revision, undefined);
+	});
+
 	// --- buildTaskContext -------------------------------------------------------
 
 	test("buildTaskContext exposes Lambda-shape fields", () => {
@@ -544,6 +553,7 @@ describe("@middy/ecs-task", () => {
 			region: "us-east-1",
 		});
 		deepStrictEqual(readEcsEnv({}), {});
+		deepStrictEqual(readEcsEnv({ MIDDY_ECS_REGION: null }), {});
 	});
 
 	test("resolveTaskEvent treats null and empty payloads as absent", () => {

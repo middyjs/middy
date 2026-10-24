@@ -195,7 +195,7 @@ export const pollRmq = (opts) => {
 					// best-effort: the channel is closed in finally either way
 				}
 			};
-			signal.addEventListener("abort", onAbort, { once: true });
+			signal.addEventListener("abort", onAbort);
 
 			try {
 				while (!signal.aborted) {
