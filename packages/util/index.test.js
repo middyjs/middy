@@ -763,6 +763,36 @@ describe("@middy/util", () => {
 			clearCache();
 		});
 
+		test("processCache should not cache when cacheExpiry is null", async (t) => {
+			const fetchRequest = t.mock.fn(() => "value");
+			const options = {
+				cacheKey: "key",
+				cacheExpiry: null,
+			};
+			const { value } = processCache(options, fetchRequest, cacheRequest);
+			strictEqual(value, "value");
+			deepStrictEqual(getCache("key"), {});
+			clearCache();
+		});
+
+		test("processCache should refetch once the clock reaches the expiry", async (t) => {
+			// awsClientAssumeRole schedules no refresh, so only the read decides.
+			const fetchRequest = t.mock.fn(() => "value");
+			const options = {
+				cacheKey: "key",
+				cacheExpiry: 100,
+				awsClientAssumeRole: "roleKey",
+			};
+			processCache(options, fetchRequest, cacheRequest);
+			t.mock.timers.tick(99);
+			processCache(options, fetchRequest, cacheRequest);
+			strictEqual(fetchRequest.mock.callCount(), 1);
+			t.mock.timers.tick(1);
+			processCache(options, fetchRequest, cacheRequest);
+			strictEqual(fetchRequest.mock.callCount(), 2);
+			clearCache();
+		});
+
 		test("processCache should throw when a cacheKey is reused with different fetchData", async (t) => {
 			const fetchRequest = t.mock.fn(() => ({ a: "value" }));
 			processCache(
@@ -1014,6 +1044,75 @@ describe("@middy/util", () => {
 			strictEqual(
 				sharesEntry({ config: { a: 1 } }, { config: { a: "1" } }),
 				false,
+			);
+		});
+
+		test("processCache ownership tells strings, numbers and BigInts apart", async (t) => {
+			strictEqual(
+				sharesEntry({ fetchData: { a: "1" } }, { fetchData: { a: 1n } }),
+				false,
+			);
+			strictEqual(
+				sharesEntry({ fetchData: { a: 1 } }, { fetchData: { a: 1n } }),
+				false,
+			);
+		});
+
+		test("processCache ownership keeps element boundaries", async (t) => {
+			strictEqual(
+				sharesEntry({ config: { a: [null] } }, { config: { a: [] } }),
+				false,
+			);
+			strictEqual(
+				sharesEntry({ config: { a: [1, 2] } }, { config: { a: [12] } }),
+				false,
+			);
+			strictEqual(
+				sharesEntry(
+					{
+						config: {
+							a: new Map([
+								[1, 2],
+								[34, 5],
+							]),
+						},
+					},
+					{
+						config: {
+							a: new Map([
+								[1, 23],
+								[4, 5],
+							]),
+						},
+					},
+				),
+				false,
+			);
+			strictEqual(
+				sharesEntry(
+					{ config: { a: new Set([1, 23]) } },
+					{ config: { a: new Set([12, 3]) } },
+				),
+				false,
+			);
+			// A symbol's description is not escaped, so it can mimic a key.
+			strictEqual(
+				sharesEntry(
+					{ config: { a: Symbol("p"), b: Symbol("q") } },
+					{ config: { a: Symbol('p)"b":Symbol(q') } },
+				),
+				false,
+			);
+		});
+
+		test("processCache ownership compares an object referenced twice by value", async (t) => {
+			const shared = { x: 1 };
+			strictEqual(
+				sharesEntry(
+					{ config: { a: shared, b: shared } },
+					{ config: { a: { x: 1 }, b: { x: 1 } } },
+				),
+				true,
 			);
 		});
 
@@ -2981,6 +3080,20 @@ describe("@middy/util", () => {
 			deepStrictEqual(values, nullObj({ obj_a_b: "deep" }));
 		});
 
+		test("resolves a nested path through a missing value to undefined", async () => {
+			const request = {
+				internal: { obj: { a: "x" }, pending: Promise.resolve({ a: "x" }) },
+			};
+			deepStrictEqual(
+				await getInternal(["obj.missing.b", "obj.a"], request),
+				nullObj({ obj_missing_b: undefined, obj_a: "x" }),
+			);
+			deepStrictEqual(
+				await getInternal("pending.missing.b", request),
+				nullObj({ pending_missing_b: undefined }),
+			);
+		});
+
 		test("async path renames keys via object-form variables", async () => {
 			const request = {
 				internal: {
@@ -3195,6 +3308,30 @@ describe("@middy/util", () => {
 			strictEqual(out.isAdmin, undefined);
 			deepStrictEqual(Object.keys(out), ["__proto__", "a"]);
 			strictEqual(JSON.stringify(out), '{"__proto__":{"isAdmin":true},"a":1}');
+			deepStrictEqual(Object.getOwnPropertyDescriptor(out, "__proto__"), {
+				value: { isAdmin: true },
+				writable: true,
+				enumerable: true,
+				configurable: true,
+			});
+		});
+		test("reads the segments of a path tree node once", (t) => {
+			const tree = buildPathTree(["password"]);
+			const keys = t.mock.method(tree, "keys");
+			omit({ password: "x" }, tree);
+			omit({ password: "y" }, tree);
+			strictEqual(keys.mock.callCount(), 1);
+		});
+		test("does not read a key that only matches a segment's length", () => {
+			let reads = 0;
+			const obj = {
+				get abc() {
+					reads += 1;
+					return "lazy";
+				},
+			};
+			strictEqual(omit(obj, buildPathTree(["xyz"])), obj);
+			strictEqual(reads, 0);
 		});
 		test("copies ordinary survivors by assignment, not defineProperty", (t) => {
 			// defineProperty is ~8x slower per key; only "__proto__" needs it.

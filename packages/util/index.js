@@ -614,9 +614,9 @@ export const contextNamespace = (request, contextKey) => {
 	) {
 		return current;
 	}
-	const namespace = Object.create(
-		typeof current === "object" && current !== null ? current : null,
-	);
+	// `null` (a cleared namespace) is an object too, and yields the same
+	// null-prototype namespace.
+	const namespace = Object.create(typeof current === "object" ? current : null);
 	root[contextKey] = namespace;
 	return namespace;
 };
@@ -766,6 +766,7 @@ let identityCount = 0;
 const identityOf = (value) => {
 	let id = identityIds.get(value);
 	if (id === undefined) {
+		// Stryker disable next-line AssignmentOperator: counting down gives equally unique ids; only their uniqueness is ever compared
 		identityCount += 1;
 		id = `#${identityCount}`;
 		identityIds.set(value, id);
@@ -783,8 +784,8 @@ const serializeFetchSource = (value, seen) => {
 			return JSON.stringify(value);
 		case "bigint":
 			return `${value}n`;
+		// A function is not a record, so it falls to the identity branch below.
 		case "function":
-			return identityOf(value);
 		case "object":
 			break;
 		default:
@@ -1319,6 +1320,7 @@ const segmentLengths = (pathTree) => {
 	let lengths = segmentLengthsByNode.get(pathTree);
 	if (lengths === undefined) {
 		// Indexed by length: a holey-array read beats Set#has on this path.
+		// Stryker disable next-line ArrayDeclaration: a seeded index 0 holds a non-`true` value, which the `!== true` filter treats as absent
 		lengths = [];
 		for (const segment of pathTree.keys()) lengths[segment.length] = true;
 		segmentLengthsByNode.set(pathTree, lengths);

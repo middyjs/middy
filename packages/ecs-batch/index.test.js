@@ -6886,6 +6886,14 @@ describe("@middy/ecs-batch", () => {
 				batch.done = consumer.runHandler()(batch.payload);
 				return batch;
 			},
+			deliverTo: (partition, ...offsets) => {
+				const batch = makeKafkaBatchPayload({
+					...kafkaBatchOf(...offsets),
+					partition,
+				});
+				batch.done = consumer.runHandler()(batch.payload);
+				return batch;
+			},
 		};
 	};
 	const kafkaFailures = (...offsets) => ({
@@ -6977,6 +6985,23 @@ describe("@middy/ecs-batch", () => {
 		h.ac.abort();
 		await h.loop;
 		deepStrictEqual(h.errors, []);
+	});
+
+	test("pollKafka counts retries per partition, even at the same offset", async () => {
+		const h = kafkaRetryHarness({ maxRetryAttempts: 1, retryDelayMs: 0 });
+		await settleMacrotask();
+		await h.deliverTo(0, "5").done;
+		// Partition 1's offset 5 is another record: its first failure, not a
+		// second retry of partition 0's.
+		const other = h.deliverTo(1, "5");
+		await other.done;
+		deepStrictEqual(other.calls.resolved, []);
+		h.ac.abort();
+		await h.loop;
+		deepStrictEqual(
+			h.errors.map((e) => e.message),
+			["boom", "boom"],
+		);
 	});
 
 	test("pollKafka discards only the failed records of a partial failure past maxRetryAttempts", async () => {
