@@ -27,14 +27,14 @@
 		"mdast-util-to-string": "4.0.0"
 	},
 	"devDependencies": {
-		"@iconify-json/logos": "1.2.15",
+		"@iconify-json/logos": "1.2.16",
 		"@sveltejs/adapter-cloudflare": "^8.0.0",
 		"@sveltejs/kit": "^3.0.0",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
 		"@willfarrell-ds/cli": "0.0.0-beta.1",
 		"mdsvex": "^0.12.0",
 		"mermaid-isomorphic": "3.1.0",
-		"playwright": "1.64.0",
+		"playwright": "1.64.1",
 		"svelte": "^5.0.0",
 		"svgo": "^4.0.0",
 		"unist-util-visit": "^5.0.0",

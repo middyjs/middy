@@ -131,7 +131,7 @@ jobs:
           scanners: license
           scan-type: fs
           scan-ref: .
-          trivy-config: trivy.yaml # license allowlist, shared with `npm run test:sast:trivy`
+          trivy-config: .github/trivy.yml # license allowlist, shared with `npm run test:sast:trivy`
           hide-progress: true
           exit-code: 1
           format: table

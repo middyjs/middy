@@ -85,6 +85,7 @@ jobs:
           npm ci --ignore-scripts
       # allowed-endpoints: >
       #   registry.npmjs.org:443
+      #   tuf-repo-cdn.sigstore.dev:443
       - name: Verify dependency signatures
         run: |
           npm audit signatures
