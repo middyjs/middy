@@ -58,6 +58,7 @@ jobs:
       # allowed-endpoints: >
       #   registry.npmjs.org:443
       - name: Fuzzing tests
+        timeout-minutes: 10
         run: |
           export NODE_OPTIONS="--test-reporter=spec --test-reporter-destination=stdout --test-reporter=./.github/reporters/node-test.mjs --test-reporter-destination=$GITHUB_STEP_SUMMARY"
           npm run test:dast:fuzz

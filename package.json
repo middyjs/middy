@@ -35,7 +35,7 @@
 		"test:bench": "node --no-warnings=ExperimentalWarning --no-addons --pending-deprecation --frozen-intrinsics --experimental-bench --bench './packages/**/*.bench.js'",
 		"test:load": "for f in packages/*/*.load.js; do node ${f%.js}.server.js & pid=$!; k6 run -e LOAD_TEST=$f $f; code=$?; kill $pid; wait $pid; [ $code -eq 0 ] || exit $code; done",
 		"test:dast": "npm run test:dast:fuzz",
-		"test:dast:fuzz": "node --no-warnings=ExperimentalWarning --no-addons --pending-deprecation --frozen-intrinsics --test --experimental-test-module-mocks './packages/**/*.fuzz.js'",
+		"test:dast:fuzz": "node --no-warnings=ExperimentalWarning --no-addons --pending-deprecation --frozen-intrinsics --test --test-timeout=120000 --experimental-test-module-mocks './packages/**/*.fuzz.js'",
 		"rm": "npm run rm:macos && npm run rm:node_modules && npm run rm:lock",
 		"rm:macos": "find . -name '.DS_Store' -type f -delete",
 		"rm:lock": "find . -name 'package-lock.json' -type f -delete",
