@@ -14,7 +14,8 @@ export type DpopAlgorithm =
 	| "ES512"
 	| "PS256"
 	| "RS256"
-	| "EdDSA";
+	| "EdDSA"
+	| "Ed25519";
 
 export interface DpopProofClaims {
 	[key: string]: unknown;

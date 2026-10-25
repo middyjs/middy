@@ -84,6 +84,8 @@ const ALGORITHMS = {
 	},
 	RS256: { kty: "RSA", hash: "SHA256", options: {} },
 	EdDSA: { kty: "OKP", crv: "Ed25519", hash: null, options: {} },
+	// RFC 9864 §2.2: the fully-specified name; "EdDSA" stays for existing clients.
+	Ed25519: { kty: "OKP", crv: "Ed25519", hash: null, options: {} },
 };
 
 const ALGORITHM_NAMES = Object.keys(ALGORITHMS);

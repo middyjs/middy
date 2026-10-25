@@ -60,6 +60,11 @@ const ALGORITHMS = {
 		hash: null,
 		options: {},
 	},
+	Ed25519: {
+		keypair: () => generateKeyPairSync("ed25519"),
+		hash: null,
+		options: {},
+	},
 };
 
 const publicJwk = (publicKey) => publicKey.export({ format: "jwk" });
@@ -454,6 +459,35 @@ describe("@middy/http-dpop", () => {
 		strictEqual(result.dpop.jti, "proof-1");
 	});
 
+	test("It should accept the same Ed25519 key under either name", async () => {
+		// RFC 9864 §2.2: "Ed25519" replaces the polymorphic "EdDSA"; both verify the one key.
+		const key = keyFor("Ed25519");
+		const handler = makeHandler(boundPayload(key), {
+			algorithm: ["Ed25519", "EdDSA"],
+		});
+
+		for (const alg of ["Ed25519", "EdDSA"]) {
+			const result = await handler(
+				makeEvent({ dpop: proofFor(key, { alg, signAs: alg, jti: alg }) }),
+				{ ...defaultContext },
+			);
+			strictEqual(result.dpop.jti, alg);
+		}
+	});
+
+	test("It should reject an EC key wearing an Ed25519 alg", async () => {
+		const key = keyFor("ES256");
+		const handler = makeHandler(boundPayload(key));
+
+		const result = await handler(
+			makeEvent({ dpop: proofFor(key, { alg: "Ed25519" }) }),
+			{ ...defaultContext },
+		).catch((e) => e);
+
+		strictEqual(result.statusCode, 401);
+		ok(result.cause.data.reason.includes("does not match"));
+	});
+
 	test("It should reject an RSA key wearing an ES256 alg", async () => {
 		// Algorithm confusion: node:crypto ignores dsaEncoding on an RSA key, so
 		// without the kty pin this would verify as RSA-SHA256 against a key the
@@ -842,7 +876,7 @@ describe("@middy/http-dpop", () => {
 
 		strictEqual(
 			result.headers["WWW-Authenticate"],
-			'DPoP algs="ES256 ES384 ES512 PS256 RS256 EdDSA"',
+			'DPoP algs="ES256 ES384 ES512 PS256 RS256 EdDSA Ed25519"',
 		);
 	});
 
