@@ -569,6 +569,7 @@ export const createRequestHandler = ({
 	const requestIdOverride = contextOverride?.awsRequestId;
 	// A Lambda Web Function adds lambda-web-request-id to every request: its
 	// awsRequestId. Anywhere else that header could only come from the client.
+	// https://docs.aws.amazon.com/lambda/latest/dg/web-functions-runtimes.html
 	const requestIdHeader = process.env.AWS_LAMBDA_HTTP_ENDPOINT
 		? "lambda-web-request-id"
 		: "x-amzn-trace-id";
