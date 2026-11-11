@@ -318,7 +318,7 @@
 	"peerDependencies": {
 		"@types/pg": "^8.0.0",
 		"pg": "^8.23.1",
-		"postgres": "^3.0.0",
+		"postgres": "^4.0.0",
 		"@middy/core": "8.0.0-alpha.2"
 	},
 	"peerDependenciesMeta": {
@@ -344,6 +344,6 @@
 		"@types/node": "^24.0.0",
 		"@types/pg": "^8.0.0",
 		"pg": "^8.23.1",
-		"postgres": "^3.0.0"
+		"postgres": "^4.0.0"
 	}
 }

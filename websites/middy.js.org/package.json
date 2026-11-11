@@ -27,7 +27,7 @@
 		"mdast-util-to-string": "4.0.0"
 	},
 	"devDependencies": {
-		"@iconify-json/logos": "1.2.16",
+		"@iconify-json/logos": "1.2.19",
 		"@sveltejs/adapter-cloudflare": "^8.0.0",
 		"@sveltejs/kit": "^3.0.0",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",

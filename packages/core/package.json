@@ -116,7 +116,7 @@
 		"@middy/util": "8.0.0-alpha.2"
 	},
 	"peerDependencies": {
-		"@aws/durable-execution-sdk-js": "^2.3.1",
+		"@aws/durable-execution-sdk-js": "^3.0.0",
 		"@types/aws-lambda": "^8.0.0"
 	},
 	"peerDependenciesMeta": {
@@ -128,9 +128,9 @@
 		}
 	},
 	"devDependencies": {
-		"@aws/durable-execution-sdk-js": "^2.3.1",
+		"@aws/durable-execution-sdk-js": "^3.0.0",
 		"@aws/durable-execution-sdk-js-testing": "^1.0.0",
-		"@datastream/core": "0.7.1",
+		"@datastream/core": "0.9.2",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^24.0.0"
 	}

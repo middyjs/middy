@@ -45,7 +45,7 @@
 		"audit": "npm audit fix --workspaces",
 		"release:license:add": "node .github/license.mjs add",
 		"release:license:remove": "node .github/license.mjs remove",
-		"release:sync": "npm version $npm_package_version --workspaces --allow-same-version && MIDDY_VERSION=$(npm pkg get version | tr -d '\"') find ./packages -name package.json -not -path '*/node_modules/*' -exec perl -pi -e 's#\"\\@middy/([^\"]+)\": \"[^\"]+\"#\"\\@middy/$1\": \"$ENV{MIDDY_VERSION}\"#g' {} + && npm install --package-lock-only && npm run lint",
+		"release:sync": "npm version $npm_package_version --workspaces --no-workspaces-update --allow-same-version && node .github/release-sync.mjs && npm install --package-lock-only && npm run lint",
 		"release:tag": "git tag -s -m $npm_package_version $npm_package_version",
 		"release:staged": "npm whoami >/dev/null && npm query '.workspace:not([private])' | jq -r '.[].name' | xargs -n1 -I{} npm stage list {} --json | jq -r '.[] | \"\\(.packageName)@\\(.version) \\(.actor) \\(.shasum)\"'",
 		"release:approve": "names=$(npm query '.workspace:not([private])' | jq -r '.[].name'); ids=$(printf '%s\\n' \"$names\" | xargs -n1 -I{} npm stage list {} --json | jq -r --arg v \"$npm_package_version\" '.[] | select(.version == $v) | .id'); expected=$(printf '%s\\n' \"$names\" | grep -c .); staged=$(printf '%s\\n' \"$ids\" | grep -c .); [ \"$staged\" -eq \"$expected\" ] || { echo \"refusing: $staged staged ids for $npm_package_version, expected $expected workspaces\" >&2; exit 1; }; printf '%s\\n' \"$ids\" | xargs -n1 -o npm stage approve"
@@ -83,11 +83,17 @@
 		"typescript": "^7.0.0"
 	},
 	"overrides": {
-		"@aws/durable-execution-sdk-js": "^2.0.0",
+		"@stryker-mutator/core": {
+			"minimatch": ">=11.0.1"
+		},
 		"@x402/core": {
 			"zod": "^4.6.6"
 		},
 		"fast-xml-parser": ">=5.7.2",
+		"js-beautify": {
+			"glob": ">=14.0.2",
+			"minimatch": ">=11.0.1"
+		},
 		"katex": ">=0.18.2",
 		"mathjs": ">=15.2.0",
 		"miniflare": {
