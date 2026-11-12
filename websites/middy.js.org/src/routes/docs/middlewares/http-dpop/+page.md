@@ -27,7 +27,7 @@ There is no peer dependency: verification uses `node:crypto` only.
 - `proofKey` (string) (default `dpop`): Key under which the verified proof claims are stored.
 - `confirmationClaim` (string) (default `cnf`): Claim holding `{ jkt }`. Only change this if your authorization server puts the thumbprint somewhere non-standard.
 - `origin` (string) (optional): The `https://host` the proof's `htu` must name. When omitted it is derived from `requestContext.domainName`, which API Gateway sets from the domain that served the request. Set it explicitly behind a CDN, a custom proxy, or an ALB. It may carry a base path (`https://api.example.com/v1`), which is what a custom domain's API mapping needs; see the note below. A trailing slash is trimmed, and a value that is not a URL throws at construction rather than failing every request.
-- `algorithm` (string | string[]) (optional): Allowed proof algorithms. Defaults to all of `ES256`, `ES384`, `ES512`, `PS256`, `RS256`, `EdDSA`. Narrow it if you control every client.
+- `algorithm` (string | string[]) (optional): Allowed proof algorithms. Defaults to all of `ES256`, `ES384`, `ES512`, `PS256`, `RS256`, `EdDSA`, `Ed25519`. `Ed25519` is the fully-specified name for `EdDSA` over Ed25519 (RFC 9864); both verify the same key. Narrow it if you control every client.
 - `maxAge` (number) (default `60`): How many seconds either side of now a proof's `iat` may fall.
 - `maxProofLength` (number) (default `8192`): Longest `DPoP` header accepted, checked before anything parses it.
 - `required` (boolean) (default `false`): When `true`, a token with no confirmation claim is rejected instead of passed through.

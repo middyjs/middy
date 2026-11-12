@@ -332,6 +332,13 @@ one `console.error` away from CloudWatch.
 - a non-string response body is JSON-serialized (a `Buffer` / `Uint8Array` is sent as is) instead of crashing the worker; a failure after headers are sent destroys the socket
 - added `gracefulShutdownMs` (default `25000`): on `SIGTERM` responses switch to `Connection: close`, and connections still open after the deadline are force-closed and the worker exits `1`
 - a body over `bodyLimit` gets a `413` response, whether its `Content-Length` declares it or it overflows while streaming
+- added `loadHandler`, an async function resolving to the handler, as an alternative to `handler`; it runs only in a process that serves requests, so a cluster primary never imports the application. Pass exactly one of the two, or `ecsHttpValidateOptions` throws a `TypeError`. See [Faster cluster start](/docs/runners/ecs-http#faster-cluster-start)
+- added `host` option, the address to bind; defaults to all interfaces
+- on a [Lambda Web Function](/docs/runners/ecs-http#lambda-web-functions) (detected from `AWS_LAMBDA_HTTP_ENDPOINT`) `host` and `port` default to that address, `gracefulShutdownMs` to `800`, and the request ID is read from the `lambda-web-request-id` header instead of `X-Amzn-Trace-Id`
+- with `workers: 1`, including the default wherever `availableParallelism()` is `1`, requests are served from the main process with no cluster. A crash exits the process for ECS or Lambda to replace instead of being re-forked with backoff **Breaking Change**
+- a buffered response body is sent with a `Content-Length` header instead of chunked encoding, unless the handler set `Content-Length` or `Transfer-Encoding`
+- a Node `Readable` or web `ReadableStream` response `body` is streamed with chunked encoding instead of being JSON-serialized; a stream that fails partway cuts the response off
+- TypeScript: `EcsHttpRunnerOptions` is a type alias, a union of the `handler` and `loadHandler` forms, instead of an interface, so an `interface` can no longer `extends` it; use an intersection type **Breaking Change** (types only)
 
 ### [ecs-task](/docs/runners/ecs-task)
 
@@ -351,6 +358,7 @@ one `console.error` away from CloudWatch.
 - SQS FIFO batches (`eventSourceARN` ending in `.fifo`) are processed one record at a time and stop at the first failure; every later record settles as rejected (`Unprocessed: an earlier FIFO record failed`) so it is reported in `batchItemFailures`, per the [AWS FIFO guidance](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html) **Breaking Change**
 - a record carrying event-batch-parser's `parseErrorKey` settles as rejected without calling the record handler
 - under durable functions, a record that failed to parse is returned as a rejection and reported in `batchItemFailures` instead of failing the invocation; step failures still fail the invocation
+- added an `options` argument, `eventBatchHandler(recordHandler, { concurrency })`, capping how many records run at once (durable steps included); unset runs the whole batch at once as before. Set it under a long-running poller such as `@middy/ecs-batch`, whose batches have no `BatchSize` bound. Added `eventBatchHandlerValidateOptions`
 
 ### [event-logger](/docs/middlewares/event-logger)
 
