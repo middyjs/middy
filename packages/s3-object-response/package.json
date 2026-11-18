@@ -63,7 +63,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"peerDependencies": {
-		"@aws-sdk/client-s3": "^3.0.0",
+		"@aws-sdk/client-s3": "^3.1156.0",
 		"@middy/core": "8.0.0-alpha.2"
 	},
 	"peerDependenciesMeta": {
@@ -75,7 +75,7 @@
 		"@middy/util": "8.0.0-alpha.2"
 	},
 	"devDependencies": {
-		"@aws-sdk/client-s3": "^3.0.0",
+		"@aws-sdk/client-s3": "^3.1156.0",
 		"@middy/core": "8.0.0-alpha.2",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^24.0.0",
