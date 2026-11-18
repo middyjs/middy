@@ -1,0 +1,52 @@
+import { deepEqual, equal } from "node:assert/strict";
+import { test } from "node:test";
+import middy from "../core/index.js";
+import openTelemetryProtocolLoggerMiddleware, { initLogger } from "./index.js";
+
+// Silence logging
+// console.log = () => {}
+
+// const event = {}
+const context = {
+  callbackWaitsForEmptyEventLoop: true,
+		functionName: "myfunction",
+		functionVersion: "1.0",
+		invokedFunctionArn:
+			"arn:aws:lambda:us-west-2:123456789012:function:my-function",
+		memoryLimitInMB: "17",
+		awsRequestId: "abc22",
+		logGroupName: "my-function-lg",
+		logStreamName: "my-function-ls",
+	getRemainingTimeInMillis: () => 1000,
+};
+const defaultContext = context;
+
+// class MockExporter {
+//   constructor(t) {
+//     this.mock = t.mock.fn()
+//   }
+//   export(logRecords, resultCallback) {
+//     logRecords.forEach(logRecord => {
+//       this.mock(logRecord);
+//     });
+
+//     resultCallback({ code: 0 }); // `0` means success
+//   }
+// }
+
+test("It should log event and response", async (t) => {
+	//const exporter = new MockExporter(t);
+
+	const handler = middy((event) => event).use(
+		openTelemetryProtocolLoggerMiddleware(),
+	);
+
+	const event = { foo: "bar", fuu: "baz" };
+	const response = await handler(event, context);
+	// console.log({ event })
+	// console.log({ response: event })
+	// deepEqual(console.log.mock.calls[0].arguments, [{ event }]);
+	// deepEqual(console.log.mock.calls[1].arguments, [{ response: event }]);
+	deepEqual(response, event);
+	equal(1,0)
+});
