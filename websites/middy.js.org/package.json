@@ -28,7 +28,7 @@
 	},
 	"devDependencies": {
 		"@iconify-json/logos": "1.2.16",
-		"@sveltejs/adapter-cloudflare": "^8.0.0",
+		"@sveltejs/adapter-cloudflare": "^8.0.2",
 		"@sveltejs/kit": "^3.0.0",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
 		"@willfarrell-ds/cli": "0.0.0-beta.1",
