@@ -29,7 +29,7 @@
 	"devDependencies": {
 		"@iconify-json/logos": "1.2.16",
 		"@sveltejs/adapter-cloudflare": "^8.0.0",
-		"@sveltejs/kit": "^3.0.0",
+		"@sveltejs/kit": "^3.1.1",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
 		"@willfarrell-ds/cli": "0.0.0-beta.1",
 		"mdsvex": "^0.12.0",
