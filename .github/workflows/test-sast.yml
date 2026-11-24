@@ -25,7 +25,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: block
           disable-sudo: true
@@ -76,7 +76,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: block
           disable-sudo: true
@@ -146,7 +146,7 @@ jobs:
 
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: block
           disable-sudo: true
@@ -193,7 +193,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: block
           disable-sudo: true
@@ -251,7 +251,7 @@ jobs:
 
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: block
           disable-sudo: true
@@ -277,7 +277,7 @@ jobs:
       #   registry.npmjs.org:443
       #   release-assets.githubusercontent.com:443
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           languages: ${{ matrix.language }}
           queries: +security-and-quality
@@ -286,13 +286,13 @@ jobs:
       # allowed-endpoints: >
       #   registry.npmjs.org:443
       - name: Autobuild
-        uses: github/codeql-action/autobuild@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        uses: github/codeql-action/autobuild@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
 
       # allowed-endpoints: >
       #   api.github.com:443
       #   uploads.github.com:443
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           category: "/language:${{ matrix.language }}"
 
@@ -321,7 +321,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: block
           disable-sudo: true
@@ -363,7 +363,7 @@ jobs:
       security-events: write
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: block
           disable-sudo: true
@@ -385,7 +385,7 @@ jobs:
       #   github.com:443
       #   pkg-containers.githubusercontent.com:443
       - name: zizmor
-        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
 
   # https://github.com/actions/dependency-review-action
   dependency-review:
@@ -395,7 +395,7 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: block
           disable-sudo: true
@@ -427,7 +427,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           # audit is deliberate: TruffleHog verifies candidate secrets against each
           # issuing provider's real API, so egress is data-dependent; block mode
@@ -453,7 +453,7 @@ jobs:
       #   production.cloudflare.docker.com:443
       #   registry-1.docker.io:443
       - name: TruffleHog
-        uses: trufflesecurity/trufflehog@e76dff8a7e57d6df0c60ad8cbf5d5cba505a8fc9 # v3.99.2
+        uses: trufflesecurity/trufflehog@ea68ca03c865c5f324e86e849ced20ed3cf9dbbb # v3.99.8
         with:
           # https://hub.docker.com/r/trufflesecurity/trufflehog/tags
           image: trufflesecurity/trufflehog
@@ -467,7 +467,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: block
           disable-sudo: true
