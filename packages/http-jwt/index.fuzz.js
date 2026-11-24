@@ -11,14 +11,18 @@ const defaultContext = {
 };
 
 const secret = "super-secret-key-for-fuzz-testing-1234";
+const audience = "https://api.example.com";
+const issuer = "https://auth.example.com";
 const validToken = await new SignJWT({ sub: "fuzz" })
 	.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 	.setIssuedAt()
 	.setExpirationTime("1h")
+	.setAudience(audience)
+	.setIssuer(issuer)
 	.sign(Buffer.from(secret));
 
 const internalKey = "hmacSecret";
-const real = httpJwt({ internalKey, algorithm: "HS256" });
+const real = httpJwt({ internalKey, algorithm: "HS256", audience, issuer });
 const handler = middy((event) => event).use({
 	before: async (request) => {
 		request.internal[internalKey] = secret;

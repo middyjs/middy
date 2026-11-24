@@ -1,4 +1,5 @@
 ---
+
 title: rds
 description: "Manage RDS connection lifecycle in Lambda with connection pooling, IAM token injection, and TLS certificate support."
 status: alpha
@@ -52,22 +53,22 @@ RDS requires TLS. Use `@middy/rds/ssl` to build the SSL config. It sets `rejectU
 Import your region's subpath, `@middy/rds/certificates/<region>`, which carries that region's [AWS RDS CA bundle](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html#UsingWithRDS.SSL.CertificatesAllRegions) (`global` is the all-region bundle). Only your region's bundle ships with the function, keeping the deployment size small. Each subpath is typed as a `string`.
 
 ```javascript
-import rds from '@middy/rds'
-import clientPgPool from '@middy/rds/clientPgPool'
-import ssl from '@middy/rds/ssl'
-import ca from '@middy/rds/certificates/us-east-1'
+import rds from "@middy/rds";
+import clientPgPool from "@middy/rds/clientPgPool";
+import ssl from "@middy/rds/ssl";
+import ca from "@middy/rds/certificates/us-east-1";
 
 export const handler = middy()
-  .use(
-    rds({
-      client: clientPgPool,
-      config: {
-        host: 'db.cluster-id.us-east-1.rds.amazonaws.com',
-        ...ssl(ca),
-      },
-    })
-  )
-  .handler(lambdaHandler)
+	.use(
+		rds({
+			client: clientPgPool,
+			config: {
+				host: "db.cluster-id.us-east-1.rds.amazonaws.com",
+				...ssl(ca),
+			},
+		}),
+	)
+	.handler(lambdaHandler);
 ```
 
 ### NODE_EXTRA_CA_CERTS
@@ -80,22 +81,22 @@ ENV NODE_EXTRA_CA_CERTS=/var/task/global-bundle.pem
 ```
 
 ```javascript
-import rds from '@middy/rds'
-import clientPgPool from '@middy/rds/clientPgPool'
-import ssl from '@middy/rds/ssl'
-import getCa from '@middy/rds/ca'
+import rds from "@middy/rds";
+import clientPgPool from "@middy/rds/clientPgPool";
+import ssl from "@middy/rds/ssl";
+import getCa from "@middy/rds/ca";
 
 export const handler = middy()
-  .use(
-    rds({
-      client: clientPgPool,
-      config: {
-        host: 'db.cluster-id.us-east-1.rds.amazonaws.com',
-        ...ssl(getCa()),
-      },
-    })
-  )
-  .handler(lambdaHandler)
+	.use(
+		rds({
+			client: clientPgPool,
+			config: {
+				host: "db.cluster-id.us-east-1.rds.amazonaws.com",
+				...ssl(getCa()),
+			},
+		}),
+	)
+	.handler(lambdaHandler);
 ```
 
 `getCa()` throws if `NODE_EXTRA_CA_CERTS` is not set, so misconfiguration surfaces at cold start rather than silently skipping certificate verification.
@@ -105,24 +106,24 @@ export const handler = middy()
 RDS certificates are issued for the instance or cluster endpoint, not for a DNS alias you point at it. If `host` is a CNAME such as `db.example.com`, hostname verification fails because the certificate does not name it. Pass `servername` with the real RDS endpoint so the certificate is checked against that name. Node's `tls` also sends it as the SNI name, and the socket still connects to `host`. `pg` replaces `servername` with `host` after merging the ssl object, so `ssl()` also sets `checkServerIdentity` bound to `servername`; with either driver the certificate is verified only against the endpoint you configured, never against the alias.
 
 ```javascript
-import rds from '@middy/rds'
-import clientPgPool from '@middy/rds/clientPgPool'
-import ssl from '@middy/rds/ssl'
-import ca from '@middy/rds/certificates/us-east-1'
+import rds from "@middy/rds";
+import clientPgPool from "@middy/rds/clientPgPool";
+import ssl from "@middy/rds/ssl";
+import ca from "@middy/rds/certificates/us-east-1";
 
 export const handler = middy()
-  .use(
-    rds({
-      client: clientPgPool,
-      config: {
-        host: 'db.example.com',
-        ...ssl(ca, {
-          servername: 'db.cluster-id.us-east-1.rds.amazonaws.com',
-        }),
-      },
-    })
-  )
-  .handler(lambdaHandler)
+	.use(
+		rds({
+			client: clientPgPool,
+			config: {
+				host: "db.example.com",
+				...ssl(ca, {
+					servername: "db.cluster-id.us-east-1.rds.amazonaws.com",
+				}),
+			},
+		}),
+	)
+	.handler(lambdaHandler);
 ```
 
 A certificate for any other RDS endpoint, including one in the same region, is rejected. Do not work around a hostname error by setting `rejectUnauthorized: false` or by overriding `checkServerIdentity`; that would accept any certificate the CA has issued.
@@ -132,51 +133,51 @@ A certificate for any other RDS endpoint, including one in the same region, is r
 With IAM token authentication via `@middy/rds-signer`:
 
 ```javascript
-import middy from '@middy/core'
-import rdsSigner from '@middy/rds-signer'
-import rds from '@middy/rds'
-import clientPgPool from '@middy/rds/clientPgPool'
-import ssl from '@middy/rds/ssl'
-import ca from '@middy/rds/certificates/us-east-1'
+import middy from "@middy/core";
+import rdsSigner from "@middy/rds-signer";
+import rds from "@middy/rds";
+import clientPgPool from "@middy/rds/clientPgPool";
+import ssl from "@middy/rds/ssl";
+import ca from "@middy/rds/certificates/us-east-1";
 
 const lambdaHandler = async (event, context) => {
-  const pool = context.middyContext.rds
-  const { rows } = await pool.query('SELECT 1')
+	const pool = context.middyContext.rds;
+	const { rows } = await pool.query("SELECT 1");
 
-  return {
-    statusCode: 200,
-    headers: {},
-    body: JSON.stringify({ rows }),
-  }
-}
+	return {
+		statusCode: 200,
+		headers: {},
+		body: JSON.stringify({ rows }),
+	};
+};
 
 export const handler = middy()
-  .use(
-    rdsSigner({
-      fetchData: {
-        rdsToken: {
-          region: 'us-east-1',
-          hostname: 'db.cluster-id.us-east-1.rds.amazonaws.com',
-          username: 'iam_role',
-          port: 5432,
-        },
-      },
-    })
-  )
-  .use(
-    rds({
-      client: clientPgPool,
-      internalKey: 'rdsToken',
-      config: {
-        host: 'db.cluster-id.us-east-1.rds.amazonaws.com',
-        user: 'iam_role',
-        database: 'mydb',
-        port: 5432,
-        ...ssl(ca),
-      },
-    })
-  )
-  .handler(lambdaHandler)
+	.use(
+		rdsSigner({
+			fetchData: {
+				rdsToken: {
+					region: "us-east-1",
+					hostname: "db.cluster-id.us-east-1.rds.amazonaws.com",
+					username: "iam_role",
+					port: 5432,
+				},
+			},
+		}),
+	)
+	.use(
+		rds({
+			client: clientPgPool,
+			internalKey: "rdsToken",
+			config: {
+				host: "db.cluster-id.us-east-1.rds.amazonaws.com",
+				user: "iam_role",
+				database: "mydb",
+				port: 5432,
+				...ssl(ca),
+			},
+		}),
+	)
+	.handler(lambdaHandler);
 ```
 
 NOTES:

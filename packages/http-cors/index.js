@@ -9,35 +9,107 @@ import {
 const name = "http-cors";
 const pkg = `@middy/${name}`;
 
+// RFC 9110 section 5.6.2: "tchar = "!" / "#" / "$" / "%" / "&" / "'" / "*" /
+// "+" / "-" / "." / "^" / "_" / "`" / "|" / "~" / DIGIT / ALPHA"
+// https://www.rfc-editor.org/rfc/rfc9110#section-5.6.2
+const tchar = "[\\w!#$%&'*+.^`|~-]";
+
+// RFC 9110 section 5.6.1: "#element => [ element ] *( OWS "," OWS [ element ] )"
+// https://www.rfc-editor.org/rfc/rfc9110#section-5.6.1
+const listPattern = (first, next) =>
+	`^${first}(?:[ \\t]{0,1024},[ \\t]{0,1024}${next}){0,1023}$`;
+
+const headerString = (pattern) => ({
+	type: "string",
+	maxLength: 1024,
+	pattern,
+});
+
+const headerList = headerString(
+	new RegExp(listPattern(`${tchar}+`, `${tchar}{1,1024}`), "u"),
+);
+
+const token = new RegExp(`^${tchar}+$`, "u");
+
+const listOf = (items, maxItems) => ({
+	type: "array",
+	items,
+	maxItems,
+	uniqueItems: true,
+	unevaluatedItems: false,
+});
+
+// RFC 6454 section 6.2 serialized origin, a bare host, "*", or a host with
+// "*" wildcard labels
+// https://www.rfc-editor.org/rfc/rfc6454#section-6.2
+const originSchema = {
+	oneOf: [
+		headerString(/^https?:\/\/[\p{L}\p{M}\p{N}*.()[\]:_-]+$/u),
+		headerString(/^(?:\*|[\p{L}\p{M}\p{N}*.()[\]:_-]+)$/u),
+	],
+};
+
+const requestMethods = [
+	"GET",
+	"POST",
+	"PUT",
+	"PATCH",
+	"DELETE",
+	"OPTIONS",
+	"HEAD",
+];
+
+// RFC 9111 section 5.2: "cache-directive = token [ "=" ( token / quoted-string ) ]"
+// https://www.rfc-editor.org/rfc/rfc9111#section-5.2
+const cacheDirective = (quantifier, star) =>
+	`${tchar}${quantifier}(?:=(?:${tchar}${quantifier}|"[\\t \\x21\\x23-\\x5B\\x5D-\\x7E]${star}"))?`;
+
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:http-cors:options",
+	$defs: { Function: false },
 	type: "object",
 	properties: {
 		disableBeforePreflightResponse: { type: "boolean" },
-		getOrigin: { instanceof: "Function" },
-		credentials: { oneOf: [{ type: "boolean" }, { type: "string" }] },
-		headers: { type: "string" },
-		methods: {
-			type: "string",
-			pattern: "^\\s*(\\*|[A-Z]+)(\\s*,\\s*(\\*|[A-Z]+))*\\s*$",
+		getOrigin: { $ref: "#/$defs/Function" },
+		credentials: {
+			oneOf: [{ type: "boolean" }, headerString(token)],
 		},
-		origin: { type: "string" },
-		origins: { type: "array", items: { type: "string" } },
-		exposeHeaders: { type: "string" },
+		headers: headerList,
+		methods: headerString(
+			new RegExp(listPattern("(?:\\*|[A-Z]+)", "(?:\\*|[A-Z]{1,1024})"), "u"),
+		),
+		origin: originSchema,
+		origins: listOf(originSchema, 1024),
+		exposeHeaders: headerList,
+		// RFC 9111 section 1.2.2: "the cache MUST consider the value to be
+		// 2147483648 (2^31)"
+		// https://www.rfc-editor.org/rfc/rfc9111#section-1.2.2
 		maxAge: {
-			oneOf: [{ type: "integer", minimum: 0 }, { type: "string" }],
+			oneOf: [
+				{ type: "integer", minimum: 0, maximum: 2147483648 },
+				headerString(/^[0-9]{1,10}$/u),
+			],
 		},
-		requestHeaders: { type: "array", items: { type: "string" } },
-		requestMethods: {
-			type: "array",
-			items: {
-				type: "string",
-				enum: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
-			},
-		},
-		cacheControl: { type: "string" },
-		vary: { type: "string" },
+		requestHeaders: listOf(headerString(token), 1024),
+		requestMethods: listOf(
+			{ type: "string", enum: requestMethods },
+			requestMethods.length,
+		),
+		cacheControl: headerString(
+			new RegExp(
+				listPattern(
+					cacheDirective("+", "*"),
+					cacheDirective("{1,1024}", "{0,1024}"),
+				),
+				"u",
+			),
+		),
+		vary: headerList,
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const httpCorsValidateOptions = (options) =>
@@ -112,7 +184,10 @@ const httpCorsMiddleware = (opts = {}) => {
 			if (originAny) {
 				return "*";
 			}
-			if (originDynamic.some((regExp) => regExp.test(incomingOrigin))) {
+			if (
+				incomingOrigin &&
+				originDynamic.some((matchesOrigin) => matchesOrigin(incomingOrigin))
+			) {
 				return incomingOrigin;
 			}
 		} else {
@@ -152,9 +227,12 @@ const httpCorsMiddleware = (opts = {}) => {
 	// sent on a match. `Vary: Origin` then goes on every response, including a
 	// mismatch and a request with no Origin, so a shared cache never serves the
 	// header-less variant to an allowed origin.
-	let originVaries = options.origins.some(
-		(origin) => origin && originToPunycode(origin) !== "*",
-	);
+	const hasCustomGetOrigin = options.getOrigin !== getOrigin;
+	let originVaries =
+		hasCustomGetOrigin ||
+		options.origins.some(
+			(origin) => origin && originToPunycode(origin) !== "*",
+		);
 	const originStatic = Object.create(null);
 	const originDynamic = [];
 
@@ -175,12 +253,7 @@ const httpCorsMiddleware = (opts = {}) => {
 		}
 		originVaries = true;
 		// Dynamic
-		const regExpStr = origin
-			.replace(/[.+?^${}()|[\]\\]/g, "\\$&")
-			.replaceAll("*", "[^.]*");
-		// SAST Skipped: Not accessible by users
-		// nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
-		originDynamic.push(new RegExp(`^${regExpStr}$`));
+		originDynamic.push(singleLabelWildcardOriginMatcher(origin));
 	}
 
 	// Fetch standard, CORS protocol: `*` is never a valid origin for a
@@ -444,6 +517,32 @@ const headerValue = (value) => (Array.isArray(value) ? value[0] : value);
 // the single list form the check below parses.
 const headerListValue = (value) =>
 	Array.isArray(value) ? value.join(", ") : value;
+
+const hasDotBetween = (text, from, to) => {
+	const dot = text.indexOf(".", from);
+	return dot !== -1 && dot < to;
+};
+
+const singleLabelWildcardOriginMatcher = (pattern) => {
+	const pieces = pattern.split("*");
+	const firstPiece = pieces[0];
+	const lastPiece = pieces[pieces.length - 1];
+	return (origin) => {
+		if (!origin.startsWith(firstPiece) || !origin.endsWith(lastPiece)) {
+			return false;
+		}
+		let position = firstPiece.length;
+		for (let i = 1; i < pieces.length - 1; i++) {
+			const index = origin.indexOf(pieces[i], position);
+			if (index === -1 || hasDotBetween(origin, position, index)) {
+				return false;
+			}
+			position = index + pieces[i].length;
+		}
+		const end = origin.length - lastPiece.length;
+		return position <= end && !hasDotBetween(origin, position, end);
+	};
+};
 
 // header in official name, lowercase variant handled
 const addHeaderPart = (headers, header, value) => {

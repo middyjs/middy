@@ -1,4 +1,5 @@
 ---
+
 title: http-urlencode-path-parser
 description: "Decode URL-encoded path parameters automatically in API Gateway Lambda handlers."
 ---
@@ -23,24 +24,24 @@ None
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import httpUrlEncodePathParser from '@middy/http-urlencode-path-parser'
+import middy from "@middy/core";
+import httpUrlEncodePathParser from "@middy/http-urlencode-path-parser";
 
 const handler = middy((event, context) => {
-  return event.pathParameters // propagates the path parameters as response
-})
+	return event.pathParameters; // propagates the path parameters as response
+});
 
-handler.use(httpUrlEncodePathParser())
+handler.use(httpUrlEncodePathParser());
 
 // When Lambda runs the handler with a sample event...
 const event = {
-  pathParameters: {
-    name: encodeURIComponent('Mîddy')
-  }
-}
+	pathParameters: {
+		name: encodeURIComponent("Mîddy"),
+	},
+};
 
-const response = await handler(event, {})
+const response = await handler(event, {});
 deepStrictEqual(response, {
-  name: 'Mîddy'
-})
+	name: "Mîddy",
+});
 ```

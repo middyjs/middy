@@ -1,7 +1,7 @@
 import { strictEqual } from "node:assert/strict";
 import { test } from "node:test";
+import middy from "@middy/core";
 import fc from "fast-check";
-import middy from "../core/index.js";
 import middleware from "./index.js";
 
 const handler = middy((event) => event).use(middleware());

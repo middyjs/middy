@@ -1,4 +1,4 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { describe, test } from "node:test";
 import { HttpError } from "@middy/util";
 import middy from "../core/index.js";
@@ -938,5 +938,121 @@ describe("@middy/http-response-serializer", () => {
 		await middleware.after(request);
 
 		strictEqual(request.response.body, "hello");
+	});
+
+	test("httpResponseSerializerValidateOptions accepts a media type with parameters as defaultContentType", () => {
+		for (const defaultContentType of [
+			"application/json",
+			"application/json; charset=utf-8",
+			'multipart/form-data;boundary="a b"',
+			"application/vnd.api+json",
+		]) {
+			httpResponseSerializerValidateOptions({ defaultContentType });
+		}
+	});
+
+	test("httpResponseSerializerValidateOptions rejects a defaultContentType that is not a media type", () => {
+		for (const defaultContentType of [
+			"json",
+			"application/json\r\nX-Injected: 1",
+			"application/json; charset",
+			" application/json",
+		]) {
+			throws(
+				() => httpResponseSerializerValidateOptions({ defaultContentType }),
+				{
+					name: "TypeError",
+					message: /^Option 'defaultContentType' must match pattern /,
+				},
+			);
+		}
+	});
+
+	test("httpResponseSerializerValidateOptions rejects a defaultContentType longer than the 128 characters the middleware reads", () => {
+		const subtype = "a".repeat(128 - "text/".length);
+		httpResponseSerializerValidateOptions({
+			defaultContentType: `text/${subtype}`,
+		});
+		throws(
+			() =>
+				httpResponseSerializerValidateOptions({
+					defaultContentType: `text/${subtype}a`,
+				}),
+			{
+				name: "TypeError",
+				message: "Option 'defaultContentType' must have length <= 128",
+			},
+		);
+	});
+
+	test("httpResponseSerializerValidateOptions bounds contextKeyHttpContentNegotiation to a 1024 character key name", () => {
+		httpResponseSerializerValidateOptions({
+			contextKeyHttpContentNegotiation: "http-content-negotiation",
+		});
+		throws(
+			() =>
+				httpResponseSerializerValidateOptions({
+					contextKeyHttpContentNegotiation: "a".repeat(1025),
+				}),
+			{
+				name: "TypeError",
+				message:
+					"Option 'contextKeyHttpContentNegotiation' must have length <= 1024",
+			},
+		);
+		throws(
+			() =>
+				httpResponseSerializerValidateOptions({
+					contextKeyHttpContentNegotiation: "a b",
+				}),
+			{
+				name: "TypeError",
+				message:
+					/^Option 'contextKeyHttpContentNegotiation' must match pattern /,
+			},
+		);
+	});
+
+	test("httpResponseSerializerValidateOptions caps serializers at 1024 distinct entries", () => {
+		const serializer = () => "x";
+		const entries = Array.from({ length: 1025 }, () => ({
+			regex: /^text\/plain$/,
+			serializer,
+		}));
+		httpResponseSerializerValidateOptions({
+			serializers: entries.slice(0, 1024),
+		});
+		throws(
+			() => httpResponseSerializerValidateOptions({ serializers: entries }),
+			{
+				name: "TypeError",
+				message: "Option 'serializers' must have <= 1024 items",
+			},
+		);
+		const entry = entries[0];
+		throws(
+			() =>
+				httpResponseSerializerValidateOptions({
+					serializers: [entry, entry],
+				}),
+			{ name: "TypeError", message: "Duplicate item at 'serializers[1]'" },
+		);
+	});
+
+	test("httpResponseSerializerValidateOptions accepts any visible ASCII contextKeyHttpContentNegotiation", () => {
+		httpResponseSerializerValidateOptions({
+			contextKeyHttpContentNegotiation: "@middy/x",
+		});
+		throws(
+			() =>
+				httpResponseSerializerValidateOptions({
+					contextKeyHttpContentNegotiation: "",
+				}),
+			{
+				name: "TypeError",
+				message:
+					/^Option 'contextKeyHttpContentNegotiation' must match pattern /,
+			},
+		);
 	});
 });

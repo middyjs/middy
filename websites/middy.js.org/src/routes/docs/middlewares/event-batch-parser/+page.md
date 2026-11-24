@@ -1,4 +1,5 @@
 ---
+
 title: event-batch-parser
 description: "Decode batch records (Kafka, Kinesis, Firehose, SQS, MQ) with pluggable JSON/Avro/Protobuf parsers and AWS Glue Schema Registry support."
 status: alpha
@@ -65,62 +66,70 @@ Decodes Protobuf-encoded payloads using `protobufjs`.
 ### Kafka with static Avro schema
 
 ```javascript
-import middy from '@middy/core'
-import eventBatchParser from '@middy/event-batch-parser'
-import parseAvro from '@middy/event-batch-parser/parseAvro'
+import middy from "@middy/core";
+import eventBatchParser from "@middy/event-batch-parser";
+import parseAvro from "@middy/event-batch-parser/parseAvro";
 
-const userSchema = { type: 'record', name: 'User', fields: [
-  { name: 'id', type: 'string' },
-  { name: 'name', type: 'string' },
-] }
+const userSchema = {
+	type: "record",
+	name: "User",
+	fields: [
+		{ name: "id", type: "string" },
+		{ name: "name", type: "string" },
+	],
+};
 
 export const handler = middy()
-  .use(eventBatchParser({ value: parseAvro({ schema: userSchema }) }))
-  .handler(async (event) => {
-    for (const records of Object.values(event.records)) {
-      for (const record of records) {
-        // record.value is now { id, name }
-      }
-    }
-  })
+	.use(eventBatchParser({ value: parseAvro({ schema: userSchema }) }))
+	.handler(async (event) => {
+		for (const records of Object.values(event.records)) {
+			for (const record of records) {
+				// record.value is now { id, name }
+			}
+		}
+	});
 ```
 
 ### Kinesis with Glue Schema Registry (schema fetched at startup, exposed on internal)
 
 ```javascript
-import middy from '@middy/core'
-import glueSchemaRegistry from '@middy/glue-schema-registry'
-import eventBatchParser from '@middy/event-batch-parser'
-import parseAvro from '@middy/event-batch-parser/parseAvro'
+import middy from "@middy/core";
+import glueSchemaRegistry from "@middy/glue-schema-registry";
+import eventBatchParser from "@middy/event-batch-parser";
+import parseAvro from "@middy/event-batch-parser/parseAvro";
 
 export const handler = middy()
-  .use(glueSchemaRegistry({
-    fetchData: { userSchema: { SchemaVersionId: '...' } },
-  }))
-  .use(eventBatchParser({
-    data: parseAvro({ internalKey: 'userSchema' }),
-  }))
-  .handler(async (event) => {
-    for (const record of event.Records) {
-      // record.kinesis.data is now the decoded JS object
-    }
-  })
+	.use(
+		glueSchemaRegistry({
+			fetchData: { userSchema: { SchemaVersionId: "..." } },
+		}),
+	)
+	.use(
+		eventBatchParser({
+			data: parseAvro({ internalKey: "userSchema" }),
+		}),
+	)
+	.handler(async (event) => {
+		for (const record of event.Records) {
+			// record.kinesis.data is now the decoded JS object
+		}
+	});
 ```
 
 ### SQS with JSON
 
 ```javascript
-import middy from '@middy/core'
-import eventBatchParser from '@middy/event-batch-parser'
-import parseJson from '@middy/event-batch-parser/parseJson'
+import middy from "@middy/core";
+import eventBatchParser from "@middy/event-batch-parser";
+import parseJson from "@middy/event-batch-parser/parseJson";
 
 export const handler = middy()
-  .use(eventBatchParser({ body: parseJson() }))
-  .handler(async (event) => {
-    for (const record of event.Records) {
-      // record.body is now the parsed JSON value
-    }
-  })
+	.use(eventBatchParser({ body: parseJson() }))
+	.handler(async (event) => {
+		for (const record of event.Records) {
+			// record.body is now the parsed JSON value
+		}
+	});
 ```
 
 ## Glue framing
@@ -147,14 +156,14 @@ A record that can't be parsed does not fail the invocation. The middleware attac
 If you walk the records yourself instead of using `event-batch-handler`, check each record for the key:
 
 ```javascript
-import { parseErrorKey } from '@middy/event-batch-parser'
+import { parseErrorKey } from "@middy/event-batch-parser";
 
 for (const record of event.Records) {
-  if (record[parseErrorKey]) {
-    // record.body is still the raw string; record[parseErrorKey] is the error
-    continue
-  }
-  // record.body is the parsed value
+	if (record[parseErrorKey]) {
+		// record.body is still the raw string; record[parseErrorKey] is the error
+		continue;
+	}
+	// record.body is the parsed value
 }
 ```
 

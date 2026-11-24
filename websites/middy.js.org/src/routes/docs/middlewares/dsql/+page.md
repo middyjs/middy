@@ -1,4 +1,5 @@
 ---
+
 title: dsql
 description: "Connect Lambda handlers to Amazon Aurora DSQL using plain pg or postgres.js with IAM auth tokens from @middy/dsql-signer."
 status: alpha
@@ -45,100 +46,106 @@ NOTES:
 ### pg.Pool
 
 ```javascript
-import middy from '@middy/core'
-import dsqlSigner from '@middy/dsql-signer'
-import dsql from '@middy/dsql'
-import clientPgPool from '@middy/dsql/clientPgPool'
+import middy from "@middy/core";
+import dsqlSigner from "@middy/dsql-signer";
+import dsql from "@middy/dsql";
+import clientPgPool from "@middy/dsql/clientPgPool";
 
 const lambdaHandler = async (event, context) => {
-  const { rows } = await context.middyContext.dsql.query('SELECT now()')
-  return { statusCode: 200, body: JSON.stringify(rows) }
-}
+	const { rows } = await context.middyContext.dsql.query("SELECT now()");
+	return { statusCode: 200, body: JSON.stringify(rows) };
+};
 
 export const handler = middy()
-  .use(
-    dsqlSigner({
-      fetchData: {
-        dsqlToken: {
-          hostname: 'cluster.dsql.us-east-1.on.aws',
-          username: 'admin',
-        },
-      },
-      cacheExpiry: 14 * 60 * 1000,
-    }),
-  )
-  .use(
-    dsql({
-      client: clientPgPool,
-      config: {
-        host: 'cluster.dsql.us-east-1.on.aws',
-        username: 'admin',
-        database: 'postgres',
-      },
-      internalKey: 'dsqlToken',
-    }),
-  )
-  .handler(lambdaHandler)
+	.use(
+		dsqlSigner({
+			fetchData: {
+				dsqlToken: {
+					hostname: "cluster.dsql.us-east-1.on.aws",
+					username: "admin",
+				},
+			},
+			cacheExpiry: 14 * 60 * 1000,
+		}),
+	)
+	.use(
+		dsql({
+			client: clientPgPool,
+			config: {
+				host: "cluster.dsql.us-east-1.on.aws",
+				username: "admin",
+				database: "postgres",
+			},
+			internalKey: "dsqlToken",
+		}),
+	)
+	.handler(lambdaHandler);
 ```
 
 ### pg.Client
 
 ```javascript
-import middy from '@middy/core'
-import dsqlSigner from '@middy/dsql-signer'
-import dsql from '@middy/dsql'
-import clientPg from '@middy/dsql/clientPg'
+import middy from "@middy/core";
+import dsqlSigner from "@middy/dsql-signer";
+import dsql from "@middy/dsql";
+import clientPg from "@middy/dsql/clientPg";
 
 export const handler = middy()
-  .use(
-    dsqlSigner({
-      fetchData: {
-        dsqlToken: { hostname: 'cluster.dsql.us-east-1.on.aws', username: 'admin' },
-      },
-      cacheExpiry: 14 * 60 * 1000,
-    }),
-  )
-  .use(
-    dsql({
-      client: clientPg,
-      config: { host: 'cluster.dsql.us-east-1.on.aws', username: 'admin' },
-      internalKey: 'dsqlToken',
-      cacheExpiry: 0,
-    }),
-  )
-  .handler(async (event, context) => {
-    const { rows } = await context.middyContext.dsql.query('SELECT now()')
-    return rows
-  })
+	.use(
+		dsqlSigner({
+			fetchData: {
+				dsqlToken: {
+					hostname: "cluster.dsql.us-east-1.on.aws",
+					username: "admin",
+				},
+			},
+			cacheExpiry: 14 * 60 * 1000,
+		}),
+	)
+	.use(
+		dsql({
+			client: clientPg,
+			config: { host: "cluster.dsql.us-east-1.on.aws", username: "admin" },
+			internalKey: "dsqlToken",
+			cacheExpiry: 0,
+		}),
+	)
+	.handler(async (event, context) => {
+		const { rows } = await context.middyContext.dsql.query("SELECT now()");
+		return rows;
+	});
 ```
 
 ### postgres.js
 
 ```javascript
-import middy from '@middy/core'
-import dsqlSigner from '@middy/dsql-signer'
-import dsql from '@middy/dsql'
-import clientPostgres from '@middy/dsql/clientPostgres'
+import middy from "@middy/core";
+import dsqlSigner from "@middy/dsql-signer";
+import dsql from "@middy/dsql";
+import clientPostgres from "@middy/dsql/clientPostgres";
 
 export const handler = middy()
-  .use(
-    dsqlSigner({
-      fetchData: {
-        dsqlToken: { hostname: 'cluster.dsql.us-east-1.on.aws', username: 'admin' },
-      },
-      cacheExpiry: 14 * 60 * 1000,
-    }),
-  )
-  .use(
-    dsql({
-      client: clientPostgres,
-      config: { host: 'cluster.dsql.us-east-1.on.aws', username: 'admin' },
-      internalKey: 'dsqlToken',
-    }),
-  )
-  .handler(async (event, context) => {
-    return context.middyContext.dsql`SELECT now()`
-  })
+	.use(
+		dsqlSigner({
+			fetchData: {
+				dsqlToken: {
+					hostname: "cluster.dsql.us-east-1.on.aws",
+					username: "admin",
+				},
+			},
+			cacheExpiry: 14 * 60 * 1000,
+		}),
+	)
+	.use(
+		dsql({
+			client: clientPostgres,
+			config: { host: "cluster.dsql.us-east-1.on.aws", username: "admin" },
+			internalKey: "dsqlToken",
+		}),
+	)
+	.handler(async (event, context) => {
+		return context.middyContext.dsql`SELECT now()`;
+	});
 ```
 
 ## Bundling

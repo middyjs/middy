@@ -1,4 +1,5 @@
 ---
+
 title: DynamoDB
 description: "Process Amazon DynamoDB Streams on AWS Lambda with Middy: change records, normalized images, partial batch failures, durable execution."
 ---
@@ -35,31 +36,31 @@ DynamoDB Streams use the same partial-batch checkpoint model as Kinesis: Lambda 
 
 ## Recommended middlewares
 
-| Middleware | Why |
-| --- | --- |
-| [`@middy/event-normalizer`](/docs/middlewares/event-normalizer) | Unmarshal `NewImage` / `OldImage` from typed format to plain JS |
-| [`@middy/event-batch-handler`](/docs/handlers/event-batch-handler) | Per-record handler |
-| [`@middy/event-batch-response`](/docs/middlewares/event-batch-response) | Report `batchItemFailures` |
+| Middleware                                                              | Why                                                             |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------- |
+| [`@middy/event-normalizer`](/docs/middlewares/event-normalizer)         | Unmarshal `NewImage` / `OldImage` from typed format to plain JS |
+| [`@middy/event-batch-handler`](/docs/handlers/event-batch-handler)      | Per-record handler                                              |
+| [`@middy/event-batch-response`](/docs/middlewares/event-batch-response) | Report `batchItemFailures`                                      |
 
 ## Example
 
 ```javascript
-import middy from '@middy/core'
-import eventNormalizer from '@middy/event-normalizer'
-import eventBatchResponse from '@middy/event-batch-response'
-import eventBatchHandler from '@middy/event-batch-handler'
+import middy from "@middy/core";
+import eventNormalizer from "@middy/event-normalizer";
+import eventBatchResponse from "@middy/event-batch-response";
+import eventBatchHandler from "@middy/event-batch-handler";
 
 const recordHandler = async (record, context) => {
-  if (record.eventName === 'REMOVE') return // ignore deletes
-  // record.dynamodb.NewImage is now plain JS (event-normalizer unmarshalled it)
-  await indexItem(record.dynamodb.NewImage)
-}
-const lambdaHandler = eventBatchHandler(recordHandler)
+	if (record.eventName === "REMOVE") return; // ignore deletes
+	// record.dynamodb.NewImage is now plain JS (event-normalizer unmarshalled it)
+	await indexItem(record.dynamodb.NewImage);
+};
+const lambdaHandler = eventBatchHandler(recordHandler);
 
 export const handler = middy()
-  .use(eventNormalizer())
-  .use(eventBatchResponse())
-  .handler(lambdaHandler)
+	.use(eventNormalizer())
+	.use(eventBatchResponse())
+	.handler(lambdaHandler);
 ```
 
 ## With Durable Functions
@@ -67,25 +68,25 @@ export const handler = middy()
 DynamoDB Streams use the same partial-batch checkpoint model as Kinesis. Wrapping the handler in `withDurableExecution` lets `event-batch-handler` auto-checkpoint each record so prior writes (e.g. to a search index, cache, or downstream API) do not repeat on replay.
 
 ```javascript
-import { withDurableExecution } from '@aws/durable-execution-sdk-js'
-import middy from '@middy/core'
-import eventNormalizer from '@middy/event-normalizer'
-import eventBatchResponse from '@middy/event-batch-response'
-import eventBatchHandler from '@middy/event-batch-handler'
+import { withDurableExecution } from "@aws/durable-execution-sdk-js";
+import middy from "@middy/core";
+import eventNormalizer from "@middy/event-normalizer";
+import eventBatchResponse from "@middy/event-batch-response";
+import eventBatchHandler from "@middy/event-batch-handler";
 
 const recordHandler = async (record, ctx) => {
-  const change = record.dynamodb
-  await ctx.step('index', async () => searchIndex.upsert(change.NewImage))
-  await ctx.step('audit', async () => auditLog.write(change))
-}
-const lambdaHandler = eventBatchHandler(recordHandler)
+	const change = record.dynamodb;
+	await ctx.step("index", async () => searchIndex.upsert(change.NewImage));
+	await ctx.step("audit", async () => auditLog.write(change));
+};
+const lambdaHandler = eventBatchHandler(recordHandler);
 
 export const handler = withDurableExecution(
-  middy()
-    .use(eventNormalizer())
-    .use(eventBatchResponse())
-    .handler(lambdaHandler)
-)
+	middy()
+		.use(eventNormalizer())
+		.use(eventBatchResponse())
+		.handler(lambdaHandler),
+);
 ```
 
 ## IaC: required event source mapping

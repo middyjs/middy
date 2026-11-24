@@ -3,12 +3,13 @@ import {
 	deepStrictEqual,
 	ok,
 	strictEqual,
+	throws,
 } from "node:assert/strict";
 import { describe, test } from "node:test";
 import { DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
+import middy from "@middy/core";
 import { clearCache, getCache, getInternal } from "@middy/util";
 import { mockClient } from "aws-sdk-client-mock";
-import middy from "../core/index.js";
 import dynamodb, { dynamodbValidateOptions } from "./index.js";
 
 describe("@middy/dynamodb", () => {
@@ -123,11 +124,7 @@ describe("@middy/dynamodb", () => {
 					fetchData: {
 						key: {
 							TableName: "table",
-							Key: {
-								pk: {
-									S: "0000",
-								},
-							},
+							Key: { pk: "0000" },
 						},
 					},
 					disablePrefetch: true,
@@ -161,11 +158,7 @@ describe("@middy/dynamodb", () => {
 					fetchData: {
 						key: {
 							TableName: "table",
-							Key: {
-								pk: {
-									S: "0000",
-								},
-							},
+							Key: { pk: "0000" },
 						},
 					},
 					setToContext: true,
@@ -281,11 +274,7 @@ describe("@middy/dynamodb", () => {
 					fetchData: {
 						key: {
 							TableName: "table",
-							Key: {
-								pk: {
-									S: "0000",
-								},
-							},
+							Key: { pk: "0000" },
 						},
 					},
 					disablePrefetch: true,
@@ -312,11 +301,7 @@ describe("@middy/dynamodb", () => {
 				fetchData: {
 					key: {
 						TableName: "table",
-						Key: {
-							pk: {
-								S: "0000",
-							},
-						},
+						Key: { pk: "0000" },
 					},
 				},
 				setToContext: true,
@@ -425,11 +410,7 @@ describe("@middy/dynamodb", () => {
 					fetchData: {
 						key: {
 							TableName: "table",
-							Key: {
-								pk: {
-									S: "0000",
-								},
-							},
+							Key: { pk: "0000" },
 						},
 					},
 					disablePrefetch: true,
@@ -472,7 +453,7 @@ describe("@middy/dynamodb", () => {
 		strictEqual(sendStub.callCount, 1);
 	});
 
-	test("It should reuse the prefetched client instead of recreating it per invocation", async (t) => {
+	test("It should build and capture the client once, inside the first invocation, when awsClientCapture is set", async (t) => {
 		mockClient(DynamoDBClient)
 			.on(GetItemCommand)
 			.resolves({
@@ -483,15 +464,12 @@ describe("@middy/dynamodb", () => {
 				},
 			});
 
-		// With prefetch active and awsClientCapture set, createPrefetchClient warns
-		// once at cold start. If the before middleware recreated the client on every
-		// invocation it would warn again, so warn must stay at exactly one.
-		const warn = t.mock.method(console, "warn", () => {});
+		const awsClientCapture = t.mock.fn((client) => client);
 
 		const handler = middy(() => {}).use(
 			dynamodb({
 				AwsClient: DynamoDBClient,
-				awsClientCapture: (client) => client,
+				awsClientCapture,
 				cacheExpiry: -1,
 				fetchData: {
 					key: {
@@ -504,12 +482,12 @@ describe("@middy/dynamodb", () => {
 			}),
 		);
 
-		strictEqual(warn.mock.callCount(), 1);
+		strictEqual(awsClientCapture.mock.callCount(), 0);
 
 		await handler(defaultEvent, defaultContext);
 		await handler(defaultEvent, defaultContext);
 
-		strictEqual(warn.mock.callCount(), 1);
+		strictEqual(awsClientCapture.mock.callCount(), 1);
 	});
 
 	test("It should build the client once when prefetching", async (t) => {
@@ -702,7 +680,7 @@ describe("@middy/dynamodb", () => {
 			fetchData: {
 				key: {
 					TableName: "t",
-					Key: { pk: { S: "0" } },
+					Key: { pk: "0" },
 					AttributesToGet: ["a", "b"],
 					ConsistentRead: true,
 					ReturnConsumedCapacity: "TOTAL",
@@ -719,7 +697,7 @@ describe("@middy/dynamodb", () => {
 				fetchData: {
 					key: {
 						TableName: "t",
-						Key: { pk: { S: "0" } },
+						Key: { pk: "0" },
 						ReturnConsumedCapacity: "BOGUS",
 					},
 				},
@@ -736,7 +714,7 @@ describe("@middy/dynamodb", () => {
 				fetchData: {
 					key: {
 						TableName: "t",
-						Key: { pk: { S: "0" } },
+						Key: { pk: "0" },
 						AttributesToGet: ["ok", 42],
 					},
 				},
@@ -864,7 +842,7 @@ describe("@middy/dynamodb", () => {
 			fetchData: {
 				key: {
 					TableName: "t",
-					Key: { pk: { S: "0" } },
+					Key: { pk: "0" },
 					ReturnConsumedCapacity: "INDEXES",
 				},
 			},
@@ -876,7 +854,7 @@ describe("@middy/dynamodb", () => {
 			fetchData: {
 				key: {
 					TableName: "t",
-					Key: { pk: { S: "0" } },
+					Key: { pk: "0" },
 					ReturnConsumedCapacity: "NONE",
 				},
 			},
@@ -895,16 +873,265 @@ describe("@middy/dynamodb", () => {
 		}
 	});
 
-	test("dynamodbValidateOptions allows additional native GetItemCommand fields", () => {
-		dynamodbValidateOptions({
-			fetchData: {
-				key: {
-					TableName: "t",
-					Key: { pk: { S: "0" } },
-					ExpressionAttributeValues: { ":v": { S: "x" } },
-				},
-			},
+	const rejectsOptions = (options, message) => {
+		throws(() => dynamodbValidateOptions(options), {
+			name: "TypeError",
+			message,
+			cause: { package: "@middy/dynamodb" },
 		});
+	};
+	const getItem = { TableName: "t", Key: { pk: "0" } };
+	const withInput = (input) => ({
+		fetchData: { key: { ...getItem, ...input } },
+	});
+	const unicodeText = /^[\p{L}\p{M}\p{N}\p{P}\p{S} ]+$/u;
+
+	test("dynamodbValidateOptions rejects a fetchData key GetItem does not take", () => {
+		rejectsOptions(
+			withInput({ ExpressionAttributeValues: { ":v": { S: "x" } } }),
+			"Unknown option 'fetchData.key.ExpressionAttributeValues'",
+		);
+	});
+
+	test("dynamodbValidateOptions accepts every GetItem request parameter at its limit", () => {
+		const options = withInput({
+			TableName: "arn:aws:dynamodb:us-east-1:123456789012:table/My_Table.v-1",
+			Key: { ["p".repeat(255)]: "v".repeat(2048), 名前: "値" },
+			AttributesToGet: ["a".repeat(65535), "名前"],
+			ConsistentRead: false,
+			ProjectionExpression: `#a, b.c[0], ${"x".repeat(4084)}`,
+			ExpressionAttributeNames: { [`#${"n".repeat(254)}`]: "a".repeat(65535) },
+			ReturnConsumedCapacity: "TOTAL",
+		});
+		deepStrictEqual(dynamodbValidateOptions(options), options);
+		const longTable = withInput({ TableName: "t".repeat(1024) });
+		deepStrictEqual(dynamodbValidateOptions(longTable), longTable);
+	});
+
+	test("dynamodbValidateOptions accepts the native key values the docs show", () => {
+		for (const Key of [
+			{ pk: "tenant", sk: 42 },
+			{ pk: 1.5, sk: -1 },
+			{ pk: Number.MAX_SAFE_INTEGER, sk: -Number.MAX_SAFE_INTEGER },
+		]) {
+			const options = withInput({ Key });
+			deepStrictEqual(dynamodbValidateOptions(options), options);
+		}
+	});
+
+	test("dynamodbValidateOptions rejects key values marshall cannot write as a key", () => {
+		for (const [value, message] of [
+			[
+				Number.MAX_SAFE_INTEGER + 2,
+				`Option 'fetchData.key.Key.sk' must be <= ${Number.MAX_SAFE_INTEGER}`,
+			],
+			[
+				-Number.MAX_SAFE_INTEGER - 2,
+				`Option 'fetchData.key.Key.sk' must be >= -${Number.MAX_SAFE_INTEGER}`,
+			],
+			[true, "Option 'fetchData.key.Key.sk' must be string or number"],
+			[null, "Option 'fetchData.key.Key.sk' must be string or number"],
+			[["a"], "Option 'fetchData.key.Key.sk' must be string or number"],
+			[{ S: "a" }, "Option 'fetchData.key.Key.sk' must be string or number"],
+			[Number.NaN, "Option 'fetchData.key.Key.sk' must be string or number"],
+			[
+				new Uint8Array([1, 2]),
+				"Option 'fetchData.key.Key.sk' must be string or number",
+			],
+		]) {
+			rejectsOptions(withInput({ Key: { pk: "a", sk: value } }), message);
+		}
+	});
+
+	test("dynamodbValidateOptions rejects GetItem parameters outside the AWS rules", () => {
+		for (const [input, message] of [
+			[
+				{ TableName: "my table" },
+				"Option 'fetchData.key.TableName' must match pattern /^[\\w.:/-]+$/u",
+			],
+			[
+				{ TableName: "t".repeat(1025) },
+				"Option 'fetchData.key.TableName' must have length <= 1024",
+			],
+			[
+				{ Key: { pk: "0", sk: "1", extra: "2" } },
+				"Option 'fetchData.key.Key' must have <= 2 properties",
+			],
+			[
+				{ Key: { ["p".repeat(256)]: "0" } },
+				`Invalid property name '${"p".repeat(256)}' in option 'fetchData.key.Key': Option 'fetchData.key.Key.${"p".repeat(256)}' must have length <= 255`,
+			],
+			[
+				{ Key: { "p\nk": "0" } },
+				`Invalid property name 'p\nk' in option 'fetchData.key.Key': Option 'fetchData.key.Key.p\nk' must match pattern ${unicodeText}`,
+			],
+			[
+				{ Key: { pk: "a\nb" } },
+				`Option 'fetchData.key.Key.pk' must match pattern ${unicodeText}`,
+			],
+			[
+				{ Key: { pk: "v".repeat(2049) } },
+				"Option 'fetchData.key.Key.pk' must have length <= 2048",
+			],
+			[
+				{ AttributesToGet: [] },
+				"Option 'fetchData.key.AttributesToGet' must have >= 1 items",
+			],
+			[
+				{ AttributesToGet: ["a", "a"] },
+				"Duplicate item at 'fetchData.key.AttributesToGet[1]'",
+			],
+			[
+				{ AttributesToGet: ["a".repeat(65536)] },
+				"Option 'fetchData.key.AttributesToGet[0]' must have length <= 65535",
+			],
+			[
+				{ AttributesToGet: ["a\nb"] },
+				`Option 'fetchData.key.AttributesToGet[0]' must match pattern ${unicodeText}`,
+			],
+			[
+				{ AttributesToGet: Array.from({ length: 1025 }, (_, i) => `a${i}`) },
+				"Option 'fetchData.key.AttributesToGet' must have <= 1024 items",
+			],
+			[
+				{ ConsistentRead: "true" },
+				"Option 'fetchData.key.ConsistentRead' must be boolean",
+			],
+			[
+				{ ProjectionExpression: "x".repeat(4097) },
+				"Option 'fetchData.key.ProjectionExpression' must have length <= 4096",
+			],
+			[
+				{ ProjectionExpression: "#a,\n#b" },
+				`Option 'fetchData.key.ProjectionExpression' must match pattern ${unicodeText}`,
+			],
+			[
+				{ ExpressionAttributeNames: { a: "a" } },
+				"Invalid property name 'a' in option 'fetchData.key.ExpressionAttributeNames': Option 'fetchData.key.ExpressionAttributeNames.a' must match pattern /^#\\w+$/u",
+			],
+			[
+				{ ExpressionAttributeNames: { [`#${"n".repeat(255)}`]: "a" } },
+				`Invalid property name '#${"n".repeat(255)}' in option 'fetchData.key.ExpressionAttributeNames': Option 'fetchData.key.ExpressionAttributeNames.#${"n".repeat(255)}' must have length <= 255`,
+			],
+			[
+				{ ExpressionAttributeNames: { "#a": "a".repeat(65536) } },
+				"Option 'fetchData.key.ExpressionAttributeNames.#a' must have length <= 65535",
+			],
+			[
+				{ ExpressionAttributeNames: { "#a": "" } },
+				`Option 'fetchData.key.ExpressionAttributeNames.#a' must match pattern ${unicodeText}`,
+			],
+			[
+				{
+					ExpressionAttributeNames: Object.fromEntries(
+						Array.from({ length: 1025 }, (_, i) => [`#a${i}`, "a"]),
+					),
+				},
+				"Option 'fetchData.key.ExpressionAttributeNames' must have <= 1024 properties",
+			],
+			[
+				{ ReturnConsumedCapacity: "ALL" },
+				'Option \'fetchData.key.ReturnConsumedCapacity\' must be one of ["INDEXES","TOTAL","NONE"]',
+			],
+		]) {
+			rejectsOptions(withInput(input), message);
+		}
+		rejectsOptions(
+			{ fetchData: { key: { TableName: "t" } } },
+			"Missing required option 'fetchData.key.Key'",
+		);
+		rejectsOptions(
+			{ fetchData: { key: { Key: { pk: "0" } } } },
+			"Missing required option 'fetchData.key.TableName'",
+		);
+	});
+
+	test("dynamodbValidateOptions bounds the fetchData map", () => {
+		rejectsOptions(
+			{ fetchData: { "bad key": getItem } },
+			"Invalid property name 'bad key' in option 'fetchData': Option 'fetchData.bad key' must match pattern /^[\\x21-\\x7E]+$/u",
+		);
+		rejectsOptions(
+			{
+				fetchData: Object.fromEntries(
+					Array.from({ length: 1025 }, (_, i) => [`k${i}`, getItem]),
+				),
+			},
+			"Option 'fetchData' must have <= 1024 properties",
+		);
+	});
+
+	test("dynamodbValidateOptions accepts the DynamoDBClient keys beyond the shared client config", () => {
+		const fn = () => {};
+		for (const awsClientOptions of [
+			{
+				region: "us-east-1",
+				accountId: "123456789012",
+				accountIdEndpointMode: "disabled",
+				endpointCacheSize: 1000,
+				endpointDiscoveryEnabled: true,
+				endpointDiscoveryEnabledProvider: fn,
+			},
+			{ accountId: fn, accountIdEndpointMode: fn },
+			{ accountIdEndpointMode: "preferred", endpointCacheSize: 0 },
+			{
+				accountIdEndpointMode: "required",
+				endpointCacheSize: Number.MAX_SAFE_INTEGER,
+			},
+		]) {
+			deepStrictEqual(dynamodbValidateOptions({ awsClientOptions }), {
+				awsClientOptions,
+			});
+		}
+	});
+
+	test("dynamodbValidateOptions rejects DynamoDBClient keys outside their SDK types", () => {
+		const oneOf = (key) =>
+			`Option 'awsClientOptions.${key}' must match exactly one schema in oneOf`;
+		for (const [awsClientOptions, message] of [
+			[{ maxRetries: 3 }, "Unknown option 'awsClientOptions.maxRetries'"],
+			[{ accountId: "12345678901" }, oneOf("accountId")],
+			[{ accountId: "1234567890123" }, oneOf("accountId")],
+			[{ accountIdEndpointMode: "always" }, oneOf("accountIdEndpointMode")],
+			[
+				{ endpointCacheSize: -1 },
+				"Option 'awsClientOptions.endpointCacheSize' must be >= 0",
+			],
+			[
+				{ endpointCacheSize: 1.5 },
+				"Option 'awsClientOptions.endpointCacheSize' must be integer",
+			],
+			[
+				{ endpointCacheSize: Number.MAX_SAFE_INTEGER + 1 },
+				`Option 'awsClientOptions.endpointCacheSize' must be <= ${Number.MAX_SAFE_INTEGER}`,
+			],
+			[
+				{ endpointDiscoveryEnabled: "true" },
+				"Option 'awsClientOptions.endpointDiscoveryEnabled' must be boolean",
+			],
+			[
+				{ endpointDiscoveryEnabledProvider: true },
+				"Option 'awsClientOptions.endpointDiscoveryEnabledProvider' must be instanceof Function",
+			],
+		]) {
+			rejectsOptions({ awsClientOptions }, message);
+		}
+	});
+
+	test("dynamodbValidateOptions bounds the string options", () => {
+		for (const key of ["awsClientAssumeRole", "cacheKey", "contextKey"]) {
+			deepStrictEqual(dynamodbValidateOptions({ [key]: "k".repeat(1024) }), {
+				[key]: "k".repeat(1024),
+			});
+			rejectsOptions(
+				{ [key]: "k".repeat(1025) },
+				`Option '${key}' must have length <= 1024`,
+			);
+			rejectsOptions(
+				{ [key]: "a b" },
+				`Option '${key}' must match pattern /^[\\x21-\\x7E]+$/u`,
+			);
+		}
 	});
 
 	test("dynamodbValidateOptions validates contextKey as a string", () => {

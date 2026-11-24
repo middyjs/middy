@@ -1,4 +1,5 @@
 ---
+
 title: Code Commit
 description: "Use Middy with CodeCommit Lambda trigger events for repository automation."
 ---
@@ -37,14 +38,15 @@ flowchart LR
 Every hop through SNS, SQS, EventBridge, or EventBridge Pipes wraps the event Lambda receives in that service's envelope. [`@middy/event-normalizer`](/docs/middlewares/event-normalizer) unwraps the SNS and SQS envelopes.
 
 ## AWS Documentation
+
 - [Using AWS Lambda with AWS CodeCommit](https://docs.aws.amazon.com/lambda/latest/dg/services-codecommit.html)
 
 ## Example
-```javascript
-import middy from '@middy/core'
 
-export const handler = middy()
-  .handler((event, context, {signal}) => {
-    // ...
-  })
+```javascript
+import middy from "@middy/core";
+
+export const handler = middy().handler((event, context, { signal }) => {
+	// ...
+});
 ```

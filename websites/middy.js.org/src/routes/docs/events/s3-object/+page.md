@@ -1,4 +1,5 @@
 ---
+
 title: S3 Object
 description: "Use Middy with S3 Object Lambda events for transforming object responses."
 ---
@@ -35,18 +36,20 @@ flowchart LR
 ## Example
 
 ```javascript
-import middy from '@middy/core'
-import s3ObjectResponseMiddleware from '@middy/s3-object-response'
-import {captureAWSv3Client} from 'aws-xray-sdk-core'
-import {captureFetchGlobal} from 'aws-xray-sdk-fetch'
+import middy from "@middy/core";
+import s3ObjectResponseMiddleware from "@middy/s3-object-response";
+import { captureAWSv3Client } from "aws-xray-sdk-core";
+import { captureFetchGlobal } from "aws-xray-sdk-fetch";
 
-captureFetchGlobal()
+captureFetchGlobal();
 
 export const handler = middy()
-  .use(s3ObjectResponseMiddleware({
-    awsClientCapture: captureAWSv3Client
-  }))
-  .handler((event, context, {signal}) => {
-    // ...
-  })
+	.use(
+		s3ObjectResponseMiddleware({
+			awsClientCapture: captureAWSv3Client,
+		}),
+	)
+	.handler((event, context, { signal }) => {
+		// ...
+	});
 ```

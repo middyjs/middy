@@ -1,4 +1,5 @@
 ---
+
 title: event-batch-response
 description: "Shape Lambda batch responses per event source (SQS, Kinesis, DynamoDB Streams, Kafka, S3 Batch, Firehose)."
 status: alpha
@@ -19,17 +20,17 @@ For per-record handler wrapping, see [`@middy/event-batch-handler`](/docs/handle
 
 ## Supported event sources
 
-| Source | Detection | Records container | Supported | Per-record identifier |
-|---|---|---|---|---|
-| Amazon SQS | `eventSource: "aws:sqs"` | `event.Records[]` | ✓ | `record.messageId` |
-| Kinesis Data Streams | `eventSource: "aws:kinesis"` | `event.Records[]` | ✓ | `record.kinesis.sequenceNumber` |
-| DynamoDB Streams | `eventSource: "aws:dynamodb"` | `event.Records[]` | ✓ | `record.dynamodb.SequenceNumber` |
-| Amazon MSK | `eventSource: "aws:kafka"` | `event.records` (object keyed by `topic-partition`) | ✓ | `"<topic>-<partition>-<offset>"` |
-| Self-managed Apache Kafka | `eventSource: "SelfManagedKafka"` | `event.records` (object keyed by `topic-partition`) | ✓ | `"<topic>-<partition>-<offset>"` |
-| S3 Batch Operations | `event.invocationSchemaVersion` + `event.tasks[]` | `event.tasks[]` | ✓ | `task.taskId` |
-| Kinesis Firehose transform | `event.deliveryStreamArn` | `event.records[]` | ✓ | `record.recordId` |
-| Amazon DocumentDB streams | `eventSource: "aws:docdb"` | `event.events[]` | ✗ (not supported by AWS, DocumentDB invokes Lambda sequentially with concurrency 1, no partial-failure contract) |, |
-| Amazon MQ (ActiveMQ / RabbitMQ) | `eventSource: "aws:amq"` / `"aws:rmq"` | varies | ✗ (not supported by AWS) |, |
+| Source                          | Detection                                         | Records container                                   | Supported                                                                                                        | Per-record identifier            |
+| ------------------------------- | ------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| Amazon SQS                      | `eventSource: "aws:sqs"`                          | `event.Records[]`                                   | ✓                                                                                                                | `record.messageId`               |
+| Kinesis Data Streams            | `eventSource: "aws:kinesis"`                      | `event.Records[]`                                   | ✓                                                                                                                | `record.kinesis.sequenceNumber`  |
+| DynamoDB Streams                | `eventSource: "aws:dynamodb"`                     | `event.Records[]`                                   | ✓                                                                                                                | `record.dynamodb.SequenceNumber` |
+| Amazon MSK                      | `eventSource: "aws:kafka"`                        | `event.records` (object keyed by `topic-partition`) | ✓                                                                                                                | `"<topic>-<partition>-<offset>"` |
+| Self-managed Apache Kafka       | `eventSource: "SelfManagedKafka"`                 | `event.records` (object keyed by `topic-partition`) | ✓                                                                                                                | `"<topic>-<partition>-<offset>"` |
+| S3 Batch Operations             | `event.invocationSchemaVersion` + `event.tasks[]` | `event.tasks[]`                                     | ✓                                                                                                                | `task.taskId`                    |
+| Kinesis Firehose transform      | `event.deliveryStreamArn`                         | `event.records[]`                                   | ✓                                                                                                                | `record.recordId`                |
+| Amazon DocumentDB streams       | `eventSource: "aws:docdb"`                        | `event.events[]`                                    | ✗ (not supported by AWS, DocumentDB invokes Lambda sequentially with concurrency 1, no partial-failure contract) | ,                                |
+| Amazon MQ (ActiveMQ / RabbitMQ) | `eventSource: "aws:amq"` / `"aws:rmq"`            | varies                                              | ✗ (not supported by AWS)                                                                                         | ,                                |
 
 For an unsupported or unrecognized event source the middleware no-ops, your handler's response is left untouched.
 
@@ -44,40 +45,36 @@ The recommended pattern is to pair this middleware with [`@middy/event-batch-han
 ### SQS / Kinesis / DynamoDB Streams / MSK / Self-managed Kafka
 
 ```javascript
-import middy from '@middy/core'
-import eventBatchResponse from '@middy/event-batch-response'
-import eventBatchHandler from '@middy/event-batch-handler'
+import middy from "@middy/core";
+import eventBatchResponse from "@middy/event-batch-response";
+import eventBatchHandler from "@middy/event-batch-handler";
 
 const recordHandler = async (record, context) => {
-  // process one record; throw to mark it failed
-  await processRecord(record)
-}
-const lambdaHandler = eventBatchHandler(recordHandler)
+	// process one record; throw to mark it failed
+	await processRecord(record);
+};
+const lambdaHandler = eventBatchHandler(recordHandler);
 
-export const handler = middy()
-  .use(eventBatchResponse())
-  .handler(lambdaHandler)
+export const handler = middy().use(eventBatchResponse()).handler(lambdaHandler);
 ```
 
 ### S3 Batch Operations
 
 ```javascript
-import middy from '@middy/core'
-import eventBatchResponse from '@middy/event-batch-response'
-import eventBatchHandler from '@middy/event-batch-handler'
+import middy from "@middy/core";
+import eventBatchResponse from "@middy/event-batch-response";
+import eventBatchHandler from "@middy/event-batch-handler";
 
 const recordHandler = async (task, context) => {
-  const message = await processObject(task.s3Key)
-  // Return a string → resultString, resultCode = "Succeeded"
-  return message
-  // Or return an explicit shape to override:
-  // return { resultCode: "PermanentFailure", resultString: "blocked" }
-}
-const lambdaHandler = eventBatchHandler(recordHandler)
+	const message = await processObject(task.s3Key);
+	// Return a string → resultString, resultCode = "Succeeded"
+	return message;
+	// Or return an explicit shape to override:
+	// return { resultCode: "PermanentFailure", resultString: "blocked" }
+};
+const lambdaHandler = eventBatchHandler(recordHandler);
 
-export const handler = middy()
-  .use(eventBatchResponse())
-  .handler(lambdaHandler)
+export const handler = middy().use(eventBatchResponse()).handler(lambdaHandler);
 ```
 
 Result-code defaults: fulfilled → `Succeeded`, rejected → `TemporaryFailure` (Lambda will retry the task). Return `{ resultCode, resultString }` from the handler to choose `PermanentFailure` explicitly. The middleware echoes `invocationId` and `invocationSchemaVersion` from the request and sets `treatMissingKeysAs: "PermanentFailure"`.
@@ -85,21 +82,19 @@ Result-code defaults: fulfilled → `Succeeded`, rejected → `TemporaryFailure`
 ### Kinesis Firehose transform
 
 ```javascript
-import middy from '@middy/core'
-import eventBatchResponse from '@middy/event-batch-response'
-import eventBatchHandler from '@middy/event-batch-handler'
+import middy from "@middy/core";
+import eventBatchResponse from "@middy/event-batch-response";
+import eventBatchHandler from "@middy/event-batch-handler";
 
 const recordHandler = async (record, context) => {
-  const decoded = Buffer.from(record.data, 'base64').toString('utf-8')
-  return transform(decoded)
-  // Or explicit shape (e.g. to drop a record):
-  // return { result: "Dropped", data: "" }
-}
-const lambdaHandler = eventBatchHandler(recordHandler)
+	const decoded = Buffer.from(record.data, "base64").toString("utf-8");
+	return transform(decoded);
+	// Or explicit shape (e.g. to drop a record):
+	// return { result: "Dropped", data: "" }
+};
+const lambdaHandler = eventBatchHandler(recordHandler);
 
-export const handler = middy()
-  .use(eventBatchResponse())
-  .handler(lambdaHandler)
+export const handler = middy().use(eventBatchResponse()).handler(lambdaHandler);
 ```
 
 Result defaults: fulfilled with a string/Buffer → `result: "Ok"` and the value is base64-encoded for you. Fulfilled with `{ result, data }` is passed through (use this for `Dropped`). Rejected → `result: "ProcessingFailed"` and the original input `data` is echoed back.
@@ -138,7 +133,7 @@ See:
 Kafka event sources (MSK and self-managed) **do not** use a single checkpoint per batch. Lambda commits offsets per topic-partition, only for messages that were not reported as failed:
 
 - Within a single partition, message order is preserved as long as no failures occur.
-- If message *N* fails but *N+1* succeeds in the same partition, *N+1*'s offset still commits, which means *N* will be retried later out of order with respect to *N+1*. If your handler depends on strict per-partition ordering, treat any partial batch failure as a full-batch failure (throw from the handler) rather than reporting individual offsets.
+- If message _N_ fails but _N+1_ succeeds in the same partition, _N+1_'s offset still commits, which means _N_ will be retried later out of order with respect to _N+1_. If your handler depends on strict per-partition ordering, treat any partial batch failure as a full-batch failure (throw from the handler) rather than reporting individual offsets.
 - `BisectBatchOnFunctionError` does **not** apply to Kafka event sources.
 - Retries follow `MaximumRetryAttempts` on the event source mapping; exhausted records go to the on-failure destination if configured.
 

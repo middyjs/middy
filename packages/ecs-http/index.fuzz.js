@@ -11,32 +11,53 @@ import {
 	resolveSourceIp,
 } from "./index.js";
 
-const reqArb = fc.record({
-	method: fc.constantFrom("GET", "POST", "PUT", "DELETE", "PATCH"),
-	url: fc
-		.webUrl({
-			authoritySettings: {
-				host: fc.constant("example.com"),
-				port: fc.constant(undefined),
-			},
-			withQueryParameters: true,
-		})
-		.map((u) => {
-			try {
-				const p = new URL(u);
-				return p.pathname + p.search;
-			} catch {
-				return "/";
-			}
-		}),
-	headers: fc.dictionary(
-		fc.string({ minLength: 1, maxLength: 32 }),
-		fc.oneof(fc.string(), fc.array(fc.string(), { maxLength: 4 })),
-		{ maxKeys: 8 },
+const headerLinesArb = fc.array(
+	fc.tuple(
+		fc.oneof(
+			fc.constantFrom("host", "accept", "cookie", "set-cookie", "__proto__"),
+			fc.string({ minLength: 1, maxLength: 8 }).map((s) => s.toLowerCase()),
+		),
+		fc.string(),
 	),
-	httpVersion: fc.constant("1.1"),
-	socket: fc.record({ remoteAddress: fc.ipV4() }),
-});
+	{ maxLength: 8 },
+);
+const headerViews = (lines) => {
+	const headers = {};
+	const headersDistinct = Object.create(null);
+	for (const [name, value] of lines) {
+		headersDistinct[name] ??= [];
+		headersDistinct[name].push(value);
+		if (name === "set-cookie") headers[name] = headersDistinct[name];
+		else if (name === "host") headers[name] ??= value;
+		else headers[name] = name in headers ? `${headers[name]}, ${value}` : value;
+	}
+	return { headers, headersDistinct, rawHeaders: lines.flat() };
+};
+
+const reqArb = fc
+	.record({
+		method: fc.constantFrom("GET", "POST", "PUT", "DELETE", "PATCH"),
+		url: fc
+			.webUrl({
+				authoritySettings: {
+					host: fc.constant("example.com"),
+					port: fc.constant(undefined),
+				},
+				withQueryParameters: true,
+			})
+			.map((u) => {
+				try {
+					const p = new URL(u);
+					return p.pathname + p.search;
+				} catch {
+					return "/";
+				}
+			}),
+		lines: headerLinesArb,
+		httpVersion: fc.constant("1.1"),
+		socket: fc.record({ remoteAddress: fc.ipV4() }),
+	})
+	.map(({ lines, ...req }) => ({ ...req, ...headerViews(lines) }));
 
 const bodyArb = fc.uint8Array({ maxLength: 4096 }).map((u) => Buffer.from(u));
 

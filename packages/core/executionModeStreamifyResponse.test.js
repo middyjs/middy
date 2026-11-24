@@ -1279,6 +1279,152 @@ describe("@middy/core/StreamifyResponse", () => {
 			);
 		});
 
+		const streamStringBody = async (input) => {
+			const written = [];
+			const responseStream = new Writable({
+				write(chunk, encoding, callback) {
+					written.push(chunk);
+					callback();
+				},
+			});
+			const handler = middy({
+				executionMode: executionModeStreamifyResponse,
+			}).handler(() => input);
+
+			await handler(event, responseStream, context);
+
+			return {
+				output: Buffer.concat(written).toString("utf8"),
+				writes: written.map((chunk) => chunk.toString("utf8")),
+			};
+		};
+
+		test("Should cut a string with no surrogate pair every chunkSize characters", async (t) => {
+			const chunkSize = 16384;
+			const head = "x".repeat(chunkSize);
+
+			const { writes } = await streamStringBody(`${head}tail`);
+
+			deepStrictEqual(writes, [head, "tail"]);
+		});
+
+		test("Should keep a surrogate pair whole when it straddles a chunk boundary", async (t) => {
+			const chunkSize = 16384;
+			const input = `${"x".repeat(chunkSize - 1)}\u{1F600}tail`;
+
+			const { output } = await streamStringBody(input);
+
+			strictEqual(output, input);
+		});
+
+		test("Should write the low surrogate in the chunk that holds its high surrogate", async (t) => {
+			const chunkSize = 16384;
+			const head = `${"x".repeat(chunkSize - 1)}\u{1F600}`;
+
+			const { writes } = await streamStringBody(`${head}tail`);
+
+			deepStrictEqual(writes, [head, "tail"]);
+		});
+
+		test("Should not move the cut for a surrogate pair that ends or starts on a chunk boundary", async (t) => {
+			const chunkSize = 16384;
+			const head = `${"x".repeat(chunkSize - 2)}\u{1F600}`;
+			const tail = "\u{1F601}tail";
+
+			const { output, writes } = await streamStringBody(head + tail);
+
+			strictEqual(output, head + tail);
+			deepStrictEqual(writes, [head, tail]);
+		});
+
+		test("Should keep the lowest and highest surrogate pairs whole across a chunk boundary", async (t) => {
+			const chunkSize = 16384;
+			for (const character of ["\u{10000}", "\u{10FFFF}"]) {
+				const input = `${"x".repeat(chunkSize - 1)}${character}tail`;
+
+				const { output } = await streamStringBody(input);
+
+				strictEqual(output, input);
+			}
+		});
+
+		const streamHttpResponse = async (response) => {
+			const written = [];
+			const responseStream = new Writable({
+				write(chunk, encoding, callback) {
+					written.push(chunk);
+					callback();
+				},
+			});
+			const handler = middy({
+				executionMode: executionModeStreamifyResponse,
+			}).handler(() => response);
+
+			await handler(event, responseStream, context);
+
+			const bytes = Buffer.concat(written);
+			const delimiterIndex = bytes.indexOf(Buffer.alloc(DELIMITER_LEN));
+			return {
+				prelude: JSON.parse(bytes.subarray(0, delimiterIndex).toString("utf8")),
+				payload: bytes.subarray(delimiterIndex + DELIMITER_LEN),
+			};
+		};
+
+		test("Should stream the decoded bytes of a base64 encoded string body", async (t) => {
+			const invalidUtf8Bytes = Buffer.from([
+				0x1f, 0x8b, 0x08, 0x00, 0xff, 0xfe, 0x80,
+			]);
+
+			const { payload } = await streamHttpResponse({
+				statusCode: 200,
+				headers: { "Content-Encoding": "gzip" },
+				body: invalidUtf8Bytes.toString("base64"),
+				isBase64Encoded: true,
+			});
+
+			deepStrictEqual(payload, invalidUtf8Bytes);
+		});
+
+		test("Should leave isBase64Encoded out of the prelude", async (t) => {
+			const { prelude } = await streamHttpResponse({
+				statusCode: 200,
+				headers: { "Content-Encoding": "gzip" },
+				body: Buffer.from("payload").toString("base64"),
+				isBase64Encoded: true,
+			});
+
+			deepStrictEqual(prelude, {
+				statusCode: 200,
+				headers: { "Content-Encoding": "gzip" },
+			});
+		});
+
+		test("Should stream a string body as is when isBase64Encoded is false", async (t) => {
+			const validBase64Body = "payload0";
+
+			const { prelude, payload } = await streamHttpResponse({
+				statusCode: 200,
+				body: validBase64Body,
+				isBase64Encoded: false,
+			});
+
+			deepStrictEqual(prelude, { statusCode: 200 });
+			strictEqual(payload.toString("utf8"), validBase64Body);
+		});
+
+		test("Should pipe a stream body as is when isBase64Encoded is true", async (t) => {
+			const validBase64Body = "payload0";
+
+			const { prelude, payload } = await streamHttpResponse({
+				statusCode: 200,
+				body: Readable.from([validBase64Body]),
+				isBase64Encoded: true,
+			});
+
+			deepStrictEqual(prelude, { statusCode: 200 });
+			strictEqual(payload.toString("utf8"), validBase64Body);
+		});
+
 		test("Should trigger requestEnd hook after stream ends", async (t) => {
 			const input = "x".repeat(1024 * 1024);
 			let streamEnd = false;

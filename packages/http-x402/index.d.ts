@@ -11,12 +11,16 @@ export type RequestEvent = APIGatewayEvent | APIGatewayProxyEventV2;
 
 interface BaseOptions {
 	FacilitatorClient?: new (config: {
-		url?: string;
+		url: string;
 	}) => {
 		verify(payload: unknown, requirements: unknown): Promise<unknown>;
 		settle(payload: unknown, requirements: unknown): Promise<unknown>;
 	};
-	facilitatorUrl?: string;
+	/**
+	 * URL of the facilitator that verifies and settles payments. Required: the
+	 * facilitator decides whether a payment is valid, so there is no default.
+	 */
+	facilitatorUrl: string;
 	versions?: readonly (1 | 2)[];
 	price?: number | string;
 	amount?: string;

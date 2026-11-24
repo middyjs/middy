@@ -1,13 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import { constants, createHash, createPublicKey, verify } from "node:crypto";
-import {
-	getInternal,
-	HttpError,
-	sanitizeKey,
-	setContextNamespace,
-	validateOptions,
-} from "@middy/util";
+import { HttpError, setContextNamespace, validateOptions } from "@middy/util";
 
 const name = "http-dpop";
 const pkg = `@middy/${name}`;
@@ -26,34 +20,6 @@ const defaults = {
 	required: false,
 	setToContext: false,
 };
-
-const stringOrStringArraySchema = {
-	oneOf: [{ type: "string" }, { type: "array", items: { type: "string" } }],
-};
-
-const optionSchema = {
-	type: "object",
-	properties: {
-		payloadKey: { type: "string" },
-		tokenKey: { type: "string" },
-		proofKey: { type: "string" },
-		confirmationClaim: { type: "string" },
-		origin: { type: "string" },
-		algorithm: stringOrStringArraySchema,
-		maxAge: { type: "number", minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
-		maxProofLength: {
-			type: "number",
-			minimum: 1,
-			maximum: Number.MAX_SAFE_INTEGER,
-		},
-		required: { type: "boolean" },
-		setToContext: { type: "boolean" },
-	},
-	additionalProperties: false,
-};
-
-export const httpDpopValidateOptions = (options) =>
-	validateOptions(pkg, optionSchema, options);
 
 const ALGORITHMS = {
 	ES256: {
@@ -89,6 +55,61 @@ const ALGORITHMS = {
 };
 
 const ALGORITHM_NAMES = Object.keys(ALGORITHMS);
+
+const keyNameSchema = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\x21-\x7E]+$/u,
+};
+
+const algorithmSchema = { type: "string", enum: ALGORITHM_NAMES };
+
+const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:http-dpop:options",
+	type: "object",
+	properties: {
+		payloadKey: keyNameSchema,
+		tokenKey: keyNameSchema,
+		proofKey: keyNameSchema,
+		confirmationClaim: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\p{L}\p{N}\p{P}\p{S} ]+$/u,
+		},
+		origin: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^https?:\/\/[\x21-\x7E]+$/u,
+		},
+		algorithm: {
+			oneOf: [
+				algorithmSchema,
+				{
+					type: "array",
+					items: algorithmSchema,
+					maxItems: ALGORITHM_NAMES.length,
+					uniqueItems: true,
+					unevaluatedItems: false,
+				},
+			],
+		},
+		maxAge: { type: "number", minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
+		maxProofLength: {
+			type: "number",
+			minimum: 1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
+		required: { type: "boolean" },
+		setToContext: { type: "boolean" },
+	},
+	required: [],
+	additionalProperties: false,
+	unevaluatedProperties: false,
+};
+
+export const httpDpopValidateOptions = (options) =>
+	validateOptions(pkg, optionSchema, options);
 
 // RFC 7638 §3.2: only the required members, in lexicographic order, with no
 // whitespace. Hashing only these means an extra member in the JWK cannot change
@@ -263,8 +284,11 @@ const headerValues = (headers, lowerName) => {
 
 // Exactly one DPoP header, per RFC 9449 §4.3 step 1. Two proofs, whether
 // repeated or under two casings, are ambiguous rather than merely redundant,
-// so they are refused instead of resolved. readAuthorization runs first and
-// rejects when `headers` is absent, so `headers` is always an object here.
+// so they are refused instead of resolved. API Gateway REST and HTTP API
+// payload 1.0 events keep only the last value of a repeated header in
+// `headers` and list every value in `multiValueHeaders`.
+// https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-input-format
+// https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html
 const readProof = (headers) => {
 	const values = headerValues(headers, "dpop");
 	return values.length === 1 ? asString(values[0]) : undefined;
@@ -294,6 +318,11 @@ export const verifyDpopProof = (
 	const header = decodeJson(headerSegment, "header");
 	if (header.typ !== "dpop+jwt") {
 		throw new Error(`Proof 'typ' is '${header.typ}', expected 'dpop+jwt'`);
+	}
+	// RFC 7515 section 4.1.11: a JWS is invalid when `crit` lists an extension
+	// the recipient does not understand.
+	if (header.crit !== undefined) {
+		throw new Error("Proof 'crit' lists an extension that is not supported");
 	}
 	if (!algorithms.includes(header.alg)) {
 		throw new Error(`Proof 'alg' is '${header.alg}', which is not allowed`);
@@ -400,8 +429,18 @@ const httpDpopMiddleware = (opts = {}) => {
 	};
 
 	const httpDpopMiddlewareBefore = async (request) => {
-		const result = await getInternal(options.payloadKey, request);
-		const payload = result[sanitizeKey(options.payloadKey)];
+		const payload = await request.internal[options.payloadKey];
+
+		if (payload === undefined) {
+			throw new HttpError(500, {
+				cause: {
+					package: pkg,
+					data: {
+						reason: `No verified payload at request.internal['${options.payloadKey}']: run the token verifier first and give both the same payloadKey`,
+					},
+				},
+			});
+		}
 
 		// A DPoP-bound token names its key in the `cnf` confirmation claim
 		// (RFC 7800). Absent means the token is an ordinary bearer token, which
@@ -442,7 +481,7 @@ const httpDpopMiddleware = (opts = {}) => {
 		}
 
 		// readProof returns a string or undefined, so `!proof` is the whole check.
-		const proof = readProof(headers);
+		const proof = readProof(request.event.multiValueHeaders ?? headers);
 		if (!proof) {
 			throw unauthorized("Missing DPoP header");
 		}

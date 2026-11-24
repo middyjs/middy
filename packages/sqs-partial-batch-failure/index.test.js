@@ -1,5 +1,6 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { describe, test } from "node:test";
+import { setImmediate } from "node:timers/promises";
 import createEvent from "@serverless/event-mocks";
 
 import middy from "../core/index.js";
@@ -20,6 +21,8 @@ const lambdaHandler = async (e) => {
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
+
+const thenKey = "then";
 
 describe("@middy/sqs-partial-batch-failure", () => {
 	test("Should return when there are only failed messages", async (t) => {
@@ -591,6 +594,27 @@ describe("@middy/sqs-partial-batch-failure", () => {
 		}
 	});
 
+	test("sqsPartialBatchFailureValidateOptions caps mask at 1024 printable characters", () => {
+		sqsPartialBatchFailureValidateOptions({ mask: "***omitted***" });
+		sqsPartialBatchFailureValidateOptions({ mask: "x".repeat(1024) });
+		throws(
+			() => sqsPartialBatchFailureValidateOptions({ mask: "x".repeat(1025) }),
+			{
+				name: "TypeError",
+				message: "Option 'mask' must have length <= 1024",
+				cause: { package: "@middy/sqs-partial-batch-failure" },
+			},
+		);
+		throws(
+			() => sqsPartialBatchFailureValidateOptions({ mask: "line\nbreak" }),
+			{
+				name: "TypeError",
+				message: /^Option 'mask' must match pattern /,
+				cause: { package: "@middy/sqs-partial-batch-failure" },
+			},
+		);
+	});
+
 	test("Should pass the request as the first logger argument", async (t) => {
 		const event = createEvent.default("aws:sqs", {
 			Records: [
@@ -672,6 +696,376 @@ describe("@middy/sqs-partial-batch-failure", () => {
 		strictEqual(reason.cause.data.card, "[redacted]");
 		strictEqual(reason.message, "handler error");
 		strictEqual(thrown.cause.data.card, "4111111111111111");
+	});
+
+	const standardRecords = (...ids) =>
+		ids.map((messageId) => ({
+			messageId,
+			eventSource: "aws:sqs",
+			eventSourceARN: "arn:aws:sqs:us-east-1:123456789012:q",
+			body: `body of ${messageId}`,
+		}));
+
+	test("Should succeed when omitPaths removes the event and every record is fulfilled", async (t) => {
+		const logger = t.mock.fn();
+		const handler = middy(async () => [
+			{ status: "fulfilled" },
+			{ status: "fulfilled" },
+		]).use(sqsPartialBatchFailure({ logger, omitPaths: ["event"] }));
+
+		const response = await handler(
+			{ Records: standardRecords("a", "b") },
+			defaultContext,
+		);
+
+		deepStrictEqual(response, { batchItemFailures: [] });
+		strictEqual(logger.mock.callCount(), 0);
+	});
+
+	test("Should report only the failed record when omitPaths removes the event or its Records", async (t) => {
+		for (const omitPaths of [
+			["event"],
+			["event.Records"],
+			["event.Records.body"],
+		]) {
+			const logger = t.mock.fn();
+			const reason = new Error("boom");
+			const handler = middy(async () => [
+				{ status: "fulfilled" },
+				{ status: "rejected", reason },
+			]).use(sqsPartialBatchFailure({ logger, omitPaths }));
+
+			const response = await handler(
+				{ Records: standardRecords("a", "b") },
+				defaultContext,
+			);
+
+			deepStrictEqual(response, {
+				batchItemFailures: [{ itemIdentifier: "b" }],
+			});
+			strictEqual(logger.mock.callCount(), 1);
+			const [, failure] = logger.mock.calls[0].arguments;
+			strictEqual(failure.reason, reason);
+			strictEqual(failure.record, undefined);
+		}
+	});
+
+	test("Should hand the logger no record when a mask replaces the event or its Records", async (t) => {
+		for (const omitPaths of [
+			["event"],
+			["event.Records"],
+			["event.Records.body"],
+		]) {
+			const logger = t.mock.fn();
+			const handler = middy(async () => [
+				{ status: "rejected", reason: new Error("boom") },
+				{ status: "fulfilled" },
+			]).use(sqsPartialBatchFailure({ logger, omitPaths, mask: "***" }));
+
+			const response = await handler(
+				{ Records: standardRecords("a", "b") },
+				defaultContext,
+			);
+
+			deepStrictEqual(response, {
+				batchItemFailures: [{ itemIdentifier: "a" }],
+			});
+			strictEqual(logger.mock.callCount(), 1);
+			strictEqual(logger.mock.calls[0].arguments[1].record, undefined);
+		}
+	});
+
+	test("Should report a throwing logger via console.error and keep the batch result", async (t) => {
+		const loggerError = new Error("logger down");
+		const consoleError = t.mock.method(console, "error", () => {});
+		const logger = t.mock.fn(() => {
+			throw loggerError;
+		});
+		const handler = middy(async () => [
+			{ status: "rejected", reason: new Error("boom") },
+			{ status: "fulfilled" },
+			{ status: "rejected", reason: new Error("boom") },
+		]).use(sqsPartialBatchFailure({ logger }));
+
+		const response = await handler(
+			{ Records: standardRecords("a", "b", "c") },
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			batchItemFailures: [{ itemIdentifier: "a" }, { itemIdentifier: "c" }],
+		});
+		strictEqual(logger.mock.callCount(), 2);
+		strictEqual(consoleError.mock.callCount(), 2);
+		strictEqual(consoleError.mock.calls[0].arguments[0], loggerError);
+		strictEqual(consoleError.mock.calls[1].arguments[0], loggerError);
+	});
+
+	test("Should report a rejected async logger via console.error and keep the batch result", async (t) => {
+		const loggerError = new Error("log sink unreachable");
+		const consoleError = t.mock.method(console, "error", () => {});
+		const handler = middy(async () => [
+			{ status: "rejected", reason: new Error("boom") },
+			{ status: "fulfilled" },
+		]).use(
+			sqsPartialBatchFailure({
+				logger: async () => {
+					throw loggerError;
+				},
+			}),
+		);
+
+		const response = await handler(
+			{ Records: standardRecords("a", "b") },
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			batchItemFailures: [{ itemIdentifier: "a" }],
+		});
+		strictEqual(consoleError.mock.callCount(), 1);
+		strictEqual(consoleError.mock.calls[0].arguments[0], loggerError);
+	});
+
+	test("Should wait for every async logger before the invocation settles", async (t) => {
+		const shipped = [];
+		const handler = middy(async () => [
+			{ status: "rejected", reason: new Error("boom") },
+			{ status: "fulfilled" },
+			{ status: "rejected", reason: new Error("boom") },
+		]).use(
+			sqsPartialBatchFailure({
+				logger: async (_request, { record }) => {
+					await setImmediate();
+					shipped.push(record.messageId);
+					return { chained: true };
+				},
+			}),
+		);
+
+		const response = await handler(
+			{ Records: standardRecords("a", "b", "c") },
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			batchItemFailures: [{ itemIdentifier: "a" }, { itemIdentifier: "c" }],
+		});
+		deepStrictEqual(shipped, ["a", "c"]);
+	});
+
+	test("Should wait for every async logger when the handler throws", async (t) => {
+		const shipped = [];
+		const handler = middy(async () => {
+			throw new Error("boom");
+		}).use(
+			sqsPartialBatchFailure({
+				logger: async (_request, { record }) => {
+					await setImmediate();
+					shipped.push(record.messageId);
+				},
+			}),
+		);
+
+		const response = await handler(
+			{ Records: standardRecords("a", "b") },
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			batchItemFailures: [{ itemIdentifier: "a" }, { itemIdentifier: "b" }],
+		});
+		deepStrictEqual(shipped, ["a", "b"]);
+	});
+
+	test("Should await a thenable returned by the logger", async (t) => {
+		const loggerError = new Error("log sink unreachable");
+		const consoleError = t.mock.method(console, "error", () => {});
+		const handler = middy(async () => [
+			{ status: "rejected", reason: new Error("boom") },
+		]).use(
+			sqsPartialBatchFailure({
+				logger: () => ({
+					[thenKey]: (_resolve, reject) => reject(loggerError),
+				}),
+			}),
+		);
+
+		const response = await handler(
+			{ Records: standardRecords("a") },
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			batchItemFailures: [{ itemIdentifier: "a" }],
+		});
+		strictEqual(consoleError.mock.callCount(), 1);
+		strictEqual(consoleError.mock.calls[0].arguments[0], loggerError);
+	});
+
+	test("Should keep the after hook synchronous for a synchronous logger", (t) => {
+		const consoleError = t.mock.method(console, "error", () => {});
+
+		for (const result of [undefined, null, { chained: true }, "logged"]) {
+			const logger = t.mock.fn(() => result);
+			const request = {
+				event: { Records: standardRecords("a", "b") },
+				response: [
+					{ status: "rejected", reason: new Error("boom") },
+					{ status: "fulfilled" },
+				],
+			};
+
+			strictEqual(sqsPartialBatchFailure({ logger }).after(request), undefined);
+			deepStrictEqual(request.response, {
+				batchItemFailures: [{ itemIdentifier: "a" }],
+			});
+			strictEqual(logger.mock.callCount(), 1);
+		}
+		strictEqual(consoleError.mock.callCount(), 0);
+	});
+
+	test("Should keep the after hook synchronous when no record failed", (t) => {
+		const request = {
+			event: { Records: standardRecords("a") },
+			response: [{ status: "fulfilled" }],
+		};
+
+		strictEqual(
+			sqsPartialBatchFailure({ logger: async () => {} }).after(request),
+			undefined,
+		);
+		deepStrictEqual(request.response, { batchItemFailures: [] });
+	});
+
+	test("Should hand every failed record's logger call the same redacted request", async (t) => {
+		const logger = t.mock.fn();
+		const handler = middy(async () => [
+			{ status: "rejected", reason: new Error("boom") },
+			{ status: "rejected", reason: new Error("boom") },
+		]).use(
+			sqsPartialBatchFailure({ logger, omitPaths: ["event.Records.[].body"] }),
+		);
+
+		const event = { Records: standardRecords("a", "b") };
+		await handler(event, defaultContext);
+
+		strictEqual(logger.mock.callCount(), 2);
+		const [first] = logger.mock.calls[0].arguments;
+		const [second] = logger.mock.calls[1].arguments;
+		strictEqual(first, second);
+		ok(first.event !== event);
+		deepStrictEqual(
+			logger.mock.calls.map((call) => call.arguments[1].record),
+			event.Records.map(({ body, ...record }) => record),
+		);
+	});
+
+	test("Should report failures silently with logger: false when omitPaths removes the event", async (t) => {
+		const consoleError = t.mock.method(console, "error", () => {});
+		const handler = middy(async () => [
+			{ status: "fulfilled" },
+			{ status: "rejected", reason: new Error("boom") },
+		]).use(sqsPartialBatchFailure({ logger: false, omitPaths: ["event"] }));
+
+		const response = await handler(
+			{ Records: standardRecords("a", "b") },
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			batchItemFailures: [{ itemIdentifier: "b" }],
+		});
+		strictEqual(consoleError.mock.callCount(), 0);
+	});
+
+	test("Should keep the batch result when redacting the request throws", async (t) => {
+		const redactionError = new Error("getter failed");
+		const consoleError = t.mock.method(console, "error", () => {});
+		const logger = t.mock.fn();
+		const [record] = standardRecords("a");
+		Object.defineProperty(record, "body", {
+			enumerable: true,
+			get() {
+				throw redactionError;
+			},
+		});
+		const handler = middy(async () => [
+			{ status: "rejected", reason: new Error("boom") },
+		]).use(
+			sqsPartialBatchFailure({
+				logger,
+				omitPaths: ["event.Records.[].body.ssn"],
+			}),
+		);
+
+		const response = await handler({ Records: [record] }, defaultContext);
+
+		deepStrictEqual(response, {
+			batchItemFailures: [{ itemIdentifier: "a" }],
+		});
+		strictEqual(logger.mock.callCount(), 0);
+		strictEqual(consoleError.mock.callCount(), 1);
+		strictEqual(consoleError.mock.calls[0].arguments[0], redactionError);
+	});
+
+	test("Should omit an array path whose segment holds a dot", async (t) => {
+		const logger = t.mock.fn();
+		const omitPaths = [
+			["event", "Records", "[]", "messageAttributes", "user.email"],
+		];
+		sqsPartialBatchFailureValidateOptions({ omitPaths });
+		const [record] = standardRecords("a");
+		record.messageAttributes = {
+			"user.email": { stringValue: "a@example.com" },
+			tenant: { stringValue: "t1" },
+		};
+
+		const handler = middy(async () => [
+			{ status: "rejected", reason: new Error("boom") },
+		]).use(sqsPartialBatchFailure({ logger, omitPaths }));
+
+		await handler({ Records: [record] }, defaultContext);
+
+		deepStrictEqual(
+			logger.mock.calls[0].arguments[1].record.messageAttributes,
+			{
+				tenant: { stringValue: "t1" },
+			},
+		);
+	});
+
+	test("sqsPartialBatchFailureValidateOptions rejects an omitPaths entry that is not a string or an array of strings", () => {
+		for (const entry of [1, null, {}, ["event", 1], [["event"]], []]) {
+			throws(
+				() => sqsPartialBatchFailureValidateOptions({ omitPaths: [entry] }),
+				{
+					name: "TypeError",
+					message:
+						"Option 'omitPaths[0]' must match exactly one schema in oneOf",
+					cause: { package: "@middy/sqs-partial-batch-failure" },
+				},
+			);
+		}
+	});
+
+	test("sqsPartialBatchFailureValidateOptions rejects a path that could never match", () => {
+		for (const path of [
+			"event.Records[].body",
+			"event.Records.0.body",
+			"event.Records.*.body",
+			["event", "Records", "__proto__"],
+		]) {
+			const invalidPath = { name: "TypeError", message: /^Invalid path / };
+			throws(
+				() => sqsPartialBatchFailureValidateOptions({ omitPaths: [path] }),
+				invalidPath,
+			);
+			throws(() => sqsPartialBatchFailure({ omitPaths: [path] }), invalidPath);
+		}
+		sqsPartialBatchFailureValidateOptions({
+			omitPaths: ["event.Records.[].body", ["event", "Records", "[]", "0"]],
+		});
 	});
 
 	test("sqsPartialBatchFailureValidateOptions accepts omitPaths and mask", () => {

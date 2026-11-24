@@ -10,6 +10,15 @@ Also known as a core maintainer. Have a long history with the project, have a de
 
 Group of people responsible for reviewing pull requests.
 
+### Repository permissions
+
+| Team | GitHub repository role | Can |
+| --- | --- | --- |
+| `@middyjs/owners` | Admin | Change settings, rulesets, and environments; approve the `npm-publish` environment (releases); code owner for `.github/`, `.husky/`, and agent configuration |
+| `@middyjs/reviewers` | Write | Push branches, and review and approve pull requests; default code owner. Cannot change settings, rulesets, or environments |
+
+Individual accounts get access only through these teams. Membership and roles are reviewed quarterly (see [Review cadence](#review-cadence)).
+
 ## Decisions
 
 All discussion and decisions are documented in a GitHub Issue to allow transparency and community feedback. Video calls to go over larger decisions and those that relate to governance may happen periodically.
@@ -24,10 +33,10 @@ All discussion and decisions are documented in a GitHub Issue to allow transpare
 
 The following reviews are scheduled to keep operational security practices current. Each is the responsibility of the [@middyjs/owners](https://github.com/orgs/middyjs/teams/owners) team unless otherwise noted.
 
-| Cadence | Activity | Notes |
-| --- | --- | --- |
-| Weekly | Triage OSSF Scorecard scan results; review Dependabot PRs; review SAST + secret-scan findings | Automated via [ossf-scorecard.yml](../.github/workflows/ossf-scorecard.yml) and [test-sast.yml](../.github/workflows/test-sast.yml) |
-| Per release | Confirm all gating checks pass (lint, unit, types, SAST, perf, DAST), provenance attestation issued, attestation verified before publish | Enforced in [release.yml](../.github/workflows/release.yml) |
-| Quarterly | Audit GitHub org administrators; review `step-security/harden-runner` blocked/audit egress events and reconcile per-job `allowed-endpoints` allowlists; review GitHub Environment reviewers for the `npm-publish` environment; review the runtime dependency inventory ([docs/DEPENDENCIES.md](DEPENDENCIES.md)) | Owners team |
-| Semi-annually | Review operational practices (this document, [SECURITY.md](../SECURITY.md), [docs/INCIDENT-RESPONSE.md](INCIDENT-RESPONSE.md), [docs/PIPELINE.md](PIPELINE.md), [docs/WORKSTATION.md](WORKSTATION.md)) for drift against current pipeline and workstation state | Owners team |
-| Annually | Re-attest [docs/SPVS-COMPLIANCE.md](SPVS-COMPLIANCE.md) against the latest OWASP SPVS revision; review known-gaps list and close where feasible; run incident-response tabletop exercise per [docs/INCIDENT-RESPONSE.md](INCIDENT-RESPONSE.md) | Owners team |
+| Cadence       | Activity                                                                                                                                                                                                                                                                                                         | Notes                                                                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Weekly        | Triage OSSF Scorecard scan results; review Dependabot PRs; review SAST + secret-scan findings                                                                                                                                                                                                                    | Automated via [ossf-scorecard.yml](../.github/workflows/ossf-scorecard.yml) and [test-sast.yml](../.github/workflows/test-sast.yml) |
+| Per release   | Confirm all gating checks pass (lint, unit, types, SAST, perf, DAST), provenance attestation issued, attestation verified before publish                                                                                                                                                                         | Enforced in [release.yml](../.github/workflows/release.yml)                                                                         |
+| Quarterly     | Audit GitHub org administrators, team membership and repository roles (see [Repository permissions](#repository-permissions)), and npm `@middy` scope members; review `step-security/harden-runner` blocked/audit egress events and reconcile per-job `allowed-endpoints` allowlists; review GitHub Environment reviewers for the `npm-publish` environment; review the runtime dependency inventory ([docs/DEPENDENCIES.md](DEPENDENCIES.md)) | Owners team                                                                                                                         |
+| Semi-annually | Review operational practices (this document, [SECURITY.md](../SECURITY.md), [docs/INCIDENT-RESPONSE.md](INCIDENT-RESPONSE.md), [docs/PIPELINE.md](PIPELINE.md), [docs/WORKSTATION.md](WORKSTATION.md)) for drift against current pipeline and workstation state                                                  | Owners team                                                                                                                         |
+| Annually      | Re-attest [docs/SPVS-COMPLIANCE.md](SPVS-COMPLIANCE.md) against the latest OWASP SPVS revision; review known-gaps list and close where feasible; run incident-response tabletop exercise per [docs/INCIDENT-RESPONSE.md](INCIDENT-RESPONSE.md)                                                                   | Owners team                                                                                                                         |

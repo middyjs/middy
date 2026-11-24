@@ -9,16 +9,40 @@ import {
 	KinesisClient,
 } from "@aws-sdk/client-kinesis";
 import { validateOptions } from "@middy/util";
+import { isTransientReadError, retryDelay, sleep } from "./pollHelpers.js";
 
 const pkg = "@middy/ecs-batch/pollKinesis";
 
+// "When delay is larger than 2147483647 or less than 1 or NaN, the delay will be set to 1."
+// https://nodejs.org/api/timers.html#settimeoutcallback-delay-args
+const timerMs = { type: "integer", minimum: 0, maximum: 2_147_483_647 };
+
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:ecs-batch:pollKinesis:options",
+	$defs: { Object: false },
 	type: "object",
 	properties: {
-		streamName: { type: "string" },
-		streamArn: { type: "string" },
-		shardId: { type: "string" },
-		client: { type: "object", additionalProperties: true },
+		// https://docs.aws.amazon.com/kinesis/latest/APIReference/API_GetShardIterator.html
+		streamName: {
+			type: "string",
+			minLength: 1,
+			maxLength: 128,
+			pattern: /^[\w.-]+$/u,
+		},
+		streamArn: {
+			type: "string",
+			minLength: 1,
+			maxLength: 2048,
+			pattern: /^arn:aws[\w-]*:kinesis:[\w-]*:\d{12}:stream\/[\x21-\x7E]+$/u,
+		},
+		shardId: {
+			type: "string",
+			minLength: 1,
+			maxLength: 128,
+			pattern: /^[\w.-]+$/u,
+		},
+		client: { $ref: "#/$defs/Object" },
 		shardIteratorType: {
 			type: "string",
 			enum: [
@@ -29,16 +53,26 @@ const optionSchema = {
 				"AT_TIMESTAMP",
 			],
 		},
-		startingSequenceNumber: { type: "string" },
-		timestamp: { type: "number" },
+		startingSequenceNumber: {
+			type: "string",
+			maxLength: 129,
+			pattern: /^(?:0|[1-9]\d{0,128})$/u,
+		},
+		// Epoch seconds, at most the ECMAScript time value range of 8.64e15 ms:
+		// https://tc39.es/ecma262/#sec-time-values-and-time-range
+		timestamp: { type: "number", minimum: 0, maximum: 8_640_000_000_000 },
+		// https://docs.aws.amazon.com/kinesis/latest/APIReference/API_GetRecords.html
 		limit: { type: "integer", minimum: 1, maximum: 10000 },
-		pollingDelay: { type: "integer", minimum: 0 },
-		awsRegion: { type: "string" },
+		pollingDelay: timerMs,
+		// The SDK takes any region that is a valid host label:
+		// node_modules/@smithy/core/dist-es/submodules/transport/isValidHostLabel.js
+		awsRegion: { type: "string", maxLength: 63, pattern: /^[A-Za-z0-9-]+$/u },
 		maxRetryAttempts: { type: "integer", minimum: -1, maximum: 10000 },
-		retryDelayMs: { type: "integer", minimum: 0 },
+		retryDelayMs: timerMs,
 	},
 	required: ["streamName", "shardId"],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const pollKinesisValidateOptions = (options) =>
@@ -81,11 +115,23 @@ const regionFromArn = (streamArn) => streamArn?.split(":")[3];
 
 const noop = () => {};
 
-// Backoff before a failed batch is re-read: retryDelayMs, doubling per
-// consecutive failure at the same sequence number, capped at 30 s (or
-// retryDelayMs when that is larger).
-const retryDelay = (retryDelayMs, attempt) =>
-	Math.min(retryDelayMs * 2 ** (attempt - 1), Math.max(retryDelayMs, 30_000));
+// The first two are documented for GetRecords, the next two for every
+// Kinesis action, and TimeoutError is what the SDK raises when its own
+// request timeout fires.
+// https://docs.aws.amazon.com/kinesis/latest/APIReference/API_GetRecords.html
+// https://docs.aws.amazon.com/kinesis/latest/APIReference/CommonErrors.html
+// https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/programming-with-javascript.html#programming-with-javascript-error-handling
+const transientErrorNames = new Set([
+	"ProvisionedThroughputExceededException",
+	"KMSThrottlingException",
+	"ThrottlingException",
+	"RequestTimeoutException",
+	"TimeoutError",
+]);
+
+// "This operation has a limit of five transactions per second per shard."
+// https://docs.aws.amazon.com/kinesis/latest/APIReference/API_GetRecords.html
+const readsPerSecond = 5;
 
 // A batchItemFailures entry whose itemIdentifier is null, empty or names no
 // record in the batch invalidates the whole response: Lambda then retries
@@ -129,6 +175,16 @@ export const pollKinesis = (opts) => {
 	// iterator only moves forward, so a later failure is at a new sequence
 	// number and never needs an explicit reset.
 	let retry;
+	let readFailures = 0;
+	const recentReadStarts = new Array(readsPerSecond).fill(
+		Number.NEGATIVE_INFINITY,
+	);
+	const waitForReadSlot = async (signal) => {
+		const slotFreesAt = recentReadStarts.shift() + 1000;
+		const wait = slotFreesAt - Date.now();
+		if (wait > 0) await sleep(wait, signal);
+		recentReadStarts.push(Date.now());
+	};
 	// Where the current iterator reads from, to ask for a new one there when it
 	// expires.
 	let position;
@@ -138,22 +194,31 @@ export const pollKinesis = (opts) => {
 		StartingSequenceNumber: records.at(-1).SequenceNumber,
 	});
 
-	// Resolves undefined when the signal aborted the request.
-	const getShardIterator = async (signal, input) => {
-		try {
-			const res = await client.send(
-				new GetShardIteratorCommand({
-					StreamName: opts.streamName,
-					ShardId: opts.shardId,
-					...input,
-				}),
-				{ abortSignal: signal },
-			);
-			return res.ShardIterator;
-		} catch (err) {
-			if (signal.aborted) return undefined;
-			throw err;
+	// "If a GetShardIterator request is made too often, you receive a
+	// ProvisionedThroughputExceededException."
+	// https://docs.aws.amazon.com/kinesis/latest/APIReference/API_GetShardIterator.html
+	const getShardIterator = async (signal, input, report) => {
+		let failures = 0;
+		while (!signal.aborted) {
+			try {
+				const res = await client.send(
+					new GetShardIteratorCommand({
+						StreamName: opts.streamName,
+						ShardId: opts.shardId,
+						...input,
+					}),
+					{ abortSignal: signal },
+				);
+				return res.ShardIterator;
+			} catch (err) {
+				if (signal.aborted) break;
+				if (!isTransientReadError(err, transientErrorNames)) throw err;
+				report(err);
+				failures++;
+				await sleep(retryDelay(retryDelayMs, failures), signal);
+			}
 		}
+		return undefined;
 	};
 
 	// GetRecords returns a null NextShardIterator once the shard is closed (a
@@ -187,8 +252,10 @@ export const pollKinesis = (opts) => {
 				StartingSequenceNumber: opts.startingSequenceNumber,
 				Timestamp: opts.timestamp,
 			};
-			let shardIterator = await getShardIterator(signal, position);
+			let shardIterator = await getShardIterator(signal, position, report);
 			while (!signal.aborted && shardIterator) {
+				await waitForReadSlot(signal);
+				if (signal.aborted) return;
 				let res;
 				try {
 					res = await client.send(
@@ -203,10 +270,17 @@ export const pollKinesis = (opts) => {
 					// An iterator expires 5 minutes after it was issued, which a long
 					// handler or backoff can outlast: ask for a new one where it read.
 					// https://docs.aws.amazon.com/kinesis/latest/APIReference/API_GetShardIterator.html
-					if (err.name !== "ExpiredIteratorException") throw err;
-					shardIterator = await getShardIterator(signal, position);
+					if (err.name === "ExpiredIteratorException") {
+						shardIterator = await getShardIterator(signal, position, report);
+						continue;
+					}
+					if (!isTransientReadError(err, transientErrorNames)) throw err;
+					report(err);
+					readFailures++;
+					await sleep(retryDelay(retryDelayMs, readFailures), signal);
 					continue;
 				}
+				readFailures = 0;
 				const records = res.Records ?? [];
 				if (!records.length) {
 					shardIterator = nextIterator(res);
@@ -251,23 +325,12 @@ export const pollKinesis = (opts) => {
 					continue;
 				}
 				retry = { sequenceNumber, attempt };
-				try {
-					await timers.setTimeout(
-						retryDelay(retryDelayMs, attempt),
-						undefined,
-						{
-							signal,
-						},
-					);
-				} catch {
-					// aborted: shutting down, the batch is re-read after restart
-					return;
-				}
+				await sleep(retryDelay(retryDelayMs, attempt), signal);
 				position = {
 					ShardIteratorType: "AT_SEQUENCE_NUMBER",
 					StartingSequenceNumber: sequenceNumber,
 				};
-				shardIterator = await getShardIterator(signal, position);
+				shardIterator = await getShardIterator(signal, position, report);
 			}
 		},
 		// Records a batch's failed sequence numbers for the poll loop. Records arrive in

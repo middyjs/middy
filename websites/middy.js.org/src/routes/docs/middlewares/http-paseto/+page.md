@@ -1,4 +1,5 @@
 ---
+
 title: http-paseto
 description: "Verify PASETO v4.public tokens on incoming HTTP requests using a public key fetched from @middy/kms."
 status: alpha
@@ -50,44 +51,44 @@ NOTES:
 ### With a KMS-hosted public key
 
 ```javascript
-import middy from '@middy/core'
-import kms from '@middy/kms'
-import httpPaseto from '@middy/http-paseto'
-import httpErrorHandler from '@middy/http-error-handler'
+import middy from "@middy/core";
+import kms from "@middy/kms";
+import httpPaseto from "@middy/http-paseto";
+import httpErrorHandler from "@middy/http-error-handler";
 
 const lambdaHandler = async (event) => {
-  // The verified payload is on request.internal.paseto by default.
-  // To use context.middyContext.paseto as below, pass setToContext: true to httpPaseto.
-  return { statusCode: 200, body: JSON.stringify({ ok: true }) }
-}
+	// The verified payload is on request.internal.paseto by default.
+	// To use context.middyContext.paseto as below, pass setToContext: true to httpPaseto.
+	return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+};
 
 export const handler = middy()
-  .use(
-    kms({
-      fetchData: {
-        pasetoKey: 'alias/paseto-signing-key',
-      },
-    }),
-  )
-  .use(
-    httpPaseto({
-      internalKey: 'pasetoKey',
-      issuer: 'https://auth.example.com',
-      audience: 'api.example.com',
-      clockTolerance: 5,
-    }),
-  )
-  .use(httpErrorHandler())
-  .handler(lambdaHandler)
+	.use(
+		kms({
+			fetchData: {
+				pasetoKey: "alias/paseto-signing-key",
+			},
+		}),
+	)
+	.use(
+		httpPaseto({
+			internalKey: "pasetoKey",
+			issuer: "https://auth.example.com",
+			audience: "api.example.com",
+			clockTolerance: 5,
+		}),
+	)
+	.use(httpErrorHandler())
+	.handler(lambdaHandler);
 ```
 
 ### Reading the token from a cookie
 
 ```javascript
 httpPaseto({
-  internalKey: 'pasetoKey',
-  tokenCookieName: 'session',
-})
+	internalKey: "pasetoKey",
+	tokenCookieName: "session",
+});
 ```
 
 ## Key rotation
@@ -98,14 +99,14 @@ Point `internalKey` at an array to do that. Each key is tried in order and the f
 
 ```javascript
 export const handler = middy()
-  .before((request) => {
-    // Two keys are genuinely current during the overlap. Order matters to
-    // nothing: the signing key's own failure is reported wherever it sits.
-    request.internal.pasetoKeys = [currentKey, retiringKey]
-  })
-  .use(httpPaseto({ internalKey: 'pasetoKeys' }))
-  .use(httpErrorHandler())
-  .handler(lambdaHandler)
+	.before((request) => {
+		// Two keys are genuinely current during the overlap. Order matters to
+		// nothing: the signing key's own failure is reported wherever it sits.
+		request.internal.pasetoKeys = [currentKey, retiringKey];
+	})
+	.use(httpPaseto({ internalKey: "pasetoKeys" }))
+	.use(httpErrorHandler())
+	.handler(lambdaHandler);
 ```
 
 A token signed by any configured key verifies. A token signed by none is a `401`, the same as with a single key. Once the retiring key's last token has expired, drop it. Assign a **new** array rather than mutating the existing one: imported keys are cached against the array's identity, so an in-place `splice` or `push` leaves the old set in use for the life of the container. (`@middy/http-jwt` caches per key instead, so it has no such constraint.)
@@ -113,31 +114,36 @@ A token signed by any configured key verifies. A token signed by none is a `401`
 Because the public half of an asymmetric key never changes, there is nothing to refetch at runtime and no staleness to revalidate. That makes a plain environment variable a reasonable place to keep it, which is why a resolved `KeyObject` is accepted alongside the raw bytes:
 
 ```javascript
-import { createPublicKey } from 'node:crypto'
+import { createPublicKey } from "node:crypto";
 
 // PEM bundle in the environment -> KeyObject[], resolved once at module load.
-const keys = process.env.PASETO_PUBLIC_KEYS.split(/(?=-----BEGIN)/)
-  .map((pem) => createPublicKey(pem))
+const keys = process.env.PASETO_PUBLIC_KEYS.split(/(?=-----BEGIN)/).map((pem) =>
+	createPublicKey(pem),
+);
 
 export const handler = middy()
-  .use({ before: (request) => { request.internal.pasetoKeys = keys } })
-  .use(httpPaseto({ internalKey: 'pasetoKeys' }))
-  .handler(lambdaHandler)
+	.use({
+		before: (request) => {
+			request.internal.pasetoKeys = keys;
+		},
+	})
+	.use(httpPaseto({ internalKey: "pasetoKeys" }))
+	.handler(lambdaHandler);
 ```
 
 ## Requiring claims
 
-A token that verifies is not automatically a token for *this*. Most issuers stamp a discriminator saying what kind of token it is: PASETO's own `typ`, Amazon Cognito's `token_use`, or a claim of your own. Accepting an ID token where an access token was meant, or a long-lived credential where a short-lived token was meant, is a real and common hole.
+A token that verifies is not automatically a token for _this_. Most issuers stamp a discriminator saying what kind of token it is: PASETO's own `typ`, Amazon Cognito's `token_use`, or a claim of your own. Accepting an ID token where an access token was meant, or a long-lived credential where a short-lived token was meant, is a real and common hole.
 
 `expectedClaims` closes it declaratively:
 
 ```javascript
 httpPaseto({
-  internalKey: 'pasetoKey',
-  // Only a short-lived access token is a token for calling this API. A credential
-  // that merely buys one is refused here, even though it verifies.
-  expectedClaims: { typ: 'access' },
-})
+	internalKey: "pasetoKey",
+	// Only a short-lived access token is a token for calling this API. A credential
+	// that merely buys one is refused here, even though it verifies.
+	expectedClaims: { typ: "access" },
+});
 ```
 
 Comparison is strict equality. A claim the payload does not carry at all fails the same way a wrong value does, which is what you want: a credential minted before the discriminator existed must not slide through.
@@ -149,40 +155,43 @@ For anything beyond an exact match, such as a scope that must contain a value, w
 `@middy/http-paseto` only verifies the signature and standard claims (`iss`, `aud`, `exp`, `nbf`). Role / scope / permission claims are application-specific. The following inline middleware reads the decoded payload from `request.internal` (under `payloadKey`) and rejects the request when the required role is missing.
 
 ```javascript
-import middy from '@middy/core'
-import kms from '@middy/kms'
-import httpPaseto from '@middy/http-paseto'
-import httpErrorHandler from '@middy/http-error-handler'
-import { HttpError } from '@middy/util'
+import middy from "@middy/core";
+import kms from "@middy/kms";
+import httpPaseto from "@middy/http-paseto";
+import httpErrorHandler from "@middy/http-error-handler";
+import { HttpError } from "@middy/util";
 
-const requireRole = (requiredRole, { payloadKey = 'paseto', claim = 'roles' } = {}) => ({
-  before: (request) => {
-    const payload = request.internal[payloadKey]
-    const roles = payload?.[claim]
-    const has = Array.isArray(roles)
-      ? roles.includes(requiredRole)
-      : roles === requiredRole
-    if (!has) {
-      throw new HttpError(403, {
-        cause: {
-          package: 'custom/require-role',
-          data: { reason: 'Missing role', requiredRole },
-        },
-      })
-    }
-  },
-})
+const requireRole = (
+	requiredRole,
+	{ payloadKey = "paseto", claim = "roles" } = {},
+) => ({
+	before: (request) => {
+		const payload = request.internal[payloadKey];
+		const roles = payload?.[claim];
+		const has = Array.isArray(roles)
+			? roles.includes(requiredRole)
+			: roles === requiredRole;
+		if (!has) {
+			throw new HttpError(403, {
+				cause: {
+					package: "custom/require-role",
+					data: { reason: "Missing role", requiredRole },
+				},
+			});
+		}
+	},
+});
 
 const lambdaHandler = (event, context) => {
-  return { statusCode: 200, body: JSON.stringify({ ok: true }) }
-}
+	return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+};
 
 export const handler = middy()
-  .use(kms({ fetchData: { pasetoKey: 'alias/paseto-signing-key' } }))
-  .use(httpPaseto({ internalKey: 'pasetoKey' }))
-  .use(requireRole('admin'))
-  .use(httpErrorHandler())
-  .handler(lambdaHandler)
+	.use(kms({ fetchData: { pasetoKey: "alias/paseto-signing-key" } }))
+	.use(httpPaseto({ internalKey: "pasetoKey" }))
+	.use(requireRole("admin"))
+	.use(httpErrorHandler())
+	.handler(lambdaHandler);
 ```
 
 Order matters: `requireRole` must run **after** `httpPaseto` so the decoded payload is already on `request.internal`.

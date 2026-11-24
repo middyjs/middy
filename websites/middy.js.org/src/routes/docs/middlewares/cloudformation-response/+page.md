@@ -1,4 +1,5 @@
 ---
+
 title: cloudformation-response
 description: "Manage CloudFormation Custom Resource responses automatically with Middy."
 ---
@@ -37,15 +38,15 @@ NOTES:
 ### General
 
 ```javascript
-import middy from '@middy/core'
-import cloudformationResponse from '@middy/cloudformation-response'
+import middy from "@middy/core";
+import cloudformationResponse from "@middy/cloudformation-response";
 
 export const handler = middy((event, context) => {
-  return {
-    PhysicalResourceId: '...',
-    Data: { Arn: '...' }
-  }
-}).use(cloudformationResponse())
+	return {
+		PhysicalResourceId: "...",
+		Data: { Arn: "..." },
+	};
+}).use(cloudformationResponse());
 ```
 
 ### With a router
@@ -53,18 +54,18 @@ export const handler = middy((event, context) => {
 Pair with [`@middy/cloudformation-router`](/docs/routers/cloudformation-router) to dispatch on `RequestType`; the response middleware wraps the router.
 
 ```javascript
-import middy from '@middy/core'
-import cloudformationResponse from '@middy/cloudformation-response'
-import cloudformationRouter from '@middy/cloudformation-router'
+import middy from "@middy/core";
+import cloudformationResponse from "@middy/cloudformation-response";
+import cloudformationRouter from "@middy/cloudformation-router";
 
 export const handler = middy()
-  .use(cloudformationResponse())
-  .handler(
-    cloudformationRouter([
-      {
-        requestType: 'Create',
-        handler: async (event, context) => ({ PhysicalResourceId: '...' })
-      }
-    ])
-  )
+	.use(cloudformationResponse())
+	.handler(
+		cloudformationRouter([
+			{
+				requestType: "Create",
+				handler: async (event, context) => ({ PhysicalResourceId: "..." }),
+			},
+		]),
+	);
 ```

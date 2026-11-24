@@ -1,7 +1,7 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { Readable } from "node:stream";
 import { describe, test } from "node:test";
-import middy from "../core/index.js";
+import middy from "@middy/core";
 import httpPartialResponse, {
 	httpPartialResponseValidateOptions,
 } from "./index.js";
@@ -122,6 +122,90 @@ describe("@middy/http-partial-response", () => {
 		const response = await handler(event, defaultContext);
 
 		strictEqual(response.body, JSON.stringify({ firstname: "john" }));
+	});
+
+	test("It should filter a payload returned without a response wrapper", async (t) => {
+		const handler = middy(() => ({ firstname: "john", lastname: "doe" }));
+
+		handler.use(httpPartialResponse());
+
+		const event = {
+			headers: {},
+			queryStringParameters: {
+				fields: "firstname",
+			},
+		};
+
+		const response = await handler(event, defaultContext);
+
+		deepStrictEqual(response, { firstname: "john" });
+	});
+
+	test("It should filter a JSON string or an array returned without a response wrapper", async (t) => {
+		const event = {
+			headers: {},
+			queryStringParameters: {
+				fields: "firstname",
+			},
+		};
+
+		const stringHandler = middy(() =>
+			JSON.stringify({ firstname: "john", lastname: "doe" }),
+		).use(httpPartialResponse());
+		strictEqual(
+			await stringHandler(event, defaultContext),
+			JSON.stringify({ firstname: "john" }),
+		);
+
+		const arrayHandler = middy(() => [
+			{ firstname: "john", lastname: "doe" },
+		]).use(httpPartialResponse());
+		deepStrictEqual(await arrayHandler(event, defaultContext), [
+			{ firstname: "john" },
+		]);
+	});
+
+	test("It should leave a response wrapper that has no body untouched", async (t) => {
+		for (const wrapper of [
+			{ statusCode: 204 },
+			{ headers: { Location: "/next" } },
+		]) {
+			const handler = middy(() => ({ ...wrapper })).use(httpPartialResponse());
+
+			const response = await handler(
+				{ headers: {}, queryStringParameters: { fields: "firstname" } },
+				defaultContext,
+			);
+
+			deepStrictEqual(response, wrapper);
+		}
+	});
+
+	test("It should drop a Content-Length header when it filters the body", async (t) => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			headers: {
+				"Content-Type": "application/json",
+				"content-length": "37",
+			},
+			multiValueHeaders: {
+				"Content-Length": ["37"],
+				"Set-Cookie": ["a=1", "b=2"],
+			},
+			body: JSON.stringify({ firstname: "john", lastname: "doe" }),
+		})).use(httpPartialResponse());
+
+		const response = await handler(
+			{ headers: {}, queryStringParameters: { fields: "firstname" } },
+			defaultContext,
+		);
+
+		deepStrictEqual(response, {
+			statusCode: 200,
+			headers: { "Content-Type": "application/json" },
+			multiValueHeaders: { "Set-Cookie": ["a=1", "b=2"] },
+			body: JSON.stringify({ firstname: "john" }),
+		});
 	});
 
 	test("It should return the initial response if response body is empty", async (t) => {
@@ -386,6 +470,28 @@ describe("@middy/http-partial-response", () => {
 			ok(false, "expected throw");
 		} catch (e) {
 			ok(e.message.includes("filteringKeyName"));
+		}
+	});
+
+	test("httpPartialResponseValidateOptions bounds filteringKeyName to 1024 visible ASCII characters", () => {
+		httpPartialResponseValidateOptions({ filteringKeyName: "filter" });
+		httpPartialResponseValidateOptions({ filteringKeyName: "f".repeat(1024) });
+		throws(
+			() =>
+				httpPartialResponseValidateOptions({
+					filteringKeyName: "f".repeat(1025),
+				}),
+			{
+				name: "TypeError",
+				message: "Option 'filteringKeyName' must have length <= 1024",
+			},
+		);
+		for (const filteringKeyName of ["", "a b", "a\nb", "café"]) {
+			throws(() => httpPartialResponseValidateOptions({ filteringKeyName }), {
+				name: "TypeError",
+				message:
+					"Option 'filteringKeyName' must match pattern /^[\\x21-\\x7E]+$/u",
+			});
 		}
 	});
 

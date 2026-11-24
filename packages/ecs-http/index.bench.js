@@ -20,6 +20,16 @@ const baseReq = () => ({
 		accept: "application/json",
 		cookie: "session=abc; pref=dark",
 	},
+	rawHeaders: [
+		"User-Agent",
+		"perf/1",
+		"Host",
+		"example.com",
+		"Accept",
+		"application/json",
+		"Cookie",
+		"session=abc; pref=dark",
+	],
 	httpVersion: "1.1",
 	socket: { remoteAddress: "10.0.0.1" },
 });

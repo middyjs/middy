@@ -1,4 +1,5 @@
 ---
+
 title: http-security-headers
 description: "Apply security headers like HSTS, CSP, and X-Frame-Options to Lambda HTTP responses."
 ---
@@ -14,6 +15,7 @@ npm install --save @middy/http-security-headers
 ```
 
 ## Features
+
 - `dnsPrefetchControl` controls browser DNS prefetching
 - `frameOptions` to prevent clickjacking
 - `poweredBy` to remove the Server/X-Powered-By header
@@ -51,12 +53,14 @@ A header this middleware sets replaces the handler's copy whatever casing the ha
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import httpSecurityHeaders from '@middy/http-security-headers'
+import middy from "@middy/core";
+import httpSecurityHeaders from "@middy/http-security-headers";
 
 const lambdaHandler = (event, context) => {
-  return {}
-}
+	return {};
+};
 
-export const handler = middy().use(httpSecurityHeaders()).handler(lambdaHandler)
+export const handler = middy()
+	.use(httpSecurityHeaders())
+	.handler(lambdaHandler);
 ```

@@ -19,8 +19,9 @@ export interface SqsPoller extends Poller<SQSEvent, SQSBatchResponse> {
 	client: SQSClient;
 	/**
 	 * Seconds, as configured. Unset, each receive hides messages for the
-	 * runner's timeout plus 30 s; the runner rejects a value that does not
-	 * outlast its timeout.
+	 * runner's timeout plus 30 s, so the runner rejects a timeout over
+	 * 43,170,000 ms (past SQS's 43200 s maximum). Set, the runner rejects a
+	 * value that does not outlast its timeout.
 	 */
 	visibilityTimeout?: number;
 }

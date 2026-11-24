@@ -1,4 +1,5 @@
 ---
+
 title: http-multipart-body-parser
 description: "Parse multipart/form-data HTTP request bodies for file uploads in Lambda."
 ---
@@ -43,29 +44,29 @@ If you really have to deal with big files, then you might also want to consider 
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import httpHeaderNormalizer from '@middy/http-header-normalizer'
-import httpMultipartBodyParser from '@middy/http-multipart-body-parser'
+import middy from "@middy/core";
+import httpHeaderNormalizer from "@middy/http-header-normalizer";
+import httpMultipartBodyParser from "@middy/http-multipart-body-parser";
 
 const lambdaHandler = (event, context) => {
-  return event.body // propagates the parsed body as response
-}
+	return event.body; // propagates the parsed body as response
+};
 
 export const handler = middy()
-  .use(httpHeaderNormalizer())
-  .use(httpMultipartBodyParser())
-  .handler(lambdaHandler)
+	.use(httpHeaderNormalizer())
+	.use(httpMultipartBodyParser())
+	.handler(lambdaHandler);
 
 // invokes the handler
 const event = {
-  headers: {
-    'Content-Type':
-      'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M'
-  },
-  body: 'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJmb28iDQoNCmJhcg0KLS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTS0t',
-  isBase64Encoded: true
-}
-const response = await handler(event, {})
+	headers: {
+		"Content-Type":
+			"multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M",
+	},
+	body: "LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJmb28iDQoNCmJhcg0KLS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTS0t",
+	isBase64Encoded: true,
+};
+const response = await handler(event, {});
 // the parsed body is a null-prototype object, so compare its fields
-strictEqual(response.foo, 'bar')
+strictEqual(response.foo, "bar");
 ```

@@ -1,4 +1,10 @@
-import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	ok,
+	rejects,
+	strictEqual,
+	throws,
+} from "node:assert/strict";
 import { describe, test } from "node:test";
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { clearCache, getInternal } from "@middy/util";
@@ -878,13 +884,334 @@ describe("@middy/s3", () => {
 		);
 	});
 
-	test("s3ValidateOptions allows unknown extra props on a fetchData entry (additionalProperties true)", () => {
-		// additionalProperties:true on the entry means extra S3 params are allowed
-		s3ValidateOptions({
-			fetchData: {
-				key: { Bucket: "b", Key: "k", SSECustomerKey: "x" },
-			},
+	const rejectsOptions = (options, message) => {
+		throws(() => s3ValidateOptions(options), {
+			name: "TypeError",
+			message,
+			cause: { package: "@middy/s3" },
 		});
+	};
+	const getObject = { Bucket: "b", Key: "k" };
+	const withInput = (input) => ({
+		fetchData: { key: { ...getObject, ...input } },
+	});
+
+	test("s3ValidateOptions accepts every GetObject request parameter", () => {
+		const options = withInput({
+			Bucket: "arn:aws:s3:us-west-2:123456789012:accesspoint/my-ap",
+			Key: "photos/2006/February/sample 名前.jpg",
+			ChecksumMode: "ENABLED",
+			ExpectedBucketOwner: "123456789012",
+			IfMatch: '"0123456789abcdef"',
+			IfModifiedSince: new Date(0),
+			IfNoneMatch: "*",
+			IfUnmodifiedSince: new Date(0),
+			PartNumber: 2,
+			Range: "bytes=0-9",
+			RequestPayer: "requester",
+			ResponseCacheControl: "no-cache",
+			ResponseContentDisposition: 'attachment; filename="a.json"',
+			ResponseContentEncoding: "gzip",
+			ResponseContentLanguage: "en-US",
+			ResponseContentType: "application/json; charset=utf-8",
+			ResponseExpires: new Date(0),
+			SSECustomerAlgorithm: "AES256",
+			SSECustomerKey: "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+			SSECustomerKeyMD5: "AAAAAAAAAAAAAAAAAAAAAA==",
+			VersionId:
+				"3HL4kqtJlcpXroDTDmJ+rmSpXd3dIbrHY+MTRCxf3vjVBH40Nr8X8gdRQBpUMLUo",
+		});
+		deepStrictEqual(s3ValidateOptions(options), options);
+		for (const Range of ["bytes=-500", "bytes=9500-"]) {
+			deepStrictEqual(
+				s3ValidateOptions(withInput({ Range })),
+				withInput({ Range }),
+			);
+		}
+		deepStrictEqual(
+			s3ValidateOptions(withInput({ Key: "k".repeat(1024) })),
+			withInput({ Key: "k".repeat(1024) }),
+		);
+	});
+
+	test("s3ValidateOptions rejects a fetchData key GetObject does not take", () => {
+		rejectsOptions(
+			withInput({ ResponseContentTyp: "text/plain" }),
+			"Unknown option 'fetchData.key.ResponseContentTyp'",
+		);
+	});
+
+	test("s3ValidateOptions rejects GetObject parameters outside the AWS rules", () => {
+		for (const [input, message] of [
+			[
+				{ Bucket: "my bucket" },
+				"Option 'fetchData.key.Bucket' must match pattern /^[\\w.:/-]+$/u",
+			],
+			[
+				{ Bucket: "b".repeat(1025) },
+				"Option 'fetchData.key.Bucket' must have length <= 1024",
+			],
+			[
+				{ Key: "" },
+				"Option 'fetchData.key.Key' must match pattern /^[\\p{L}\\p{M}\\p{N}\\p{P}\\p{S} ]+$/u",
+			],
+			[
+				{ Key: "a\nb" },
+				"Option 'fetchData.key.Key' must match pattern /^[\\p{L}\\p{M}\\p{N}\\p{P}\\p{S} ]+$/u",
+			],
+			[
+				{ Key: "k".repeat(1025) },
+				"Option 'fetchData.key.Key' must have length <= 1024",
+			],
+			[
+				{ ExpectedBucketOwner: "12345678901" },
+				"Option 'fetchData.key.ExpectedBucketOwner' must match pattern /^\\d{12}$/u",
+			],
+			[
+				{ ExpectedBucketOwner: "1234567890123" },
+				"Option 'fetchData.key.ExpectedBucketOwner' must match pattern /^\\d{12}$/u",
+			],
+			[
+				{ IfModifiedSince: "2026-01-01" },
+				"Option 'fetchData.key.IfModifiedSince' must be instanceof Date",
+			],
+			[
+				{ IfUnmodifiedSince: 0 },
+				"Option 'fetchData.key.IfUnmodifiedSince' must be instanceof Date",
+			],
+			[
+				{ ResponseExpires: "2026-01-01" },
+				"Option 'fetchData.key.ResponseExpires' must be instanceof Date",
+			],
+			[
+				{ Range: "bytes=0-9,20-29" },
+				"Option 'fetchData.key.Range' must match pattern /^bytes=\\d*-\\d*$/u",
+			],
+			[
+				{ Range: "items=0-9" },
+				"Option 'fetchData.key.Range' must match pattern /^bytes=\\d*-\\d*$/u",
+			],
+			[
+				{ Range: `bytes=0-${"9".repeat(1018)}` },
+				"Option 'fetchData.key.Range' must have length <= 1024",
+			],
+			[
+				{ SSECustomerAlgorithm: "AES 256" },
+				"Option 'fetchData.key.SSECustomerAlgorithm' must match pattern /^[\\w-]+$/u",
+			],
+			[
+				{ SSECustomerKeyMD5: "AAAAAAAA-AAAAAAAAAAAAA==" },
+				"Option 'fetchData.key.SSECustomerKeyMD5' must match pattern /^[A-Za-z0-9+/=]+$/u",
+			],
+			[
+				{ SSECustomerKeyMD5: "a".repeat(25) },
+				"Option 'fetchData.key.SSECustomerKeyMD5' must have length <= 24",
+			],
+			[
+				{ VersionId: "v 1" },
+				"Option 'fetchData.key.VersionId' must match pattern /^[\\x21-\\x7E]+$/u",
+			],
+		]) {
+			rejectsOptions(withInput(input), message);
+		}
+		for (const key of [
+			"IfMatch",
+			"IfNoneMatch",
+			"ResponseCacheControl",
+			"ResponseContentDisposition",
+			"ResponseContentEncoding",
+			"ResponseContentLanguage",
+			"ResponseContentType",
+			"SSECustomerKey",
+		]) {
+			rejectsOptions(
+				withInput({ [key]: "a\nb" }),
+				`Option 'fetchData.key.${key}' must match pattern /^[\\x20-\\x7E]+$/u`,
+			);
+			rejectsOptions(
+				withInput({ [key]: "a".repeat(1025) }),
+				`Option 'fetchData.key.${key}' must have length <= 1024`,
+			);
+		}
+	});
+
+	test("s3ValidateOptions bounds the fetchData map", () => {
+		rejectsOptions(
+			{ fetchData: { "bad key": getObject } },
+			"Invalid property name 'bad key' in option 'fetchData': Option 'fetchData.bad key' must match pattern /^[\\x21-\\x7E]+$/u",
+		);
+		rejectsOptions(
+			{
+				fetchData: Object.fromEntries(
+					Array.from({ length: 1025 }, (_, i) => [`k${i}`, getObject]),
+				),
+			},
+			"Option 'fetchData' must have <= 1024 properties",
+		);
+	});
+
+	test("s3ValidateOptions accepts the S3Client keys beyond the shared client config", () => {
+		const fn = () => {};
+		class Instance {}
+		const awsClientOptions = {
+			region: "us-east-1",
+			bucketEndpoint: false,
+			checksumAlgorithms: {
+				CRC32: Instance,
+				CRC32C: Instance,
+				CRC64NVME: Instance,
+				SHA1: Instance,
+				SHA256: Instance,
+			},
+			clientContextParams: { disableS3ExpressSessionAuth: true },
+			disableMultiregionAccessPoints: true,
+			disableS3ExpressSessionAuth: false,
+			eventStreamSerdeProvider: fn,
+			expectContinueHeader: true,
+			followRegionRedirects: true,
+			forcePathStyle: true,
+			getAwsChunkedEncodingStream: fn,
+			md5: Instance,
+			requestChecksumCalculation: "WHEN_REQUIRED",
+			requestStreamBufferSize: 65536,
+			responseChecksumValidation: "WHEN_SUPPORTED",
+			s3ExpressIdentityProvider: new Instance(),
+			sdkStreamMixin: fn,
+			sha1: Instance,
+			sigv4aSigningRegionSet: ["us-east-1", "*"],
+			streamHasher: fn,
+			useAccelerateEndpoint: false,
+			useArnRegion: true,
+			useGlobalEndpoint: false,
+		};
+		deepStrictEqual(s3ValidateOptions({ awsClientOptions }), {
+			awsClientOptions,
+		});
+		for (const extra of [
+			{ clientContextParams: { disableS3ExpressSessionAuth: fn } },
+			{ clientContextParams: {} },
+			{ disableS3ExpressSessionAuth: fn },
+			{ expectContinueHeader: 0 },
+			{ expectContinueHeader: Number.MAX_SAFE_INTEGER },
+			{ requestChecksumCalculation: "WHEN_SUPPORTED" },
+			{ requestChecksumCalculation: fn },
+			{ requestStreamBufferSize: false },
+			{ requestStreamBufferSize: 8192 },
+			{ requestStreamBufferSize: Number.MAX_SAFE_INTEGER },
+			{ responseChecksumValidation: "WHEN_REQUIRED" },
+			{ responseChecksumValidation: fn },
+			{ sigv4aSigningRegionSet: fn },
+			{ sigv4aSigningRegionSet: ["a".repeat(63)] },
+			{ useArnRegion: fn },
+			{ useGlobalEndpoint: fn },
+		]) {
+			deepStrictEqual(s3ValidateOptions({ awsClientOptions: extra }), {
+				awsClientOptions: extra,
+			});
+		}
+	});
+
+	test("s3ValidateOptions rejects S3Client keys outside their SDK types", () => {
+		const oneOf = (key) =>
+			`Option 'awsClientOptions.${key}' must match exactly one schema in oneOf`;
+		for (const [awsClientOptions, message] of [
+			[{ maxRetries: 3 }, "Unknown option 'awsClientOptions.maxRetries'"],
+			[
+				{ checksumAlgorithms: { MD5: () => {} } },
+				"Unknown option 'awsClientOptions.checksumAlgorithms.MD5'",
+			],
+			[
+				{ clientContextParams: { forcePathStyle: true } },
+				"Unknown option 'awsClientOptions.clientContextParams.forcePathStyle'",
+			],
+			[
+				{ clientContextParams: { disableS3ExpressSessionAuth: "true" } },
+				"Option 'awsClientOptions.clientContextParams.disableS3ExpressSessionAuth' must match exactly one schema in oneOf",
+			],
+			[
+				{ s3ExpressIdentityProvider: "x" },
+				"Option 'awsClientOptions.s3ExpressIdentityProvider' must be instanceof Object",
+			],
+			[{ expectContinueHeader: -1 }, oneOf("expectContinueHeader")],
+			[{ expectContinueHeader: 1.5 }, oneOf("expectContinueHeader")],
+			[{ expectContinueHeader: "true" }, oneOf("expectContinueHeader")],
+			[
+				{ requestChecksumCalculation: "ALWAYS" },
+				oneOf("requestChecksumCalculation"),
+			],
+			[
+				{ responseChecksumValidation: "ALWAYS" },
+				oneOf("responseChecksumValidation"),
+			],
+			[{ requestStreamBufferSize: 8191 }, oneOf("requestStreamBufferSize")],
+			[{ requestStreamBufferSize: true }, oneOf("requestStreamBufferSize")],
+			[{ requestStreamBufferSize: 8192.5 }, oneOf("requestStreamBufferSize")],
+			[
+				{ sigv4aSigningRegionSet: ["us east"] },
+				oneOf("sigv4aSigningRegionSet"),
+			],
+			[
+				{ sigv4aSigningRegionSet: ["a".repeat(64)] },
+				oneOf("sigv4aSigningRegionSet"),
+			],
+			[{ sigv4aSigningRegionSet: ["*", "*"] }, oneOf("sigv4aSigningRegionSet")],
+			[{ sigv4aSigningRegionSet: "*" }, oneOf("sigv4aSigningRegionSet")],
+			[
+				{ disableS3ExpressSessionAuth: "true" },
+				oneOf("disableS3ExpressSessionAuth"),
+			],
+			[{ useArnRegion: "true" }, oneOf("useArnRegion")],
+			[{ useGlobalEndpoint: "true" }, oneOf("useGlobalEndpoint")],
+		]) {
+			rejectsOptions({ awsClientOptions }, message);
+		}
+		for (const key of [
+			"bucketEndpoint",
+			"disableMultiregionAccessPoints",
+			"followRegionRedirects",
+			"forcePathStyle",
+			"useAccelerateEndpoint",
+		]) {
+			rejectsOptions(
+				{ awsClientOptions: { [key]: "true" } },
+				`Option 'awsClientOptions.${key}' must be boolean`,
+			);
+		}
+		for (const key of [
+			"eventStreamSerdeProvider",
+			"getAwsChunkedEncodingStream",
+			"md5",
+			"sdkStreamMixin",
+			"sha1",
+			"streamHasher",
+		]) {
+			rejectsOptions(
+				{ awsClientOptions: { [key]: "x" } },
+				`Option 'awsClientOptions.${key}' must be instanceof Function`,
+			);
+		}
+		for (const key of ["CRC32", "CRC32C", "CRC64NVME", "SHA1", "SHA256"]) {
+			rejectsOptions(
+				{ awsClientOptions: { checksumAlgorithms: { [key]: "x" } } },
+				`Option 'awsClientOptions.checksumAlgorithms.${key}' must be instanceof Function`,
+			);
+		}
+	});
+
+	test("s3ValidateOptions bounds the string options", () => {
+		for (const key of ["awsClientAssumeRole", "cacheKey", "contextKey"]) {
+			deepStrictEqual(s3ValidateOptions({ [key]: "k".repeat(1024) }), {
+				[key]: "k".repeat(1024),
+			});
+			rejectsOptions(
+				{ [key]: "k".repeat(1025) },
+				`Option '${key}' must have length <= 1024`,
+			);
+			rejectsOptions(
+				{ [key]: "a b" },
+				`Option '${key}' must match pattern /^[\\x21-\\x7E]+$/u`,
+			);
+		}
 	});
 
 	test("s3ValidateOptions enforces disablePrefetch is a boolean", () => {

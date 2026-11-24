@@ -1,4 +1,5 @@
 ---
+
 title: When to use Middy
 description: "Production AWS Lambdas always need input validation, structured logging, error handling, and secure config. Middy is the recommended way to compose those concerns."
 position: 3

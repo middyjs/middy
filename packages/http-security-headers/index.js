@@ -1,34 +1,113 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { normalizeHttpResponse, validateOptions } from "@middy/util";
+import {
+	normalizeHttpResponse,
+	reservedPropertyNames,
+	validateOptions,
+} from "@middy/util";
 
 const name = "http-security-headers";
 const pkg = `@middy/${name}`;
-
-// Each policy option accepts either a config object or a boolean (true = use
-// defaults, false = disable). See middleware body for enable/disable logic.
 
 const booleanOr = (objectSchema) => ({
 	oneOf: [{ type: "boolean" }, objectSchema],
 });
 
-const policyObject = (policyEnum) => ({
+const closedObject = (properties) => ({
 	type: "object",
-	properties: {
-		policy: policyEnum
-			? { type: "string", enum: policyEnum }
-			: { type: "string" },
-	},
+	properties,
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 });
 
-const actionObject = {
+const enumObject = (key, values) =>
+	closedObject({ [key]: { type: "string", enum: values } });
+
+const headerMap = (propertyNames, value, properties = {}) => ({
 	type: "object",
-	properties: {
-		action: { type: "string" },
+	properties,
+	propertyNames: {
+		type: "string",
+		maxLength: 1024,
+		pattern: propertyNames,
+		not: { type: "string", enum: reservedPropertyNames },
 	},
-	additionalProperties: false,
+	maxProperties: 1024,
+	required: [],
+	additionalProperties: { type: "string", maxLength: 1024, pattern: value },
+	unevaluatedProperties: false,
+});
+
+// CSP Level 3 section 2.3: "directive-value = *( required-ascii-whitespace /
+// ( %x21-%x2B / %x2D-%x3A / %x3C-%x7E ) )", without the CR, LF and FF that
+// RFC 9110 section 5.5 rules out of a field value
+// https://www.w3.org/TR/CSP3/#framework-directives
+// https://www.rfc-editor.org/rfc/rfc9110#section-5.5
+const cspDirectiveValue = {
+	oneOf: [
+		{
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\t \x21-\x2B\x2D-\x3A\x3C-\x7E]*$/u,
+		},
+		{ type: "boolean", const: false },
+	],
 };
+
+// CSP Level 3 section 6 (6.6 adds block-all-mixed-content and
+// upgrade-insecure-requests), Trusted Types section 4.2, Fenced Frame 4.2.2
+// https://www.w3.org/TR/CSP3/#csp-directives
+// https://www.w3.org/TR/trusted-types/#integration-with-content-security-policy
+// https://wicg.github.io/fenced-frame/#new-csp-directive
+const cspDirectives = [
+	"child-src",
+	"connect-src",
+	"default-src",
+	"font-src",
+	"frame-src",
+	"img-src",
+	"manifest-src",
+	"media-src",
+	"object-src",
+	"script-src",
+	"script-src-elem",
+	"script-src-attr",
+	"style-src",
+	"style-src-elem",
+	"style-src-attr",
+	"webrtc",
+	"worker-src",
+	"base-uri",
+	"sandbox",
+	"form-action",
+	"frame-ancestors",
+	"report-uri",
+	"report-to",
+	"block-all-mixed-content",
+	"upgrade-insecure-requests",
+	"require-trusted-types-for",
+	"trusted-types",
+	"fenced-frame-src",
+];
+
+// RFC 9651 section 3.1.2: "key = ( lcalpha / "*" ) *( lcalpha / DIGIT / "_" /
+// "-" / "." / "*" )"
+// https://www.rfc-editor.org/rfc/rfc9651#section-3.1.2
+const structuredFieldKey = /^[a-z*][a-z0-9_.*-]*$/u;
+
+// Permissions Policy section 6.1: an allowlist is a String, a Token or an
+// Inner List of them (RFC 9651 sections 3.1.1, 3.3.3 and 3.3.4)
+// https://www.w3.org/TR/permissions-policy/#permissions-policy-http-header-field
+// https://www.rfc-editor.org/rfc/rfc9651#section-3.1.1
+const allowlistMember =
+	'(?:[A-Za-z*][\\w!#$%&\'*+.^`|~:/-]{0,1023}|"[ !\\x23-\\x5B\\x5D-\\x7E]{0,1022}")';
+
+// Reporting API section 3.3: an endpoint is a URI-reference resolved against
+// the response URL and skipped unless potentially trustworthy
+// https://www.w3.org/TR/reporting-1/#process-header
+const endpointUrl =
+	"(?:https://[\\x21\\x23-\\x5B\\x5D-\\x7E]+|/[\\x21\\x23-\\x5B\\x5D-\\x7E]*)";
 
 const referrerPolicyValues = [
 	"no-referrer",
@@ -50,42 +129,81 @@ const permittedCrossDomainPoliciesValues = [
 ];
 
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:http-security-headers:options",
 	type: "object",
 	properties: {
-		// CSP directives are an open-ended string map; keep permissive.
-		contentSecurityPolicy: booleanOr({ type: "object" }),
+		contentSecurityPolicy: booleanOr(
+			closedObject(
+				Object.fromEntries(
+					cspDirectives.map((directive) => [directive, cspDirectiveValue]),
+				),
+			),
+		),
 		contentSecurityPolicyReportOnly: { type: "boolean" },
-		contentTypeOptions: booleanOr(actionObject),
-		crossOriginEmbedderPolicy: booleanOr(policyObject()),
-		crossOriginOpenerPolicy: booleanOr(policyObject()),
-		crossOriginResourcePolicy: booleanOr(policyObject()),
-		dnsPrefetchControl: booleanOr({
-			type: "object",
-			properties: {
-				allow: { type: "boolean" },
-			},
-			additionalProperties: false,
-		}),
-		downloadOptions: booleanOr(actionObject),
-		frameOptions: booleanOr(actionObject),
-		originAgentCluster: booleanOr({
-			type: "object",
-			additionalProperties: false,
-		}),
-		// Permissions-Policy features are an open-ended string map.
-		permissionsPolicy: booleanOr({ type: "object" }),
+		// Fetch: "X-Content-Type-Options: nosniff"
+		// https://fetch.spec.whatwg.org/#x-content-type-options-header
+		contentTypeOptions: booleanOr(enumObject("action", ["nosniff"])),
+		// HTML: embedder policy values
+		// https://html.spec.whatwg.org/multipage/browsers.html#embedder-policy-value
+		crossOriginEmbedderPolicy: booleanOr(
+			enumObject("policy", ["unsafe-none", "require-corp", "credentialless"]),
+		),
+		// HTML: opener policy values
+		// https://html.spec.whatwg.org/multipage/browsers.html#cross-origin-opener-policy-value
+		crossOriginOpenerPolicy: booleanOr(
+			enumObject("policy", [
+				"unsafe-none",
+				"same-origin-allow-popups",
+				"same-origin",
+				"noopener-allow-popups",
+			]),
+		),
+		// Fetch: "Cross-Origin-Resource-Policy = %s"same-origin" / %s"same-site" /
+		// %s"cross-origin""
+		// https://fetch.spec.whatwg.org/#cross-origin-resource-policy-header
+		crossOriginResourcePolicy: booleanOr(
+			enumObject("policy", ["same-site", "same-origin", "cross-origin"]),
+		),
+		dnsPrefetchControl: booleanOr(closedObject({ allow: { type: "boolean" } })),
+		downloadOptions: booleanOr(enumObject("action", ["noopen"])),
+		// HTML: X-Frame-Options values are ASCII case-insensitive "DENY" and
+		// "SAMEORIGIN"
+		// https://html.spec.whatwg.org/multipage/document-lifecycle.html#the-x-frame-options-header
+		frameOptions: booleanOr(
+			enumObject("action", ["deny", "sameorigin", "DENY", "SAMEORIGIN"]),
+		),
+		originAgentCluster: booleanOr(closedObject({})),
+		permissionsPolicy: booleanOr(
+			headerMap(
+				structuredFieldKey,
+				new RegExp(
+					`^(?:${allowlistMember}(?: {1,1024}${allowlistMember}){0,1023})?$`,
+					"u",
+				),
+			),
+		),
 		permittedCrossDomainPolicies: booleanOr(
-			policyObject(permittedCrossDomainPoliciesValues),
+			enumObject("policy", permittedCrossDomainPoliciesValues),
 		),
 		poweredBy: { type: "boolean" },
-		referrerPolicy: booleanOr(policyObject(referrerPolicyValues)),
-		// Reporting-Endpoints is an open-ended group->url map.
-		reportingEndpoints: booleanOr({ type: "object" }),
-		// Report-To groups are open-ended; maxAge/includeSubDomains are known.
-		reportTo: booleanOr({ type: "object" }),
-		strictTransportSecurity: booleanOr({
-			type: "object",
-			properties: {
+		referrerPolicy: booleanOr(enumObject("policy", referrerPolicyValues)),
+		reportingEndpoints: booleanOr(
+			headerMap(structuredFieldKey, new RegExp(`^${endpointUrl}$`, "u")),
+		),
+		reportTo: booleanOr(
+			headerMap(/^[\w.-]+$/u, new RegExp(`^(?:${endpointUrl})?$`, "u"), {
+				maxAge: {
+					type: "integer",
+					minimum: 0,
+					maximum: Number.MAX_SAFE_INTEGER,
+				},
+				includeSubDomains: { type: "boolean" },
+				includeSubdomains: { type: "boolean" },
+			}),
+		),
+		strictTransportSecurity: booleanOr(
+			closedObject({
 				maxAge: {
 					type: "number",
 					minimum: 0,
@@ -93,15 +211,13 @@ const optionSchema = {
 				},
 				includeSubDomains: { type: "boolean" },
 				preload: { type: "boolean" },
-			},
-			additionalProperties: false,
-		}),
-		xssProtection: booleanOr({
-			type: "object",
-			additionalProperties: false,
-		}),
+			}),
+		),
+		xssProtection: booleanOr(closedObject({})),
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const httpSecurityHeadersValidateOptions = (options) =>
@@ -163,52 +279,93 @@ const defaults = {
 		action: "deny",
 	},
 	originAgentCluster: {},
+	// Every policy-controlled feature in the W3C registry, in its order, each
+	// denied to all origins. The registry's retired features are left out.
+	// https://github.com/w3c/webappsec-permissions-policy/blob/main/features.md
 	permissionsPolicy: {
-		// Standard
+		// Standardized
 		accelerometer: "",
-		"all-screens-capture": "",
 		"ambient-light-sensor": "",
+		"attribution-reporting": "",
 		autoplay: "",
 		battery: "",
+		bluetooth: "",
 		camera: "",
+		"ch-ua": "",
+		"ch-ua-arch": "",
+		"ch-ua-bitness": "",
+		"ch-ua-full-version": "",
+		"ch-ua-full-version-list": "",
+		"ch-ua-high-entropy-values": "",
+		"ch-ua-mobile": "",
+		"ch-ua-model": "",
+		"ch-ua-platform": "",
+		"ch-ua-platform-version": "",
+		"ch-ua-wow64": "",
+		"compute-pressure": "",
 		"cross-origin-isolated": "",
+		"direct-sockets": "",
 		"display-capture": "",
-		"document-domain": "",
 		"encrypted-media": "",
 		"execution-while-not-rendered": "",
 		"execution-while-out-of-viewport": "",
 		fullscreen: "",
 		geolocation: "",
 		gyroscope: "",
+		hid: "",
+		"identity-credentials-get": "",
+		"idle-detection": "",
 		"keyboard-map": "",
 		magnetometer: "",
+		mediasession: "",
 		microphone: "",
 		midi: "",
-		monetization: "",
 		"navigation-override": "",
+		"otp-credentials": "",
 		payment: "",
 		"picture-in-picture": "",
 		"publickey-credentials-get": "",
+		"publickey-credentials-remote-client-data-json": "",
 		"screen-wake-lock": "",
+		serial: "",
 		"sync-xhr": "",
+		"storage-access": "",
+		tools: "",
 		usb: "",
 		"web-share": "",
+		"window-management": "",
 		"xr-spatial-tracking": "",
 		// Proposed
+		autofill: "",
 		"clipboard-read": "",
 		"clipboard-write": "",
+		"deferred-fetch": "",
 		gamepad: "",
+		"language-detector": "",
+		"language-model": "",
+		"manual-text": "",
+		rewriter: "",
 		"speaker-selection": "",
+		summarizer: "",
+		translator: "",
+		haptics: "",
+		writer: "",
 		// Experimental
+		"all-screens-capture": "",
+		"browsing-topics": "",
+		"captured-surface-control": "",
 		"conversion-measurement": "",
+		"digital-credentials-create": "",
+		"digital-credentials-get": "",
 		"focus-without-user-activation": "",
-		hid: "",
-		"idle-detection": "",
-		"interest-cohort": "",
-		serial: "",
+		"join-ad-interest-group": "",
+		"local-fonts": "",
+		monetization: "",
+		"run-ad-auction": "",
+		"smart-card": "",
 		"sync-script": "",
 		"trust-token-redemption": "",
-		"window-placement": "",
+		unload: "",
 		"vertical-scroll": "",
 	},
 	permittedCrossDomainPolicies: {
@@ -226,7 +383,11 @@ const defaults = {
 	strictTransportSecurity: {
 		maxAge: 180 * 24 * 60 * 60,
 		includeSubDomains: true,
-		preload: true,
+		// hstspreload.org: "If you maintain a project that provides HTTPS
+		// configuration advice or provides an option to enable HSTS, do not
+		// include the preload directive by default."
+		// https://hstspreload.org/#opt-in
+		preload: false,
 	},
 	xssProtection: false,
 };

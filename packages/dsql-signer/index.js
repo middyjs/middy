@@ -3,10 +3,13 @@
 import { DsqlSigner } from "@aws-sdk/dsql-signer";
 import {
 	assignSetToContext,
+	awsClientOptionsSchema,
 	buildSetToContextSpec,
+	cacheOptionSchemaProperties,
 	canPrefetch,
 	evictCacheOnFailure,
 	processCache,
+	reservedPropertyNames,
 	setCacheKeyExpiry,
 	validateOptions,
 } from "@middy/util";
@@ -38,55 +41,88 @@ const defaults = {
 	contextKey: name,
 };
 
-const optionSchema = {
+const keyName = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\x21-\x7E]+$/u,
+	not: { type: "string", enum: reservedPropertyNames },
+};
+const { credentials, profile, region, sha256 } =
+	awsClientOptionsSchema.properties;
+
+// DsqlSignerConfig: node_modules/@aws-sdk/dsql-signer/dist-types/Signer.d.ts,
+// plus `username`, which picks the token method. awsClientOptions is merged
+// into every fetchData entry, so both take it.
+const signerOptions = {
 	type: "object",
 	properties: {
-		AwsClient: { instanceof: "Function" },
-		awsClientOptions: { type: "object" },
+		credentials,
+		// A token is signed for the cluster hostname: the endpoint
+		// "$CLUSTERID.dsql.$REGION.on.aws", or through AWS PrivateLink
+		// "{cluster-id}.{service-identifier}.{region}.on.aws" with an
+		// identifier "such as dsql-fnh4". Without private DNS the token
+		// still names the cluster endpoint, not the VPC endpoint.
+		// https://docs.aws.amazon.com/aurora-dsql/latest/userguide/privatelink-managing-clusters.html
+		// A domain name is "255 octets or less", 253 characters as text:
+		// https://www.rfc-editor.org/rfc/rfc1035#section-2.3.4
+		hostname: {
+			type: "string",
+			maxLength: 253,
+			pattern:
+				/^[a-z0-9]+\.dsql(-[a-z0-9]+)?\.[a-z]{2}-[a-z]+(-[a-z]+)?-\d+\.on\.aws$/u,
+		},
+		region,
+		sha256,
+		// "The maximum duration is 604,800 seconds, which is one week."
+		// https://docs.aws.amazon.com/aurora-dsql/latest/userguide/SECTION_authentication-token.html
+		expiresIn: { type: "integer", minimum: 1, maximum: 604800 },
+		profile,
+		// "By default, NAMEDATALEN is 64 so the maximum identifier length is 63
+		// bytes."
+		// https://www.postgresql.org/docs/current/sql-syntax-lexical.html#SQL-SYNTAX-IDENTIFIERS
+		username: {
+			type: "string",
+			maxLength: 63,
+			pattern: /^[\p{L}\p{N}\p{P}\p{S} ]+$/u,
+		},
+	},
+	required: [],
+	additionalProperties: false,
+	unevaluatedProperties: false,
+};
+
+const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:dsql-signer:options",
+	$defs: { Function: false, Object: false },
+	type: "object",
+	properties: {
+		AwsClient: { $ref: "#/$defs/Function" },
+		awsClientOptions: signerOptions,
 		fetchData: {
 			type: "object",
-			additionalProperties: {
-				type: "object",
-				properties: {
-					hostname: {
-						type: "string",
-						pattern:
-							"^[a-z0-9]+\\.dsql(-[a-z]+)?\\.[a-z]{2}(-[a-z]+){1,2}-\\d+\\.on\\.aws$",
-					},
-					username: { type: "string" },
-				},
-				required: [],
-				additionalProperties: true,
-			},
+			propertyNames: keyName,
+			maxProperties: 1024,
+			required: [],
+			additionalProperties: signerOptions,
+			unevaluatedProperties: false,
 		},
-		disablePrefetch: { type: "boolean" },
-		cacheKey: { type: "string" },
-		cacheKeyExpiry: {
-			type: "object",
-			additionalProperties: {
-				type: "number",
-				minimum: -1,
-				maximum: Number.MAX_SAFE_INTEGER,
-			},
-		},
-		cacheExpiry: {
-			type: "number",
-			minimum: -1,
-			maximum: Number.MAX_SAFE_INTEGER,
-		},
-		cacheMaxSize: {
-			type: "integer",
-			minimum: 1,
-			maximum: Number.MAX_SAFE_INTEGER,
-		},
+		...cacheOptionSchemaProperties,
 		setToContext: { type: "boolean" },
-		contextKey: { type: "string" },
+		contextKey: keyName,
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const dsqlSignerValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
+
+const omitUndefinedValues = (object) =>
+	Object.fromEntries(
+		Object.entries(object).filter(([, value]) => value !== undefined),
+	);
 
 const dsqlSignerMiddleware = (opts = {}) => {
 	const options = {
@@ -95,14 +131,17 @@ const dsqlSignerMiddleware = (opts = {}) => {
 		cacheKeyExpiry: { ...defaults.cacheKeyExpiry, ...opts.cacheKeyExpiry },
 	};
 
-	const defaultFetchData = {
+	const envFetchData = omitUndefinedValues({
 		hostname: process.env.PGHOST ?? process.env.DBHOST,
 		username: process.env.PGUSER ?? process.env.DBUSER,
-	};
-	// Build a new object so the caller's fetchData is left untouched.
+	});
 	const fetchData = {};
 	for (const key of Object.keys(options.fetchData)) {
-		fetchData[key] = { ...defaultFetchData, ...options.fetchData[key] };
+		fetchData[key] = {
+			...options.awsClientOptions,
+			...envFetchData,
+			...options.fetchData[key],
+		};
 		if (!fetchData[key].hostname) {
 			throw new Error(
 				`fetchData.${key}.hostname is required; set PGHOST, DBHOST, or pass hostname explicitly`,
@@ -120,8 +159,7 @@ const dsqlSignerMiddleware = (opts = {}) => {
 		for (const internalKey of fetchDataKeys) {
 			if (cachedValues[internalKey]) continue;
 
-			const { username, ...signerConfig } = options.fetchData[internalKey];
-			const signerOptions = { ...options.awsClientOptions, ...signerConfig };
+			const { username, ...signerOptions } = options.fetchData[internalKey];
 			clients[internalKey] ??= new options.AwsClient(signerOptions);
 			const lifetimeMs = tokenLifetimeMs(
 				signerOptions.expiresIn ?? defaultExpiresIn,

@@ -1,4 +1,5 @@
 ---
+
 title: Upgrade 1.x -> 2.x
 description: "Migrate from Middy 1.x to 2.x with async/await support and removed callbacks."
 ---
@@ -26,40 +27,40 @@ Deprecated. Too generic and had low usage.
 However, you can use the following if needed:
 
 ```javascript
-const { createHash } = require('crypto')
+const { createHash } = require("crypto");
 
 module.exports = (opts) => {
-  const storage = {}
-  const defaults = {
-    calculateCacheId: async (event) =>
-      createHash('md5').update(JSON.stringify(event)).digest('hex'),
-    getValue: async (key) => storage[key],
-    setValue: async (key, value) => {
-      storage[key] = value
-    }
-  }
+	const storage = {};
+	const defaults = {
+		calculateCacheId: async (event) =>
+			createHash("md5").update(JSON.stringify(event)).digest("hex"),
+		getValue: async (key) => storage[key],
+		setValue: async (key, value) => {
+			storage[key] = value;
+		},
+	};
 
-  const options = { ...defaults, ...opts }
-  let currentCacheKey
+	const options = { ...defaults, ...opts };
+	let currentCacheKey;
 
-  const cacheMiddlewareBefore = async (request) => {
-    const cacheKey = await options.calculateCacheId(request.event)
-    const response = await options.getValue(cacheKey)
-    if (response) {
-      return response
-    }
-    request.internal.cacheKey = cacheKey
-  }
+	const cacheMiddlewareBefore = async (request) => {
+		const cacheKey = await options.calculateCacheId(request.event);
+		const response = await options.getValue(cacheKey);
+		if (response) {
+			return response;
+		}
+		request.internal.cacheKey = cacheKey;
+	};
 
-  const cacheMiddlewareAfter = async (request) => {
-    await options.setValue(request.internal.cacheKey, request.response)
-  }
+	const cacheMiddlewareAfter = async (request) => {
+		await options.setValue(request.internal.cacheKey, request.response);
+	};
 
-  return {
-    before: cacheMiddlewareBefore,
-    after: cacheMiddlewareAfter
-  }
-}
+	return {
+		before: cacheMiddlewareBefore,
+		after: cacheMiddlewareAfter,
+	};
+};
 ```
 
 ### db-manager
@@ -185,9 +186,9 @@ However, you can use the following if needed:
 
 ```javascript
 middy(lambdaHandler).before((request) => {
-  if (request.event.source === 'serverless-plugin-warmup') {
-    console.log('Exiting early via warmup Middleware')
-    return 'warmup'
-  }
-})
+	if (request.event.source === "serverless-plugin-warmup") {
+		console.log("Exiting early via warmup Middleware");
+		return "warmup";
+	}
+});
 ```

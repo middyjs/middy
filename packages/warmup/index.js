@@ -10,11 +10,16 @@ const defaults = {
 };
 
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:warmup:options",
+	$defs: { Function: false },
 	type: "object",
 	properties: {
-		isWarmingUp: { instanceof: "Function" },
+		isWarmingUp: { $ref: "#/$defs/Function" },
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const warmupValidateOptions = (options) =>
@@ -24,14 +29,19 @@ const warmupMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
 	const warmupMiddlewareBefore = (request) => {
-		if (options.isWarmingUp(request.event)) {
-			return "warmup";
+		const warmingUp = options.isWarmingUp(request.event);
+		if (typeof warmingUp?.then === "function") {
+			return Promise.resolve(warmingUp).then(warmupEarlyResponse);
 		}
+		return warmupEarlyResponse(warmingUp);
 	};
 
 	return {
 		before: warmupMiddlewareBefore,
 	};
 };
+
+const warmupEarlyResponse = (warmingUp) =>
+	warmingUp === true ? "warmup" : undefined;
 
 export default warmupMiddleware;

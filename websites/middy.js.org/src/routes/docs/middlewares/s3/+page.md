@@ -1,4 +1,5 @@
 ---
+
 title: s3
 description: "Fetch and cache S3 stored configuration as JSON in your Lambda with Middy."
 ---
@@ -38,33 +39,33 @@ NOTES:
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import s3 from '@middy/s3'
+import middy from "@middy/core";
+import s3 from "@middy/s3";
 
 const lambdaHandler = (event, context) => {
-  console.log(context.middyContext.s3.config)
-  const response = {
-    statusCode: 200,
-    headers: {},
-    body: JSON.stringify({ message: 'hello world' })
-  }
+	console.log(context.middyContext.s3.config);
+	const response = {
+		statusCode: 200,
+		headers: {},
+		body: JSON.stringify({ message: "hello world" }),
+	};
 
-  return response
-}
+	return response;
+};
 
 export const handler = middy()
-  .use(
-    s3({
-      fetchData: {
-        config: {
-          Bucket: '...',
-          Key: '...'
-        }
-      },
-      setToContext: true
-    })
-  )
-  .handler(lambdaHandler)
+	.use(
+		s3({
+			fetchData: {
+				config: {
+					Bucket: "...",
+					Key: "...",
+				},
+			},
+			setToContext: true,
+		}),
+	)
+	.handler(lambdaHandler);
 ```
 
 ## Bundling
@@ -84,38 +85,38 @@ This way TypeScript can understand how to treat the additional data attached to 
 The following example illustrates how to use `s3Param`:
 
 ```typescript
-import middy from '@middy/core'
-import { getInternal } from '@middy/util'
-import s3, { s3Param } from '@middy/s3'
+import middy from "@middy/core";
+import { getInternal } from "@middy/util";
+import s3, { s3Param } from "@middy/s3";
 
 const lambdaHandler = (event, context) => {
-  console.log(context.middyContext.s3.config)
-  const response = {
-    statusCode: 200,
-    headers: {},
-    body: JSON.stringify({ message: 'hello world' })
-  }
+	console.log(context.middyContext.s3.config);
+	const response = {
+		statusCode: 200,
+		headers: {},
+		body: JSON.stringify({ message: "hello world" }),
+	};
 
-  return response
-}
+	return response;
+};
 
 export const handler = middy()
-  .use(
-    s3({
-      fetchData: {
-        config: s3Param<{field1: string, field2: string, field3: number}>({
-          Bucket: '...',
-          Key: '...'
-        })
-      },
-      setToContext: true
-    })
-  )
-  .before(async (request) => {
-    const data = await getInternal('config', request)
-    // data.config.field1 (string)
-    // data.config.field2 (string)
-    // data.config.field3 (number)
-  })
-  .handler(lambdaHandler)
+	.use(
+		s3({
+			fetchData: {
+				config: s3Param<{ field1: string; field2: string; field3: number }>({
+					Bucket: "...",
+					Key: "...",
+				}),
+			},
+			setToContext: true,
+		}),
+	)
+	.before(async (request) => {
+		const data = await getInternal("config", request);
+		// data.config.field1 (string)
+		// data.config.field2 (string)
+		// data.config.field3 (number)
+	})
+	.handler(lambdaHandler);
 ```

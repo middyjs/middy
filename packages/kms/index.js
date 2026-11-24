@@ -3,13 +3,16 @@
 import { GetPublicKeyCommand, KMSClient } from "@aws-sdk/client-kms";
 import {
 	assignSetToContext,
+	awsClientOptionsSchema,
 	buildSetToContextSpec,
+	cacheOptionSchemaProperties,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClientInit,
 	createPrefetchClient,
 	evictCacheOnFailure,
 	processCache,
+	reservedPropertyNames,
 	validateOptions,
 } from "@middy/util";
 
@@ -30,41 +33,45 @@ const defaults = {
 	contextKey: name,
 };
 
+const keyNameRule = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\x21-\x7E]+$/u,
+	not: { type: "string", enum: reservedPropertyNames },
+};
+
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:kms:options",
+	$defs: { Function: false, Object: false },
 	type: "object",
 	properties: {
-		AwsClient: { instanceof: "Function" },
-		awsClientOptions: { type: "object" },
-		awsClientAssumeRole: { type: "string" },
-		awsClientCapture: { instanceof: "Function" },
+		AwsClient: { $ref: "#/$defs/Function" },
+		awsClientOptions: awsClientOptionsSchema,
+		awsClientAssumeRole: keyNameRule,
+		awsClientCapture: { $ref: "#/$defs/Function" },
 		fetchData: {
 			type: "object",
-			additionalProperties: { type: "string" },
-		},
-		disablePrefetch: { type: "boolean" },
-		cacheKey: { type: "string" },
-		cacheKeyExpiry: {
-			type: "object",
+			propertyNames: keyNameRule,
+			maxProperties: 1024,
+			required: [],
+			// GetPublicKey KeyId: a key ID, key ARN, alias name or alias ARN.
+			// "Length Constraints: Minimum length of 1. Maximum length of 2048."
+			// https://docs.aws.amazon.com/kms/latest/APIReference/API_GetPublicKey.html
 			additionalProperties: {
-				type: "number",
-				minimum: -1,
-				maximum: Number.MAX_SAFE_INTEGER,
+				type: "string",
+				maxLength: 2048,
+				pattern: /^[\w.:/-]+$/u,
 			},
+			unevaluatedProperties: false,
 		},
-		cacheExpiry: {
-			type: "number",
-			minimum: -1,
-			maximum: Number.MAX_SAFE_INTEGER,
-		},
-		cacheMaxSize: {
-			type: "integer",
-			minimum: 1,
-			maximum: Number.MAX_SAFE_INTEGER,
-		},
+		...cacheOptionSchemaProperties,
 		setToContext: { type: "boolean" },
-		contextKey: { type: "string" },
+		contextKey: keyNameRule,
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const kmsValidateOptions = (options) =>

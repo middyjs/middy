@@ -1,11 +1,13 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 
+import { kMaxLength } from "node:buffer";
 import { pipeline, Readable } from "node:stream";
 import { ReadableStream } from "node:stream/web";
 import {
 	createBrotliCompress as brotliCompressStream,
 	brotliCompressSync,
+	constants,
 	createDeflate as deflateCompressStream,
 	deflateSync,
 	createGzip as gzipCompressStream,
@@ -18,24 +20,198 @@ import { normalizeHttpResponse, validateOptions } from "@middy/util";
 const name = "http-content-encoding";
 const pkg = `@middy/${name}`;
 
-const encoderOption = {
-	oneOf: [{ type: "boolean" }, { type: "object" }],
+const integerRange = (minimum, maximum) => ({
+	type: "integer",
+	minimum,
+	maximum,
+});
+
+const closedObject = (properties) => ({
+	type: "object",
+	properties,
+	required: [],
+	additionalProperties: false,
+	unevaluatedProperties: false,
+});
+
+// Node.js zlib: dictionary is "<Buffer> | <TypedArray> | <DataView> | <ArrayBuffer>"
+// https://nodejs.org/docs/latest-v26.x/api/zlib.html#class-options
+const dictionarySchema = {
+	oneOf: [
+		{ $ref: "#/$defs/ArrayBuffer" },
+		{ $ref: "#/$defs/DataView" },
+		{ $ref: "#/$defs/Int8Array" },
+		{ $ref: "#/$defs/Uint8Array" },
+		{ $ref: "#/$defs/Uint8ClampedArray" },
+		{ $ref: "#/$defs/Int16Array" },
+		{ $ref: "#/$defs/Uint16Array" },
+		{ $ref: "#/$defs/Int32Array" },
+		{ $ref: "#/$defs/Uint32Array" },
+		{ $ref: "#/$defs/Float16Array" },
+		{ $ref: "#/$defs/Float32Array" },
+		{ $ref: "#/$defs/Float64Array" },
+		{ $ref: "#/$defs/BigInt64Array" },
+		{ $ref: "#/$defs/BigUint64Array" },
+	],
 };
 
+const sharedOptions = (firstFlush, lastFlush) => ({
+	flush: integerRange(firstFlush, lastFlush),
+	finishFlush: integerRange(firstFlush, lastFlush),
+	chunkSize: integerRange(constants.Z_MIN_CHUNK, kMaxLength),
+	maxOutputLength: integerRange(1, kMaxLength),
+	info: { type: "boolean" },
+	rejectGarbageAfterEnd: { type: "boolean" },
+});
+
+// Node.js zlib "Class: Options"
+// https://nodejs.org/docs/latest-v26.x/api/zlib.html#class-options
+const zlibOptionsSchema = closedObject({
+	...sharedOptions(constants.Z_NO_FLUSH, constants.Z_BLOCK),
+	windowBits: integerRange(
+		constants.Z_MIN_WINDOWBITS,
+		constants.Z_MAX_WINDOWBITS,
+	),
+	level: integerRange(constants.Z_MIN_LEVEL, constants.Z_MAX_LEVEL),
+	memLevel: integerRange(constants.Z_MIN_MEMLEVEL, constants.Z_MAX_MEMLEVEL),
+	strategy: integerRange(constants.Z_DEFAULT_STRATEGY, constants.Z_FIXED),
+	dictionary: dictionarySchema,
+});
+
+const brotliFlagSchema = {
+	oneOf: [{ type: "boolean" }, { type: "integer", enum: [0, 1] }],
+};
+
+// Node.js zlib "Class: BrotliOptions" and "Compressor options"
+// https://nodejs.org/docs/latest-v26.x/api/zlib.html#class-brotlioptions
+// https://nodejs.org/docs/latest-v26.x/api/zlib.html#compressor-options
+const brotliOptionsSchema = closedObject({
+	...sharedOptions(
+		constants.BROTLI_OPERATION_PROCESS,
+		constants.BROTLI_OPERATION_EMIT_METADATA,
+	),
+	params: closedObject({
+		[constants.BROTLI_PARAM_MODE]: {
+			type: "integer",
+			enum: [
+				constants.BROTLI_MODE_GENERIC,
+				constants.BROTLI_MODE_TEXT,
+				constants.BROTLI_MODE_FONT,
+			],
+		},
+		[constants.BROTLI_PARAM_QUALITY]: integerRange(
+			constants.BROTLI_MIN_QUALITY,
+			constants.BROTLI_MAX_QUALITY,
+		),
+		[constants.BROTLI_PARAM_LGWIN]: integerRange(
+			constants.BROTLI_MIN_WINDOW_BITS,
+			constants.BROTLI_LARGE_MAX_WINDOW_BITS,
+		),
+		[constants.BROTLI_PARAM_LGBLOCK]: integerRange(
+			constants.BROTLI_MIN_INPUT_BLOCK_BITS,
+			constants.BROTLI_MAX_INPUT_BLOCK_BITS,
+		),
+		[constants.BROTLI_PARAM_DISABLE_LITERAL_CONTEXT_MODELING]: brotliFlagSchema,
+		// brotli encode.h: BrotliEncoderSetParameter(..., uint32_t value)
+		// https://github.com/google/brotli/blob/master/c/include/brotli/encode.h
+		[constants.BROTLI_PARAM_SIZE_HINT]: integerRange(0, 4294967295),
+		[constants.BROTLI_PARAM_LARGE_WINDOW]: brotliFlagSchema,
+		// "Ranges from 0 to BROTLI_MAX_NPOSTFIX", which brotli defines as 3
+		// https://github.com/google/brotli/blob/master/c/common/constants.h
+		[constants.BROTLI_PARAM_NPOSTFIX]: integerRange(0, 3),
+		// "Ranges from 0 to 15 << NPOSTFIX", 120 at the largest NPOSTFIX
+		[constants.BROTLI_PARAM_NDIRECT]: integerRange(0, 120),
+	}),
+});
+
+// zstd.h: ZSTD_CCtx_setParameter(..., int value)
+// https://github.com/facebook/zstd/blob/dev/lib/zstd.h
+const zstdParamSchema = {
+	oneOf: [integerRange(-2147483648, 2147483647), { type: "boolean" }],
+};
+
+// Node.js zlib "Class: ZstdOptions"; params are the ZSTD_c_* entries of
+// zlib.constants, zstd's ZSTD_cParameter
+// https://nodejs.org/docs/latest-v26.x/api/zlib.html#class-zstdoptions
+// https://nodejs.org/docs/latest-v26.x/api/zlib.html#compressor-options-1
+const zstdOptionsSchema = closedObject({
+	...sharedOptions(constants.ZSTD_e_continue, constants.ZSTD_e_end),
+	params: closedObject(
+		Object.fromEntries(
+			[
+				constants.ZSTD_c_compressionLevel,
+				constants.ZSTD_c_windowLog,
+				constants.ZSTD_c_hashLog,
+				constants.ZSTD_c_chainLog,
+				constants.ZSTD_c_searchLog,
+				constants.ZSTD_c_minMatch,
+				constants.ZSTD_c_targetLength,
+				constants.ZSTD_c_strategy,
+				constants.ZSTD_c_enableLongDistanceMatching,
+				constants.ZSTD_c_ldmHashLog,
+				constants.ZSTD_c_ldmMinMatch,
+				constants.ZSTD_c_ldmBucketSizeLog,
+				constants.ZSTD_c_ldmHashRateLog,
+				constants.ZSTD_c_contentSizeFlag,
+				constants.ZSTD_c_checksumFlag,
+				constants.ZSTD_c_dictIDFlag,
+				constants.ZSTD_c_nbWorkers,
+				constants.ZSTD_c_jobSize,
+				constants.ZSTD_c_overlapLog,
+			].map((param) => [param, zstdParamSchema]),
+		),
+	),
+	pledgedSrcSize: integerRange(0, Number.MAX_SAFE_INTEGER),
+	dictionary: dictionarySchema,
+});
+
+const encoderOption = (optionsSchema) => ({
+	oneOf: [{ type: "boolean" }, optionsSchema],
+});
+
+const encodings = ["br", "deflate", "gzip", "zstd"];
+
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:http-content-encoding:options",
+	$defs: {
+		ArrayBuffer: false,
+		DataView: false,
+		Int8Array: false,
+		Uint8Array: false,
+		Uint8ClampedArray: false,
+		Int16Array: false,
+		Uint16Array: false,
+		Int32Array: false,
+		Uint32Array: false,
+		Float16Array: false,
+		Float32Array: false,
+		Float64Array: false,
+		BigInt64Array: false,
+		BigUint64Array: false,
+	},
 	type: "object",
 	properties: {
-		br: encoderOption,
-		deflate: encoderOption,
-		gzip: encoderOption,
-		zstd: encoderOption,
+		br: encoderOption(brotliOptionsSchema),
+		deflate: encoderOption(zlibOptionsSchema),
+		gzip: encoderOption(zlibOptionsSchema),
+		zstd: encoderOption(zstdOptionsSchema),
 		overridePreferredEncoding: {
 			type: "array",
-			items: { type: "string", enum: ["br", "deflate", "gzip", "zstd"] },
+			items: { type: "string", enum: encodings },
+			maxItems: encodings.length,
+			uniqueItems: true,
+			unevaluatedItems: false,
 		},
-		contextKeyHttpContentNegotiation: { type: "string" },
+		contextKeyHttpContentNegotiation: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\x21-\x7E]+$/u,
+		},
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const httpContentEncodingValidateOptions = (options) =>

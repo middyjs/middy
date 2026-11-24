@@ -1,4 +1,5 @@
 ---
+
 title: cloudwatch-metrics
 description: "Emit custom CloudWatch metrics from Lambda using AWS Embedded Metrics with Middy."
 ---
@@ -27,23 +28,20 @@ npm install --save @middy/cloudwatch-metrics
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import cloudwatchMetrics from '@middy/cloudwatch-metrics'
+import middy from "@middy/core";
+import cloudwatchMetrics from "@middy/cloudwatch-metrics";
 
 const lambdaHandler = (event, context) => {
-  const metrics = context.middyContext['cloudwatch-metrics']
-  metrics.putMetric('ProcessingLatency', 100, 'Milliseconds')
-  metrics.setProperty(
-    'RequestId',
-    '422b1569-16f6-4a03-b8f0-fe3fd9b100f8'
-  )
-}
+	const metrics = context.middyContext["cloudwatch-metrics"];
+	metrics.putMetric("ProcessingLatency", 100, "Milliseconds");
+	metrics.setProperty("RequestId", "422b1569-16f6-4a03-b8f0-fe3fd9b100f8");
+};
 export const handler = middy()
-  .use(
-    cloudwatchMetrics({
-      namespace: 'myAppliction',
-      dimensions: [{ Action: 'Buy' }]
-    })
-  )
-  .handler(lambdaHandler)
+	.use(
+		cloudwatchMetrics({
+			namespace: "myAppliction",
+			dimensions: [{ Action: "Buy" }],
+		}),
+	)
+	.handler(lambdaHandler);
 ```

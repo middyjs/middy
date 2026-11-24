@@ -3,8 +3,12 @@
 
 // Option validation helper.
 // Schema values:
-//   'string' | 'number' | 'integer' | 'boolean' | 'function' | 'object' | 'array'
+//   'string' | 'number' | 'integer' | 'boolean' | 'null' | 'function'
+//   | 'object' | 'array'
 //     Trailing '?' marks the field as optional (may be undefined).
+//   `type` may also be an array of distinct names; the value matches any.
+//   Each keyword constrains only the type it targets: `pattern` ignores a
+//   number, `minimum` ignores a string.
 //   (value) => boolean predicate - only called when value is not undefined
 //     (i.e. predicates treat the field as optional by design).
 //   { type: 'array' | 'array?', items: <itemSchema> }
@@ -12,19 +16,38 @@
 //     a predicate function, or a plain object treated as a per-element
 //     object schema (validated recursively with the same rules).
 //   { type: '<type>' | '<type>?', minimum?, maximum?, exclusiveMinimum?,
-//     minLength?, maxLength?, pattern? }
-//     Numeric: `minimum`/`maximum` (inclusive), `exclusiveMinimum`
-//     (exclusive).
-//     String: `minLength`/`maxLength` (string length), `pattern` (regex
-//     source string per JSON Schema).
-//   { type: 'object' | 'object?', properties?: {...}, additionalProperties?: <rule> }
+//     exclusiveMaximum?, minLength?, maxLength?, pattern? }
+//     Numeric: `minimum`/`maximum` (inclusive), `exclusiveMinimum`/
+//     `exclusiveMaximum` (exclusive).
+//     String: `minLength`/`maxLength` (string length), `pattern` (a RegExp
+//     literal, written with the `u` flag for JSON Schema semantics).
+//   { type: 'array' | 'array?', minItems?, maxItems?, uniqueItems?,
+//     unevaluatedItems? }
+//     `minItems`/`maxItems` bound the array length (inclusive).
+//     `uniqueItems: true` rejects an item equal to an earlier one: arrays and
+//     plain objects compare deeply, anything else by identity.
+//     `unevaluatedItems` may only be `false`, next to `items`.
+//   { type: 'object' | 'object?', properties?: {...}, required?: [...],
+//     patternProperties?: {...}, additionalProperties?: <rule>,
+//     unevaluatedProperties?, propertyNames?, maxProperties? }
 //     `properties` validates known keys with the flat-schema form.
-//     `additionalProperties` validates every other key's value against the
+//     `patternProperties` validates the value of every key its regex matches.
+//     `additionalProperties` validates every key neither matches against the
 //     given rule (string, predicate, or nested object schema). Without it,
-//     unknown keys throw.
-//   { enum: [...values], type?: '<type>' | '<type>?' }
-//     Value must strict-equal one of the listed values. Optional by default;
-//     combine with `type` to require a specific type and/or presence.
+//     unknown keys throw. `unevaluatedProperties` may only be `false`, next
+//     to `additionalProperties`. `propertyNames` validates every key.
+//     `maxProperties` bounds the number of keys.
+//   { enum: [...values] } | { const: value } | { $ref: '#/$defs/<global class>' }
+//   | { oneOf: [...rules] } | { allOf: [...rules] }
+//     Value must strict-equal one of the listed values, strict-equal the
+//     constant, be an instance of the class, match exactly one rule, or match
+//     every rule. Optional by default; combine with `type` to require a
+//     specific type and/or presence.
+//   The root may carry `$schema` (2020-12 only), `$id` (non-empty), and
+//   `$defs` whose entries are `false` and named after a global class.
+//   A plain object without `type`, `enum`, `const`, `$ref`, `oneOf` or
+//   `allOf` is a flat schema only as `items`, `additionalProperties` or a
+//   `patternProperties` value; anywhere else its keys must be keywords.
 // Keys in `options` (or nested objects) that are not in `schema` throw,
 // catching typos.
 
@@ -36,6 +59,7 @@ const validateOptionsTypeCheckers = {
 	number: (v) => typeof v === "number" && !Number.isNaN(v),
 	integer: (v) => Number.isInteger(v),
 	boolean: (v) => typeof v === "boolean",
+	null: (v) => v === null,
 	function: (v) => typeof v === "function",
 	object: (v) => v !== null && typeof v === "object" && !Array.isArray(v),
 	array: (v) => Array.isArray(v),
@@ -56,7 +80,7 @@ const checkSchemaObject = (schema, options, path, fail) => {
 		}
 	}
 	for (const key of Object.keys(schema)) {
-		checkRule(schema[key], options[key], childPathOf(path, key), fail);
+		checkRule(schema[key], safeGet(options, key), childPathOf(path, key), fail);
 	}
 };
 
@@ -65,30 +89,163 @@ const checkSchemaObject = (schema, options, path, fail) => {
 const checkTypeSpec = (rawType, value, path, fail) => {
 	const optional = rawType.endsWith("?");
 	const type = optional ? rawType.slice(0, -1) : rawType;
-	const checker = validateOptionsTypeCheckers[type];
-	if (!checker)
+	if (!Object.hasOwn(validateOptionsTypeCheckers, type)) {
 		schemaFail(`Unknown schema type '${type}' for option '${path}'`);
+	}
 	if (value === undefined) {
 		if (!optional) fail(`Missing required option '${path}' (${type})`);
 		return false;
 	}
-	if (!checker(value)) fail(`Option '${path}' must be ${type}`);
+	if (!validateOptionsTypeCheckers[type](value)) {
+		fail(`Option '${path}' must be ${type}`);
+	}
 	return true;
 };
 
-// Plain object with no rule-marker key (`type`, `enum`, `oneOf`, `allOf`,
-// `const`, `instanceof`) is a flat object schema; anything else is a rule.
-// Used when dispatching `items` and `additionalProperties`.
+const checkTypeList = (types, value, path, fail) => {
+	const expected = types.join(" or ");
+	if (value === undefined) {
+		fail(`Missing required option '${path}' (${expected})`);
+	}
+	if (!types.some((type) => validateOptionsTypeCheckers[type](value))) {
+		fail(`Option '${path}' must be ${expected}`);
+	}
+};
+
+const checkTypeListSchema = (types, where) => {
+	if (types.length === 0) {
+		schemaFail(`'type' must list at least one type in the schema for ${where}`);
+	}
+	const listed = new Set();
+	for (const type of types) {
+		if (!Object.hasOwn(validateOptionsTypeCheckers, type)) {
+			schemaFail(`Unknown schema type '${type}' in the schema for ${where}`);
+		}
+		if (listed.has(type)) {
+			schemaFail(`Duplicate schema type '${type}' in the schema for ${where}`);
+		}
+		listed.add(type);
+	}
+};
+
+const ruleKeywords = new Set([
+	"$ref",
+	"type",
+	"const",
+	"enum",
+	"allOf",
+	"oneOf",
+	"not",
+	"minimum",
+	"maximum",
+	"exclusiveMinimum",
+	"exclusiveMaximum",
+	"pattern",
+	"minLength",
+	"maxLength",
+	"items",
+	"minItems",
+	"maxItems",
+	"uniqueItems",
+	"unevaluatedItems",
+	"properties",
+	"required",
+	"additionalProperties",
+	"unevaluatedProperties",
+	"propertyNames",
+	"patternProperties",
+	"maxProperties",
+	"examples",
+]);
+
+const unevaluatedKeywordSiblings = new Map([
+	["unevaluatedItems", "items"],
+	["unevaluatedProperties", "additionalProperties"],
+]);
+
+const checkRuleKeywords = (rule, path, seen, refs, allowsFlatSchema) => {
+	if (!isPlainObject(rule) || seen.has(rule)) return;
+	seen.add(rule);
+	if (allowsFlatSchema && !hasRuleMarker(rule)) {
+		checkSchemaObjectKeywords(rule, path, seen, refs);
+		return;
+	}
+	const where = describeOption(path);
+	for (const keyword of Object.keys(rule)) {
+		if (!ruleKeywords.has(keyword)) {
+			schemaFail(
+				`Unknown schema keyword '${keyword}' in the schema for ${where}`,
+			);
+		}
+		if (keyword === "$ref" && !refs.has(rule.$ref)) {
+			schemaFail(`Unknown '$ref' '${rule.$ref}' in the schema for ${where}`);
+		}
+		const sibling = unevaluatedKeywordSiblings.get(keyword);
+		if (
+			sibling !== undefined &&
+			(rule[keyword] !== false || rule[sibling] === undefined)
+		) {
+			schemaFail(
+				`'${keyword}' must be false next to '${sibling}' in the schema for ${where}`,
+			);
+		}
+	}
+	const {
+		type,
+		properties,
+		patternProperties,
+		items,
+		additionalProperties,
+		propertyNames,
+		allOf,
+		oneOf,
+	} = rule;
+	if (Array.isArray(type)) checkTypeListSchema(type, where);
+	if (rule.pattern !== undefined && !(rule.pattern instanceof RegExp)) {
+		schemaFail(`'pattern' must be a RegExp in the schema for ${where}`);
+	}
+	if (properties) checkSchemaObjectKeywords(properties, path, seen, refs);
+	for (const [, patternRule, source] of compilePatternProperties(
+		patternProperties,
+		where,
+	)) {
+		checkRuleKeywords(patternRule, childPathOf(path, source), seen, refs, true);
+	}
+	checkRuleKeywords(items, `${path}[]`, seen, refs, true);
+	checkRuleKeywords(
+		additionalProperties,
+		childPathOf(path, "*"),
+		seen,
+		refs,
+		true,
+	);
+	checkRuleKeywords(propertyNames, path, seen, refs);
+	if (Array.isArray(allOf)) {
+		for (const sub of allOf) checkRuleKeywords(sub, path, seen, refs);
+	}
+	if (Array.isArray(oneOf)) {
+		for (const sub of oneOf) checkRuleKeywords(sub, path, seen, refs);
+	}
+	checkRuleKeywords(rule.not, path, seen, refs);
+};
+
+const checkSchemaObjectKeywords = (schema, path, seen, refs) => {
+	for (const key of Object.keys(schema)) {
+		checkRuleKeywords(schema[key], childPathOf(path, key), seen, refs);
+	}
+};
+
+const hasRuleMarker = (rule) =>
+	Object.hasOwn(rule, "$ref") ||
+	typeof rule.type === "string" ||
+	Array.isArray(rule.type) ||
+	Array.isArray(rule.enum) ||
+	Array.isArray(rule.oneOf) ||
+	Array.isArray(rule.allOf) ||
+	Object.hasOwn(rule, "const");
+
 const checkNestedRule = (rule, value, path, fail) => {
-	if (
-		isPlainObject(rule) &&
-		typeof rule.type !== "string" &&
-		!Array.isArray(rule.enum) &&
-		!Array.isArray(rule.oneOf) &&
-		!Array.isArray(rule.allOf) &&
-		!Object.hasOwn(rule, "const") &&
-		typeof rule.instanceof !== "string"
-	) {
+	if (isPlainObject(rule) && !hasRuleMarker(rule)) {
 		checkSchemaObject(rule, value, path, fail);
 	} else {
 		checkRule(rule, value, path, fail);
@@ -97,34 +254,34 @@ const checkNestedRule = (rule, value, path, fail) => {
 
 const childPathOf = (path, key) => (path ? `${path}.${key}` : key);
 
+// Keys that reach an object's prototype chain when assigned.
+export const reservedPropertyNames = ["__proto__", "constructor", "prototype"];
+
+const describeOption = (path) => (path ? `option '${path}'` : "options");
+
+const compilePatternProperties = (patternProperties, where) => {
+	const compiled = [];
+	for (const [source, rule] of Object.entries(patternProperties ?? {})) {
+		try {
+			compiled.push([new RegExp(source, "u"), rule, source]);
+		} catch {
+			schemaFail(
+				`Invalid pattern '${source}' in patternProperties in the schema for ${where}`,
+			);
+		}
+	}
+	return compiled;
+};
+
 class SchemaError extends Error {}
 const schemaFail = (message) => {
 	throw new SchemaError(message);
 };
 
-// Stable JSON form: recursively sorts object keys, skips function-typed
-// values. Used for `uniqueItems` so items that differ only by handler
-// identity or key ordering collide.
-const stableStringify = (value, seen = new WeakSet()) => {
-	if (value === null || typeof value !== "object") return JSON.stringify(value);
-	if (seen.has(value)) return '"[Circular]"';
-	seen.add(value);
-	const isArray = Array.isArray(value);
-	const parts = isArray
-		? value.map((v) => stableStringify(v, seen))
-		: Object.keys(value)
-				.filter((k) => typeof value[k] !== "function")
-				.sort()
-				.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k], seen)}`);
-	seen.delete(value);
-	const joined = parts.join(",");
-	return isArray ? `[${joined}]` : `{${joined}}`;
-};
-
 const resolveInstance = (name) => {
 	const ctor = globalThis[name];
 	if (typeof ctor !== "function") {
-		schemaFail(`Unknown 'instanceof' class '${name}'`);
+		schemaFail(`Unknown '$defs' class '${name}'`);
 	}
 	return ctor;
 };
@@ -140,160 +297,198 @@ const checkRule = (rule, value, path, fail) => {
 		checkTypeSpec(rule, value, path, fail);
 		return;
 	}
-	if (isPlainObject(rule) && Object.hasOwn(rule, "const")) {
-		if (value === undefined) return;
-		if (value !== rule.const) {
-			fail(`Option '${path}' must equal ${JSON.stringify(rule.const)}`);
-		}
+	if (!isPlainObject(rule) || !hasRuleMarker(rule)) {
+		schemaFail(`Invalid schema for option '${path}'`);
+	}
+	if (typeof rule.type === "string") {
+		if (!checkTypeSpec(rule.type, value, path, fail)) return;
+	} else if (Array.isArray(rule.type)) {
+		checkTypeList(rule.type, value, path, fail);
+	} else if (value === undefined) {
 		return;
 	}
-	if (isPlainObject(rule) && Array.isArray(rule.allOf)) {
-		if (value === undefined) return;
+	if (Object.hasOwn(rule, "const") && value !== rule.const) {
+		fail(`Option '${path}' must equal ${JSON.stringify(rule.const)}`);
+	}
+	if (Array.isArray(rule.enum) && !rule.enum.includes(value)) {
+		fail(`Option '${path}' must be one of ${JSON.stringify(rule.enum)}`);
+	}
+	if (Object.hasOwn(rule, "$ref")) {
+		const name = rule.$ref.slice(defsRefPrefix.length);
+		if (!(value instanceof globalThis[name])) {
+			fail(`Option '${path}' must be instanceof ${name}`);
+		}
+	}
+	if (Array.isArray(rule.allOf)) {
 		for (const sub of rule.allOf) {
 			checkRule(sub, value, path, fail);
 		}
-		return;
 	}
-	if (isPlainObject(rule) && Array.isArray(rule.oneOf)) {
-		if (value === undefined) return;
+	if (Array.isArray(rule.oneOf)) {
 		let matches = 0;
 		for (const sub of rule.oneOf) {
-			try {
-				checkRule(sub, value, path, (msg) => {
-					throw new TypeError(msg);
-				});
-				matches++;
-			} catch (e) {
-				if (e instanceof SchemaError) throw e;
-			}
+			if (matchesRule(sub, value, path)) matches++;
 		}
 		if (matches !== 1) {
 			fail(`Option '${path}' must match exactly one schema in oneOf`);
 		}
-		return;
 	}
-	if (isPlainObject(rule) && typeof rule.instanceof === "string") {
-		if (value === undefined) return;
-		const ctor = resolveInstance(rule.instanceof);
-		if (!(value instanceof ctor)) {
-			fail(`Option '${path}' must be instanceof ${rule.instanceof}`);
-		}
-		return;
+	if (Object.hasOwn(rule, "not") && matchesRule(rule.not, value, path)) {
+		fail(`Option '${path}' must not match the schema in not`);
 	}
-	if (isPlainObject(rule) && Array.isArray(rule.enum)) {
-		if (typeof rule.type === "string") {
-			if (!checkTypeSpec(rule.type, value, path, fail)) return;
-		} else if (value === undefined) {
-			return;
-		}
-		if (!rule.enum.includes(value)) {
-			fail(`Option '${path}' must be one of ${JSON.stringify(rule.enum)}`);
-		}
-		return;
+	checkNumberKeywords(rule, value, path, fail);
+	checkStringKeywords(rule, value, path, fail);
+	checkArrayKeywords(rule, value, path, fail);
+	checkObjectKeywords(rule, value, path, fail);
+};
+
+const matchesRule = (rule, value, path) => {
+	try {
+		checkRule(rule, value, path, (msg) => {
+			throw new TypeError(msg);
+		});
+		return true;
+	} catch (e) {
+		if (e instanceof SchemaError) throw e;
+		return false;
 	}
-	if (isPlainObject(rule) && typeof rule.type === "string") {
-		const {
-			type: rawType,
-			items,
-			uniqueItems,
-			properties,
-			required,
-			additionalProperties,
-			minimum,
-			maximum,
-			exclusiveMinimum,
-			pattern,
-			minLength,
-			maxLength,
-		} = rule;
-		if (!checkTypeSpec(rawType, value, path, fail)) return;
-		const type = rawType.endsWith("?") ? rawType.slice(0, -1) : rawType;
-		if (value < minimum) {
-			fail(`Option '${path}' must be >= ${minimum}`);
-		}
-		if (value > maximum) {
-			fail(`Option '${path}' must be <= ${maximum}`);
-		}
-		if (value <= exclusiveMinimum) {
-			fail(`Option '${path}' must be > ${exclusiveMinimum}`);
-		}
-		const hasStringConstraint =
-			pattern !== undefined ||
-			minLength !== undefined ||
-			maxLength !== undefined;
-		if (hasStringConstraint && typeof value !== "string") {
-			fail(`Option '${path}' must be string`);
-		}
-		if (pattern !== undefined) {
-			let matched;
-			try {
-				matched = value.match(pattern) !== null;
-			} catch {
-				// A pattern that does not compile is a malformed schema, not a
-				// mismatch; the RegExp SyntaxError is surfaced as the packaged
-				// TypeError like every other schema error.
-				schemaFail(`Invalid pattern for option '${path}'`);
-			}
-			if (!matched) fail(`Option '${path}' must match pattern ${pattern}`);
-		}
-		if (value.length < minLength) {
-			fail(`Option '${path}' must have length >= ${minLength}`);
-		}
-		if (value.length > maxLength) {
-			fail(`Option '${path}' must have length <= ${maxLength}`);
-		}
-		if (type === "array" && items !== undefined) {
-			for (let i = 0; i < value.length; i++) {
-				checkNestedRule(items, value[i], `${path}[${i}]`, fail);
-			}
-		}
-		if (type === "array" && uniqueItems === true) {
-			const seen = new Set();
-			for (let i = 0; i < value.length; i++) {
-				const key = stableStringify(value[i]);
-				if (seen.has(key)) {
-					fail(`Duplicate item at '${path}[${i}]'`);
-				}
-				seen.add(key);
-			}
-		}
-		if (type === "object" && Array.isArray(required)) {
-			for (const key of required) {
-				if (value[key] === undefined) {
-					fail(`Missing required option '${childPathOf(path, key)}'`);
-				}
-			}
+};
+
+const checkNumberKeywords = (rule, value, path, fail) => {
+	if (typeof value !== "number") return;
+	const { minimum, maximum, exclusiveMinimum, exclusiveMaximum } = rule;
+	if (value < minimum) {
+		fail(`Option '${path}' must be >= ${minimum}`);
+	}
+	if (value > maximum) {
+		fail(`Option '${path}' must be <= ${maximum}`);
+	}
+	if (value <= exclusiveMinimum) {
+		fail(`Option '${path}' must be > ${exclusiveMinimum}`);
+	}
+	if (value >= exclusiveMaximum) {
+		fail(`Option '${path}' must be < ${exclusiveMaximum}`);
+	}
+};
+
+const checkStringKeywords = (rule, value, path, fail) => {
+	if (typeof value !== "string") return;
+	const { pattern, minLength, maxLength } = rule;
+	if (value.match(pattern) === null) {
+		fail(`Option '${path}' must match pattern ${pattern}`);
+	}
+	if (value.length < minLength) {
+		fail(`Option '${path}' must have length >= ${minLength}`);
+	}
+	if (value.length > maxLength) {
+		fail(`Option '${path}' must have length <= ${maxLength}`);
+	}
+};
+
+const checkArrayKeywords = (rule, value, path, fail) => {
+	if (!Array.isArray(value)) return;
+	const { items, minItems, maxItems, uniqueItems } = rule;
+	if (value.length < minItems) {
+		fail(`Option '${path}' must have >= ${minItems} items`);
+	}
+	if (value.length > maxItems) {
+		fail(`Option '${path}' must have <= ${maxItems} items`);
+	}
+	for (let i = 0; i < value.length; i++) {
+		if (items !== undefined) {
+			checkNestedRule(items, value[i], `${path}[${i}]`, fail);
 		}
 		if (
-			type === "object" &&
-			(properties || additionalProperties !== undefined)
+			uniqueItems === true &&
+			value.slice(0, i).some((earlier) => jsonEqual(value[i], earlier))
 		) {
-			for (const key of Object.keys(value)) {
-				if (properties && Object.hasOwn(properties, key)) continue;
-				if (
-					additionalProperties === undefined ||
-					additionalProperties === false
-				) {
-					fail(`Unknown option '${childPathOf(path, key)}'`);
-				}
-				if (additionalProperties === true) continue;
-				checkNestedRule(
-					additionalProperties,
-					value[key],
-					childPathOf(path, key),
-					fail,
-				);
-			}
-			if (properties) {
-				for (const key of Object.keys(properties)) {
-					if (value[key] === undefined) continue;
-					checkRule(properties[key], value[key], childPathOf(path, key), fail);
-				}
+			fail(`Duplicate item at '${path}[${i}]'`);
+		}
+	}
+};
+
+const isJsonObject = (value) => {
+	if (value === null || typeof value !== "object") return false;
+	const prototype = Object.getPrototypeOf(value);
+	return prototype === Object.prototype || prototype === null;
+};
+
+const jsonEqual = (a, b) => {
+	if (Array.isArray(a)) {
+		return (
+			Array.isArray(b) &&
+			a.length === b.length &&
+			a.every((item, i) => jsonEqual(item, b[i]))
+		);
+	}
+	if (isJsonObject(a)) {
+		if (!isJsonObject(b)) return false;
+		const keys = Object.keys(a);
+		return (
+			keys.length === Object.keys(b).length &&
+			keys.every((key) => Object.hasOwn(b, key) && jsonEqual(a[key], b[key]))
+		);
+	}
+	return a === b;
+};
+
+const checkObjectKeywords = (rule, value, path, fail) => {
+	if (!isPlainObject(value)) return;
+	const {
+		properties,
+		patternProperties,
+		required,
+		additionalProperties,
+		propertyNames,
+		maxProperties,
+	} = rule;
+	if (Array.isArray(required)) {
+		for (const key of required) {
+			if (safeGet(value, key) === undefined) {
+				fail(`Missing required option '${childPathOf(path, key)}'`);
 			}
 		}
-		return;
 	}
-	schemaFail(`Invalid schema for option '${path}'`);
+	const keys = Object.keys(value);
+	if (keys.length > maxProperties) {
+		fail(`Option '${path}' must have <= ${maxProperties} properties`);
+	}
+	const closed =
+		properties || patternProperties || additionalProperties !== undefined;
+	const patterns = compilePatternProperties(
+		patternProperties,
+		describeOption(path),
+	);
+	for (const key of keys) {
+		const keyPath = childPathOf(path, key);
+		if (propertyNames !== undefined) {
+			checkRule(propertyNames, key, keyPath, (message) =>
+				fail(
+					`Invalid property name '${key}' in ${describeOption(path)}: ${message}`,
+				),
+			);
+		}
+		let evaluated = properties && Object.hasOwn(properties, key);
+		for (const [regex, patternRule] of patterns) {
+			if (regex.test(key)) {
+				evaluated = true;
+				checkNestedRule(patternRule, value[key], keyPath, fail);
+			}
+		}
+		if (!closed || evaluated) continue;
+		if (additionalProperties === undefined || additionalProperties === false) {
+			fail(`Unknown option '${keyPath}'`);
+		}
+		if (additionalProperties === true) continue;
+		checkNestedRule(additionalProperties, value[key], keyPath, fail);
+	}
+	if (properties) {
+		for (const key of Object.keys(properties)) {
+			const propertyValue = safeGet(value, key);
+			if (propertyValue === undefined) continue;
+			checkRule(properties[key], propertyValue, childPathOf(path, key), fail);
+		}
+	}
 };
 
 const isJsonSchemaForm = (schema) =>
@@ -303,15 +498,43 @@ const isJsonSchemaForm = (schema) =>
 		Object.hasOwn(schema, "required") ||
 		Object.hasOwn(schema, "additionalProperties"));
 
+const draft202012 = "https://json-schema.org/draft/2020-12/schema";
+const defsRefPrefix = "#/$defs/";
+
+// A `$defs` entry is `false`, which a JSON Schema validator reads as "no JSON
+// value is valid"; util reads its name as `instanceof globalThis[name]`. For
+// Function and RegExp the readings agree on every JSON value. `Object` also
+// passes plain objects and arrays in util, so util is the looser reader there;
+// use it only for live instances such as clients.
+const checkRootKeywords = ($schema, $id, $defs) => {
+	if ($schema !== undefined && $schema !== draft202012) {
+		schemaFail(`'$schema' must be '${draft202012}'`);
+	}
+	if ($id !== undefined && (typeof $id !== "string" || $id === "")) {
+		schemaFail("'$id' must be a non-empty string");
+	}
+	const refs = new Set();
+	for (const [name, def] of Object.entries($defs ?? {})) {
+		if (def !== false) schemaFail(`'$defs' entry '${name}' must be false`);
+		resolveInstance(name);
+		refs.add(`${defsRefPrefix}${name}`);
+	}
+	return refs;
+};
+
 export const validateOptions = (packageName, schema, options = {}) => {
 	const fail = (message) => {
 		throw new TypeError(message, { cause: { package: packageName } });
 	};
 	try {
 		if (isJsonSchemaForm(schema)) {
+			const { $schema, $id, $defs, ...rule } = schema;
+			const refs = checkRootKeywords($schema, $id, $defs);
+			checkRuleKeywords(rule, "", new WeakSet(), refs);
 			if (!isPlainObject(options)) fail("options must be an object");
-			checkRule(schema, options, "", fail);
+			checkRule(rule, options, "", fail);
 		} else {
+			checkSchemaObjectKeywords(schema, "", new WeakSet(), new Set());
 			checkSchemaObject(schema, options, "", fail);
 		}
 	} catch (e) {
@@ -327,16 +550,241 @@ export const validateOptions = (packageName, schema, options = {}) => {
 	return options;
 };
 
+const functionRule = { $ref: "#/$defs/Function" };
+const instanceRule = { $ref: "#/$defs/Object" };
+const booleanRule = { type: "boolean" };
+const printableTextRule = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\x20-\x7E]+$/u,
+};
+const optionalTextRule = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\x20-\x7E]*$/u,
+};
+const visibleTextRule = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\x21-\x7E]+$/u,
+};
+const httpHeaderNameRule = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\w-]+$/u,
+	not: { type: "string", enum: reservedPropertyNames },
+};
+const visibleKeyRule = {
+	...visibleTextRule,
+	not: { type: "string", enum: reservedPropertyNames },
+};
+const authSchemeIdRule = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\w.#-]+$/u,
+};
+const apiVersionRule = {
+	type: "string",
+	maxLength: 10,
+	pattern: /^\d{4}-\d{2}-\d{2}$/u,
+};
+// The SDK takes any region that is a valid host label:
+// node_modules/@smithy/core/dist-es/submodules/transport/isValidHostLabel.js
+const awsRegionRule = {
+	type: "string",
+	maxLength: 63,
+	pattern: /^[A-Za-z0-9-]+$/u,
+};
+
+const orProvider = (rule) => ({ oneOf: [rule, functionRule] });
+const listOf = (items) => ({
+	type: "array",
+	items,
+	maxItems: 1024,
+	uniqueItems: true,
+	unevaluatedItems: false,
+});
+const objectOf = (properties, required = []) => ({
+	type: "object",
+	properties,
+	required,
+	additionalProperties: false,
+	unevaluatedProperties: false,
+});
+const mapOf = (propertyNames, additionalProperties) => ({
+	type: "object",
+	propertyNames,
+	maxProperties: 1024,
+	required: [],
+	additionalProperties,
+	unevaluatedProperties: false,
+});
+
+// node_modules/@smithy/types/dist-types/identity/awsCredentialIdentity.d.ts
+const awsCredentialIdentityRule = objectOf(
+	{
+		// https://docs.aws.amazon.com/IAM/latest/APIReference/API_AccessKey.html
+		accessKeyId: { type: "string", maxLength: 128, pattern: /^\w+$/u },
+		secretAccessKey: visibleTextRule,
+		// "The size of the security token that AWS STS API operations return is
+		// not fixed."
+		// https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html
+		sessionToken: { ...visibleTextRule, maxLength: 16384 },
+		credentialScope: visibleTextRule,
+		// https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-identifiers.html
+		accountId: { type: "string", maxLength: 12, pattern: /^\d{12}$/u },
+		expiration: instanceRule,
+	},
+	["accessKeyId", "secretAccessKey"],
+);
+
+// node_modules/@smithy/types/dist-types/http.d.ts (Endpoint)
+const endpointV1Rule = objectOf(
+	{
+		protocol: { type: "string", maxLength: 6, pattern: /^https?:?$/u },
+		// RFC 1035 section 2.3.4: "names - 255 octets or less"
+		hostname: { ...visibleTextRule, maxLength: 255 },
+		port: { type: "integer", minimum: 1, maximum: 65535 },
+		path: { type: "string", maxLength: 1024, pattern: /^\/[\x21-\x7E]*$/u },
+		// QueryParameterBag: Record<string, string | Array<string> | null>
+		query: mapOf(visibleKeyRule, {
+			...optionalTextRule,
+			...listOf(optionalTextRule),
+			type: ["string", "array", "null"],
+		}),
+		headers: mapOf(httpHeaderNameRule, optionalTextRule),
+	},
+	["protocol", "hostname", "path"],
+);
+
+// node_modules/@smithy/types/dist-types/endpoint.d.ts (EndpointV2)
+const endpointV2Rule = objectOf(
+	{
+		url: instanceRule,
+		headers: mapOf(httpHeaderNameRule, listOf(optionalTextRule)),
+	},
+	["url"],
+);
+
+// The keys every client's `<Service>ClientConfigType` shares, e.g.
+// node_modules/@aws-sdk/client-ssm/dist-types/SSMClient.d.ts
+export const awsClientOptionsSchema = objectOf({
+	apiVersion: apiVersionRule,
+	authSchemePreference: orProvider(listOf(authSchemeIdRule)),
+	base64Decoder: functionRule,
+	base64Encoder: functionRule,
+	bodyLengthChecker: functionRule,
+	cacheMiddleware: booleanRule,
+	credentialDefaultProvider: functionRule,
+	credentials: orProvider(awsCredentialIdentityRule),
+	customUserAgent: {
+		oneOf: [
+			printableTextRule,
+			listOf({ ...listOf(printableTextRule), minItems: 1, maxItems: 2 }),
+		],
+	},
+	defaultUserAgentProvider: functionRule,
+	defaultsMode: orProvider({
+		type: "string",
+		enum: ["standard", "in-region", "cross-region", "mobile", "auto", "legacy"],
+	}),
+	disableClockSkewCorrection: orProvider(booleanRule),
+	disableHostPrefix: booleanRule,
+	endpoint: {
+		oneOf: [
+			{
+				type: "string",
+				maxLength: 1024,
+				pattern: /^https?:\/\/[\x21-\x7E]+$/u,
+			},
+			functionRule,
+			endpointV1Rule,
+			endpointV2Rule,
+		],
+	},
+	endpointProvider: functionRule,
+	extensions: listOf(objectOf({ configure: functionRule }, ["configure"])),
+	httpAuthSchemeProvider: functionRule,
+	httpAuthSchemes: listOf(
+		objectOf(
+			{
+				schemeId: authSchemeIdRule,
+				identityProvider: functionRule,
+				signer: instanceRule,
+			},
+			["schemeId", "identityProvider", "signer"],
+		),
+	),
+	ignoreConfiguredEndpointUrls: booleanRule,
+	logger: instanceRule,
+	maxAttempts: orProvider({
+		type: "integer",
+		minimum: 1,
+		maximum: Number.MAX_SAFE_INTEGER,
+	}),
+	profile: visibleTextRule,
+	protocol: instanceRule,
+	// The settings every client's runtimeConfig.shared.js passes its protocol:
+	// node_modules/@aws-sdk/client-ssm/dist-es/runtimeConfig.shared.js
+	protocolSettings: objectOf({
+		awsQueryCompatible: booleanRule,
+		defaultNamespace: visibleTextRule,
+		errorTypeRegistries: listOf(instanceRule),
+		jsonCodec: instanceRule,
+		serviceTarget: visibleTextRule,
+		version: apiVersionRule,
+		xmlNamespace: visibleTextRule,
+	}),
+	region: orProvider(awsRegionRule),
+	requestHandler: instanceRule,
+	// node_modules/@smithy/core/dist-types/submodules/retry/util-retry/config.d.ts
+	retryMode: orProvider({ type: "string", enum: ["standard", "adaptive"] }),
+	retryStrategy: instanceRule,
+	runtime: { type: "string", enum: ["node", "browser", "react-native"] },
+	serviceId: printableTextRule,
+	sha256: functionRule,
+	signer: instanceRule,
+	signerConstructor: functionRule,
+	signingEscapePath: booleanRule,
+	signingRegion: awsRegionRule,
+	streamCollector: functionRule,
+	// ECMA-262 section 21.4.1.1: a time value is within 8.64e15 ms of the epoch
+	systemClockOffset: { type: "number", minimum: -8.64e15, maximum: 8.64e15 },
+	tls: booleanRule,
+	urlParser: functionRule,
+	useDualstackEndpoint: orProvider(booleanRule),
+	useFipsEndpoint: orProvider(booleanRule),
+	// The SDK warns past 50 characters:
+	// node_modules/@aws-sdk/core/dist-es/submodules/client/middleware-user-agent/configurations.js
+	userAgentAppId: orProvider({ ...printableTextRule, maxLength: 50 }),
+	utf8Decoder: functionRule,
+	utf8Encoder: functionRule,
+});
+
+const cacheExpiryRule = {
+	type: "number",
+	minimum: -1,
+	maximum: Number.MAX_SAFE_INTEGER,
+};
+
+export const cacheOptionSchemaProperties = {
+	disablePrefetch: booleanRule,
+	cacheKey: visibleTextRule,
+	cacheKeyExpiry: mapOf(visibleKeyRule, cacheExpiryRule),
+	cacheExpiry: cacheExpiryRule,
+	cacheMaxSize: {
+		type: "integer",
+		minimum: 1,
+		maximum: Number.MAX_SAFE_INTEGER,
+	},
+};
+
 export const createPrefetchClient = (options) => {
 	const { awsClientOptions } = options;
 	const client = new options.AwsClient(awsClientOptions);
 
-	// AWS XRay
 	if (options.awsClientCapture) {
-		if (options.disablePrefetch) {
-			return options.awsClientCapture(client);
-		}
-		console.warn("Unable to apply X-Ray outside of handler invocation scope.");
+		return options.awsClientCapture(client);
 	}
 
 	return client;
@@ -375,11 +823,9 @@ export const createClient = async (options, request) => {
 		...options.awsClientOptions,
 	};
 
-	// Runs inside the handler invocation, so X-Ray capture can apply.
 	return createPrefetchClient({
 		...options,
 		awsClientOptions: awsClientCredentials,
-		disablePrefetch: true,
 	});
 };
 
@@ -433,8 +879,14 @@ export const canPrefetch = (options = {}) => {
 			{ cause: { package: pkg } },
 		);
 	}
+	// X-Ray cannot "record work done outside of the handler invocation scope"
+	// (https://docs.aws.amazon.com/lambda/latest/dg/services-xray.html), and a
+	// client built for the prefetch is kept for the life of the container. A
+	// capture function therefore turns prefetch off: the client is built and
+	// captured inside the first invocation, and every fetch is traced.
 	return (
 		!options.awsClientAssumeRole &&
+		!options.awsClientCapture &&
 		!options.disablePrefetch &&
 		cacheExpiry !== 0
 	);
@@ -932,7 +1384,7 @@ const processCacheEntry = (
 			? Number.POSITIVE_INFINITY
 			: cacheExpiry > 86400000
 				? cacheExpiry
-				: now + cacheExpiry;
+				: now + (cacheExpiry ?? 0);
 	if (cacheExpiry) {
 		// Read after the fetch, which may have learned the expiry synchronously,
 		// so the entry and its refresh fold it in from the start. One that has
@@ -1167,15 +1619,22 @@ export const decodeBody = (body, isBase64Encoded) => {
 	return isBase64Encoded ? Buffer.from(body, "base64").toString() : body;
 };
 
+// A handler behind an API Gateway HTTP API or a Lambda function URL may return
+// its payload without a `statusCode` / `body` wrapper: "API Gateway makes the
+// following assumptions if your Lambda function returns valid JSON and doesn't
+// return a `statusCode`: ... `body` is the function's response."
+// https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html
+// https://docs.aws.amazon.com/lambda/latest/dg/urls-invocation.html
+export const isUnwrappedHttpResponse = (response) =>
+	typeof response?.statusCode === "undefined" &&
+	typeof response?.body === "undefined" &&
+	typeof response?.headers === "undefined";
+
 export const normalizeHttpResponse = (request) => {
 	let { response } = request;
 	if (typeof response === "undefined") {
 		response = {};
-	} else if (
-		typeof response?.statusCode === "undefined" &&
-		typeof response?.body === "undefined" &&
-		typeof response?.headers === "undefined"
-	) {
+	} else if (isUnwrappedHttpResponse(response)) {
 		response = { statusCode: 200, body: response };
 	}
 	response.statusCode ??= 500;
@@ -1184,68 +1643,167 @@ export const normalizeHttpResponse = (request) => {
 	return response;
 };
 
-// Paths are dot-delimited and relative to the `request`, with `[]` for array
-// elements: `event.headers.authorization`, `error.cause.data.body`.
 // Segments match keys case-insensitively (HTTP field names are, RFC 9110
 // section 5.1, and REST API / ALB events do not normalize them), so the tree
 // holds them lower-cased. Over-redacting
 // a key that differs only by case is the safe direction.
 // Nodes are Maps: a segment is caller data, and a Map key can never resolve to
 // an inherited member the way `node[segment]` would, so building the tree needs
-// no own-property guard. The segments are still filtered, because `omit` reads
-// and writes them as real property names on the payload.
+// no own-property guard.
 export const buildPathTree = (paths) => {
 	const tree = new Map();
-	// Copy before sorting so the caller-provided array is never mutated. Reverse
-	// so a leaf path (`a.b`) overrides a longer one (`a.b.c`) when both are set.
-	for (let path of [...paths].sort().reverse()) {
-		path = (Array.isArray(path) ? path : path.split(".")).map((segment) =>
-			String(segment).toLowerCase(),
-		);
-		if (
-			path.includes("__proto__") ||
-			path.includes("constructor") ||
-			path.includes("prototype")
-		) {
-			continue;
-		}
-		let node = tree;
-		for (let i = 0; i < path.length - 1; i++) {
-			const segment = path[i];
-			let child = node.get(segment);
-			if (child === undefined) {
-				child = new Map();
-				node.set(segment, child);
-			}
-			node = child;
-		}
-		node.set(path[path.length - 1], true);
+	for (const path of paths) {
+		addPathToTree(tree, parseOmitPath(path));
 	}
 	return tree;
+};
+
+const omitPathStringSchema = {
+	type: "string",
+	pattern: /^[\p{L}\p{M}\p{N}\p{P}\p{S} ]+$/u,
+	maxLength: 1024,
+};
+
+export const omitPathsSchema = {
+	type: "array",
+	items: {
+		oneOf: [
+			omitPathStringSchema,
+			{
+				type: "array",
+				items: omitPathStringSchema,
+				minItems: 1,
+				maxItems: 64,
+				uniqueItems: true,
+				unevaluatedItems: false,
+			},
+		],
+	},
+	maxItems: 256,
+	uniqueItems: true,
+	unevaluatedItems: false,
+};
+
+export const validateOmitPaths = (omitPaths) => {
+	if (omitPaths === undefined) return;
+	for (const path of omitPaths) {
+		parseOmitPath(path);
+	}
+};
+
+const parseOmitPath = (path) => {
+	const segments = pathToSegments(path).map((segment) => segment.toLowerCase());
+	if (segments.some((segment) => reservedPathSegments.has(segment))) {
+		throw invalidPathError(
+			path,
+			'"__proto__", "constructor" and "prototype" segments cannot be redacted',
+		);
+	}
+	return segments;
+};
+
+const reservedPathSegments = new Set(reservedPropertyNames);
+
+const unsupportedStringSegmentPattern = /[[\]*]|^\d*$/;
+
+const pathToSegments = (path) => {
+	if (Array.isArray(path)) {
+		if (path.length === 0) {
+			throw invalidPathError(path, "an array path needs at least one segment");
+		}
+		for (const segment of path) {
+			if (typeof segment !== "string") {
+				throw invalidPathError(
+					path,
+					`segment ${JSON.stringify(segment)} must be a string. Use "[]" to match every element of an array, or a string to match that key literally`,
+				);
+			}
+		}
+		return path;
+	}
+	if (typeof path !== "string") {
+		throw invalidPathError(
+			path,
+			"a path is a string or an array of string segments",
+		);
+	}
+	const segments = path.split(".");
+	for (const segment of segments) {
+		if (segment !== "[]" && unsupportedStringSegmentPattern.test(segment)) {
+			throw invalidPathError(
+				path,
+				`segment ${JSON.stringify(segment)} is not supported in a string path. Use ".[]." to match every element of an array, or the array form ${JSON.stringify(segments)} to match that key literally`,
+			);
+		}
+	}
+	return segments;
+};
+
+const invalidPathError = (path, reason) =>
+	new TypeError(`Invalid path ${JSON.stringify(path)}: ${reason}`, {
+		cause: { package: pkg, data: { path } },
+	});
+
+const addPathToTree = (tree, segments) => {
+	const leaf = segments.pop();
+	let node = tree;
+	for (const segment of segments) {
+		let child = node.get(segment);
+		if (child === true) return;
+		if (child === undefined) {
+			child = new Map();
+			node.set(segment, child);
+		}
+		node = child;
+	}
+	node.set(leaf, true);
+};
+
+const removed = Symbol("removed");
+
+export const pathTreeOmitsString = (pathTree, segments) => {
+	let node = pathTree;
+	for (const segment of segments) {
+		node = node?.get(segment.toLowerCase());
+		if (node === true) return true;
+	}
+	return node?.size > 0;
 };
 
 // Returns `obj` unchanged when no `pathTree` entry applies (zero allocations
 // on the cold subtree); otherwise returns a shallow clone with matched keys
 // masked or removed. Only branches present in `pathTree` are walked.
 export const omit = (obj, pathTree, mask) => {
-	if (!pathTree || typeof obj !== "object" || obj === null) return obj;
-	if (Array.isArray(obj)) return omitArray(obj, pathTree.get("[]"), mask);
+	if (!pathTree || pathTree.size === 0) return obj;
+	const next = omitValue(obj, pathTree, mask === undefined ? removed : mask);
+	return next === removed ? undefined : next;
+};
+
+const omitValue = (value, pathTree, replacement) => {
+	if (typeof value === "string") return replacement;
+	if (typeof value !== "object" || value === null) return value;
+	if (Array.isArray(value)) {
+		const childTree = pathTree.get("[]");
+		if (childTree === undefined || pathTree.size > 1) return replacement;
+		return omitArray(value, childTree, replacement);
+	}
 	// Errors are not plain objects, so without this branch `omitObject` would
 	// never run and the configured path would silently leak.
-	if (obj instanceof Error)
-		return omitObject(errorToObject(obj), pathTree, mask);
-	if (isRecord(obj)) return omitObject(obj, pathTree, mask);
-	if (isOpaque(obj)) return obj;
-	return omitInstance(obj, pathTree, mask);
+	if (value instanceof Error)
+		return omitObject(errorToObject(value), pathTree, replacement);
+	if (isRecord(value)) return omitObject(value, pathTree, replacement);
+	if (value instanceof Map || value instanceof Set) return replacement;
+	if (isOpaque(value)) return value;
+	return omitInstance(value, pathTree, replacement);
 };
 
 // A class instance (the durable execution context, a request wrapper from a
 // framework) is walked through a copy of its own enumerable properties, so a
 // prototype getter is never read and the instance itself comes back when
 // nothing under it matched. What the logger gets for it is that plain copy.
-const omitInstance = (obj, pathTree, mask) => {
+const omitInstance = (obj, pathTree, replacement) => {
 	const copy = { ...obj };
-	const next = omitObject(copy, pathTree, mask);
+	const next = omitObject(copy, pathTree, replacement);
 	return next === copy ? obj : next;
 };
 
@@ -1256,8 +1814,6 @@ const isOpaque = (value) => {
 	if (
 		value instanceof Date ||
 		value instanceof RegExp ||
-		value instanceof Map ||
-		value instanceof Set ||
 		value instanceof WeakMap ||
 		value instanceof WeakSet ||
 		value instanceof ArrayBuffer ||
@@ -1292,29 +1848,29 @@ const errorToObject = (error) => {
 	return out;
 };
 
-// A falsy `childTree` needs no guard: every `omit` below then returns its
-// element unchanged, so the same array reference comes back.
 // Counting down: `.entries()` allocates a tuple per element, and a forward
 // `i < l` bound widened to `i <= l` is unobservable. `while (i--)` carries no
 // bound arithmetic to widen either, so every mutation of it is observable.
-const omitArray = (arr, childTree, mask) => {
+const omitArray = (arr, childTree, replacement) => {
 	let clone = arr;
 	let i = arr.length;
 	while (i--) {
-		const next = omit(arr[i], childTree, mask);
+		const next =
+			childTree === true
+				? replacement
+				: omitValue(arr[i], childTree, replacement);
 		if (next !== arr[i]) {
 			if (clone === arr) clone = arr.slice();
 			clone[i] = next;
 		}
 	}
-	return clone;
+	return clone === arr ? arr : clone.filter(isKeptElement);
 };
 
+const isKeptElement = (element) => element !== removed;
+
 // Every key of a visited node is matched case-insensitively (never
-// under-redact: `Authorization` next to `authorization` is folded too). To keep
-// a 1000-record batch cheap, a key is only lower-cased when its length equals
-// one of the node's segment lengths, which rejects almost every key with a
-// number compare.
+// under-redact: `Authorization` next to `authorization` is folded too).
 const segmentLengthsByNode = new WeakMap();
 const segmentLengths = (pathTree) => {
 	let lengths = segmentLengthsByNode.get(pathTree);
@@ -1322,13 +1878,22 @@ const segmentLengths = (pathTree) => {
 		// Indexed by length: a holey-array read beats Set#has on this path.
 		// Stryker disable next-line ArrayDeclaration: a seeded index 0 holds a non-`true` value, which the `!== true` filter treats as absent
 		lengths = [];
-		for (const segment of pathTree.keys()) lengths[segment.length] = true;
+		for (const segment of pathTree.keys()) {
+			// `\u0130` (capital I with a dot above) is the one character whose
+			// lower-case form is longer than itself, `i` followed by U+0307:
+			// https://www.unicode.org/Public/UCD/latest/ucd/SpecialCasing.txt
+			// A key can therefore be shorter than the segment it matches, by one
+			// for each such pair, and every length in between is let through.
+			const shortest = segment.replaceAll("i\u0307", "\u0130").length;
+			lengths.length = Math.max(lengths.length, segment.length + 1);
+			lengths.fill(true, shortest, segment.length + 1);
+		}
 		segmentLengthsByNode.set(pathTree, lengths);
 	}
 	return lengths;
 };
 
-const omitObject = (obj, pathTree, mask) => {
+const omitObject = (obj, pathTree, replacement) => {
 	const lengths = segmentLengths(pathTree);
 	let clone = obj;
 	let dropped;
@@ -1336,21 +1901,18 @@ const omitObject = (obj, pathTree, mask) => {
 		if (lengths[key.length] !== true) continue;
 		const sub = pathTree.get(key) ?? pathTree.get(key.toLowerCase());
 		if (sub === undefined) continue;
-		if (sub === true) {
-			if (mask === undefined) {
-				dropped ??= new Set();
-				dropped.add(key);
-				continue;
-			}
-			if (clone === obj) clone = { ...obj };
-			clone[key] = mask;
+		let next = replacement;
+		if (sub !== true) {
+			next = omitValue(obj[key], sub, replacement);
+			if (next === obj[key]) continue;
+		}
+		if (next === removed) {
+			dropped ??= new Set();
+			dropped.add(key);
 			continue;
 		}
-		const next = omit(obj[key], sub, mask);
-		if (next !== obj[key]) {
-			if (clone === obj) clone = { ...obj };
-			clone[key] = next;
-		}
+		if (clone === obj) clone = { ...obj };
+		clone[key] = next;
 	}
 	if (dropped === undefined) return clone;
 	// Copying the survivors, not spread-then-delete: `delete` drops the object

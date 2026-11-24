@@ -1,4 +1,5 @@
 ---
+
 title: 'response-logger'
 description: "Log outgoing Lambda responses, including streamed bodies, with path-based redaction."
 ---
@@ -37,56 +38,56 @@ Note: if using with `{ executionMode: executionModeStreamifyResponse }`, your Re
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import responseLogger from '@middy/response-logger'
+import middy from "@middy/core";
+import responseLogger from "@middy/response-logger";
 
 const lambdaHandler = (event, context) => {
-  const response = {
-    statusCode: 200,
-    headers: {},
-    body: JSON.stringify({ message: 'hello world' })
-  }
-  return response
-}
+	const response = {
+		statusCode: 200,
+		headers: {},
+		body: JSON.stringify({ message: "hello world" }),
+	};
+	return response;
+};
 
-export const handler = middy().use(responseLogger()).handler(lambdaHandler)
+export const handler = middy().use(responseLogger()).handler(lambdaHandler);
 ```
 
 Redacting a response body:
 
 ```javascript
-import middy from '@middy/core'
-import responseLogger from '@middy/response-logger'
+import middy from "@middy/core";
+import responseLogger from "@middy/response-logger";
 
 export const handler = middy()
-  .use(
-    responseLogger({
-      omitPaths: ['response.headers.set-cookie', 'response.body'],
-      mask: '[redacted]'
-    })
-  )
-  .handler(lambdaHandler)
+	.use(
+		responseLogger({
+			omitPaths: ["response.headers.set-cookie", "response.body"],
+			mask: "[redacted]",
+		}),
+	)
+	.handler(lambdaHandler);
 ```
 
 With a third-party logger:
 
 ```javascript
-import middy from '@middy/core'
-import responseLogger from '@middy/response-logger'
-import pino from 'pino'
+import middy from "@middy/core";
+import responseLogger from "@middy/response-logger";
+import pino from "pino";
 
-const logger = pino()
+const logger = pino();
 
 export const handler = middy()
-  .use(
-    responseLogger({
-      logger: (request) => {
-        const child = logger.child({
-          awsRequestId: request.context.awsRequestId
-        })
-        child.info(request.response)
-      }
-    })
-  )
-  .handler(lambdaHandler)
+	.use(
+		responseLogger({
+			logger: (request) => {
+				const child = logger.child({
+					awsRequestId: request.context.awsRequestId,
+				});
+				child.info(request.response);
+			},
+		}),
+	)
+	.handler(lambdaHandler);
 ```

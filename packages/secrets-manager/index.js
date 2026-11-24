@@ -7,7 +7,9 @@ import {
 } from "@aws-sdk/client-secrets-manager";
 import {
 	assignSetToContext,
+	awsClientOptionsSchema,
 	buildSetToContextSpec,
+	cacheOptionSchemaProperties,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClientInit,
@@ -15,6 +17,7 @@ import {
 	evictCacheOnFailure,
 	jsonSafeParse,
 	processCache,
+	reservedPropertyNames,
 	setCacheKeyExpiry,
 	validateOptions,
 } from "@middy/util";
@@ -22,9 +25,28 @@ import {
 const name = "secrets-manager";
 const pkg = `@middy/${name}`;
 
-// How long an overdue rotation (NextRotationDate already passed) keeps the
-// cache before the secret is described again.
-const rotationRetryMs = 60 * 1000;
+const hourMs = 60 * 60 * 1000;
+
+const rotationDueRecheckMs = 60 * 1000;
+
+// "rate(Value Unit)", where "Unit can be hour, hours, day, or days". "You can
+// rotate a secret as often as every four hours", so only the plural names a
+// schedule in hours.
+// https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_schedule.html
+const rateInHoursPattern = /rate\(\d+ hours\)/;
+
+// Duration is "the length of the rotation window in hours, for
+// example 3h for a three hour window. [...] If you don't specify a Duration,
+// for a ScheduleExpression in hours, the window automatically closes after
+// one hour. For a ScheduleExpression in days, the window automatically closes
+// at the end of the UTC day." A window "must not extend into the next
+// rotation window or the next UTC day", so 24 hours covers every schedule
+// that is not a rate in hours: a rate in days, any cron expression (its hours
+// field is not parsed) and AutomaticallyAfterDays.
+// https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_RotationRulesType.html
+const rotationWindowHours = (rotationRules) =>
+	Number.parseInt(rotationRules?.Duration, 10) ||
+	(rateInHoursPattern.test(rotationRules?.ScheduleExpression) ? 1 : 24);
 
 const defaults = {
 	AwsClient: SecretsManagerClient,
@@ -36,52 +58,61 @@ const defaults = {
 	disablePrefetch: false,
 	cacheKey: pkg,
 	cacheKeyExpiry: {},
-	cacheExpiry: -1, // with fetchRotationDate: expires at NextRotationDate or after cacheExpiry, whichever is sooner
+	cacheExpiry: -1,
 	setToContext: false,
 	contextKey: name,
 };
 
+const internalKeySchema = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\x21-\x7E]+$/u,
+	not: { type: "string", enum: reservedPropertyNames },
+};
+
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:secrets-manager:options",
+	$defs: { Function: false, Object: false },
 	type: "object",
 	properties: {
-		AwsClient: { instanceof: "Function" },
-		awsClientOptions: { type: "object" },
-		awsClientAssumeRole: { type: "string" },
-		awsClientCapture: { instanceof: "Function" },
+		AwsClient: { $ref: "#/$defs/Function" },
+		awsClientOptions: awsClientOptionsSchema,
+		awsClientAssumeRole: internalKeySchema,
+		awsClientCapture: { $ref: "#/$defs/Function" },
 		fetchData: {
 			type: "object",
-			additionalProperties: { type: "string" },
+			propertyNames: internalKeySchema,
+			maxProperties: 1024,
+			required: [],
+			// https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+			additionalProperties: {
+				type: "string",
+				maxLength: 2048,
+				pattern: /^[\x21-\x7E]+$/u,
+			},
+			unevaluatedProperties: false,
 		},
 		fetchRotationDate: {
 			oneOf: [
 				{ type: "boolean" },
-				{ type: "object", additionalProperties: { type: "boolean" } },
+				{
+					type: "object",
+					propertyNames: internalKeySchema,
+					maxProperties: 1024,
+					required: [],
+					additionalProperties: { type: "boolean" },
+					unevaluatedProperties: false,
+				},
 			],
 		},
-		disablePrefetch: { type: "boolean" },
-		cacheKey: { type: "string" },
-		cacheKeyExpiry: {
-			type: "object",
-			additionalProperties: {
-				type: "number",
-				minimum: -1,
-				maximum: Number.MAX_SAFE_INTEGER,
-			},
-		},
-		cacheExpiry: {
-			type: "number",
-			minimum: -1,
-			maximum: Number.MAX_SAFE_INTEGER,
-		},
-		cacheMaxSize: {
-			type: "integer",
-			minimum: 1,
-			maximum: Number.MAX_SAFE_INTEGER,
-		},
+		...cacheOptionSchemaProperties,
 		setToContext: { type: "boolean" },
-		contextKey: { type: "string" },
+		contextKey: internalKeySchema,
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const secretsManagerValidateOptions = (options) =>
@@ -116,21 +147,25 @@ const secretsManagerMiddleware = (opts = {}) => {
 			.send(command)
 			.catch((e) => catchInvalidSignatureException(e, client, command));
 
-	// Learn the secret's NextRotationDate so the cache entry expires at the
-	// soonest rotation across the rotation-enabled keys, or after `cacheExpiry`
-	// when that is shorter. A rotation date that has already passed means the
-	// rotation has not run yet: keep the cache for a minute before describing
-	// the secret again rather than on every invocation. One still ahead,
-	// however close, expires the entry on time.
+	// NextRotationDate is when the rotation window closes, not when the secret
+	// rotates: "The next rotation is scheduled to occur on or before this date
+	// ... This date represents the latest date that rotation will occur, but it
+	// is not an approximate rotation date", and "Secrets Manager rotates your
+	// secret at any time during this window." "If rotation is unsuccessful,
+	// this date may be in the past."
+	// https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_DescribeSecret.html
+	// https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_RotationRulesType.html
 	const learnRotationDate = (resp) => {
 		if (resp.NextRotationDate) {
 			// The SDK unmarshals NextRotationDate to a Date, but a custom client
 			// may hand back the ISO string; `new Date()` yields epoch ms for both.
-			const nextRotation = Number(new Date(resp.NextRotationDate));
+			const windowEnd = Number(new Date(resp.NextRotationDate));
+			const windowStart =
+				windowEnd - rotationWindowHours(resp.RotationRules) * hourMs;
 			const now = Date.now();
 			setCacheKeyExpiry(
 				options,
-				nextRotation > now ? nextRotation : now + rotationRetryMs,
+				windowStart > now ? windowStart : now + rotationDueRecheckMs,
 			);
 		}
 	};

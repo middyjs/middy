@@ -1,4 +1,5 @@
 ---
+
 title: event-batch-handler
 description: "Per-record handler wrapper for Lambda batch events. Auto-checkpoints under Durable Functions."
 status: alpha
@@ -15,28 +16,26 @@ npm install --save @middy/event-batch-handler
 ## Usage
 
 ```javascript
-import middy from '@middy/core'
-import eventBatchResponse from '@middy/event-batch-response'
-import eventBatchHandler from '@middy/event-batch-handler'
+import middy from "@middy/core";
+import eventBatchResponse from "@middy/event-batch-response";
+import eventBatchHandler from "@middy/event-batch-handler";
 
 const recordHandler = async (record, context) => {
-  // process a single record; throw to mark it failed
-}
-const lambdaHandler = eventBatchHandler(recordHandler)
+	// process a single record; throw to mark it failed
+};
+const lambdaHandler = eventBatchHandler(recordHandler);
 
-export const handler = middy()
-  .use(eventBatchResponse())
-  .handler(lambdaHandler)
+export const handler = middy().use(eventBatchResponse()).handler(lambdaHandler);
 ```
 
 The wrapper walks the same record container as `event-batch-response`:
 
-| Source | Walked container |
-|---|---|
-| SQS / Kinesis Streams / DynamoDB Streams | `event.Records` |
-| MSK / Self-Managed Kafka | `Object.values(event.records).flat()` |
-| S3 Batch Operations | `event.tasks` |
-| Kinesis Firehose transform | `event.records` (array) |
+| Source                                   | Walked container                      |
+| ---------------------------------------- | ------------------------------------- |
+| SQS / Kinesis Streams / DynamoDB Streams | `event.Records`                       |
+| MSK / Self-Managed Kafka                 | `Object.values(event.records).flat()` |
+| S3 Batch Operations                      | `event.tasks`                         |
+| Kinesis Firehose transform               | `event.records` (array)               |
 
 ## Options
 
@@ -48,7 +47,7 @@ The wrapper walks the same record container as `event-batch-response`:
 Records run concurrently by default. On Lambda the trigger's batch size bounds how many that is. A long-running poller such as [`@middy/ecs-batch`](/docs/runners/ecs-batch) has no such bound: a single Kafka fetch can hold thousands of records. Set `concurrency` to cap the records in flight; results still come back in record order.
 
 ```javascript
-const lambdaHandler = eventBatchHandler(recordHandler, { concurrency: 16 })
+const lambdaHandler = eventBatchHandler(recordHandler, { concurrency: 16 });
 ```
 
 For an SQS FIFO queue (detected by an `eventSourceARN` ending in `.fifo`) the wrapper follows the AWS guidance for partial batch responses: "If you're using this feature with a FIFO queue, your function should stop processing messages after the first failure and return all failed and unprocessed messages in `batchItemFailures`" ([Handling errors for an SQS event source](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html)).
@@ -71,10 +70,10 @@ The user's `recordHandler` receives the **per-record step context** (the child c
 
 ```javascript
 const recordHandler = async (record, ctx) => {
-  const enriched = await ctx.step('enrich', async () => enrich(record))
-  await ctx.step('write', async () => writeDownstream(enriched))
-}
-const lambdaHandler = eventBatchHandler(recordHandler)
+	const enriched = await ctx.step("enrich", async () => enrich(record));
+	await ctx.step("write", async () => writeDownstream(enriched));
+};
+const lambdaHandler = eventBatchHandler(recordHandler);
 ```
 
 ### Failure semantics

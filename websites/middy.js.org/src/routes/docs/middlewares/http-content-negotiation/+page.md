@@ -1,4 +1,5 @@
 ---
+
 title: http-content-negotiation
 description: "Parse Accept headers and negotiate HTTP content type, encoding, charset, and language."
 ---
@@ -59,63 +60,63 @@ Two middleware read from there. Each takes a `contextKeyHttpContentNegotiation` 
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import httpContentNegotiation from '@middy/http-content-negotiation'
-import httpHeaderNormalizer from '@middy/http-header-normalizer'
-import httpErrorHandler from '@middy/http-error-handler'
+import middy from "@middy/core";
+import httpContentNegotiation from "@middy/http-content-negotiation";
+import httpHeaderNormalizer from "@middy/http-header-normalizer";
+import httpErrorHandler from "@middy/http-error-handler";
 
 const lambdaHandler = (event, context) => {
-  let message, body
+	let message, body;
 
-  const { preferredLanguage, preferredMediaType } =
-    context.middyContext['http-content-negotiation']
+	const { preferredLanguage, preferredMediaType } =
+		context.middyContext["http-content-negotiation"];
 
-  switch (preferredLanguage) {
-    case 'it-it':
-      message = 'Ciao Mondo'
-      break
-    case 'fr-fr':
-      message = 'Bonjour le monde'
-      break
-    default:
-      message = 'Hello world'
-  }
+	switch (preferredLanguage) {
+		case "it-it":
+			message = "Ciao Mondo";
+			break;
+		case "fr-fr":
+			message = "Bonjour le monde";
+			break;
+		default:
+			message = "Hello world";
+	}
 
-  switch (preferredMediaType) {
-    case 'application/xml':
-      body = `<message>${message}</message>`
-      break
-    case 'application/yaml':
-      body = `---\nmessage: ${message}`
-      break
-    case 'application/json':
-      body = JSON.stringify({ message })
-      break
-    default:
-      body = message
-  }
+	switch (preferredMediaType) {
+		case "application/xml":
+			body = `<message>${message}</message>`;
+			break;
+		case "application/yaml":
+			body = `---\nmessage: ${message}`;
+			break;
+		case "application/json":
+			body = JSON.stringify({ message });
+			break;
+		default:
+			body = message;
+	}
 
-  return {
-    statusCode: 200,
-    body
-  }
-}
+	return {
+		statusCode: 200,
+		body,
+	};
+};
 
 export const handler = middy()
-  .use(httpHeaderNormalizer())
-  .use(
-    httpContentNegotiation({
-      parseCharsets: false,
-      parseEncodings: false,
-      availableLanguages: ['it-it', 'fr-fr', 'en'],
-      availableMediaTypes: [
-        'application/xml',
-        'application/yaml',
-        'application/json',
-        'text/plain'
-      ]
-    })
-  )
-  .use(httpErrorHandler())
-  .handler(lambdaHandler)
+	.use(httpHeaderNormalizer())
+	.use(
+		httpContentNegotiation({
+			parseCharsets: false,
+			parseEncodings: false,
+			availableLanguages: ["it-it", "fr-fr", "en"],
+			availableMediaTypes: [
+				"application/xml",
+				"application/yaml",
+				"application/json",
+				"text/plain",
+			],
+		}),
+	)
+	.use(httpErrorHandler())
+	.handler(lambdaHandler);
 ```

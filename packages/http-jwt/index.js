@@ -4,6 +4,7 @@ import { createPublicKey, KeyObject } from "node:crypto";
 import {
 	getInternal,
 	HttpError,
+	reservedPropertyNames,
 	sanitizeKey,
 	setContextNamespace,
 	validateOptions,
@@ -27,6 +28,13 @@ const KMS_COMPATIBLE_ALGS = {
 	ECC_NIST_P521: ["ES512"],
 	ECC_NIST_ED25519: ["EdDSA"],
 };
+
+// RFC 7518 section 3.2: "A key of the same size as the hash output (for
+// instance, 256 bits for "HS256") or larger MUST be used with this algorithm."
+const HMAC_HASH_BYTES = { HS256: 32, HS384: 48, HS512: 64 };
+
+const hmacSecretBytes = (key) =>
+	key.byteLength ?? key.symmetricKeySize ?? key.algorithm?.length / 8;
 
 const defaults = {
 	// May resolve to one key or to an array of them. An array is a key rotation overlap,
@@ -63,42 +71,131 @@ const defaults = {
 	disablePrefetch: false,
 };
 
-const stringOrStringArraySchema = {
-	oneOf: [{ type: "string" }, { type: "array", items: { type: "string" } }],
+// RFC 7518 section 3.1, RFC 8037 section 3.1 and RFC 9864 section 2.2, as far
+// as jose verifies them. "none" is left out.
+// https://www.iana.org/assignments/jose/jose.xhtml#web-signature-encryption-algorithms
+const jwsAlgorithms = [
+	"HS256",
+	"HS384",
+	"HS512",
+	"RS256",
+	"RS384",
+	"RS512",
+	"ES256",
+	"ES384",
+	"ES512",
+	"PS256",
+	"PS384",
+	"PS512",
+	"EdDSA",
+	"Ed25519",
+];
+
+const algorithmListSchema = (algorithms) => {
+	const algorithm = { type: "string", enum: algorithms };
+	return {
+		oneOf: [
+			algorithm,
+			{
+				type: "array",
+				items: algorithm,
+				minItems: 1,
+				maxItems: algorithms.length,
+				uniqueItems: true,
+				unevaluatedItems: false,
+			},
+		],
+	};
 };
 
-// `null` disables the aud check.
-const nullableStringOrStringArraySchema = {
-	oneOf: [...stringOrStringArraySchema.oneOf, { const: null }],
+const textSchema = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\p{L}\p{N}\p{P}\p{S} ]+$/u,
+};
+const textKeySchema = {
+	...textSchema,
+	not: { type: "string", enum: reservedPropertyNames },
 };
 
-// `null` disables the typ check.
-const typSchema = { oneOf: [{ type: "string" }, { const: null }] };
+const nullableTextOrTextArraySchema = {
+	oneOf: [
+		textSchema,
+		{
+			type: "array",
+			items: textSchema,
+			maxItems: 1024,
+			uniqueItems: true,
+			unevaluatedItems: false,
+		},
+		{ const: null },
+	],
+};
+
+const keyNameSchema = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\x21-\x7E]+$/u,
+};
+
+// RFC 9110 section 5.6.2 token, the syntax of a field name (section 5.1) and
+// of a cookie name (RFC 6265 section 4.1.1).
+const tokenSchema = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\w!#$%&'*+.^`|~-]+$/u,
+};
+
+// `null` disables the typ check. RFC 7515 section 4.1.9: a media type, whose
+// type and subtype names are at most 127 characters (RFC 6838 section 4.2).
+const typSchema = {
+	oneOf: [
+		{
+			type: "string",
+			maxLength: 255,
+			pattern: /^[\w!#\x24&\x5E.+-]{1,127}(\/[\w!#\x24&\x5E.+-]{1,127})?$/u,
+		},
+		{ const: null },
+	],
+};
 
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:http-jwt:options",
 	type: "object",
 	properties: {
-		internalKey: { type: "string" },
+		internalKey: keyNameSchema,
 		issuers: {
 			type: "object",
+			propertyNames: textKeySchema,
 			additionalProperties: {
 				type: "object",
 				properties: {
-					jwksUri: { type: "string" },
-					audience: nullableStringOrStringArraySchema,
-					algorithm: stringOrStringArraySchema,
+					jwksUri: {
+						type: "string",
+						maxLength: 1024,
+						pattern: /^https:\/\/[\x21-\x7E]+$/u,
+					},
+					audience: nullableTextOrTextArraySchema,
+					algorithm: algorithmListSchema(
+						jwsAlgorithms.filter((alg) => !alg.startsWith("HS")),
+					),
 					typ: typSchema,
 				},
 				required: ["jwksUri"],
 				additionalProperties: false,
+				unevaluatedProperties: false,
 			},
+			maxProperties: 1024,
+			required: [],
+			unevaluatedProperties: false,
 		},
-		tokenCookieName: { type: "string" },
-		tokenHeaderName: { type: "string" },
-		tokenQueryStringName: { type: "string" },
-		algorithm: stringOrStringArraySchema,
-		audience: nullableStringOrStringArraySchema,
-		issuer: stringOrStringArraySchema,
+		tokenCookieName: tokenSchema,
+		tokenHeaderName: tokenSchema,
+		tokenQueryStringName: textSchema,
+		algorithm: algorithmListSchema(jwsAlgorithms),
+		audience: nullableTextOrTextArraySchema,
+		issuer: nullableTextOrTextArraySchema,
 		typ: typSchema,
 		clockTolerance: {
 			type: "number",
@@ -111,13 +208,34 @@ const optionSchema = {
 		// request with a message reading `is 'a,b', expected 'a,b'`.
 		expectedClaims: {
 			type: "object",
+			propertyNames: textKeySchema,
 			additionalProperties: {
-				oneOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }],
+				type: ["string", "number", "boolean"],
+				maxLength: 1024,
+				pattern: /^[\p{L}\p{N}\p{P}\p{S} ]*$/u,
+				minimum: -Number.MAX_SAFE_INTEGER,
+				maximum: Number.MAX_SAFE_INTEGER,
 			},
+			maxProperties: 1024,
+			required: [],
+			unevaluatedProperties: false,
 		},
-		maxTokenAge: { oneOf: [{ type: "string" }, { type: "number" }] },
-		payloadKey: { type: "string" },
-		tokenKey: { type: "string" },
+		// jose's time span syntax, without the sign and the "ago"/"from now"
+		// suffix that only make sense for a point in time.
+		// node_modules/jose/dist/webapi/lib/jwt_claims_set.js
+		maxTokenAge: {
+			oneOf: [
+				{
+					type: "string",
+					maxLength: 1024,
+					pattern:
+						/^\d+(\.\d+)? ?(seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|years?|yrs?|y)$/u,
+				},
+				{ type: "number", minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
+			],
+		},
+		payloadKey: keyNameSchema,
+		tokenKey: keyNameSchema,
 		setToContext: { type: "boolean" },
 		cacheExpiry: {
 			type: "number",
@@ -136,7 +254,9 @@ const optionSchema = {
 		},
 		disablePrefetch: { type: "boolean" },
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const httpJwtValidateOptions = (options) =>
@@ -269,15 +389,16 @@ const createJwksResolver = (uri, options = {}) => {
 	let lastError = null;
 	let inflight = null;
 
+	const freshCache = () =>
+		Date.now() - cacheTime > cacheMaxAge ? null : cache;
+
 	const fetchJwks = () => {
 		if (inflight) return inflight;
 		const now = Date.now();
 		if (now - lastFetchTime < cooldownDuration) {
-			// The last fetch has settled (inflight is null), so exactly one of
-			// these is set. With nothing cached, every request inside the cooldown
-			// would otherwise pay the full fetch (up to timeoutMs) against an IdP
-			// that just failed; it gets that failure at once instead.
-			return cache ? Promise.resolve(cache) : Promise.reject(lastError);
+			const cached = freshCache();
+			if (cached) return Promise.resolve(cached);
+			if (lastError) return Promise.reject(lastError);
 		}
 		lastFetchTime = now;
 		inflight = (async () => {
@@ -297,6 +418,7 @@ const createJwksResolver = (uri, options = {}) => {
 				}
 				cache = doc;
 				cacheTime = Date.now();
+				lastError = null;
 			} catch (e) {
 				lastError = e;
 				throw e;
@@ -313,11 +435,7 @@ const createJwksResolver = (uri, options = {}) => {
 			fetchJwks().catch(() => {});
 		},
 		getJwk: async (kid) => {
-			const now = Date.now();
-			let doc = cache;
-			if (!doc || now - cacheTime > cacheMaxAge) {
-				doc = await fetchJwks();
-			}
+			let doc = freshCache() ?? (await fetchJwks());
 			let jwk = findJwk(doc, kid);
 			if (!jwk) {
 				// Possible key rotation. Refetch subject to cooldown.
@@ -371,6 +489,21 @@ const httpJwtMiddleware = (opts = {}) => {
 		});
 	}
 
+	// RFC 9068 section 4: the resource server MUST check `aud`.
+	if (options.internalKey !== undefined && options.audience === undefined) {
+		throw new TypeError(
+			"audience is required when using internalKey: set it, or set null to skip the aud check",
+			{ cause: { package: pkg } },
+		);
+	}
+	// RFC 9068 section 4: the issuer identifier MUST exactly match `iss`.
+	if (options.internalKey !== undefined && options.issuer === undefined) {
+		throw new TypeError(
+			"issuer is required when using internalKey: set it, or set null to skip the iss check",
+			{ cause: { package: pkg } },
+		);
+	}
+
 	let issuersMap;
 	if (options.issuers !== undefined) {
 		if (!topLevelAlgs) {
@@ -382,6 +515,15 @@ const httpJwtMiddleware = (opts = {}) => {
 		for (const [iss, entry] of Object.entries(options.issuers)) {
 			const entryAlgs = normalizeAlgs(entry.algorithm) ?? topLevelAlgs;
 			assertValidAlgs(entryAlgs, `issuers['${iss}'].algorithm`);
+			// RFC 7517 section 9.2: "Private and symmetric keys MUST be protected
+			// from disclosure to unintended parties."
+			const symmetricAlg = entryAlgs.find((a) => a.startsWith("HS"));
+			if (symmetricAlg !== undefined) {
+				throw new TypeError(
+					`algorithm '${symmetricAlg}' cannot be used with issuers (issuers['${iss}'].algorithm): a key published in a JWKS is not a secret, use internalKey for an HMAC secret`,
+					{ cause: { package: pkg } },
+				);
+			}
 			// RFC 9068 section 4: the resource server MUST check `aud`. A shared
 			// issuer signs tokens for every client it serves, so with no audience
 			// any of them would pass. `null` is the explicit opt-out, so only
@@ -441,7 +583,7 @@ const httpJwtMiddleware = (opts = {}) => {
 	// jose skips a check only for `undefined`; `null` is the opt-out here.
 	const baseVerifyOptions = {
 		audience: options.audience ?? undefined,
-		issuer: options.issuer,
+		issuer: options.issuer ?? undefined,
 		typ: options.typ ?? undefined,
 		clockTolerance: options.clockTolerance,
 		maxTokenAge: options.maxTokenAge,
@@ -654,6 +796,21 @@ const httpJwtMiddleware = (opts = {}) => {
 							},
 						},
 					});
+				}
+				for (const [alg, minimumBytes] of Object.entries(HMAC_HASH_BYTES)) {
+					if (
+						usableAlgs.includes(alg) &&
+						hmacSecretBytes(entryKey) < minimumBytes
+					) {
+						throw new HttpError(500, {
+							cause: {
+								package: pkg,
+								data: {
+									reason: `internalKey '${options.internalKey}' holds an HMAC secret shorter than the ${minimumBytes} bytes ${alg} requires`,
+								},
+							},
+						});
+					}
 				}
 				return {
 					key: entryKey,

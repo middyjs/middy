@@ -1,6 +1,6 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { describe, test } from "node:test";
-import middy from "../core/index.js";
+import middy from "@middy/core";
 import wsRouter, { wsRouterValidateOptions } from "./index.js";
 
 const defaultContext = {
@@ -331,19 +331,97 @@ describe("@middy/ws-router", () => {
 		}
 	});
 
-	test("wsRouterValidateOptions rejects duplicate routeKey", () => {
-		try {
-			wsRouterValidateOptions({
-				routes: [
-					{ routeKey: "$connect", handler: () => {} },
-					{ routeKey: "$connect", handler: () => {} },
-				],
-			});
-			ok(false, "expected throw");
-		} catch (e) {
-			ok(e instanceof TypeError);
-			ok(e.message.includes("routes[1]"));
-			strictEqual(e.cause.package, "@middy/ws-router");
+	test("wsRouterValidateOptions leaves a duplicate routeKey to construction", () => {
+		const routes = [
+			{ routeKey: "$connect", handler: () => {} },
+			{ routeKey: "$connect", handler: () => {} },
+		];
+		wsRouterValidateOptions({ routes });
+		throws(() => wsRouter({ routes }), { message: "Duplicate route" });
+	});
+
+	test("wsRouterValidateOptions rejects the same route object twice", () => {
+		const route = { routeKey: "$connect", handler: () => {} };
+		const routes = [route, route];
+		throws(() => wsRouterValidateOptions({ routes }), {
+			name: "TypeError",
+			message: "Duplicate item at 'routes[1]'",
+		});
+		throws(() => wsRouter({ routes }), { message: "Duplicate route" });
+	});
+
+	test("wsRouterValidateOptions rejects equal routes that share a handler", () => {
+		const handler = () => {};
+		const routes = [
+			{ routeKey: "sendmessage", handler },
+			{ routeKey: "sendmessage", handler },
+		];
+		throws(() => wsRouterValidateOptions({ routes }), {
+			name: "TypeError",
+			message: "Duplicate item at 'routes[1]'",
+		});
+		throws(() => wsRouter({ routes }), { message: "Duplicate route" });
+	});
+
+	test("wsRouterValidateOptions accepts the predefined and custom route keys", () => {
+		const handler = () => {};
+		wsRouterValidateOptions({
+			routes: [
+				{ routeKey: "$connect", handler },
+				{ routeKey: "$disconnect", handler },
+				{ routeKey: "$default", handler },
+				{ routeKey: "send message", handler },
+				{ routeKey: "café", handler },
+			],
+		});
+	});
+
+	test("wsRouterValidateOptions rejects an empty or control-character routeKey", () => {
+		for (const routeKey of ["", "a\n"]) {
+			throws(
+				() => wsRouterValidateOptions({ routes: [{ routeKey, handler() {} }] }),
+				{ name: "TypeError" },
+			);
 		}
+	});
+
+	test("wsRouterValidateOptions rejects a routeKey longer than 1024 characters", () => {
+		const handler = () => {};
+		wsRouterValidateOptions({
+			routes: [{ routeKey: "a".repeat(1024), handler }],
+		});
+		throws(
+			() =>
+				wsRouterValidateOptions({
+					routes: [{ routeKey: "a".repeat(1025), handler }],
+				}),
+			{ message: "Option 'routes[0].routeKey' must have length <= 1024" },
+		);
+	});
+
+	test("wsRouterValidateOptions rejects more than 1024 routes", () => {
+		const handler = () => {};
+		const routes = Array.from({ length: 1025 }, (_, i) => ({
+			routeKey: `r${i}`,
+			handler,
+		}));
+		wsRouterValidateOptions({ routes: routes.slice(0, 1024) });
+		throws(() => wsRouterValidateOptions({ routes }), {
+			message: "Option 'routes' must have <= 1024 items",
+		});
+	});
+
+	test("wsRouterValidateOptions rejects a non-function handler or notFoundResponse", () => {
+		throws(
+			() =>
+				wsRouterValidateOptions({
+					routes: [{ routeKey: "$connect", handler: "index.handler" }],
+				}),
+			{ message: "Option 'routes[0].handler' must be instanceof Function" },
+		);
+		throws(() => wsRouterValidateOptions({ notFoundResponse: {} }), {
+			message: "Option 'notFoundResponse' must be instanceof Function",
+		});
+		wsRouterValidateOptions({ notFoundResponse: async () => {} });
 	});
 });

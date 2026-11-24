@@ -24,8 +24,10 @@ export interface Options {
 	tokenCookieName?: string;
 	tokenHeaderName?: string;
 	tokenQueryStringName?: string;
-	audience?: string;
-	issuer?: string;
+	/** Expected `aud`. Required; `null` disables the check. */
+	audience?: string | null;
+	/** Expected `iss`. Required; `null` disables the check. */
+	issuer?: string | null;
 	/** Permitted temporal skew, in seconds. */
 	clockTolerance?: number;
 	/** Maximum token age, in seconds, measured from `iat`. */

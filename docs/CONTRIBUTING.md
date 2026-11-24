@@ -28,7 +28,9 @@ brew install actionlint
 brew install zizmor
 ```
 
-Install dependencies, then install the git hooks. The repository `.npmrc` sets `ignore-scripts=true`, so husky's `prepare` script does not run during install; run it once yourself. The `commit-msg` hook it installs runs `commitlint` on every commit message.
+The `pre-commit` hook runs these scanners, so commits fail until they are installed. Keep them on a vendor-supported version and update within 30 days of a new release (`brew upgrade`); their detection rules ship with each release.
+
+Install dependencies, then install the git hooks. The repository `.npmrc` sets `ignore-scripts=true`, so husky's `prepare` script does not run during install; run it once yourself. The hooks it installs run Biome, the security scanners on staged changes, and the unit tests before each commit, and `commitlint` on every commit message.
 
 ```bash
 npm install
@@ -37,7 +39,7 @@ npm run prepare
 
 ## 3. Implementation
 
-When necessary ensure changes follow secure design principles. See [SECURITY.md](../SECURITY.md)
+Changes must follow the [secure design principles](../SECURITY.md#secure-design-principles) and the [secure coding standard](../SECURITY.md#secure-coding-standard).
 
 ## 4. Testing
 

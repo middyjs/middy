@@ -1,4 +1,5 @@
 ---
+
 title: event-normalizer
 description: "Normalize nested AWS event records by parsing and standardizing event data structures."
 ---
@@ -88,15 +89,15 @@ NOTES:
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import eventNormalizer from '@middy/event-normalizer'
+import middy from "@middy/core";
+import eventNormalizer from "@middy/event-normalizer";
 
 const lambdaHandler = (event, context) => {
-  const { Records } = event
-  for (const record of Records) {
-    // ...
-  }
-}
+	const { Records } = event;
+	for (const record of Records) {
+		// ...
+	}
+};
 
-export const handler = middy().use(eventNormalizer()).handler(lambdaHandler)
+export const handler = middy().use(eventNormalizer()).handler(lambdaHandler);
 ```

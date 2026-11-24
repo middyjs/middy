@@ -22,31 +22,48 @@ const token = "[!#$%&'*+.^_`|~0-9a-z-]+";
 const quotedString =
 	'"(?:[\\t \\x21\\x23-\\x5b\\x5d-\\x7e]|\\\\[\\t \\x21-\\x7e])*"';
 // Built from the two constants above, never from input.
-// nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
 const mediaTypeGrammar = new RegExp(
 	`^[a-z0-9][a-z0-9.+-]*/[a-z0-9][a-z0-9.+-]*(?:[ \\t]*;[ \\t]*${token}=(?:${token}|${quotedString}))*$`,
 	"i",
 );
 
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:http-response-serializer:options",
+	$defs: { Function: false, RegExp: false },
 	type: "object",
 	properties: {
 		serializers: {
 			type: "array",
 			items: {
 				type: "object",
-				required: ["regex", "serializer"],
 				properties: {
-					regex: { instanceof: "RegExp" },
-					serializer: { instanceof: "Function" },
+					regex: { $ref: "#/$defs/RegExp" },
+					serializer: { $ref: "#/$defs/Function" },
 				},
+				required: ["regex", "serializer"],
 				additionalProperties: false,
+				unevaluatedProperties: false,
 			},
+			maxItems: 1024,
+			uniqueItems: true,
+			unevaluatedItems: false,
 		},
-		defaultContentType: { type: "string" },
-		contextKeyHttpContentNegotiation: { type: "string" },
+		defaultContentType: {
+			type: "string",
+			maxLength: maxMediaTypeLength,
+			pattern:
+				/^[A-Za-z0-9][A-Za-z0-9.+-]*\/[A-Za-z0-9][A-Za-z0-9.+-]*(?:[ \t]*;[ \t]*[\w!#$%&'*+.^`|~-]+=(?:[\w!#$%&'*+.^`|~-]+|"[\t \x21\x23-\x5B\x5D-\x7E]*")){0,32}$/u,
+		},
+		contextKeyHttpContentNegotiation: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\x21-\x7E]+$/u,
+		},
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const httpResponseSerializerValidateOptions = (options) =>

@@ -1,4 +1,5 @@
 ---
+
 title: warmup
 description: "Keep Lambda Event Functions warm to reduce cold starts with scheduled warmup invocations."
 ---
@@ -33,16 +34,16 @@ npm install --save @middy/warmup
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import warmup from '@middy/warmup'
+import middy from "@middy/core";
+import warmup from "@middy/warmup";
 
 const lambdaHandler = (event, context, cb) => {
-  /* ... */
-}
+	/* ... */
+};
 
-const isWarmingUp = (event) => event.isWarmingUp === true
+const isWarmingUp = (event) => event.isWarmingUp === true;
 
 export const handler = middy()
-  .use(warmup({ isWarmingUp }))
-  .handler(lambdaHandler)
+	.use(warmup({ isWarmingUp }))
+	.handler(lambdaHandler);
 ```

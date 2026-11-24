@@ -1,4 +1,5 @@
 ---
+
 title: Third-party middlewares
 description: "Community-maintained Middy middlewares for logging, validation, idempotency, and more."
 ---
@@ -29,7 +30,6 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 ## Version 2.x - 3.x
 
 - [aws-lambda-powertools-typescript](https://github.com/awslabs/aws-lambda-powertools-typescript): A suite of utilities for AWS Lambda Functions that makes structured logging, creating custom metrics asynchronously and tracing with AWS X-Ray easier
-
   - [logger](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/logger/#capturing-lambda-context-info): Structured logging made easier, and a middleware to enrich log items with key details of the Lambda context
   - [metrics](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/metrics/#middy-middleware): Custom Metrics created asynchronously via CloudWatch Embedded Metric Format (EMF)
   - [parameters](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/utilities/parameters/): The Parameters utility provides high-level functions to retrieve one or multiple parameter values from AWS Systems Manager Parameter Store, AWS Secrets Manager, AWS AppConfig, Amazon DynamoDB, or your own parameter store.

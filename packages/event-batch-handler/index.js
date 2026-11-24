@@ -8,11 +8,17 @@ const pkg = "@middy/event-batch-handler";
 const parseErrorKey = Symbol.for("@middy/event-batch-parser/error");
 
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:event-batch-handler:options",
 	type: "object",
 	properties: {
-		concurrency: { type: "integer", minimum: 1 },
+		// BatchSize "Valid Range: Minimum value of 1. Maximum value of 10000."
+		// https://docs.aws.amazon.com/lambda/latest/api/API_CreateEventSourceMapping.html
+		concurrency: { type: "integer", minimum: 1, maximum: 10000 },
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const eventBatchHandlerValidateOptions = (options) =>
@@ -20,38 +26,43 @@ export const eventBatchHandlerValidateOptions = (options) =>
 
 const eventBatchHandler = (recordHandler, opts = {}) => {
 	eventBatchHandlerValidateOptions(opts);
-	// Unset runs every record at once: on Lambda the trigger's BatchSize bounds
-	// the batch, a long-running poller (@middy/ecs-batch) has no such bound.
 	const concurrency = opts.concurrency ?? Number.POSITIVE_INFINITY;
+	const streamsInOrder = opts.concurrency === undefined;
 
 	return async (event, context) => {
 		const records = flattenBatchRecords(event);
 
 		if (isExecutionModeDurable(context)) {
-			const step = (record, idx) => {
+			// Each record runs in its own child context, the durable operation
+			// that groups other operations, so the record handler gets a durable
+			// context and can run steps, waits and invokes of its own. A step
+			// callback would get a StepContext (`logger`, `attempt`) instead, in
+			// which no durable operation can run.
+			const runRecord = (record, idx) => {
 				if (record?.[parseErrorKey])
 					return Promise.reject(record[parseErrorKey]);
 				try {
-					return context.step(`record-${idx}`, async (stepCtx) =>
-						recordHandler(record, stepCtx),
+					return context.runInChildContext(
+						`record-${idx}`,
+						async (childContext) => recordHandler(record, childContext),
 					);
 				} catch (err) {
 					return Promise.reject(err);
 				}
 			};
-			const fifo = isFifo(records);
-			const settled = fifo
-				? await settleSequential(records, step)
-				: await settleConcurrent(records, step, concurrency);
-			// A step that failed has used up its durable retries, so the first one
-			// fails the invocation. A record that failed to parse never ran a step:
-			// durable can't retry it and a replay fails it the same way, so it is
-			// left in the settled result to be reported per record. In FIFO the
-			// records after it were never run and are reported with it.
+			const ordered = orderedBatchKind(records, streamsInOrder);
+			const settled = ordered
+				? await settleSequential(records, runRecord, ordered)
+				: await settleConcurrent(records, runRecord, concurrency);
+			// The durable runtime retries the steps inside a child context, not the
+			// child context itself, so one that failed has no retry left and the
+			// first one fails the invocation. A record that failed to parse never
+			// ran: a replay fails it the same way, so it is left in the settled
+			// result to be reported per record.
 			for (let idx = 0; idx < settled.length; idx += 1) {
 				if (settled[idx].status === "fulfilled") continue;
 				if (!records[idx]?.[parseErrorKey]) throw settled[idx].reason;
-				if (fifo) break;
+				if (ordered) break;
 			}
 			return settled;
 		}
@@ -68,18 +79,37 @@ const eventBatchHandler = (recordHandler, opts = {}) => {
 				return Promise.reject(err);
 			}
 		};
-		if (isFifo(records)) return settleSequential(records, settle);
+		const ordered = orderedBatchKind(records, streamsInOrder);
+		if (ordered) return settleSequential(records, settle, ordered);
 		return settleConcurrent(records, settle, concurrency);
 	};
 };
 
-// FIFO: "your function should stop processing messages after the first
+// SQS FIFO: "your function should stop processing messages after the first
 // failure and return all failed and unprocessed messages in
 // batchItemFailures". FIFO queue names must end in `.fifo`.
 // docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html
-const isFifo = (records) =>
-	records[0]?.eventSource === "aws:sqs" &&
-	records[0].eventSourceARN?.endsWith(".fifo") === true;
+// Kinesis and DynamoDB Streams: "Lambda uses the record with the lowest
+// sequence number as the checkpoint. Lambda then retries all records starting
+// from that checkpoint", so a record after a failure is delivered again
+// whatever happened to it.
+// docs.aws.amazon.com/lambda/latest/dg/services-kinesis-batchfailurereporting.html
+// docs.aws.amazon.com/lambda/latest/dg/services-ddb-batchfailurereporting.html
+const orderedBatchKind = (records, streamsInOrder) => {
+	const eventSource = records[0]?.eventSource;
+	if (eventSource === "aws:sqs") {
+		return records[0].eventSourceARN?.endsWith(".fifo") === true
+			? "FIFO"
+			: undefined;
+	}
+	if (
+		streamsInOrder &&
+		(eventSource === "aws:kinesis" || eventSource === "aws:dynamodb")
+	) {
+		return "stream";
+	}
+	return undefined;
+};
 
 // Runs at most `limit` records at once, settled entries stay in record order.
 // A batch within the limit takes the plain allSettled path.
@@ -108,7 +138,7 @@ const settleConcurrent = async (records, run, limit) => {
 
 // Runs records one at a time in order. After the first rejection every
 // remaining record settles as rejected without being processed.
-const settleSequential = async (records, run) => {
+const settleSequential = async (records, run, kind) => {
 	const settled = [];
 	let idx = 0;
 	for (; idx < records.length; idx += 1) {
@@ -122,9 +152,10 @@ const settleSequential = async (records, run) => {
 			break;
 		}
 	}
-	const unprocessed = new Error("Unprocessed: an earlier FIFO record failed", {
-		cause: { package: pkg },
-	});
+	const unprocessed = new Error(
+		`Unprocessed: an earlier ${kind} record failed`,
+		{ cause: { package: pkg } },
+	);
 	for (idx += 1; idx < records.length; idx += 1) {
 		settled.push({ status: "rejected", reason: unprocessed });
 	}

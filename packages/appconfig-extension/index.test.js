@@ -1,8 +1,14 @@
-import { equal, ok, strictEqual } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	equal,
+	ok,
+	strictEqual,
+	throws,
+} from "node:assert/strict";
 import { describe, test } from "node:test";
 import { setTimeout } from "node:timers/promises";
+import middy from "@middy/core";
 import { clearCache, getCache, getInternal, modifyCache } from "@middy/util";
-import middy from "../core/index.js";
 import appConfigExtension, {
 	appConfigExtensionParam,
 	appConfigExtensionValidateOptions,
@@ -151,6 +157,7 @@ describe("@middy/appconfig-extension", () => {
 	test("It should allow the fetch 30 s outside an invocation (prefetch)", async (t) => {
 		const timeout = t.mock.method(AbortSignal, "timeout");
 		appConfigExtension({
+			cacheExpiry: -1,
 			fetchData: { config: fetchParam },
 		});
 		strictEqual(timeout.mock.calls[0].arguments[0], 29500);
@@ -532,13 +539,10 @@ describe("@middy/appconfig-extension", () => {
 		equal(fetchCount, 1); // only 1 fetch (second call skips via continue)
 	});
 
-	test("It should prefetch at factory time when using defaults", async (_t) => {
-		// Defaults: disablePrefetch=false, cacheExpiry=-1 → canPrefetch() is true,
-		// so processCache(...) runs the fetch during construction (before any
-		// handler invocation). Kills: canPrefetch guard (line 106), disablePrefetch
-		// default (line 19).
+	test("It should prefetch at factory time once a cacheExpiry is set", async (_t) => {
 		fetchCount = 0;
 		const middleware = appConfigExtension({
+			cacheExpiry: -1,
 			cacheKey: "ac-prefetch",
 			fetchData: { config: fetchParam },
 		});
@@ -554,34 +558,35 @@ describe("@middy/appconfig-extension", () => {
 					"appconfig-extension" in request.context.middyContext;
 			});
 		await handler(event, context);
-		// setToContext defaults to false (line 23): config must NOT land on context.
 		strictEqual(seen.contextHasConfig, false);
-		// cacheExpiry defaults to -1 (infinite, line 22): the prefetched value is
-		// reused, no second fetch.
-		equal(fetchCount, 1, "default cacheExpiry=-1 keeps value cached forever");
+		equal(fetchCount, 1, "the prefetched value is reused");
 		clearCache();
 	});
 
-	test("It should re-fetch once default infinite cache is replaced by short TTL", async (_t) => {
-		// Guards the default cacheExpiry of -1 (line 22). With -1 the prefetched
-		// value never expires (fetchCount stays 1 across a delay). If the default
-		// were a small positive number the entry would expire and re-fetch.
-		fetchCount = 0;
+	test("It should not prefetch by default (cacheExpiry 0)", async (_t) => {
+		appConfigExtension({
+			cacheKey: "ac-default-prefetch",
+			fetchData: { config: fetchParam },
+		});
+		equal(fetchCount, 0);
+	});
+
+	test("It should ask the extension on every invocation by default (cacheExpiry 0)", async (_t) => {
 		const handler = middy(() => {})
 			.use(
 				appConfigExtension({
-					cacheKey: "ac-ttl",
+					cacheKey: "ac-default-expiry",
 					fetchData: { config: fetchParam },
+					disablePrefetch: true,
 				}),
 			)
 			.before(async (request) => {
-				await getInternal(true, request);
+				const values = await getInternal(true, request);
+				strictEqual(values.config?.option, "value");
 			});
-		equal(fetchCount, 1, "prefetched once");
-		await setTimeout(20);
 		await handler(event, context);
-		equal(fetchCount, 1, "infinite cache: still only one fetch after delay");
-		clearCache();
+		await handler(event, context);
+		equal(fetchCount, 2);
 	});
 
 	test("It should not append a flag query string for an empty flag array", async (_t) => {
@@ -601,6 +606,112 @@ describe("@middy/appconfig-extension", () => {
 				strictEqual(values.config?.option, "value");
 			});
 		await handler(event, context);
+	});
+
+	const target = {
+		application: "app",
+		environment: "env",
+		configuration: "cfg",
+	};
+	const rejectsOptions = (options, message) => {
+		throws(() => appConfigExtensionValidateOptions(options), {
+			name: "TypeError",
+			message,
+			cause: { package: "@middy/appconfig-extension" },
+		});
+	};
+
+	test("appConfigExtensionValidateOptions accepts names and IDs up to 128 characters", () => {
+		const options = {
+			fetchData: {
+				key: {
+					application: "a".repeat(128),
+					environment: "My Env 名前",
+					configuration: "abc1234",
+					flag: ["flagA", "my_flag", `f${"x".repeat(63)}`],
+				},
+			},
+		};
+		deepStrictEqual(appConfigExtensionValidateOptions(options), options);
+	});
+
+	test("appConfigExtensionValidateOptions rejects names outside the AppConfig length or text rules", () => {
+		for (const key of ["application", "environment", "configuration"]) {
+			rejectsOptions(
+				{ fetchData: { key: { ...target, [key]: "a".repeat(129) } } },
+				`Option 'fetchData.key.${key}' must have length <= 128`,
+			);
+			rejectsOptions(
+				{ fetchData: { key: { ...target, [key]: "" } } },
+				`Option 'fetchData.key.${key}' must match pattern /^[\\p{L}\\p{M}\\p{N}\\p{P}\\p{S} ]+$/u`,
+			);
+			rejectsOptions(
+				{ fetchData: { key: { ...target, [key]: "a\nb" } } },
+				`Option 'fetchData.key.${key}' must match pattern /^[\\p{L}\\p{M}\\p{N}\\p{P}\\p{S} ]+$/u`,
+			);
+			rejectsOptions(
+				{ fetchData: { key: { ...target, [key]: undefined } } },
+				`Missing required option 'fetchData.key.${key}'`,
+			);
+		}
+	});
+
+	test("appConfigExtensionValidateOptions rejects flag keys AppConfig does not allow", () => {
+		for (const flag of [
+			"MyFlag",
+			"1flag",
+			"my flag",
+			`f${"x".repeat(64)}`,
+			["ok", "Bad"],
+			["ok", "ok"],
+			Array.from({ length: 1025 }, (_, i) => `f${i}`),
+		]) {
+			rejectsOptions(
+				{ fetchData: { key: { ...target, flag } } },
+				"Option 'fetchData.key.flag' must match exactly one schema in oneOf",
+			);
+		}
+	});
+
+	test("appConfigExtensionValidateOptions bounds the fetchData map", () => {
+		rejectsOptions(
+			{ fetchData: { "bad key": target } },
+			"Invalid property name 'bad key' in option 'fetchData': Option 'fetchData.bad key' must match pattern /^[\\x21-\\x7E]+$/u",
+		);
+		rejectsOptions(
+			{
+				fetchData: Object.fromEntries(
+					Array.from({ length: 1025 }, (_, i) => [`k${i}`, target]),
+				),
+			},
+			"Option 'fetchData' must have <= 1024 properties",
+		);
+		rejectsOptions(
+			{ fetchData: { key: "cfg" } },
+			"Option 'fetchData.key' must be object",
+		);
+	});
+
+	test("appConfigExtensionValidateOptions bounds the string options", () => {
+		for (const key of ["cacheKey", "contextKey"]) {
+			deepStrictEqual(
+				appConfigExtensionValidateOptions({ [key]: "k".repeat(1024) }),
+				{ [key]: "k".repeat(1024) },
+			);
+			rejectsOptions(
+				{ [key]: "k".repeat(1025) },
+				`Option '${key}' must have length <= 1024`,
+			);
+			rejectsOptions(
+				{ [key]: "a b" },
+				`Option '${key}' must match pattern /^[\\x21-\\x7E]+$/u`,
+			);
+		}
+		rejectsOptions(
+			{ setToContext: "yes" },
+			"Option 'setToContext' must be boolean",
+		);
+		rejectsOptions({ cacheMaxSize: 0 }, "Option 'cacheMaxSize' must be >= 1");
 	});
 
 	test("appConfigExtensionValidateOptions accepts a string flag", () => {

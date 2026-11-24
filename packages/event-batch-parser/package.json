@@ -42,6 +42,8 @@
 	"files": [
 		"index.js",
 		"index.d.ts",
+		"assertSchemaVersion.js",
+		"assertSchemaVersion.d.ts",
 		"parseJson.js",
 		"parseJson.d.ts",
 		"parseAvro.js",

@@ -1,4 +1,10 @@
-import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	ok,
+	rejects,
+	strictEqual,
+	throws,
+} from "node:assert/strict";
 import { Readable, Writable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { ReadableStream } from "node:stream/web";
@@ -1649,5 +1655,295 @@ describe("@middy/http-content-encoding", () => {
 			headers: { "Content-Encoding": "br", Vary: "Accept-Encoding" },
 			isBase64Encoded: true,
 		});
+	});
+
+	const binaryValues = () => [
+		Buffer.from("dictionary"),
+		new ArrayBuffer(8),
+		new DataView(new ArrayBuffer(8)),
+		new Int8Array(1),
+		new Uint8Array(1),
+		new Uint8ClampedArray(1),
+		new Int16Array(1),
+		new Uint16Array(1),
+		new Int32Array(1),
+		new Uint32Array(1),
+		new Float16Array(1),
+		new Float32Array(1),
+		new Float64Array(1),
+		new BigInt64Array(1),
+		new BigUint64Array(1),
+	];
+
+	const zlibOptions = {
+		flush: constants.Z_SYNC_FLUSH,
+		finishFlush: constants.Z_FINISH,
+		chunkSize: 32 * 1024,
+		windowBits: 15,
+		level: 9,
+		memLevel: 8,
+		strategy: constants.Z_RLE,
+		dictionary: Buffer.from("dictionary"),
+		info: false,
+		maxOutputLength: 1024,
+		rejectGarbageAfterEnd: false,
+	};
+
+	const brotliOptions = {
+		flush: constants.BROTLI_OPERATION_FLUSH,
+		finishFlush: constants.BROTLI_OPERATION_FINISH,
+		chunkSize: 32 * 1024,
+		params: {
+			[constants.BROTLI_PARAM_MODE]: constants.BROTLI_MODE_TEXT,
+			[constants.BROTLI_PARAM_QUALITY]: 7,
+			[constants.BROTLI_PARAM_LGWIN]: 24,
+			[constants.BROTLI_PARAM_LGBLOCK]: 20,
+			[constants.BROTLI_PARAM_DISABLE_LITERAL_CONTEXT_MODELING]: true,
+			[constants.BROTLI_PARAM_SIZE_HINT]: 4096,
+			[constants.BROTLI_PARAM_LARGE_WINDOW]: 1,
+			[constants.BROTLI_PARAM_NPOSTFIX]: 3,
+			[constants.BROTLI_PARAM_NDIRECT]: 120,
+		},
+		maxOutputLength: 1024,
+		info: false,
+		rejectGarbageAfterEnd: false,
+	};
+
+	const zstdOptions = {
+		flush: constants.ZSTD_e_flush,
+		finishFlush: constants.ZSTD_e_end,
+		chunkSize: 32 * 1024,
+		params: {
+			[constants.ZSTD_c_compressionLevel]: -5,
+			[constants.ZSTD_c_windowLog]: 20,
+			[constants.ZSTD_c_hashLog]: 20,
+			[constants.ZSTD_c_chainLog]: 20,
+			[constants.ZSTD_c_searchLog]: 5,
+			[constants.ZSTD_c_minMatch]: 4,
+			[constants.ZSTD_c_targetLength]: 16,
+			[constants.ZSTD_c_strategy]: 5,
+			[constants.ZSTD_c_enableLongDistanceMatching]: true,
+			[constants.ZSTD_c_ldmHashLog]: 20,
+			[constants.ZSTD_c_ldmMinMatch]: 64,
+			[constants.ZSTD_c_ldmBucketSizeLog]: 3,
+			[constants.ZSTD_c_ldmHashRateLog]: 7,
+			[constants.ZSTD_c_contentSizeFlag]: 1,
+			[constants.ZSTD_c_checksumFlag]: true,
+			[constants.ZSTD_c_dictIDFlag]: false,
+			[constants.ZSTD_c_nbWorkers]: 0,
+			[constants.ZSTD_c_jobSize]: 0,
+			[constants.ZSTD_c_overlapLog]: 0,
+		},
+		pledgedSrcSize: 0,
+		maxOutputLength: 1024,
+		info: false,
+		dictionary: Buffer.from("dictionary"),
+		rejectGarbageAfterEnd: false,
+	};
+
+	test("httpContentEncodingValidateOptions accepts the documented br options", () => {
+		httpContentEncodingValidateOptions({
+			br: {
+				params: {
+					[constants.BROTLI_PARAM_MODE]: constants.BROTLI_MODE_TEXT,
+					[constants.BROTLI_PARAM_QUALITY]: 7,
+				},
+			},
+			overridePreferredEncoding: ["br", "gzip", "deflate"],
+		});
+		httpContentEncodingValidateOptions({ br: true, gzip: false });
+	});
+
+	test("httpContentEncodingValidateOptions accepts every key of the Node.js zlib option classes", () => {
+		httpContentEncodingValidateOptions({
+			gzip: zlibOptions,
+			deflate: zlibOptions,
+			br: brotliOptions,
+			zstd: zstdOptions,
+		});
+	});
+
+	test("httpContentEncodingValidateOptions accepts every documented dictionary type", () => {
+		for (const dictionary of binaryValues()) {
+			httpContentEncodingValidateOptions({
+				gzip: { dictionary },
+				deflate: { dictionary },
+				zstd: { dictionary },
+			});
+		}
+	});
+
+	const rejectsEncoder = (encoding, value) =>
+		throws(
+			() => httpContentEncodingValidateOptions({ [encoding]: value }),
+			{
+				name: "TypeError",
+				message: `Option '${encoding}' must match exactly one schema in oneOf`,
+			},
+			`${encoding}: ${JSON.stringify(value)}`,
+		);
+
+	test("httpContentEncodingValidateOptions rejects gzip and deflate options outside zlib Options", () => {
+		for (const encoding of ["gzip", "deflate"]) {
+			for (const value of [
+				"fast",
+				{ params: {} },
+				{ pledgedSrcSize: 1 },
+				{ levle: 9 },
+				{ flush: constants.Z_BLOCK + 1 },
+				{ finishFlush: constants.Z_NO_FLUSH - 1 },
+				{ chunkSize: constants.Z_MIN_CHUNK - 1 },
+				{ chunkSize: 1024.5 },
+				{ windowBits: constants.Z_MIN_WINDOWBITS - 1 },
+				{ windowBits: constants.Z_MAX_WINDOWBITS + 1 },
+				{ level: constants.Z_MIN_LEVEL - 1 },
+				{ level: constants.Z_MAX_LEVEL + 1 },
+				{ memLevel: constants.Z_MIN_MEMLEVEL - 1 },
+				{ memLevel: constants.Z_MAX_MEMLEVEL + 1 },
+				{ strategy: constants.Z_DEFAULT_STRATEGY - 1 },
+				{ strategy: constants.Z_FIXED + 1 },
+				{ dictionary: "dictionary" },
+				{ dictionary: [1, 2] },
+				{ info: "yes" },
+				{ maxOutputLength: 0 },
+				{ maxOutputLength: Number.MAX_SAFE_INTEGER + 2 },
+				{ rejectGarbageAfterEnd: 1 },
+			]) {
+				rejectsEncoder(encoding, value);
+			}
+		}
+	});
+
+	test("httpContentEncodingValidateOptions rejects br options outside BrotliOptions", () => {
+		const param = (key, value) => ({ params: { [key]: value } });
+		for (const value of [
+			{ level: 9 },
+			{ dictionary: Buffer.from("dictionary") },
+			{ pledgedSrcSize: 1 },
+			{ flush: constants.BROTLI_OPERATION_EMIT_METADATA + 1 },
+			{ finishFlush: constants.BROTLI_OPERATION_PROCESS - 1 },
+			{ chunkSize: constants.Z_MIN_CHUNK - 1 },
+			{ maxOutputLength: 0 },
+			{ info: 1 },
+			{ rejectGarbageAfterEnd: "no" },
+			{ params: { 9: 1 } },
+			param(constants.BROTLI_PARAM_MODE, 3),
+			param(constants.BROTLI_PARAM_QUALITY, constants.BROTLI_MIN_QUALITY - 1),
+			param(constants.BROTLI_PARAM_QUALITY, constants.BROTLI_MAX_QUALITY + 1),
+			param(constants.BROTLI_PARAM_QUALITY, true),
+			param(constants.BROTLI_PARAM_LGWIN, constants.BROTLI_MIN_WINDOW_BITS - 1),
+			param(
+				constants.BROTLI_PARAM_LGWIN,
+				constants.BROTLI_LARGE_MAX_WINDOW_BITS + 1,
+			),
+			param(
+				constants.BROTLI_PARAM_LGBLOCK,
+				constants.BROTLI_MIN_INPUT_BLOCK_BITS - 1,
+			),
+			param(
+				constants.BROTLI_PARAM_LGBLOCK,
+				constants.BROTLI_MAX_INPUT_BLOCK_BITS + 1,
+			),
+			param(constants.BROTLI_PARAM_DISABLE_LITERAL_CONTEXT_MODELING, 2),
+			param(constants.BROTLI_PARAM_SIZE_HINT, -1),
+			param(constants.BROTLI_PARAM_SIZE_HINT, 2 ** 32),
+			param(constants.BROTLI_PARAM_LARGE_WINDOW, "yes"),
+			param(constants.BROTLI_PARAM_NPOSTFIX, -1),
+			param(constants.BROTLI_PARAM_NPOSTFIX, 4),
+			param(constants.BROTLI_PARAM_NDIRECT, -1),
+			param(constants.BROTLI_PARAM_NDIRECT, 121),
+		]) {
+			rejectsEncoder("br", value);
+		}
+	});
+
+	test("httpContentEncodingValidateOptions rejects zstd options outside ZstdOptions", () => {
+		const param = (key, value) => ({ params: { [key]: value } });
+		for (const value of [
+			{ level: 9 },
+			{ flush: constants.ZSTD_e_end + 1 },
+			{ finishFlush: constants.ZSTD_e_continue - 1 },
+			{ chunkSize: constants.Z_MIN_CHUNK - 1 },
+			{ maxOutputLength: 0 },
+			{ info: 1 },
+			{ rejectGarbageAfterEnd: "no" },
+			{ dictionary: "dictionary" },
+			{ pledgedSrcSize: -1 },
+			{ pledgedSrcSize: Number.MAX_SAFE_INTEGER + 2 },
+			{ params: { 99: 1 } },
+			param(constants.ZSTD_c_compressionLevel, 2 ** 31),
+			param(constants.ZSTD_c_compressionLevel, -(2 ** 31) - 1),
+			param(constants.ZSTD_c_compressionLevel, "3"),
+		]) {
+			rejectsEncoder("zstd", value);
+		}
+	});
+
+	test("httpContentEncodingValidateOptions caps overridePreferredEncoding at the four distinct encodings", () => {
+		throws(
+			() =>
+				httpContentEncodingValidateOptions({
+					overridePreferredEncoding: ["br", "br"],
+				}),
+			{
+				name: "TypeError",
+				message: "Duplicate item at 'overridePreferredEncoding[1]'",
+			},
+		);
+		throws(
+			() =>
+				httpContentEncodingValidateOptions({
+					overridePreferredEncoding: ["br", "deflate", "gzip", "zstd", "br"],
+				}),
+			{
+				name: "TypeError",
+				message: "Option 'overridePreferredEncoding' must have <= 4 items",
+			},
+		);
+	});
+
+	test("httpContentEncodingValidateOptions bounds contextKeyHttpContentNegotiation to a 1024 character key name", () => {
+		httpContentEncodingValidateOptions({
+			contextKeyHttpContentNegotiation: "k".repeat(1024),
+		});
+		throws(
+			() =>
+				httpContentEncodingValidateOptions({
+					contextKeyHttpContentNegotiation: "k".repeat(1025),
+				}),
+			{
+				name: "TypeError",
+				message:
+					"Option 'contextKeyHttpContentNegotiation' must have length <= 1024",
+			},
+		);
+		throws(
+			() =>
+				httpContentEncodingValidateOptions({
+					contextKeyHttpContentNegotiation: "a b",
+				}),
+			{
+				name: "TypeError",
+				message:
+					/^Option 'contextKeyHttpContentNegotiation' must match pattern /,
+			},
+		);
+	});
+
+	test("httpContentEncodingValidateOptions accepts any visible ASCII contextKeyHttpContentNegotiation", () => {
+		httpContentEncodingValidateOptions({
+			contextKeyHttpContentNegotiation: "@middy/x",
+		});
+		throws(
+			() =>
+				httpContentEncodingValidateOptions({
+					contextKeyHttpContentNegotiation: "",
+				}),
+			{
+				name: "TypeError",
+				message:
+					/^Option 'contextKeyHttpContentNegotiation' must match pattern /,
+			},
+		);
 	});
 });

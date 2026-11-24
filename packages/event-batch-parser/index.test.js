@@ -1,12 +1,13 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
+import { constants as bufferConstants } from "node:buffer";
 import { describe, test } from "node:test";
 import { deflateSync } from "node:zlib";
 import { GetSchemaVersionCommand, GlueClient } from "@aws-sdk/client-glue";
+import middy from "@middy/core";
 import { clearCache } from "@middy/util";
 import avro from "avro-js";
 import { mockClient } from "aws-sdk-client-mock";
 import protobuf from "protobufjs";
-import middy from "../core/index.js";
 import eventBatchHandler from "../event-batch-handler/index.js";
 import eventBatchResponse from "../event-batch-response/index.js";
 import glueSchemaRegistry from "../glue-schema-registry/index.js";
@@ -122,6 +123,31 @@ describe("@middy/event-batch-parser", () => {
 
 	test("validateOptions accepts a positive integer `maxDecompressedBytes`", () => {
 		eventBatchParserValidateOptions({ maxDecompressedBytes: 1 });
+	});
+
+	test("validateOptions caps `maxDecompressedBytes` at the zlib maxOutputLength bound", () => {
+		eventBatchParserValidateOptions({
+			maxDecompressedBytes: bufferConstants.MAX_LENGTH,
+		});
+		throws(
+			() =>
+				eventBatchParserValidateOptions({
+					maxDecompressedBytes: bufferConstants.MAX_LENGTH + 1,
+				}),
+			{
+				name: "TypeError",
+				message: `Option 'maxDecompressedBytes' must be <= ${bufferConstants.MAX_LENGTH}`,
+			},
+		);
+	});
+
+	test("validateOptions rejects a non-function `key`, `value` or `body`", () => {
+		for (const field of ["key", "value", "body"]) {
+			throws(() => eventBatchParserValidateOptions({ [field]: "parseJson" }), {
+				name: "TypeError",
+				message: `Option '${field}' must be instanceof Function`,
+			});
+		}
 	});
 
 	test("validateOptions rejects unknown/extra options (additionalProperties false)", () => {
@@ -256,6 +282,27 @@ describe("@middy/event-batch-parser", () => {
 			recordId: "r-1",
 			data: { f: 1 },
 		});
+	});
+
+	test("parseJson on Firehose kafkaRecordValue (Amazon MSK source)", async () => {
+		const handler = middy().use(eventBatchParser({ data: parseJson() }));
+		handler.handler((event) => event);
+
+		const raw = b64('{ "f": 1 }');
+		const event = {
+			invocationId: "inv-1",
+			deliveryStreamArn: "arn:aws:firehose:us-east-1:123:deliverystream/x",
+			region: "us-east-1",
+			records: [{ recordId: "r-1", kafkaRecordValue: raw }],
+		};
+
+		const out = await handler(event, defaultContext);
+		const record = out.records[0];
+		deepStrictEqual(plain(record), {
+			recordId: "r-1",
+			kafkaRecordValue: { f: 1 },
+		});
+		deepStrictEqual({ ...record[rawDataKey] }, { kafkaRecordValue: raw });
 	});
 
 	test("keeps each replaced field under the raw-data symbol of the object that owns it", async () => {
@@ -1119,14 +1166,18 @@ describe("@middy/event-batch-parser", () => {
 		strictEqual(caught.cause.data.eventSource, null);
 	});
 
-	test("parseProtobuf({ root, messageType }) decodes a Glue-framed payload via _payload", async () => {
-		const root = buildProtobufRoot();
+	const glueProtobufPayload = (messageIndexBytes, message) =>
+		Buffer.concat([Buffer.from(messageIndexBytes), Buffer.from(message)]);
+	const encodeProtobufUser = (root, value) => {
 		const Type = root.lookupType("test.User");
-		const inner = Type.encode(
-			Type.create({ id: "u-pg", name: "Pete" }),
-		).finish();
+		return Type.encode(Type.create(value)).finish();
+	};
+
+	test("parseProtobuf({ root, messageType }) decodes a Glue-framed payload behind its message index", async () => {
+		const root = buildProtobufRoot();
+		const inner = encodeProtobufUser(root, { id: "u-pg", name: "Pete" });
 		const uuid = "44444444-5555-6666-7777-888888888888";
-		const framed = glueFramedBuffer(uuid, Buffer.from(inner));
+		const framed = glueFramedBuffer(uuid, glueProtobufPayload([0x00], inner));
 
 		const handler = middy().use(
 			eventBatchParser({
@@ -1142,6 +1193,160 @@ describe("@middy/event-batch-parser", () => {
 
 		const out = await handler(event, defaultContext);
 		deepStrictEqual(out.records["t-0"][0].value, { id: "u-pg", name: "Pete" });
+	});
+
+	test("parseProtobuf strips a message index that spans several varint bytes", async () => {
+		const root = buildProtobufRoot();
+		const inner = encodeProtobufUser(root, { id: "u-300", name: "Quinn" });
+		for (const indexBytes of [
+			[0xac, 0x02],
+			[0x80, 0x80, 0x80, 0x01],
+			[0xff, 0xff, 0xff, 0xff, 0x0f],
+		]) {
+			const framed = glueFramedBuffer(
+				"44444444-5555-6666-7777-888888888888",
+				glueProtobufPayload(indexBytes, inner),
+			);
+			const handler = middy().use(
+				eventBatchParser({
+					value: parseProtobuf({ root, messageType: "test.User" }),
+				}),
+			);
+			handler.handler((event) => event);
+
+			const out = await handler(
+				{
+					eventSource: "aws:kafka",
+					records: { "t-0": [{ value: framed.toString("base64") }] },
+				},
+				defaultContext,
+			);
+			deepStrictEqual(out.records["t-0"][0].value, {
+				id: "u-300",
+				name: "Quinn",
+			});
+		}
+	});
+
+	test("parseProtobuf marks a record 422 when the Glue message index is not a uint32 varint", async () => {
+		const root = buildProtobufRoot();
+		const inner = encodeProtobufUser(root, { id: "u-1", name: "Ann" });
+		const payloads = [
+			glueProtobufPayload([0x80, 0x80, 0x80, 0x80, 0x80, 0x00], inner),
+			Buffer.from([0x80]),
+			Buffer.alloc(0),
+		];
+		for (const payload of payloads) {
+			const framed = glueFramedBuffer(
+				"44444444-5555-6666-7777-888888888888",
+				payload,
+			).toString("base64");
+			const handler = middy().use(
+				eventBatchParser({
+					value: parseProtobuf({ root, messageType: "test.User" }),
+				}),
+			);
+			handler.handler((event) => event);
+
+			const out = await handler(
+				{ eventSource: "aws:kafka", records: { "t-0": [{ value: framed }] } },
+				defaultContext,
+			);
+			strictEqual(out.records["t-0"][0].value, framed);
+			const error = parseErrorOf(out);
+			strictEqual(error.statusCode, 422);
+			deepStrictEqual(error.cause.data, {
+				reason: "Invalid record payload",
+				source: "aws:kafka",
+				field: "value",
+				message: "parseProtobuf: invalid Glue message index",
+			});
+		}
+	});
+
+	test("parseProtobuf reports its package as the cause of an invalid Glue message index", () => {
+		const parse = parseProtobuf({
+			root: buildProtobufRoot(),
+			messageType: "test.User",
+		});
+		throws(
+			() =>
+				parse(Buffer.alloc(0), undefined, undefined, {
+					schemaVersionId: "44444444-5555-6666-7777-888888888888",
+					payload: Buffer.from([0x80]),
+				}),
+			{
+				name: "TypeError",
+				message: "parseProtobuf: invalid Glue message index",
+				cause: { package: "@middy/event-batch-parser" },
+			},
+		);
+	});
+
+	test("parseProtobuf({ internalKey }) decodes a Glue-framed payload behind its message index when the versions match", async () => {
+		const root = buildProtobufRoot();
+		const uuid = "44444444-5555-6666-7777-888888888888";
+		const framed = glueFramedBuffer(
+			uuid,
+			glueProtobufPayload(
+				[0x00],
+				encodeProtobufUser(root, { id: "u-dyn", name: "Dee" }),
+			),
+		);
+
+		const handler = middy({
+			internal: {
+				userProto: { root, messageType: "test.User", schemaVersionId: uuid },
+			},
+		}).use(
+			eventBatchParser({ value: parseProtobuf({ internalKey: "userProto" }) }),
+		);
+		handler.handler((event) => event);
+
+		const out = await handler(
+			{
+				eventSource: "aws:kafka",
+				records: { "t-0": [{ value: framed.toString("base64") }] },
+			},
+			defaultContext,
+		);
+		deepStrictEqual(out.records["t-0"][0].value, { id: "u-dyn", name: "Dee" });
+	});
+
+	test("parseProtobuf({ internalKey }) only compares schema versions when the record and the entry both carry one", async () => {
+		const root = buildProtobufRoot();
+		const inner = encodeProtobufUser(root, { id: "u-cmp", name: "Cam" });
+		const uuid = "44444444-5555-6666-7777-888888888888";
+		const cases = [
+			{
+				entry: { root, messageType: "test.User" },
+				value: glueFramedBuffer(uuid, glueProtobufPayload([0x00], inner)),
+			},
+			{
+				entry: { root, messageType: "test.User", schemaVersionId: uuid },
+				value: Buffer.from(inner),
+			},
+		];
+		for (const { entry, value } of cases) {
+			const handler = middy({ internal: { userProto: entry } }).use(
+				eventBatchParser({
+					value: parseProtobuf({ internalKey: "userProto" }),
+				}),
+			);
+			handler.handler((event) => event);
+
+			const out = await handler(
+				{
+					eventSource: "aws:kafka",
+					records: { "t-0": [{ value: value.toString("base64") }] },
+				},
+				defaultContext,
+			);
+			deepStrictEqual(out.records["t-0"][0].value, {
+				id: "u-cmp",
+				name: "Cam",
+			});
+		}
 	});
 
 	test("Records with missing parser field are skipped (raw == null)", async () => {
@@ -1663,6 +1868,111 @@ describe("@middy/event-batch-parser", () => {
 	});
 
 	// ---------- Glue framing header guard + UUID + payload ----------
+
+	const pinnedSchemaVersionId = "11111111-1111-1111-1111-111111111111";
+	const writtenSchemaVersionId = "22222222-2222-2222-2222-222222222222";
+
+	test("parseAvro({ internalKey }) marks a record 422 when its Glue header names another schema version", async () => {
+		const stubRegistry = () => ({
+			before: (request) => {
+				request.internal.userSchema = {
+					schemaVersionId: pinnedSchemaVersionId,
+					schemaDefinition: AVRO_USER_SCHEMA,
+					dataFormat: "AVRO",
+				};
+			},
+		});
+		const framed = glueFramedBuffer(
+			writtenSchemaVersionId,
+			buildAvroBuffer({ id: "u-1", name: "Ann" }),
+		).toString("base64");
+
+		const handler = middy()
+			.use(stubRegistry())
+			.use(
+				eventBatchParser({ value: parseAvro({ internalKey: "userSchema" }) }),
+			);
+		handler.handler((event) => event);
+
+		const out = await handler(
+			{ eventSource: "aws:kafka", records: { "t-0": [{ value: framed }] } },
+			defaultContext,
+		);
+		strictEqual(out.records["t-0"][0].value, framed);
+		const error = parseErrorOf(out);
+		strictEqual(error.statusCode, 422);
+		deepStrictEqual(error.cause, {
+			package: "@middy/event-batch-parser",
+			data: {
+				reason: "Schema version mismatch",
+				schemaVersionId: writtenSchemaVersionId,
+				expectedSchemaVersionId: pinnedSchemaVersionId,
+			},
+		});
+	});
+
+	test("parseAvro({ internalKey }) decodes a Glue-framed record when the entry carries no schemaVersionId", async () => {
+		const framed = glueFramedBuffer(
+			writtenSchemaVersionId,
+			buildAvroBuffer({ id: "u-2", name: "Bob" }),
+		).toString("base64");
+
+		const handler = middy({
+			internal: { userSchema: { schemaDefinition: AVRO_USER_SCHEMA } },
+		}).use(
+			eventBatchParser({ value: parseAvro({ internalKey: "userSchema" }) }),
+		);
+		handler.handler((event) => event);
+
+		const out = await handler(
+			{ eventSource: "aws:kafka", records: { "t-0": [{ value: framed }] } },
+			defaultContext,
+		);
+		deepStrictEqual(plain(out.records["t-0"][0].value), {
+			id: "u-2",
+			name: "Bob",
+		});
+	});
+
+	test("parseProtobuf({ internalKey }) marks a record 422 when its Glue header names another schema version", async () => {
+		const root = buildProtobufRoot();
+		const framed = glueFramedBuffer(
+			writtenSchemaVersionId,
+			glueProtobufPayload(
+				[0x00],
+				encodeProtobufUser(root, { id: "u-1", name: "Ann" }),
+			),
+		).toString("base64");
+
+		const handler = middy({
+			internal: {
+				userProto: {
+					root,
+					messageType: "test.User",
+					schemaVersionId: pinnedSchemaVersionId,
+				},
+			},
+		}).use(
+			eventBatchParser({ value: parseProtobuf({ internalKey: "userProto" }) }),
+		);
+		handler.handler((event) => event);
+
+		const out = await handler(
+			{ eventSource: "aws:kafka", records: { "t-0": [{ value: framed }] } },
+			defaultContext,
+		);
+		strictEqual(out.records["t-0"][0].value, framed);
+		const error = parseErrorOf(out);
+		strictEqual(error.statusCode, 422);
+		deepStrictEqual(error.cause, {
+			package: "@middy/event-batch-parser",
+			data: {
+				reason: "Schema version mismatch",
+				schemaVersionId: writtenSchemaVersionId,
+				expectedSchemaVersionId: pinnedSchemaVersionId,
+			},
+		});
+	});
 
 	test("Glue framing: schemaVersionId is the hyphenated UUID derived from header bytes", async () => {
 		// Build a clean, known UUID and assert the exact parsed schemaVersionId.

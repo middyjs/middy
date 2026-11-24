@@ -1,4 +1,5 @@
 ---
+
 title: Pino
 description: "Use Middy with Pino logger for structured JSON logging in Lambda."
 ---

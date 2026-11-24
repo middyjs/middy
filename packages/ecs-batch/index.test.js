@@ -12,7 +12,9 @@ import {
 import nodeCluster from "node:cluster";
 import { EventEmitter, getEventListeners } from "node:events";
 import { readFileSync } from "node:fs";
+import { BlockList } from "node:net";
 import { availableParallelism } from "node:os";
+import { PassThrough, Readable } from "node:stream";
 import { describe, mock, test } from "node:test";
 import amqplib from "amqplib";
 import stompit from "stompit";
@@ -52,6 +54,30 @@ mock.method(process, "exit", (code) => {
 });
 
 const noop = () => {};
+const awsRegions = [
+	"us-east-1",
+	"us-gov-west-1",
+	"us-iso-east-1",
+	"us-isob-east-1",
+	"eu-isoe-west-1",
+	"cn-north-1",
+	"ap-southeast-5",
+	"eusc-de-east-1",
+	"us-isof-south-1",
+	"us-east-10",
+	"r".repeat(63),
+];
+const badAwsRegions = [
+	"",
+	"us east 1",
+	"us_east_1",
+	"us-east-1 ",
+	"r".repeat(64),
+];
+// https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_streams_GetShardIterator.html
+const ddbShardId = "shardId-00000001414576573621-f55eea83";
+const ddbStreamArn =
+	"arn:aws:dynamodb:us-west-2:111122223333:table/Forum/stream/2015-05-20T20:51:10.252";
 const uuidPattern =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -74,19 +100,24 @@ const makeFakeSqsClient = (responses) => {
 	};
 };
 
-const stubPoller = (events = []) => ({
-	source: "test",
-	acked: [],
-	async *poll(signal) {
-		for (const e of events) {
-			if (signal.aborted) return;
-			yield e;
-		}
-	},
-	async acknowledge(event, response) {
-		this.acked.push({ event, response });
-	},
-});
+const stubAcks = new WeakMap();
+const stubPoller = (events = []) => {
+	const acked = [];
+	const poller = {
+		source: "test",
+		async *poll(signal) {
+			for (const e of events) {
+				if (signal.aborted) return;
+				yield e;
+			}
+		},
+		async acknowledge(event, response) {
+			acked.push({ event, response });
+		},
+	};
+	stubAcks.set(poller, acked);
+	return poller;
+};
 
 // --- ecsBatchValidateOptions -------------------------------------------------
 
@@ -249,8 +280,10 @@ describe("@middy/ecs-batch", () => {
 			signal: ac.signal,
 		});
 		deepStrictEqual(calls, events);
-		strictEqual(poller.acked.length, 2);
-		deepStrictEqual(poller.acked[0].response, { batchItemFailures: [] });
+		strictEqual(stubAcks.get(poller).length, 2);
+		deepStrictEqual(stubAcks.get(poller)[0].response, {
+			batchItemFailures: [],
+		});
 	});
 
 	test("runPollLoop awsRequestId is a fresh random UUID per batch by default", async () => {
@@ -300,7 +333,7 @@ describe("@middy/ecs-batch", () => {
 			signal: new AbortController().signal,
 			onError: (err, event) => errors.push({ err, event }),
 		});
-		strictEqual(poller.acked.length, 0);
+		strictEqual(stubAcks.get(poller).length, 0);
 		strictEqual(errors.length, 1);
 		strictEqual(errors[0].err.message, "boom");
 	});
@@ -411,7 +444,7 @@ describe("@middy/ecs-batch", () => {
 		process.removeListener("SIGTERM", onSigterm);
 		await onSigterm();
 		strictEqual(exited, 0);
-		strictEqual(poller.acked.length, 1);
+		strictEqual(stubAcks.get(poller).length, 1);
 	});
 
 	test("runWorker composes invokedFunctionArn from MIDDY_ECS_* env", async () => {
@@ -1054,7 +1087,7 @@ describe("@middy/ecs-batch", () => {
 		const poller = pollKinesis({
 			streamName: "stream",
 			shardId: "shard-0",
-			streamArn: "arn:aws:kinesis:us-east-1:111:stream/stream",
+			streamArn: "arn:aws:kinesis:us-east-1:123456789012:stream/stream",
 			awsRegion: "us-east-1",
 			client,
 		});
@@ -1070,7 +1103,7 @@ describe("@middy/ecs-batch", () => {
 		strictEqual(value.Records[0].eventSource, "aws:kinesis");
 		strictEqual(
 			value.Records[0].eventSourceARN,
-			"arn:aws:kinesis:us-east-1:111:stream/stream",
+			"arn:aws:kinesis:us-east-1:123456789012:stream/stream",
 		);
 		await poller.acknowledge(value, {});
 		// NextShardIterator null: the shard is closed.
@@ -1079,8 +1112,8 @@ describe("@middy/ecs-batch", () => {
 
 	test("pollDynamoDBStreams.acknowledge tolerates an event without Records", async () => {
 		const poller = pollDynamoDBStreams({
-			streamArn: "arn",
-			shardId: "0",
+			streamArn: ddbStreamArn,
+			shardId: ddbShardId,
 			client: { send: async () => ({}) },
 		});
 		await poller.acknowledge({}, { batchItemFailures: [] });
@@ -1100,8 +1133,8 @@ describe("@middy/ecs-batch", () => {
 			},
 		};
 		const poller = pollDynamoDBStreams({
-			streamArn: "arn",
-			shardId: "0",
+			streamArn: ddbStreamArn,
+			shardId: ddbShardId,
 			pollingDelay: 0,
 			client,
 		});
@@ -1145,8 +1178,8 @@ describe("@middy/ecs-batch", () => {
 			},
 		};
 		const poller = pollDynamoDBStreams({
-			streamArn: "arn",
-			shardId: "0",
+			streamArn: ddbStreamArn,
+			shardId: ddbShardId,
 			client,
 		});
 		const it = poller.poll(ac.signal);
@@ -1180,8 +1213,8 @@ describe("@middy/ecs-batch", () => {
 			},
 		};
 		const poller = pollDynamoDBStreams({
-			streamArn: "arn",
-			shardId: "0",
+			streamArn: ddbStreamArn,
+			shardId: ddbShardId,
 			client,
 		});
 		const it = poller.poll(ac.signal);
@@ -1203,8 +1236,8 @@ describe("@middy/ecs-batch", () => {
 			},
 		};
 		const poller = pollDynamoDBStreams({
-			streamArn: "arn",
-			shardId: "0",
+			streamArn: ddbStreamArn,
+			shardId: ddbShardId,
 			pollingDelay: 1,
 			client,
 		});
@@ -1245,8 +1278,8 @@ describe("@middy/ecs-batch", () => {
 			},
 		};
 		const poller = pollDynamoDBStreams({
-			streamArn: "arn:aws:dynamodb:us-east-1:111:table/t/stream/2024",
-			shardId: "shard-0",
+			streamArn: "arn:aws:dynamodb:us-east-1:123456789012:table/t/stream/2024",
+			shardId: ddbShardId,
 			awsRegion: "us-east-1",
 			client,
 		});
@@ -1278,7 +1311,7 @@ describe("@middy/ecs-batch", () => {
 				Messages: [{ MessageId: "m", ReceiptHandle: "r", Body: "" }],
 			}),
 		};
-		const poller = pollSqs({ queueUrl: "not-a-url", client });
+		const poller = pollSqs({ queueUrl: "https://[q", client });
 		const ac = new AbortController();
 		const it = poller.poll(ac.signal);
 		const { value } = await it.next();
@@ -1457,6 +1490,56 @@ describe("@middy/ecs-batch", () => {
 				pollSqs({ queueUrl, client: {}, visibilityTimeout: 11 }),
 				{ workers: 1, timeout: 10_000 },
 			),
+			1,
+		);
+	});
+
+	test("ecsBatchRunner rejects an SQS timeout whose derived visibilityTimeout exceeds 43200 seconds", async () => {
+		const queueUrl = "https://sqs.us-east-1.amazonaws.com/1/q";
+		for (const timeout of [43_170_001, 2_147_483_647]) {
+			await rejects(
+				ecsBatchRunner(
+					{
+						handler: noop,
+						poller: pollSqs({ queueUrl, client: {} }),
+						timeout,
+						workers: 1,
+					},
+					{ cluster: { isPrimary: true } },
+				),
+				(err) => {
+					strictEqual(
+						err.message,
+						"timeout is too long for SQS: the derived visibilityTimeout would exceed 43200 seconds",
+					);
+					deepStrictEqual(err.cause, {
+						package: "@middy/ecs-batch",
+						data: { timeout },
+					});
+					return true;
+				},
+			);
+		}
+	});
+
+	test("ecsBatchRunner accepts an SQS timeout whose derived visibilityTimeout is 43200 seconds, or a set visibilityTimeout", async () => {
+		const queueUrl = "https://sqs.us-east-1.amazonaws.com/1/q";
+		strictEqual(
+			await countForks(pollSqs({ queueUrl, client: {} }), {
+				workers: 1,
+				timeout: 43_170_000,
+			}),
+			1,
+		);
+		strictEqual(
+			await countForks(
+				pollSqs({ queueUrl, client: {}, visibilityTimeout: 43_200 }),
+				{ workers: 1, timeout: 43_170_001 },
+			),
+			1,
+		);
+		strictEqual(
+			await countForks(stubPoller(), { workers: 1, timeout: 43_170_001 }),
 			1,
 		);
 	});
@@ -1722,25 +1805,13 @@ describe("@middy/ecs-batch", () => {
 		await rejects(() => it.next(), /iam-denied/);
 	});
 
-	test("pollKinesis poll rethrows non-abort errors from GetRecords", async () => {
-		const client = {
-			send: async (cmd) => {
-				if (cmd.constructor.name === "GetShardIteratorCommand") {
-					return { ShardIterator: "i" };
-				}
-				throw new Error("provisioned-throughput-exceeded");
-			},
-		};
-		const poller = pollKinesis({ streamName: "s", shardId: "0", client });
-		const ac = new AbortController();
-		const it = poller.poll(ac.signal);
-		await rejects(() => it.next(), /provisioned-throughput-exceeded/);
-	});
-
 	// --- additional coverage: pollDynamoDBStreams -------------------------------
 
 	test("pollDynamoDBStreams uses default DynamoDBStreamsClient when none injected", () => {
-		const poller = pollDynamoDBStreams({ streamArn: "arn", shardId: "0" });
+		const poller = pollDynamoDBStreams({
+			streamArn: ddbStreamArn,
+			shardId: ddbShardId,
+		});
 		strictEqual(poller.source, "aws:dynamodb");
 		ok(poller.client);
 	});
@@ -1760,8 +1831,8 @@ describe("@middy/ecs-batch", () => {
 			},
 		};
 		const poller = pollDynamoDBStreams({
-			streamArn: "arn",
-			shardId: "0",
+			streamArn: ddbStreamArn,
+			shardId: ddbShardId,
 			client,
 		});
 		const it = poller.poll(ac.signal);
@@ -1783,8 +1854,8 @@ describe("@middy/ecs-batch", () => {
 			},
 		};
 		const poller = pollDynamoDBStreams({
-			streamArn: "arn",
-			shardId: "0",
+			streamArn: ddbStreamArn,
+			shardId: ddbShardId,
 			client,
 		});
 		const it = poller.poll(ac.signal);
@@ -1806,8 +1877,8 @@ describe("@middy/ecs-batch", () => {
 			},
 		};
 		const poller = pollDynamoDBStreams({
-			streamArn: "arn",
-			shardId: "0",
+			streamArn: ddbStreamArn,
+			shardId: ddbShardId,
 			pollingDelay: 5,
 			client,
 		});
@@ -1824,32 +1895,13 @@ describe("@middy/ecs-batch", () => {
 			},
 		};
 		const poller = pollDynamoDBStreams({
-			streamArn: "arn",
-			shardId: "0",
+			streamArn: ddbStreamArn,
+			shardId: ddbShardId,
 			client,
 		});
 		const ac = new AbortController();
 		const it = poller.poll(ac.signal);
 		await rejects(() => it.next(), /access-denied/);
-	});
-
-	test("pollDynamoDBStreams rethrows non-abort errors from GetRecords", async () => {
-		const client = {
-			send: async (cmd) => {
-				if (cmd.constructor.name === "GetShardIteratorCommand") {
-					return { ShardIterator: "i" };
-				}
-				throw new Error("expired");
-			},
-		};
-		const poller = pollDynamoDBStreams({
-			streamArn: "arn",
-			shardId: "0",
-			client,
-		});
-		const ac = new AbortController();
-		const it = poller.poll(ac.signal);
-		await rejects(() => it.next(), /expired/);
 	});
 
 	// --- pollKafka --------------------------------------------------------------
@@ -1941,11 +1993,11 @@ describe("@middy/ecs-batch", () => {
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
 			retryDelayMs: 0,
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t1"],
 			consumer,
-			eventSourceArn: "arn:aws:kafka:...",
+			eventSourceArn: "arn:aws:kafka:us-east-1:123456789012:cluster/c/1",
 		});
 		strictEqual(poller.source, "aws:kafka");
 		const ac = new AbortController();
@@ -2013,7 +2065,7 @@ describe("@middy/ecs-batch", () => {
 	test("pollKafka subscribes with fromBeginning when configured", async () => {
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t"],
 			fromBeginning: true,
@@ -2040,7 +2092,7 @@ describe("@middy/ecs-batch", () => {
 	test("pollKafka selfManaged emits SelfManagedKafka eventSource", async () => {
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t"],
 			consumer,
@@ -2052,7 +2104,7 @@ describe("@middy/ecs-batch", () => {
 	test("pollKafka eachBatch is a no-op when signal already aborted", async () => {
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t"],
 			consumer,
@@ -2083,7 +2135,7 @@ describe("@middy/ecs-batch", () => {
 	test("pollKafka.acknowledge tolerates undefined response", async () => {
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t"],
 			consumer,
@@ -2094,7 +2146,7 @@ describe("@middy/ecs-batch", () => {
 	test("pollKafka encodes Uint8Array, string, and null key/value", async () => {
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t1"],
 			consumer,
@@ -2143,7 +2195,7 @@ describe("@middy/ecs-batch", () => {
 			throw new Error("disc-fail");
 		};
 		const poller = pollKafka({
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t"],
 			consumer,
@@ -2160,7 +2212,7 @@ describe("@middy/ecs-batch", () => {
 		// The runner's signal outlives the poller, so a listener left behind
 		// would be a leak per poll().
 		const poller = pollKafka({
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t"],
 			consumer: makeFakeKafkaConsumer(),
@@ -2179,7 +2231,7 @@ describe("@middy/ecs-batch", () => {
 		// past a failed record instead of redelivering it.
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t"],
 			consumer,
@@ -2199,7 +2251,7 @@ describe("@middy/ecs-batch", () => {
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
 			retryDelayMs: 0,
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t1"],
 			consumer,
@@ -2229,7 +2281,7 @@ describe("@middy/ecs-batch", () => {
 			order.push("disconnect");
 		};
 		const poller = pollKafka({
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t1"],
 			consumer,
@@ -2276,7 +2328,7 @@ describe("@middy/ecs-batch", () => {
 		// redelivers from the last committed offset after restart.
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t1"],
 			consumer,
@@ -2302,7 +2354,7 @@ describe("@middy/ecs-batch", () => {
 		// must still wait for it to settle and then disconnect.
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t1"],
 			consumer,
@@ -2330,7 +2382,7 @@ describe("@middy/ecs-batch", () => {
 		// eachBatch returns, kafkajs fetches the next batch and keeps heartbeating.
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t1"],
 			consumer,
@@ -2391,7 +2443,7 @@ describe("@middy/ecs-batch", () => {
 		t.mock.timers.enable({ apis: ["setInterval"] });
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t1"],
 			consumer,
@@ -2424,7 +2476,7 @@ describe("@middy/ecs-batch", () => {
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
 			retryDelayMs: 0,
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t1"],
 			consumer,
@@ -2462,7 +2514,7 @@ describe("@middy/ecs-batch", () => {
 		throws(
 			() =>
 				pollKafkaValidateOptions({
-					brokers: ["b1"],
+					brokers: ["b1:9092"],
 					groupId: "g",
 					topics: ["t1"],
 					heartbeatIntervalMs: 0,
@@ -2505,20 +2557,22 @@ describe("@middy/ecs-batch", () => {
 		});
 	};
 
-	const fakeStompMessage = (id, body) => ({
-		headers: {
-			"message-id": id,
-			"amq-msg-type": "jms/text-message",
-			timestamp: "1700000000000",
-			persistent: "true",
-			priority: "5",
-			destination: "/queue/orders",
-			redelivered: "false",
-		},
-		readString(_enc, cb) {
-			cb(null, body);
-		},
-	});
+	const stompFrame = (headers, body) =>
+		Object.assign(Readable.from([Buffer.from(body)]), { headers });
+
+	const fakeStompMessage = (id, body) =>
+		stompFrame(
+			{
+				"message-id": id,
+				"amq-msg-type": "jms/text-message",
+				timestamp: "1700000000000",
+				persistent: "true",
+				priority: "5",
+				destination: "/queue/orders",
+				redelivered: "false",
+			},
+			body,
+		);
 
 	const drainPollSetup = async (it) => {
 		const firstNext = it.next();
@@ -2526,7 +2580,7 @@ describe("@middy/ecs-batch", () => {
 		return { firstNext };
 	};
 
-	test("pollAmq yields aws:amq batch and acks per-message based on response", async () => {
+	test("pollAmq yields aws:amq batch and acknowledges every message", async () => {
 		const stomp = makeFakeStompClient();
 		const poller = pollAmq({
 			connectOptions: { host: "localhost", port: 61613 },
@@ -2555,8 +2609,11 @@ describe("@middy/ecs-batch", () => {
 		await poller.acknowledge(value, {
 			batchItemFailures: [{ itemIdentifier: "id-2" }],
 		});
-		strictEqual(stomp.acked.length, 1);
-		strictEqual(stomp.nacked.length, 1);
+		deepStrictEqual(
+			stomp.acked.map((m) => m.headers["message-id"]),
+			["id-1", "id-2"],
+		);
+		deepStrictEqual(stomp.nacked, []);
 		ac.abort();
 	});
 
@@ -2686,12 +2743,7 @@ describe("@middy/ecs-batch", () => {
 		const it = poller.poll(ac.signal);
 		const { firstNext } = await drainPollSetup(it);
 		const cb = stomp.subscribeCb();
-		cb(null, {
-			headers: { "message-id": "m" }, // all other headers missing
-			readString(_e, cbb) {
-				cbb(null, "x");
-			},
-		});
+		cb(null, stompFrame({ "message-id": "m" }, "x"));
 		const { value } = await firstNext;
 		strictEqual(value.messages[0].messageType, "jms/text-message");
 		strictEqual(value.messages[0].deliveryMode, 1);
@@ -2722,7 +2774,7 @@ describe("@middy/ecs-batch", () => {
 		strictEqual(stomp.acked.length, 0);
 	});
 
-	test("pollAmq nacks message on body read failure", async () => {
+	test("pollAmq fails the poll, without a NACK, when a frame body cannot be read", async () => {
 		const stomp = makeFakeStompClient();
 		const poller = pollAmq({
 			connectOptions: {},
@@ -2732,19 +2784,19 @@ describe("@middy/ecs-batch", () => {
 			client: stomp,
 		});
 		const ac = new AbortController();
-		const it = poller.poll(ac.signal);
-		await drainPollSetup(it);
-		const cb = stomp.subscribeCb();
-		const failingMsg = {
-			headers: { "message-id": "x" },
-			readString(_e, cbb) {
-				cbb(new Error("io"));
-			},
-		};
-		cb(null, failingMsg);
-		for (let i = 0; i < 5; i++) await Promise.resolve();
-		strictEqual(stomp.nacked.length, 1);
-		ac.abort();
+		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
+		const failingMsg = Object.assign(
+			new Readable({
+				read() {
+					this.destroy(new Error("io"));
+				},
+			}),
+			{ headers: { "message-id": "x" } },
+		);
+		stomp.subscribeCb()(null, failingMsg);
+		await rejects(firstNext, /io/);
+		deepStrictEqual(stomp.nacked, []);
+		strictEqual(stomp.disconnectCalls, 1);
 	});
 
 	test("pollAmq lets an in-flight batch acknowledge on abort, then disconnects", async () => {
@@ -2912,7 +2964,7 @@ describe("@middy/ecs-batch", () => {
 		},
 	});
 
-	test("pollRmq yields aws:rmq batch and acks per delivery tag", async () => {
+	test("pollRmq yields aws:rmq batch and acknowledges every delivery", async () => {
 		const channel = makeFakeRmqChannel();
 		const connection = {
 			async createChannel() {
@@ -2955,10 +3007,11 @@ describe("@middy/ecs-batch", () => {
 		await poller.acknowledge(value, {
 			batchItemFailures: [{ itemIdentifier: "2" }],
 		});
-		strictEqual(channel.acked.length, 1);
-		strictEqual(channel.nacked.length, 1);
-		strictEqual(channel.acked[0].fields.deliveryTag, 1);
-		strictEqual(channel.nacked[0].fields.deliveryTag, 2);
+		deepStrictEqual(
+			channel.acked.map((m) => m.fields.deliveryTag),
+			[1, 2],
+		);
+		strictEqual(channel.nacked.length, 0);
 
 		ac.abort();
 	});
@@ -3479,7 +3532,8 @@ describe("@middy/ecs-batch", () => {
 	test("pollDynamoDBStreams derives awsRegion from the stream ARN and passes a numeric ApproximateCreationDateTime through", async () => {
 		// Lambda always populates awsRegion and eventSourceARN; the ARN carries
 		// the region so the option is only an override.
-		const streamArn = "arn:aws:dynamodb:eu-west-1:111:table/t/stream/2024";
+		const streamArn =
+			"arn:aws:dynamodb:eu-west-1:123456789012:table/t/stream/2024";
 		const client = {
 			send: async (cmd) => {
 				if (cmd.constructor.name === "GetShardIteratorCommand") {
@@ -3503,7 +3557,7 @@ describe("@middy/ecs-batch", () => {
 		};
 		const poller = pollDynamoDBStreams({
 			streamArn,
-			shardId: "shard-0",
+			shardId: ddbShardId,
 			client,
 		});
 		const { value } = await poller.poll(new AbortController().signal).next();
@@ -3514,7 +3568,8 @@ describe("@middy/ecs-batch", () => {
 	});
 
 	test("pollKinesis derives awsRegion from streamArn when the option is omitted", async () => {
-		const streamArn = "arn:aws:kinesis:ap-southeast-2:111:stream/events";
+		const streamArn =
+			"arn:aws:kinesis:ap-southeast-2:123456789012:stream/events";
 		const client = {
 			send: async (cmd) => {
 				if (cmd.constructor.name === "GetShardIteratorCommand") {
@@ -3724,7 +3779,7 @@ describe("@middy/ecs-batch", () => {
 		};
 		const poller = pollDynamoDBStreams({
 			streamArn: insert.eventSourceARN,
-			shardId: "shardId-0",
+			shardId: ddbShardId,
 			awsRegion: insert.awsRegion,
 			client,
 		});
@@ -3849,7 +3904,7 @@ describe("@middy/ecs-batch", () => {
 	test("pollKafka encodes string, multi-value, non-buffer and undefined header values", async () => {
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t"],
 			consumer,
@@ -3897,51 +3952,64 @@ describe("@middy/ecs-batch", () => {
 		await it.next();
 	});
 
-	test("pollAmq maps a STOMP MESSAGE frame to the documented Lambda message shape", async () => {
-		const fixture = loadFixture("mq.activemq");
-		const msg = fixture.messages[0];
-		const stomp = makeFakeStompClient();
-		const poller = pollAmq({
-			connectOptions: {},
-			destination: "/queue/testQueue",
-			batchSize: 1,
-			batchWindowMs: 5,
-			client: stomp,
-			eventSourceArn: fixture.eventSourceArn,
+	const parseStompFrame = (headers, body) =>
+		new Promise((resolve) => {
+			const frames = new stompit.IncomingFrameStream();
+			frames.setVersion("1.2");
+			frames.once("data", resolve);
+			const head = ["MESSAGE"];
+			for (const [key, value] of Object.entries(headers)) {
+				// STOMP 1.2 escapes a colon in a header value as "\c".
+				head.push(`${key}:${String(value).replaceAll(":", "\\c")}`);
+			}
+			head.push(`content-length:${body.length}`, "", "");
+			frames.write(
+				Buffer.concat([Buffer.from(head.join("\n")), body, Buffer.from([0])]),
+			);
 		});
-		const ac = new AbortController();
-		const it = poller.poll(ac.signal);
-		const { firstNext } = await drainPollSetup(it);
-		// Header names follow ActiveMQ's STOMP FrameTranslator; JMS user
-		// properties arrive as additional headers.
-		stomp.subscribeCb()(null, {
-			headers: {
-				"message-id": msg.messageID,
+
+	for (const index of [0, 1]) {
+		test(`pollAmq maps a STOMP MESSAGE frame to the documented Lambda message shape (messages[${index}])`, async () => {
+			const fixture = loadFixture("mq.activemq");
+			const msg = fixture.messages[index];
+			const stomp = makeFakeStompClient();
+			const poller = pollAmq({
+				connectOptions: {},
 				destination: "/queue/testQueue",
-				"correlation-id": msg.correlationID,
-				expires: msg.expiration,
-				priority: String(msg.priority),
-				timestamp: String(msg.timestamp),
-				subscription: "sub-0",
-				"content-type": "text/plain",
-				index: "1",
-				doAlarm: "false",
-				myCustomProperty: "value",
-			},
-			readString(_enc, cb) {
-				cb(null, Buffer.from(msg.data, "base64").toString("utf8"));
-			},
+				batchSize: 1,
+				batchWindowMs: 5,
+				client: stomp,
+				eventSourceArn: fixture.eventSourceArn,
+			});
+			const ac = new AbortController();
+			const it = poller.poll(ac.signal);
+			const { firstNext } = await drainPollSetup(it);
+			const frame = await parseStompFrame(
+				{
+					"message-id": msg.messageID,
+					destination: "/queue/testQueue",
+					"correlation-id": msg.correlationID,
+					expires: msg.expiration,
+					priority: String(msg.priority),
+					timestamp: String(msg.timestamp),
+					subscription: "sub-0",
+					"amq-msg-type": msg.messageType,
+					index: "1",
+					doAlarm: "false",
+					myCustomProperty: "value",
+				},
+				Buffer.from(msg.data, "base64"),
+			);
+			stomp.subscribeCb()(null, frame);
+			const { value } = await firstNext;
+			strictEqual(value.eventSourceArn, fixture.eventSourceArn);
+			deepStrictEqual(
+				value.messages[0],
+				omit(msg, "brokerInTime", "brokerOutTime"),
+			);
+			ac.abort();
 		});
-		const { value } = await firstNext;
-		strictEqual(value.eventSourceArn, fixture.eventSourceArn);
-		// brokerInTime/brokerOutTime are OpenWire broker statistics; ActiveMQ's
-		// STOMP frames never carry them, so the runner cannot emit them.
-		deepStrictEqual(
-			value.messages[0],
-			omit(msg, "brokerInTime", "brokerOutTime"),
-		);
-		ac.abort();
-	});
+	}
 
 	test("pollAmq copies reply-to, type, persistent and redelivered STOMP headers", async () => {
 		const stomp = makeFakeStompClient();
@@ -3955,20 +4023,21 @@ describe("@middy/ecs-batch", () => {
 		const ac = new AbortController();
 		const it = poller.poll(ac.signal);
 		const { firstNext } = await drainPollSetup(it);
-		stomp.subscribeCb()(null, {
-			headers: {
-				"message-id": "m",
-				destination: "/topic/events",
-				"reply-to": "/queue/replies",
-				type: "OrderCreated",
-				persistent: "true",
-				redelivered: "true",
-				expires: "0",
-			},
-			readString(_enc, cb) {
-				cb(null, "x");
-			},
-		});
+		stomp.subscribeCb()(
+			null,
+			stompFrame(
+				{
+					"message-id": "m",
+					destination: "/topic/events",
+					"reply-to": "/queue/replies",
+					type: "OrderCreated",
+					persistent: "true",
+					redelivered: "true",
+					expires: "0",
+				},
+				"x",
+			),
+		);
 		const { value } = await firstNext;
 		const [message] = value.messages;
 		deepStrictEqual(message.destination, { physicalName: "events" });
@@ -4080,7 +4149,7 @@ describe("@middy/ecs-batch", () => {
 		);
 	});
 
-	test("ecsBatchValidateOptions checks every poller field and allows poller extras", () => {
+	test("ecsBatchValidateOptions checks every poller field and rejects unlisted ones", () => {
 		const { poller } = validRunnerOptions;
 		for (const broken of [
 			{},
@@ -4088,8 +4157,17 @@ describe("@middy/ecs-batch", () => {
 			{ ...poller, poll: undefined },
 			{ ...poller, acknowledge: undefined },
 			{ ...poller, source: 1 },
+			{ ...poller, source: "" },
+			{ ...poller, source: "bad source" },
+			{ ...poller, source: "s".repeat(1025) },
 			{ ...poller, poll: "poll" },
 			{ ...poller, acknowledge: {} },
+			{ ...poller, client: "client" },
+			{ ...poller, consumer: 1 },
+			{ ...poller, visibilityTimeout: -1 },
+			{ ...poller, visibilityTimeout: 1.5 },
+			{ ...poller, visibilityTimeout: 43_201 },
+			{ ...poller, acked: [] },
 		]) {
 			throws(
 				() => ecsBatchValidateOptions({ handler: noop, poller: broken }),
@@ -4097,11 +4175,52 @@ describe("@middy/ecs-batch", () => {
 				JSON.stringify(broken),
 			);
 		}
-		// Pollers carry their client or consumer next to the contract fields.
-		ecsBatchValidateOptions({
-			handler: noop,
-			poller: { ...poller, client: {}, consumer: {} },
-		});
+		for (const extra of [
+			{ client: {}, consumer: {} },
+			{ source: "aws:sqs", visibilityTimeout: 0 },
+			{ source: "aws:sqs", visibilityTimeout: 43_200 },
+			{ source: "SelfManagedKafka" },
+			{ source: "s".repeat(1024) },
+			{ source: "@middy/x" },
+			{ poll: async function* () {}, acknowledge: async () => {} },
+		]) {
+			ecsBatchValidateOptions({
+				handler: noop,
+				poller: { ...poller, ...extra },
+			});
+		}
+	});
+
+	test("ecsBatchValidateOptions bounds every runner option", () => {
+		const accepted = [
+			{ handler: async () => {} },
+			{ workers: 1 },
+			{ workers: 4_194_304 },
+			{ timeout: 0 },
+			{ timeout: 2_147_483_647 },
+			{ gracefulShutdownMs: 0 },
+			{ gracefulShutdownMs: 2_147_483_647 },
+		];
+		for (const extra of accepted) {
+			ecsBatchValidateOptions({ ...validRunnerOptions, ...extra });
+		}
+		const rejected = [
+			{ handler: "handler" },
+			{ onError: "onError" },
+			{ workers: 0 },
+			{ workers: 4_194_305 },
+			{ timeout: -1 },
+			{ timeout: 2_147_483_648 },
+			{ gracefulShutdownMs: -1 },
+			{ gracefulShutdownMs: 2_147_483_648 },
+		];
+		for (const extra of rejected) {
+			throws(
+				() => ecsBatchValidateOptions({ ...validRunnerOptions, ...extra }),
+				TypeError,
+				JSON.stringify(extra),
+			);
+		}
 	});
 
 	test("ecsBatchValidateOptions accepts contextOverride.awsRequestId and nothing else in it", () => {
@@ -4469,20 +4588,32 @@ describe("@middy/ecs-batch", () => {
 		);
 		const accepted = [
 			{},
+			{ queueUrl: "http://localhost:4566/000000000000/q" },
+			{ queueUrl: `https://${"q".repeat(1016)}` },
 			{ client: { send: noop } },
 			{ maxNumberOfMessages: 1 },
 			{ maxNumberOfMessages: 10 },
 			{ waitTimeSeconds: 0 },
 			{ waitTimeSeconds: 20 },
 			{ visibilityTimeout: 0 },
-			{ eventSourceArn: "arn:aws:sqs:us-east-1:111:q" },
-			{ awsRegion: "us-east-1" },
+			{ visibilityTimeout: 43_200 },
+			{ eventSourceArn: "arn:aws:sqs:us-east-1:123456789012:q" },
+			{ eventSourceArn: "arn:aws-us-gov:sqs:us-gov-west-1:123456789012:q" },
+			{ eventSourceArn: "arn:aws:sqs:::q" },
+			{
+				eventSourceArn: `arn:aws:sqs:us-east-1:123456789012:${"q".repeat(989)}`,
+			},
+			...awsRegions.map((awsRegion) => ({ awsRegion })),
 		];
 		for (const extra of accepted) {
 			pollSqsValidateOptions({ queueUrl: sqsQueueUrl, ...extra });
 		}
 		const rejected = [
 			{ queueUrl: 1 },
+			{ queueUrl: "not-a-url" },
+			{ queueUrl: "sqs://q" },
+			{ queueUrl: "https://sqs.us-east-1.amazonaws.com/111/a q" },
+			{ queueUrl: `https://${"q".repeat(1017)}` },
 			{ client: "sqs" },
 			{ maxNumberOfMessages: 0 },
 			{ maxNumberOfMessages: 11 },
@@ -4491,8 +4622,15 @@ describe("@middy/ecs-batch", () => {
 			{ waitTimeSeconds: 21 },
 			{ waitTimeSeconds: 1.5 },
 			{ visibilityTimeout: -1 },
+			{ visibilityTimeout: 43_201 },
 			{ eventSourceArn: 1 },
+			{ eventSourceArn: "q" },
+			{ eventSourceArn: "arn:aws:sqs:us-east-1:111:q" },
+			{
+				eventSourceArn: `arn:aws:sqs:us-east-1:123456789012:${"q".repeat(990)}`,
+			},
 			{ awsRegion: 1 },
+			...badAwsRegions.map((awsRegion) => ({ awsRegion })),
 			{ foo: "bar" },
 		];
 		for (const extra of rejected) {
@@ -4566,7 +4704,7 @@ describe("@middy/ecs-batch", () => {
 				undefined,
 				"us-east-2",
 			],
-			["not-a-url", undefined, undefined],
+			["https://[q", undefined, undefined],
 		];
 		const receiveOne = (ac) =>
 			makeCapturingClient(() => {
@@ -4585,7 +4723,7 @@ describe("@middy/ecs-batch", () => {
 		const ac = new AbortController();
 		const { value } = await pollSqs({
 			queueUrl: cases[0][0],
-			eventSourceArn: "arn:aws:sqs:eu-west-1:999:other",
+			eventSourceArn: "arn:aws:sqs:eu-west-1:999999999999:other",
 			awsRegion: "eu-west-1",
 			client: receiveOne(ac),
 		})
@@ -4593,7 +4731,7 @@ describe("@middy/ecs-batch", () => {
 			.next();
 		strictEqual(
 			value.Records[0].eventSourceARN,
-			"arn:aws:sqs:eu-west-1:999:other",
+			"arn:aws:sqs:eu-west-1:999999999999:other",
 		);
 		strictEqual(value.Records[0].awsRegion, "eu-west-1");
 	});
@@ -4648,7 +4786,7 @@ describe("@middy/ecs-batch", () => {
 		);
 		const accepted = [
 			{},
-			{ streamArn: "arn:aws:kinesis:us-east-1:111:stream/s" },
+			{ streamArn: "arn:aws:kinesis:us-east-1:123456789012:stream/s" },
 			{ client: { send: noop } },
 			{ shardIteratorType: "AT_SEQUENCE_NUMBER" },
 			{ shardIteratorType: "AFTER_SEQUENCE_NUMBER" },
@@ -4659,11 +4797,28 @@ describe("@middy/ecs-batch", () => {
 				startingSequenceNumber:
 					"49590338271490256608559692538361571095921575989136588898",
 			},
+			{ startingSequenceNumber: "0" },
+			{ startingSequenceNumber: `1${"0".repeat(128)}` },
+			{ timestamp: 0 },
 			{ timestamp: 1_700_000_000 },
+			{ timestamp: 1_459_799_926.48 },
+			{ timestamp: 8_640_000_000_000 },
 			{ limit: 1 },
 			{ limit: 10_000 },
 			{ pollingDelay: 0 },
-			{ awsRegion: "us-east-1" },
+			{ pollingDelay: 2_147_483_647 },
+			{ maxRetryAttempts: -1 },
+			{ maxRetryAttempts: 10_000 },
+			{ retryDelayMs: 0 },
+			{ retryDelayMs: 2_147_483_647 },
+			{ streamName: "lambda-stream_1.0" },
+			{ streamName: "s".repeat(128) },
+			{ shardId: "shardId-000000000006" },
+			{ shardId: "s".repeat(128) },
+			{
+				streamArn: `arn:aws:kinesis:us-east-1:123456789012:stream/${"s".repeat(2002)}`,
+			},
+			...awsRegions.map((awsRegion) => ({ awsRegion })),
 		];
 		for (const extra of accepted) {
 			pollKinesisValidateOptions({ ...kinesisBase, ...extra });
@@ -4676,12 +4831,37 @@ describe("@middy/ecs-batch", () => {
 			{ shardIteratorType: "AT_OFFSET" },
 			{ shardIteratorType: 1 },
 			{ startingSequenceNumber: 1 },
+			{ startingSequenceNumber: "" },
+			{ startingSequenceNumber: "01" },
+			{ startingSequenceNumber: "1a" },
+			{ startingSequenceNumber: `1${"0".repeat(129)}` },
 			{ timestamp: "2024-01-01" },
+			{ timestamp: -1 },
+			{ timestamp: 8_640_000_000_001 },
 			{ limit: 0 },
 			{ limit: 10_001 },
 			{ limit: "1" },
 			{ pollingDelay: -1 },
+			{ pollingDelay: 2_147_483_648 },
+			{ maxRetryAttempts: -2 },
+			{ maxRetryAttempts: 10_001 },
+			{ retryDelayMs: -1 },
+			{ retryDelayMs: 2_147_483_648 },
+			{ streamName: "" },
+			{ streamName: "my stream" },
+			{ streamName: "s".repeat(129) },
+			{ shardId: "" },
+			{ shardId: "shard/0" },
+			{ shardId: "s".repeat(129) },
+			{ streamArn: "arn" },
+			{ streamArn: "arn:aws:kinesis:us-east-1:111:stream/s" },
+			{ streamArn: "arn:aws:kinesis:us-east-1::stream/s" },
+			{ streamArn: "arn:aws:sqs:us-east-1:123456789012:stream/s" },
+			{
+				streamArn: `arn:aws:kinesis:us-east-1:123456789012:stream/${"s".repeat(2003)}`,
+			},
 			{ awsRegion: 1 },
+			...badAwsRegions.map((awsRegion) => ({ awsRegion })),
 			{ foo: "bar" },
 		];
 		for (const extra of rejected) {
@@ -4760,8 +4940,8 @@ describe("@middy/ecs-batch", () => {
 	// --- pollDynamoDBStreams: options and request shape -------------------------
 
 	const ddbBase = {
-		streamArn: "arn:aws:dynamodb:us-east-1:111:table/t/stream/2024",
-		shardId: "0",
+		streamArn: "arn:aws:dynamodb:us-east-1:123456789012:table/t/stream/2024",
+		shardId: ddbShardId,
 	};
 	const oneDdbRecord = {
 		eventID: "e",
@@ -4784,11 +4964,31 @@ describe("@middy/ecs-batch", () => {
 			{ shardIteratorType: "AFTER_SEQUENCE_NUMBER" },
 			{ shardIteratorType: "TRIM_HORIZON" },
 			{ shardIteratorType: "LATEST" },
-			{ sequenceNumber: "111" },
+			{ shardIteratorType: "AT_TIMESTAMP" },
+			{ sequenceNumber: "300000000000000499659" },
+			{ timestamp: 0 },
+			{ timestamp: 1_791_316_726.48 },
+			{ timestamp: 8_640_000_000_000 },
+			{ sequenceNumber: "1".repeat(40) },
 			{ limit: 1 },
 			{ limit: 1000 },
 			{ pollingDelay: 0 },
-			{ awsRegion: "us-east-1" },
+			{ pollingDelay: 2_147_483_647 },
+			{ maxRetryAttempts: -1 },
+			{ maxRetryAttempts: 10_000 },
+			{ retryDelayMs: 0 },
+			{ retryDelayMs: 2_147_483_647 },
+			{ shardId: "s".repeat(28) },
+			{ shardId: "s".repeat(65) },
+			{
+				streamArn:
+					"arn:aws:dynamodb:us-west-2:111122223333:table/Forum/stream/2015-05-20T20:51:10.252",
+			},
+			{ streamArn: `arn:aws:dynamodb:::table/${"t".repeat(12)}` },
+			{
+				streamArn: `arn:aws:dynamodb:us-east-1:123456789012:table/${"t".repeat(978)}`,
+			},
+			...awsRegions.map((awsRegion) => ({ awsRegion })),
 		];
 		for (const extra of accepted) {
 			pollDynamoDBStreamsValidateOptions({ ...ddbBase, ...extra });
@@ -4797,14 +4997,38 @@ describe("@middy/ecs-batch", () => {
 			{ streamArn: undefined },
 			{ shardId: undefined },
 			{ client: "ddb" },
-			{ shardIteratorType: "AT_TIMESTAMP" },
+			{ shardIteratorType: "AT_OFFSET" },
 			{ shardIteratorType: 1 },
+			{ timestamp: "2024-01-01" },
+			{ timestamp: -1 },
+			{ timestamp: 8_640_000_000_001 },
 			{ sequenceNumber: 111 },
+			{ sequenceNumber: "1".repeat(20) },
+			{ sequenceNumber: "1".repeat(41) },
+			{ sequenceNumber: `${"1".repeat(20)} ` },
+			{ sequenceNumber: ` ${"1".repeat(20)}` },
 			{ limit: 0 },
 			{ limit: 1001 },
 			{ limit: "1" },
 			{ pollingDelay: -1 },
+			{ pollingDelay: 2_147_483_648 },
+			{ maxRetryAttempts: -2 },
+			{ maxRetryAttempts: 10_001 },
+			{ retryDelayMs: -1 },
+			{ retryDelayMs: 2_147_483_648 },
+			{ shardId: "0" },
+			{ shardId: "s".repeat(27) },
+			{ shardId: "s".repeat(66) },
+			{ shardId: `${"s".repeat(27)} ` },
+			{ streamArn: "arn" },
+			{ streamArn: "arn:aws:dynamodb:us-east-1:111:table/t/stream/2024" },
+			{ streamArn: `arn:aws:dynamodb:::table/${"t".repeat(11)}` },
+			{ streamArn: "arn:aws:kinesis:us-east-1:123456789012:stream/events" },
+			{
+				streamArn: `arn:aws:dynamodb:us-east-1:123456789012:table/${"t".repeat(979)}`,
+			},
 			{ awsRegion: 1 },
+			...badAwsRegions.map((awsRegion) => ({ awsRegion })),
 			{ foo: "bar" },
 		];
 		for (const extra of rejected) {
@@ -4843,9 +5067,10 @@ describe("@middy/ecs-batch", () => {
 				name: "GetShardIteratorCommand",
 				input: {
 					StreamArn: ddbBase.streamArn,
-					ShardId: "0",
+					ShardId: ddbShardId,
 					ShardIteratorType: "LATEST",
 					SequenceNumber: undefined,
+					Timestamp: undefined,
 				},
 				opts: { abortSignal: ac.signal },
 			},
@@ -4868,20 +5093,45 @@ describe("@middy/ecs-batch", () => {
 			...ddbBase,
 			client,
 			shardIteratorType: "AT_SEQUENCE_NUMBER",
-			sequenceNumber: "42",
+			sequenceNumber: "300000000000000499659",
 			limit: 25,
 		})
 			.poll(ac.signal)
 			.next();
 		deepStrictEqual(client.calls[0].input, {
 			StreamArn: ddbBase.streamArn,
-			ShardId: "0",
+			ShardId: ddbShardId,
 			ShardIteratorType: "AT_SEQUENCE_NUMBER",
-			SequenceNumber: "42",
+			SequenceNumber: "300000000000000499659",
+			Timestamp: undefined,
 		});
 		deepStrictEqual(client.calls[1].input, {
 			ShardIterator: "it-1",
 			Limit: 25,
+		});
+	});
+
+	test("pollDynamoDBStreams forwards AT_TIMESTAMP and timestamp", async () => {
+		const ac = new AbortController();
+		const client = makeCapturingClient((name) =>
+			name === "GetShardIteratorCommand"
+				? { ShardIterator: "it-1" }
+				: { NextShardIterator: null, Records: [oneDdbRecord] },
+		);
+		await pollDynamoDBStreams({
+			...ddbBase,
+			client,
+			shardIteratorType: "AT_TIMESTAMP",
+			timestamp: 1_791_316_726.48,
+		})
+			.poll(ac.signal)
+			.next();
+		deepStrictEqual(client.calls[0].input, {
+			StreamArn: ddbBase.streamArn,
+			ShardId: ddbShardId,
+			ShardIteratorType: "AT_TIMESTAMP",
+			SequenceNumber: undefined,
+			Timestamp: 1_791_316_726.48,
 		});
 	});
 
@@ -4951,7 +5201,7 @@ describe("@middy/ecs-batch", () => {
 
 	// --- pollKafka: options, subscription and connection reuse ------------------
 
-	const kafkaBase = { brokers: ["b1"], groupId: "g", topics: ["t"] };
+	const kafkaBase = { brokers: ["b1:9092"], groupId: "g", topics: ["t"] };
 
 	test("pollKafkaValidateOptions reports the package and checks every option", () => {
 		throws(
@@ -4969,9 +5219,31 @@ describe("@middy/ecs-batch", () => {
 			{ consumer: { run: noop } },
 			{ ssl: true },
 			{ ssl: false },
-			{ eventSourceArn: "arn:aws:kafka:us-east-1:111:cluster/c/1" },
+			{ ssl: {} },
+			{ ssl: { rejectUnauthorized: true, ca: ["pem"] } },
+			{ eventSourceArn: "arn:aws:kafka:us-east-1:123456789012:cluster/c/1" },
 			{ selfManaged: true },
 			{ heartbeatIntervalMs: 1 },
+			{ heartbeatIntervalMs: 2_147_483_647 },
+			{ maxRetryAttempts: -1 },
+			{ maxRetryAttempts: 10_000 },
+			{ retryDelayMs: 0 },
+			{ retryDelayMs: 2_147_483_647 },
+			{ clientId: "middy-ecs-batch" },
+			{ clientId: "ünïcødé client" },
+			{ clientId: "c".repeat(1024) },
+			{ brokers: ["b-1.cluster.kafka.us-east-1.amazonaws.com:9092"] },
+			{ brokers: ["localhost:9092", "10.0.0.1:9094"] },
+			{ brokers: [`${"b".repeat(295)}:9092`] },
+			{ brokers: ["kafka_1:9092"] },
+			{ brokers: Array.from({ length: 1024 }, (_, i) => `b${i}:9092`) },
+			{ groupId: "orders-consumer" },
+			{ groupId: "a-Z_0/*:+=.@" },
+			{ groupId: "my group ünï" },
+			{ groupId: "g".repeat(1024) },
+			{ topics: ["orders", "t1", "my_topic.v-2", ".hidden"] },
+			{ topics: ["t".repeat(249)] },
+			{ topics: Array.from({ length: 1024 }, (_, i) => `t${i}`) },
 		];
 		for (const extra of accepted) {
 			pollKafkaValidateOptions({ ...kafkaBase, ...extra });
@@ -4989,10 +5261,38 @@ describe("@middy/ecs-batch", () => {
 			{ client: "kafka" },
 			{ consumer: "c" },
 			{ ssl: "yes" },
+			{ ssl: 1 },
+			{ ssl: null },
 			{ eventSourceArn: 1 },
 			{ selfManaged: 1 },
 			{ heartbeatIntervalMs: 0 },
 			{ heartbeatIntervalMs: 1.5 },
+			{ heartbeatIntervalMs: 2_147_483_648 },
+			{ maxRetryAttempts: -2 },
+			{ maxRetryAttempts: 10_001 },
+			{ retryDelayMs: -1 },
+			{ retryDelayMs: 2_147_483_648 },
+			{ clientId: "" },
+			{ clientId: "a\nb" },
+			{ clientId: "c".repeat(1025) },
+			{ brokers: [] },
+			{ brokers: ["b1"] },
+			{ brokers: ["b1:port"] },
+			{ brokers: ["b1:123456"] },
+			{ brokers: ["b1:9092", "b1:9092"] },
+			{ brokers: Array.from({ length: 1025 }, (_, i) => `b${i}:9092`) },
+			{ brokers: [`${"b".repeat(296)}:9092`] },
+			{ groupId: "" },
+			{ groupId: "a\nb" },
+			{ groupId: "g".repeat(1025) },
+			{ topics: [] },
+			{ topics: [""] },
+			{ topics: ["my topic"] },
+			{ topics: ["t".repeat(250)] },
+			{ topics: ["t", "t"] },
+			{ topics: Array.from({ length: 1025 }, (_, i) => `t${i}`) },
+			{ eventSourceArn: "cluster" },
+			{ eventSourceArn: "arn:aws:kafka:us-east-1:111:cluster/c/1" },
 			{ foo: "bar" },
 		];
 		for (const extra of rejected) {
@@ -5041,15 +5341,264 @@ describe("@middy/ecs-batch", () => {
 		connectOptions: { host: "localhost", port: 61613 },
 		destination: "/queue/orders",
 	};
-
-	// STOMP MESSAGE frame double; `encodings` records what readString was asked for.
-	const stompFrame = (headers, body, encodings = []) => ({
-		headers,
-		readString(encoding, cb) {
-			encodings.push(encoding);
-			cb(null, body);
+	const pem =
+		"-----BEGIN CERTIFICATE-----\r\nMIIB\tAA==\n-----END CERTIFICATE-----\n";
+	const stompConnectOptions = [
+		{},
+		{
+			host: "b-1234a5b6-78cd-901e-2fgh-3i45j6k178l9-1.mq.us-east-2.amazonaws.com",
+			port: 61614,
+			ssl: true,
+			timeout: 3000,
+			connectHeaders: {
+				"accept-version": "1.0,1.1,1.2",
+				"heart-beat": "10000,10000",
+				host: "/",
+				login: "user",
+				passcode: "pässwörd !",
+				"client-id": "orders",
+			},
+			heartbeatDelayMargin: 100,
+			heartbeatOutputMargin: 0,
 		},
-	});
+		{ connectHeaders: {} },
+		{ connectHeaders: { "heart-beat": 0, persistent: true } },
+		{
+			connectHeaders: Object.fromEntries(
+				Array.from({ length: 1024 }, (_, i) => [`h${i}`, "v"]),
+			),
+		},
+		{ connectHeaders: { ["h".repeat(1024)]: "v".repeat(1024) } },
+		{ host: "h".repeat(1024), port: 0, timeout: 2_147_483_647 },
+		{ path: "/var/run/activemq/stomp.sock" },
+		{ path: "p".repeat(107) },
+		{ connect: noop },
+		{
+			key: pem,
+			cert: Buffer.from(pem),
+			passphrase: "secret",
+			ca: [pem, Buffer.from("other")],
+			pfx: new Uint8Array(2),
+		},
+		{ ca: pem, cert: [pem], crl: [pem, Buffer.from(pem)], dhparam: pem },
+		{ ca: Buffer.from(pem), crl: pem, dhparam: Buffer.from(pem) },
+		{
+			key: [
+				pem,
+				Buffer.from("k"),
+				{ pem, passphrase: "p" },
+				{ pem: Buffer.from(pem) },
+			],
+			pfx: [pem, Buffer.from("x"), { buf: Buffer.from("x"), passphrase: "p" }],
+		},
+		{ key: "k".repeat(1_048_576) },
+		{ ca: Array.from({ length: 1024 }, (_, i) => `${i}`) },
+		{
+			localAddress: "10.0.0.1",
+			localPort: 65535,
+			family: 6,
+			hints: 0,
+			lookup: noop,
+			autoSelectFamily: true,
+			autoSelectFamilyAttemptTimeout: 250,
+			fd: 3,
+			allowHalfOpen: false,
+			onread: { buffer: Buffer.alloc(8), callback: noop },
+			readable: true,
+			writable: true,
+			signal: new AbortController().signal,
+			noDelay: true,
+			keepAlive: true,
+			keepAliveInitialDelay: 1000,
+			blockList: new BlockList(),
+			typeOfService: 255,
+			handle: {},
+		},
+		{ family: 0, onread: { buffer: () => new Uint8Array(8), callback: noop } },
+		{ family: 4 },
+		{
+			socket: new PassThrough(),
+			checkServerIdentity: noop,
+			servername: "b-1.mq.us-east-2.amazonaws.com",
+			session: Buffer.alloc(1),
+			minDHSize: 2048,
+			pskCallback: noop,
+			secureContext: {},
+			enableTrace: false,
+			requestCert: false,
+			ALPNProtocols: ["stomp", "http/1.1"],
+			SNICallback: noop,
+			rejectUnauthorized: true,
+			requestOCSP: false,
+			ALPNCallback: noop,
+			allowPartialTrustChain: false,
+			certificateCompression: ["zlib", "brotli", "zstd"],
+			sigalgs: "rsa_pss_rsae_sha256:ecdsa_secp256r1_sha256",
+			ciphers: "TLS_AES_256_GCM_SHA384:ECDHE-RSA-AES128-GCM-SHA256:!aNULL",
+			clientCertEngine: "engine",
+			ecdhCurve: "P-256:P-384",
+			honorCipherOrder: true,
+			privateKeyEngine: "engine",
+			privateKeyIdentifier: "id",
+			maxVersion: "TLSv1.3",
+			minVersion: "TLSv1",
+			secureOptions: Number.MAX_SAFE_INTEGER,
+			secureProtocol: "TLSv1_2_method",
+			sessionIdContext: "ctx",
+			ticketKeys: Buffer.alloc(48),
+			sessionTimeout: 300,
+		},
+		{ ALPNProtocols: Buffer.from([5, 115, 116, 111, 109, 112]) },
+		{ ALPNProtocols: new DataView(new ArrayBuffer(1)) },
+		{ ALPNProtocols: ["a".repeat(255)] },
+		{
+			ciphers:
+				"ECDHE-RSA-AES128-GCM-SHA256 ECDHE-ECDSA-AES128-GCM-SHA256,!aNULL",
+			sigalgs: "rsa_pss_rsae_sha256 ecdsa_secp256r1_sha256",
+			ecdhCurve: "P-256 P-384",
+			privateKeyIdentifier: "pkcs11:object=my key",
+			sessionIdContext: "my context",
+		},
+		{
+			host: "b-1.mq.us-east-2.amazonaws.com.",
+			servername: "b-1.mq.us-east-2.amazonaws.com.",
+		},
+		{ host: "::1", localAddress: "::" },
+		{ minVersion: "TLSv1.1", maxVersion: "TLSv1.2" },
+		{
+			heartbeatDelayMargin: 2_147_483_647,
+			heartbeatOutputMargin: 2_147_483_647,
+			fd: 2_147_483_647,
+			hints: 2_147_483_647,
+			minDHSize: 2_147_483_647,
+			sessionTimeout: 2_147_483_647,
+			keepAliveInitialDelay: 2_147_483_647,
+			autoSelectFamilyAttemptTimeout: 2_147_483_647,
+		},
+	];
+	const badStompConnectOptions = [
+		{ foo: 1 },
+		{ host: "" },
+		{ host: "bad host" },
+		{ host: "h".repeat(1025) },
+		{ port: -1 },
+		{ port: 65_536 },
+		{ timeout: -1 },
+		{ timeout: 2_147_483_648 },
+		{ connectHeaders: "login:user" },
+		{ connectHeaders: { "bad header": "v" } },
+		{ connectHeaders: { "": "v" } },
+		{ connectHeaders: { ["h".repeat(1025)]: "v" } },
+		{ connectHeaders: { login: "a\nb" } },
+		{ connectHeaders: { login: "l".repeat(1025) } },
+		{ connectHeaders: { login: {} } },
+		{ connectHeaders: { login: null } },
+		{ connectHeaders: { "heart-beat": Number.MAX_SAFE_INTEGER + 2 } },
+		{ connectHeaders: { "heart-beat": -Number.MAX_SAFE_INTEGER - 2 } },
+		{
+			connectHeaders: Object.fromEntries(
+				Array.from({ length: 1025 }, (_, i) => [`h${i}`, "v"]),
+			),
+		},
+		{ path: "" },
+		{ path: "a\nb" },
+		{ path: "p".repeat(108) },
+		{ ssl: "true" },
+		{ connect: "connect" },
+		{ heartbeatDelayMargin: -1 },
+		{ heartbeatDelayMargin: 2_147_483_648 },
+		{ heartbeatOutputMargin: -1 },
+		{ heartbeatOutputMargin: 2_147_483_648 },
+		{ key: 1 },
+		{ key: "\u0000" },
+		{ key: "k".repeat(1_048_577) },
+		{ key: [{}] },
+		{ key: [{ pem: 1 }] },
+		{ key: [{ pem, extra: 1 }] },
+		{ key: [{ pem, passphrase: "a\nb" }] },
+		{ cert: "\u0007" },
+		{ cert: [1] },
+		{ pfx: {} },
+		{ pfx: "\u0000" },
+		{ pfx: [{ pem }] },
+		{ pfx: [{ buf: 1 }] },
+		{ passphrase: "a\nb" },
+		{ passphrase: "p".repeat(1025) },
+		{ ca: 1 },
+		{ ca: [1] },
+		{ ca: ["\u0000"] },
+		{ ca: [pem, pem] },
+		{ ca: Array.from({ length: 1025 }, (_, i) => `${i}`) },
+		{ crl: 1 },
+		{ crl: [{}] },
+		{ dhparam: [pem] },
+		{ dhparam: "\u0000" },
+		{ localAddress: "a b" },
+		{ localPort: 65_536 },
+		{ family: 5 },
+		{ hints: -1 },
+		{ hints: 2_147_483_648 },
+		{ fd: -1 },
+		{ fd: 1.5 },
+		{ typeOfService: 256 },
+		{ keepAliveInitialDelay: 2_147_483_648 },
+		{ autoSelectFamilyAttemptTimeout: -1 },
+		{ lookup: "dns" },
+		{ allowHalfOpen: 1 },
+		{ readable: "yes" },
+		{ writable: "yes" },
+		{ noDelay: "yes" },
+		{ keepAlive: "yes" },
+		{ autoSelectFamily: "yes" },
+		{ onread: Buffer.alloc(1) },
+		{ onread: { buffer: 1, callback: noop } },
+		{ onread: { buffer: Buffer.alloc(1) } },
+		{ onread: { buffer: Buffer.alloc(1), callback: 1 } },
+		{ onread: { buffer: Buffer.alloc(1), callback: noop, extra: 1 } },
+		{ signal: {} },
+		{ blockList: "10.0.0.0/8" },
+		{ handle: 1 },
+		{ socket: 1 },
+		{ secureContext: "ctx" },
+		{ checkServerIdentity: "check" },
+		{ pskCallback: "psk" },
+		{ SNICallback: "sni" },
+		{ ALPNCallback: "alpn" },
+		{ servername: "a b" },
+		{ servername: "" },
+		{ session: "session" },
+		{ ticketKeys: "keys" },
+		{ minDHSize: -1 },
+		{ enableTrace: "yes" },
+		{ requestCert: "yes" },
+		{ rejectUnauthorized: "false" },
+		{ requestOCSP: "yes" },
+		{ allowPartialTrustChain: "yes" },
+		{ honorCipherOrder: "yes" },
+		{ ALPNProtocols: "stomp" },
+		{ ALPNProtocols: ["a b"] },
+		{ ALPNProtocols: [""] },
+		{ ALPNProtocols: ["a".repeat(256)] },
+		{ ALPNProtocols: ["stomp", "stomp"] },
+		{ maxVersion: "TLSv1.4" },
+		{ minVersion: "SSLv3" },
+		{ certificateCompression: ["gzip"] },
+		{ certificateCompression: ["zlib", "zlib"] },
+		{ certificateCompression: "zlib" },
+		{ sigalgs: "a\nb" },
+		{ ciphers: "" },
+		{ ecdhCurve: "P\t256" },
+		{ clientCertEngine: "a\nb" },
+		{ privateKeyEngine: "a\nb" },
+		{ privateKeyIdentifier: "a\nb" },
+		{ secureProtocol: "a\nb" },
+		{ sessionIdContext: "a\nb" },
+		{ ciphers: "c".repeat(1025) },
+		{ secureOptions: -1 },
+		{ secureOptions: Number.MAX_SAFE_INTEGER + 2 },
+		{ sessionTimeout: -1 },
+		{ sessionTimeout: 2_147_483_648 },
+	];
 
 	test("pollAmqValidateOptions reports the package and checks every option", () => {
 		throws(
@@ -5067,7 +5616,17 @@ describe("@middy/ecs-batch", () => {
 			{ batchWindowMs: 0 },
 			{ client: { subscribe: noop } },
 			{ connect: noop },
-			{ eventSourceArn: "arn:aws:mq:us-east-2:111:broker:b:1" },
+			{ eventSourceArn: "arn:aws:mq:us-east-2:123456789012:broker:b:1" },
+			{ maxRetryAttempts: -1 },
+			{ maxRetryAttempts: 10000 },
+			{ retryDelayMs: 0 },
+			{ retryDelayMs: 2_147_483_647 },
+			{ batchSize: 10_000 },
+			{ batchWindowMs: 300_000 },
+			{ destination: "/q" },
+			{ destination: "/queue/ünïcødé orders" },
+			{ destination: "d".repeat(1024) },
+			...stompConnectOptions.map((connectOptions) => ({ connectOptions })),
 		];
 		for (const extra of accepted) {
 			pollAmqValidateOptions({ ...amqBase, ...extra });
@@ -5085,6 +5644,20 @@ describe("@middy/ecs-batch", () => {
 			{ client: "stomp" },
 			{ connect: "fn" },
 			{ eventSourceArn: 1 },
+			{ maxRetryAttempts: -2 },
+			{ maxRetryAttempts: 10001 },
+			{ maxRetryAttempts: 1.5 },
+			{ retryDelayMs: -1 },
+			{ retryDelayMs: "1" },
+			{ retryDelayMs: 2_147_483_648 },
+			{ batchSize: 10_001 },
+			{ batchWindowMs: 300_001 },
+			{ destination: "" },
+			{ destination: "/queue/a\nb" },
+			{ destination: "d".repeat(1025) },
+			{ eventSourceArn: "broker" },
+			{ eventSourceArn: "arn:aws:mq:us-east-2:111:broker:b:1" },
+			...badStompConnectOptions.map((connectOptions) => ({ connectOptions })),
 			{ foo: "bar" },
 		];
 		for (const extra of rejected) {
@@ -5119,21 +5692,18 @@ describe("@middy/ecs-batch", () => {
 		}
 	});
 
-	test("pollAmq reads each frame body as utf-8", async () => {
+	test("pollAmq delivers a frame body's bytes unchanged, valid UTF-8 or not", async () => {
 		const stomp = makeFakeStompClient();
-		const poller = pollAmq({ ...amqBase, batchSize: 1, client: stomp });
+		const poller = pollAmq({ ...amqBase, batchSize: 2, client: stomp });
 		const ac = new AbortController();
 		const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
-		const encodings = [];
-		stomp.subscribeCb()(
-			null,
-			stompFrame({ "message-id": "m1" }, "héllo", encodings),
-		);
+		const bytes = Buffer.from([0x2d, 0x06, 0x86, 0x43, 0xcd, 0x92, 0xe3, 0xc9]);
+		stomp.subscribeCb()(null, stompFrame({ "message-id": "m1" }, "héllo"));
+		stomp.subscribeCb()(null, stompFrame({ "message-id": "m2" }, bytes));
 		const { value } = await firstNext;
-		deepStrictEqual(encodings, ["utf-8"]);
-		strictEqual(
-			value.messages[0].data,
-			Buffer.from("héllo", "utf-8").toString("base64"),
+		deepStrictEqual(
+			value.messages.map((m) => m.data),
+			[Buffer.from("héllo").toString("base64"), bytes.toString("base64")],
 		);
 		ac.abort();
 	});
@@ -5243,17 +5813,13 @@ describe("@middy/ecs-batch", () => {
 		stomp.subscribeCb()(null, stompFrame({ "message-id": "m1" }, "a"));
 		stomp.subscribeCb()(null, stompFrame({ "message-id": "m2" }, "b"));
 		const { value } = await firstNext;
-		const response = { batchItemFailures: [{ itemIdentifier: "m2" }] };
-		await poller.acknowledge(value, response);
-		await poller.acknowledge(value, response);
+		await poller.acknowledge(value, {});
+		await poller.acknowledge(value, {});
 		deepStrictEqual(
 			stomp.acked.map((m) => m.headers["message-id"]),
-			["m1"],
+			["m1", "m2"],
 		);
-		deepStrictEqual(
-			stomp.nacked.map((m) => m.headers["message-id"]),
-			["m2"],
-		);
+		deepStrictEqual(stomp.nacked, []);
 		ac.abort();
 	});
 
@@ -5277,7 +5843,22 @@ describe("@middy/ecs-batch", () => {
 			{ connection: { createChannel: noop } },
 			{ channel: { consume: noop } },
 			{ connect: noop },
-			{ eventSourceArn: "arn:aws:mq:us-east-2:111:broker:b:1" },
+			{ eventSourceArn: "arn:aws:mq:us-east-2:123456789012:broker:b:1" },
+			{ maxRetryAttempts: -1 },
+			{ maxRetryAttempts: 10000 },
+			{ retryDelayMs: 0 },
+			{ retryDelayMs: 2_147_483_647 },
+			{ url: "amqps://user:pass@b-xyz.mq.us-east-1.amazonaws.com:5671" },
+			{ url: `amqp://${"u".repeat(1017)}` },
+			{ queue: "pizzaQueue" },
+			{ queue: "ünïcødé queue" },
+			{ queue: "q".repeat(255) },
+			{ vhost: "my-vhost/a*b:c_d+e=f.g@h" },
+			{ vhost: "my vhost ünï" },
+			{ vhost: "v".repeat(1024) },
+			{ prefetch: 65_535 },
+			{ batchSize: 10_000 },
+			{ batchWindowMs: 300_000 },
 		];
 		for (const extra of accepted) {
 			pollRmqValidateOptions({ queue: "q", ...extra });
@@ -5296,6 +5877,26 @@ describe("@middy/ecs-batch", () => {
 			{ channel: "ch" },
 			{ connect: "fn" },
 			{ eventSourceArn: 1 },
+			{ maxRetryAttempts: -2 },
+			{ maxRetryAttempts: 10001 },
+			{ maxRetryAttempts: 1.5 },
+			{ retryDelayMs: -1 },
+			{ retryDelayMs: "1" },
+			{ retryDelayMs: 2_147_483_648 },
+			{ url: "http://localhost" },
+			{ url: "amqp://a b" },
+			{ url: `amqp://${"u".repeat(1018)}` },
+			{ queue: "" },
+			{ queue: "a\nb" },
+			{ queue: "q".repeat(256) },
+			{ vhost: "" },
+			{ vhost: "a\nb" },
+			{ vhost: "v".repeat(1025) },
+			{ prefetch: 65_536 },
+			{ batchSize: 10_001 },
+			{ batchWindowMs: 300_001 },
+			{ eventSourceArn: "broker" },
+			{ eventSourceArn: "arn:aws:mq:us-east-2:111:broker:b:1" },
 			{ foo: "bar" },
 		];
 		for (const extra of rejected) {
@@ -5445,7 +6046,7 @@ describe("@middy/ecs-batch", () => {
 		ac.abort();
 	});
 
-	test("pollRmq.acknowledge requeues each failed delivery on its own and settles each message once", async () => {
+	test("pollRmq.acknowledge settles each delivery once", async () => {
 		const channel = makeFakeRmqChannel();
 		const poller = pollRmq({
 			queue: "q",
@@ -5464,19 +6065,13 @@ describe("@middy/ecs-batch", () => {
 		channel.consumeCb()(msg(1));
 		channel.consumeCb()(msg(2));
 		const { value } = await firstNext;
-		const response = { batchItemFailures: [{ itemIdentifier: "2" }] };
-		await poller.acknowledge(value, response);
-		await poller.acknowledge(value, response);
+		await poller.acknowledge(value, {});
+		await poller.acknowledge(value, {});
 		deepStrictEqual(
 			channel.acked.map((m) => m.fields.deliveryTag),
-			[1],
+			[1, 2],
 		);
-		deepStrictEqual(
-			channel.nacked.map((m) => m.fields.deliveryTag),
-			[2],
-		);
-		// nack(msg, allUpTo = false, requeue = true): only this delivery goes back.
-		deepStrictEqual(channel.nackArgs, [[false, true]]);
+		deepStrictEqual(channel.nacked, []);
 		ac.abort();
 	});
 
@@ -5714,7 +6309,7 @@ describe("@middy/ecs-batch", () => {
 		deepStrictEqual(seen[0].event, { Records: [1] });
 		// The second batch was handled and acknowledged as usual.
 		deepStrictEqual(
-			poller.acked.map((a) => a.event),
+			stubAcks.get(poller).map((a) => a.event),
 			[{ Records: [2] }],
 		);
 	});
@@ -5948,85 +6543,6 @@ describe("@middy/ecs-batch", () => {
 		);
 	});
 
-	test("pollAmq.acknowledge nacks every message and raises when an entry does not identify a record", async () => {
-		for (const batchItemFailures of invalidBatchItemFailures) {
-			const stomp = makeFakeStompClient();
-			const poller = pollAmq({
-				...amqBase,
-				batchSize: 2,
-				batchWindowMs: 5000,
-				client: stomp,
-			});
-			const ac = new AbortController();
-			const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
-			stomp.subscribeCb()(null, stompFrame({ "message-id": "m1" }, "a"));
-			stomp.subscribeCb()(null, stompFrame({ "message-id": "m2" }, "b"));
-			const { value } = await firstNext;
-			await rejects(
-				() => poller.acknowledge(value, { batchItemFailures }),
-				(err) =>
-					expectInvalidBatchFailure(
-						err,
-						"@middy/ecs-batch/pollAmq",
-						batchItemFailures[0]?.itemIdentifier,
-					),
-			);
-			deepStrictEqual(stomp.acked, [], JSON.stringify(batchItemFailures));
-			deepStrictEqual(
-				stomp.nacked.map((m) => m.headers["message-id"]),
-				["m1", "m2"],
-				JSON.stringify(batchItemFailures),
-			);
-			// The batch is settled: a second acknowledge finds nothing to do.
-			await poller.acknowledge(value, { batchItemFailures: [] });
-			strictEqual(stomp.acked.length, 0);
-			ac.abort();
-		}
-	});
-
-	test("pollRmq.acknowledge requeues every delivery and raises when an entry does not identify a record", async () => {
-		for (const batchItemFailures of invalidBatchItemFailures) {
-			const channel = makeFakeRmqChannel();
-			const poller = pollRmq({
-				queue: "q",
-				connection: makeFakeRmqConnection(channel),
-				channel,
-				batchSize: 2,
-				batchWindowMs: 5000,
-			});
-			const ac = new AbortController();
-			const { firstNext } = await drainPollSetup(poller.poll(ac.signal));
-			for (const tag of [1, 2]) {
-				channel.consumeCb()({
-					fields: { deliveryTag: tag },
-					properties: {},
-					content: Buffer.from(`b${tag}`),
-				});
-			}
-			const { value } = await firstNext;
-			await rejects(
-				() => poller.acknowledge(value, { batchItemFailures }),
-				(err) =>
-					expectInvalidBatchFailure(
-						err,
-						"@middy/ecs-batch/pollRmq",
-						batchItemFailures[0]?.itemIdentifier,
-					),
-			);
-			deepStrictEqual(channel.acked, [], JSON.stringify(batchItemFailures));
-			deepStrictEqual(
-				channel.nacked.map((m) => m.fields.deliveryTag),
-				[1, 2],
-				JSON.stringify(batchItemFailures),
-			);
-			deepStrictEqual(channel.nackArgs, [
-				[false, true],
-				[false, true],
-			]);
-			ac.abort();
-		}
-	});
-
 	// --- pollSqs: region and ARN from every documented queue URL form -----------
 	// Endpoint hostnames per
 	// https://docs.aws.amazon.com/general/latest/gr/sqs-service.html (standard,
@@ -6209,7 +6725,8 @@ describe("@middy/ecs-batch", () => {
 	});
 
 	test("pollKinesis prefers the region in streamArn over the client's", async () => {
-		const streamArn = "arn:aws:kinesis:ap-southeast-2:111:stream/events";
+		const streamArn =
+			"arn:aws:kinesis:ap-southeast-2:123456789012:stream/events";
 		const client = {
 			config: { region: async () => "eu-north-1" },
 			send: async (cmd) => {
@@ -6430,32 +6947,6 @@ describe("@middy/ecs-batch", () => {
 		strictEqual(seekCalls, 2);
 	});
 
-	test("pollKinesis rethrows a non-abort error from the re-seek", async () => {
-		let seekCalls = 0;
-		const client = {
-			send: async (cmd) => {
-				if (cmd.constructor.name === "GetShardIteratorCommand") {
-					seekCalls++;
-					if (seekCalls === 1) return { ShardIterator: "0" };
-					throw new Error("throttled");
-				}
-				return {
-					NextShardIterator: "1",
-					Records: [{ PartitionKey: "p", SequenceNumber: "1", Data: "" }],
-				};
-			},
-		};
-		const poller = pollKinesis({
-			retryDelayMs: 0,
-			streamName: "s",
-			shardId: "0",
-			client,
-		});
-		const it = poller.poll(new AbortController().signal);
-		await it.next();
-		await rejects(it.next(), /throttled/);
-	});
-
 	const dynamodbShard = (seqs) =>
 		makeFakeShard(
 			seqs,
@@ -6469,8 +6960,8 @@ describe("@middy/ecs-batch", () => {
 	const dynamodbSeqs = (event) =>
 		event.Records.map((r) => r.dynamodb.SequenceNumber);
 	const dynamodbBase = {
-		streamArn: "arn:aws:dynamodb:us-east-1:111:table/t/stream/1",
-		shardId: "0",
+		streamArn: "arn:aws:dynamodb:us-east-1:123456789012:table/t/stream/1",
+		shardId: ddbShardId,
 		pollingDelay: 0,
 		retryDelayMs: 0,
 	};
@@ -6489,7 +6980,7 @@ describe("@middy/ecs-batch", () => {
 		strictEqual(seek.input.ShardIteratorType, "AT_SEQUENCE_NUMBER");
 		strictEqual(seek.input.SequenceNumber, "1");
 		strictEqual(seek.input.StreamArn, dynamodbBase.streamArn);
-		strictEqual(seek.input.ShardId, "0");
+		strictEqual(seek.input.ShardId, ddbShardId);
 	});
 
 	test("pollDynamoDBStreams re-reads from the lowest failed sequence number on a partial batch failure", async () => {
@@ -6570,103 +7061,18 @@ describe("@middy/ecs-batch", () => {
 		strictEqual(seekCalls, 2);
 	});
 
-	test("pollDynamoDBStreams rethrows a non-abort error from the re-seek", async () => {
-		let seekCalls = 0;
-		const client = {
-			send: async (cmd) => {
-				if (cmd.constructor.name === "GetShardIteratorCommand") {
-					seekCalls++;
-					// Only the re-seek fails: treated as trimmed, the next seek would
-					// carry on.
-					if (seekCalls === 2) throw new Error("throttled");
-					return { ShardIterator: "0" };
-				}
-				return oneDynamodbRecord;
-			},
-		};
-		const poller = pollDynamoDBStreams({ ...dynamodbBase, client });
-		const it = poller.poll(new AbortController().signal);
-		await it.next();
-		await rejects(it.next(), /throttled/);
-	});
-
 	const rmqMessage = (tag) => ({
 		fields: { deliveryTag: tag, redelivered: false },
 		properties: {},
 		content: Buffer.from("x"),
 	});
 
-	test("pollRmq requeues every delivery of a batch the handler threw on", async () => {
-		const channel = makeFakeRmqChannel();
-		const poller = pollRmq({
-			queue: "q",
-			batchSize: 2,
-			connection: makeFakeRmqConnection(channel),
-			channel,
-		});
-		const ac = new AbortController();
-		const errors = [];
-		const loop = runPollLoop({
-			poller,
-			timeout: 1000,
-			signal: ac.signal,
-			onError: (err) => errors.push(err),
-			handler: boom,
-		});
-		for (let i = 0; i < 8; i++) await Promise.resolve();
-		channel.consumeCb()(rmqMessage(1));
-		channel.consumeCb()(rmqMessage(2));
-		for (let i = 0; i < 16; i++) await settleMacrotask();
-		deepStrictEqual(
-			channel.nacked.map((m) => m.fields.deliveryTag),
-			[1, 2],
-		);
-		deepStrictEqual(channel.nackArgs, [
-			[false, true],
-			[false, true],
-		]);
-		strictEqual(channel.acked.length, 0);
-		strictEqual(errors.length, 1);
-		ac.abort();
-		await loop;
-	});
-
-	test("pollAmq nacks every message of a batch the handler threw on", async () => {
-		const stomp = makeFakeStompClient();
-		const poller = pollAmq({
-			connectOptions: {},
-			destination: "/queue/q",
-			batchSize: 2,
-			client: stomp,
-		});
-		const ac = new AbortController();
-		const errors = [];
-		const loop = runPollLoop({
-			poller,
-			timeout: 1000,
-			signal: ac.signal,
-			onError: (err) => errors.push(err),
-			handler: boom,
-		});
-		for (let i = 0; i < 8; i++) await Promise.resolve();
-		stomp.subscribeCb()(null, fakeStompMessage("id-1", "a"));
-		stomp.subscribeCb()(null, fakeStompMessage("id-2", "b"));
-		for (let i = 0; i < 16; i++) await settleMacrotask();
-		deepStrictEqual(
-			stomp.nacked.map((m) => m.headers["message-id"]),
-			["id-1", "id-2"],
-		);
-		strictEqual(stomp.acked.length, 0);
-		strictEqual(errors.length, 1);
-		ac.abort();
-		await loop;
-	});
-
-	test("pollRmq settles a batch the handler threw on only once", async () => {
+	test("pollRmq does not settle a batch the handler threw on when it is acknowledged late", async () => {
 		const channel = makeFakeRmqChannel();
 		const poller = pollRmq({
 			queue: "q",
 			batchSize: 1,
+			retryDelayMs: 60_000,
 			connection: makeFakeRmqConnection(channel),
 			channel,
 		});
@@ -6684,11 +7090,9 @@ describe("@middy/ecs-batch", () => {
 		for (let i = 0; i < 8; i++) await Promise.resolve();
 		channel.consumeCb()(rmqMessage(1));
 		for (let i = 0; i < 16; i++) await settleMacrotask();
-		strictEqual(channel.nacked.length, 1);
-		// The requeue already settled it: a late acknowledge has nothing left.
 		await poller.acknowledge(thrown[0], { batchItemFailures: [] });
 		strictEqual(channel.acked.length, 0);
-		strictEqual(channel.nacked.length, 1);
+		strictEqual(channel.nacked.length, 0);
 		ac.abort();
 		await loop;
 	});
@@ -6719,12 +7123,13 @@ describe("@middy/ecs-batch", () => {
 		strictEqual(channel.closeCalls, 1);
 	});
 
-	test("pollAmq settles a batch the handler threw on only once", async () => {
+	test("pollAmq does not settle a batch the handler threw on when it is acknowledged late", async () => {
 		const stomp = makeFakeStompClient();
 		const poller = pollAmq({
 			connectOptions: {},
 			destination: "/queue/q",
 			batchSize: 1,
+			retryDelayMs: 60_000,
 			client: stomp,
 		});
 		const ac = new AbortController();
@@ -6741,11 +7146,9 @@ describe("@middy/ecs-batch", () => {
 		for (let i = 0; i < 8; i++) await Promise.resolve();
 		stomp.subscribeCb()(null, fakeStompMessage("id-1", "a"));
 		for (let i = 0; i < 16; i++) await settleMacrotask();
-		strictEqual(stomp.nacked.length, 1);
-		// The NACK already settled it: a late acknowledge has nothing left.
 		await poller.acknowledge(thrown[0], { batchItemFailures: [] });
 		strictEqual(stomp.acked.length, 0);
-		strictEqual(stomp.nacked.length, 1);
+		strictEqual(stomp.nacked.length, 0);
 		ac.abort();
 		await loop;
 	});
@@ -6808,7 +7211,7 @@ describe("@middy/ecs-batch", () => {
 	test("pollKafka discards a batch past maxRetryAttempts, commits past it and reports it", async () => {
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t1"],
 			consumer,
@@ -6858,7 +7261,7 @@ describe("@middy/ecs-batch", () => {
 	const kafkaRetryHarness = (options) => {
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t1"],
 			consumer,
@@ -7033,7 +7436,7 @@ describe("@middy/ecs-batch", () => {
 	});
 
 	test("pollKafkaValidateOptions bounds maxRetryAttempts to Lambda's -1..10000 and retryDelayMs to >= 0", () => {
-		const base = { brokers: ["b"], groupId: "g", topics: ["t"] };
+		const base = { brokers: ["b:9092"], groupId: "g", topics: ["t"] };
 		pollKafkaValidateOptions({ ...base, maxRetryAttempts: -1 });
 		pollKafkaValidateOptions({ ...base, maxRetryAttempts: 10000 });
 		pollKafkaValidateOptions({ ...base, retryDelayMs: 0 });
@@ -7086,7 +7489,7 @@ describe("@middy/ecs-batch", () => {
 		deepStrictEqual(deliveries, [["1"], ["2"]]);
 		deepStrictEqual(errors[0].cause, {
 			package: "@middy/ecs-batch/pollDynamoDBStreams",
-			data: { shardId: "0", sequenceNumbers: ["1"] },
+			data: { shardId: ddbShardId, sequenceNumbers: ["1"] },
 		});
 	});
 
@@ -7121,7 +7524,7 @@ describe("@middy/ecs-batch", () => {
 			(client, opts) =>
 				pollDynamoDBStreams({
 					streamArn: dynamodbBase.streamArn,
-					shardId: "0",
+					shardId: ddbShardId,
 					client,
 					...opts,
 				}),
@@ -7233,7 +7636,7 @@ describe("@middy/ecs-batch", () => {
 			const base =
 				name === "pollKinesis"
 					? { streamName: "s", shardId: "0" }
-					: { streamArn: dynamodbBase.streamArn, shardId: "0" };
+					: { streamArn: dynamodbBase.streamArn, shardId: ddbShardId };
 			validate({ ...base, maxRetryAttempts: -1, retryDelayMs: 0 });
 			validate({ ...base, maxRetryAttempts: 10000 });
 			throws(() => validate({ ...base, maxRetryAttempts: -2 }));
@@ -7270,7 +7673,7 @@ describe("@middy/ecs-batch", () => {
 	test("pollKafka neither counts nor discards a batch released by shutdown", async () => {
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t1"],
 			consumer,
@@ -7322,8 +7725,7 @@ describe("@middy/ecs-batch", () => {
 		],
 	]) {
 		test(`${name} retries forever by default`, async () => {
-			// Eight retries stay under the fake shard's runaway guard.
-			const responses = Array.from({ length: 8 }, () => boom);
+			const responses = Array.from({ length: 4 }, () => boom);
 			responses.push({});
 			const { deliveries, errors } = await deliver(
 				makePoller(shard(["1"])),
@@ -7332,9 +7734,9 @@ describe("@middy/ecs-batch", () => {
 			);
 			deepStrictEqual(
 				deliveries,
-				Array.from({ length: 9 }, () => ["1"]),
+				Array.from({ length: 5 }, () => ["1"]),
 			);
-			strictEqual(errors.length, 8);
+			strictEqual(errors.length, 4);
 		});
 	}
 
@@ -7377,7 +7779,7 @@ describe("@middy/ecs-batch", () => {
 		);
 		deepStrictEqual(errors[1].cause, {
 			package: "@middy/ecs-batch/pollDynamoDBStreams",
-			data: { shardId: "0", sequenceNumbers: ["1"] },
+			data: { shardId: ddbShardId, sequenceNumbers: ["1"] },
 		});
 	});
 
@@ -7522,7 +7924,7 @@ describe("@middy/ecs-batch", () => {
 		]);
 		// No retry was pending: nothing known to be lost beyond the trim.
 		deepStrictEqual(errors[0].cause.data, {
-			shardId: "0",
+			shardId: ddbShardId,
 			sequenceNumbers: [],
 		});
 	});
@@ -7551,7 +7953,7 @@ describe("@middy/ecs-batch", () => {
 		const poller = pollDynamoDBStreams({
 			...dynamodbBase,
 			shardIteratorType: "AT_SEQUENCE_NUMBER",
-			sequenceNumber: "1",
+			sequenceNumber: "300000000000000499659",
 			client,
 		});
 		const { deliveries, errors } = await deliver(poller, dynamodbSeqs, [{}]);
@@ -7559,8 +7961,8 @@ describe("@middy/ecs-batch", () => {
 		deepStrictEqual(
 			errors.map((e) => e.cause.data),
 			[
-				{ shardId: "0", sequenceNumbers: [] },
-				{ shardId: "0", sequenceNumbers: [] },
+				{ shardId: ddbShardId, sequenceNumbers: [] },
+				{ shardId: ddbShardId, sequenceNumbers: [] },
 			],
 		);
 	});
@@ -7626,7 +8028,7 @@ describe("@middy/ecs-batch", () => {
 				message: "Shard closed",
 				cause: {
 					package: "@middy/ecs-batch/pollDynamoDBStreams",
-					data: { shardId: "0" },
+					data: { shardId: ddbShardId },
 				},
 			});
 		}
@@ -7708,7 +8110,7 @@ describe("@middy/ecs-batch", () => {
 	test("pollKafka cuts the backoff short when a heartbeat is rejected by a rebalance", async () => {
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t1"],
 			consumer,
@@ -7749,7 +8151,7 @@ describe("@middy/ecs-batch", () => {
 	test("pollKafka discards without an onError when polled outside the runner", async () => {
 		const consumer = makeFakeKafkaConsumer();
 		const poller = pollKafka({
-			brokers: ["b1"],
+			brokers: ["b1:9092"],
 			groupId: "g",
 			topics: ["t1"],
 			consumer,
@@ -7811,4 +8213,968 @@ describe("@middy/ecs-batch", () => {
 		deepStrictEqual(errors, [undefined]);
 		deepStrictEqual(exits, [1]);
 	});
+
+	const serviceError = (name, httpStatusCode) =>
+		Object.assign(new Error(name), {
+			name,
+			$fault: httpStatusCode < 500 ? "client" : "server",
+			$metadata: { httpStatusCode },
+		});
+
+	const flakyShard = (seqs, toRecord, failures, seekFailures = []) => {
+		const reads = [];
+		const seekInputs = [];
+		let seeks = 0;
+		const send = async (cmd) => {
+			if (cmd.constructor.name === "GetShardIteratorCommand") {
+				seeks++;
+				seekInputs.push([
+					cmd.input.ShardIteratorType,
+					cmd.input.StartingSequenceNumber ?? cmd.input.SequenceNumber,
+				]);
+				const seekFailure = seekFailures.shift();
+				if (seekFailure) throw seekFailure;
+				return { ShardIterator: "0" };
+			}
+			reads.push(cmd.input.ShardIterator);
+			if (reads.length > 30) throw new Error("runaway poll");
+			const failure = failures.shift();
+			if (failure) throw failure;
+			const pos = Number(cmd.input.ShardIterator);
+			return {
+				NextShardIterator: String(pos + 1),
+				Records: seqs.slice(pos, pos + 1).map(toRecord),
+			};
+		};
+		return { reads, seekInputs, seeks: () => seeks, send };
+	};
+
+	for (const [name, makePoller, toRecord, toSeqs, throttled, documented] of [
+		[
+			"pollKinesis",
+			(client, opts) =>
+				pollKinesis({
+					streamName: "s",
+					shardId: "0",
+					pollingDelay: 0,
+					retryDelayMs: 0,
+					client,
+					...opts,
+				}),
+			(seq) => ({ PartitionKey: "p", SequenceNumber: seq, Data: "" }),
+			kinesisSeqs,
+			"ProvisionedThroughputExceededException",
+			[
+				"ProvisionedThroughputExceededException",
+				"KMSThrottlingException",
+				"ThrottlingException",
+				"RequestTimeoutException",
+			],
+		],
+		[
+			"pollDynamoDBStreams",
+			(client, opts) =>
+				pollDynamoDBStreams({ ...dynamodbBase, client, ...opts }),
+			(seq) => ({ eventID: seq, dynamodb: { SequenceNumber: seq } }),
+			dynamodbSeqs,
+			"LimitExceededException",
+			[
+				"LimitExceededException",
+				"ThrottlingException",
+				"RequestTimeoutException",
+			],
+		],
+	]) {
+		for (const errorName of documented) {
+			test(`${name} retries a read that failed with ${errorName}`, async () => {
+				const client = flakyShard(["1"], toRecord, [
+					serviceError(errorName, 400),
+				]);
+				const { deliveries, errors } = await deliver(
+					makePoller(client),
+					toSeqs,
+					[{}],
+				);
+				deepStrictEqual(deliveries, [["1"]]);
+				deepStrictEqual(
+					errors.map((e) => e.name),
+					[errorName],
+				);
+			});
+		}
+
+		for (const status of [500, 502, 503, 504]) {
+			test(`${name} retries a read the service answered with HTTP ${status}, whatever its name`, async () => {
+				const client = flakyShard(["1"], toRecord, [
+					serviceError("Unknown", status),
+				]);
+				const { deliveries, errors } = await deliver(
+					makePoller(client),
+					toSeqs,
+					[{}],
+				);
+				deepStrictEqual(deliveries, [["1"]]);
+				deepStrictEqual(
+					errors.map((e) => e.$metadata.httpStatusCode),
+					[status],
+				);
+			});
+		}
+
+		for (const [label, networkError] of [
+			["ECONNRESET", { code: "ECONNRESET" }],
+			["ETIMEDOUT", { code: "ETIMEDOUT" }],
+			["ENOTFOUND", { code: "ENOTFOUND" }],
+			["EAI_AGAIN", { code: "EAI_AGAIN" }],
+			["TimeoutError", { name: "TimeoutError" }],
+		]) {
+			test(`${name} retries a read that got no response (${label})`, async () => {
+				const failure = Object.assign(new Error(label), networkError);
+				const client = flakyShard(["1"], toRecord, [failure]);
+				const { deliveries, errors } = await deliver(
+					makePoller(client),
+					toSeqs,
+					[{}],
+				);
+				deepStrictEqual(deliveries, [["1"]]);
+				deepStrictEqual(errors, [failure]);
+			});
+		}
+
+		for (const [label, failure] of [
+			["a client fault", serviceError("AccessDeniedException", 400)],
+			[
+				"a system error that is not a network failure",
+				Object.assign(new Error("EACCES"), { code: "EACCES" }),
+			],
+			["an unclassified error", new Error("boom")],
+		]) {
+			test(`${name} ends the poll on ${label} from GetRecords`, async () => {
+				const client = flakyShard(["1"], toRecord, [failure]);
+				const reported = [];
+				const it = makePoller(client).poll(
+					new AbortController().signal,
+					(err) => reported.push(err),
+				);
+				await rejects(it.next(), (err) => err === failure);
+				deepStrictEqual(reported, []);
+				deepStrictEqual(client.reads, ["0"]);
+			});
+		}
+
+		test(`${name} backs off before repeating a failed read, doubling per consecutive failure`, async (t) => {
+			t.mock.timers.enable({ apis: ["setTimeout"] });
+			const client = flakyShard(["1"], toRecord, [
+				serviceError(throttled, 400),
+				serviceError(throttled, 400),
+				serviceError(throttled, 400),
+			]);
+			const poller = makePoller(client, { retryDelayMs: 100 });
+			const first = poller.poll(new AbortController().signal).next();
+			for (const [attempt, expected] of [100, 200, 400].entries()) {
+				await settleMacrotask();
+				t.mock.timers.tick(expected - 1);
+				await settleMacrotask();
+				strictEqual(
+					client.reads.length,
+					attempt + 1,
+					`still backing off before ${expected} ms`,
+				);
+				t.mock.timers.tick(1);
+			}
+			strictEqual((await first).done, false);
+			deepStrictEqual(client.reads, ["0", "0", "0", "0"]);
+		});
+
+		test(`${name} starts the read backoff again once a read succeeded`, async (t) => {
+			t.mock.timers.enable({ apis: ["setTimeout"] });
+			const client = flakyShard(["1", "2"], toRecord, [
+				serviceError(throttled, 400),
+				undefined,
+				serviceError(throttled, 400),
+			]);
+			const poller = makePoller(client, { retryDelayMs: 100 });
+			const it = poller.poll(new AbortController().signal);
+			const first = it.next();
+			await settleMacrotask();
+			t.mock.timers.tick(100);
+			const { value } = await first;
+			await poller.acknowledge(value, {});
+			let settled = false;
+			it.next().then(() => {
+				settled = true;
+			});
+			await settleMacrotask();
+			t.mock.timers.tick(100);
+			await settleMacrotask();
+			strictEqual(settled, true);
+		});
+
+		test(`${name} stops backing off a failed read when shut down`, async () => {
+			const ac = new AbortController();
+			const client = flakyShard(["1"], toRecord, [
+				serviceError(throttled, 400),
+			]);
+			const poller = makePoller(client, { retryDelayMs: 60_000 });
+			const next = poller.poll(ac.signal).next();
+			await settleMacrotask();
+			ac.abort();
+			strictEqual((await next).done, true);
+			deepStrictEqual(client.reads, ["0"]);
+		});
+
+		test(`${name} repeats a throttled re-seek at the same position`, async () => {
+			const client = flakyShard(
+				["1"],
+				toRecord,
+				[],
+				[undefined, serviceError(throttled, 400)],
+			);
+			const { deliveries, errors } = await deliver(makePoller(client), toSeqs, [
+				boom,
+				{},
+			]);
+			deepStrictEqual(deliveries, [["1"], ["1"]]);
+			deepStrictEqual(client.seekInputs, [
+				["LATEST", undefined],
+				["AT_SEQUENCE_NUMBER", "1"],
+				["AT_SEQUENCE_NUMBER", "1"],
+			]);
+			deepStrictEqual(
+				errors.map((e) => e.name),
+				["Error", throttled],
+			);
+		});
+
+		test(`${name} repeats a throttled first seek`, async () => {
+			const client = flakyShard(
+				["1"],
+				toRecord,
+				[],
+				[serviceError(throttled, 400)],
+			);
+			const { deliveries, errors } = await deliver(makePoller(client), toSeqs, [
+				{},
+			]);
+			deepStrictEqual(deliveries, [["1"]]);
+			deepStrictEqual(client.seekInputs, [
+				["LATEST", undefined],
+				["LATEST", undefined],
+			]);
+			deepStrictEqual(
+				errors.map((e) => e.name),
+				[throttled],
+			);
+		});
+
+		test(`${name} ends the poll on a re-seek error that a retry cannot fix`, async () => {
+			const denied = serviceError("AccessDeniedException", 400);
+			const client = flakyShard(["1"], toRecord, [], [undefined, denied]);
+			const reported = [];
+			const it = makePoller(client).poll(new AbortController().signal, (err) =>
+				reported.push(err),
+			);
+			await it.next();
+			await rejects(it.next(), (err) => err === denied);
+			deepStrictEqual(reported, []);
+			strictEqual(client.seeks(), 2);
+		});
+
+		test(`${name} backs off before repeating a failed seek, doubling per consecutive failure`, async (t) => {
+			t.mock.timers.enable({ apis: ["setTimeout"] });
+			const client = flakyShard(
+				["1"],
+				toRecord,
+				[],
+				[
+					serviceError(throttled, 400),
+					serviceError(throttled, 400),
+					serviceError(throttled, 400),
+				],
+			);
+			const poller = makePoller(client, { retryDelayMs: 100 });
+			const first = poller.poll(new AbortController().signal).next();
+			for (const [attempt, expected] of [100, 200, 400].entries()) {
+				await settleMacrotask();
+				t.mock.timers.tick(expected - 1);
+				await settleMacrotask();
+				strictEqual(
+					client.seeks(),
+					attempt + 1,
+					`still backing off before ${expected} ms`,
+				);
+				t.mock.timers.tick(1);
+			}
+			strictEqual((await first).done, false);
+			strictEqual(client.seeks(), 4);
+		});
+
+		test(`${name} stops repeating a seek when shut down`, async () => {
+			const ac = new AbortController();
+			const client = flakyShard(
+				["1"],
+				toRecord,
+				[],
+				[serviceError(throttled, 400)],
+			);
+			const poller = makePoller(client, { retryDelayMs: 60_000 });
+			const next = poller.poll(ac.signal).next();
+			await settleMacrotask();
+			ac.abort();
+			strictEqual((await next).done, true);
+			strictEqual(client.seeks(), 1);
+			deepStrictEqual(client.reads, []);
+		});
+
+		for (const [waiting, failures, seekFailures] of [
+			["the backoff of a failed batch", [], []],
+			["the backoff of a failed read", [serviceError(throttled, 400)], []],
+			["the backoff of a failed seek", [], [serviceError(throttled, 400)]],
+		]) {
+			test(`${name} ends ${waiting} at once when shut down`, async (t) => {
+				t.mock.timers.enable({ apis: ["setTimeout"] });
+				const ac = new AbortController();
+				const client = flakyShard(["1"], toRecord, failures, seekFailures);
+				const it = makePoller(client, { retryDelayMs: 60_000 }).poll(ac.signal);
+				let ended = false;
+				const drain = async () => {
+					const first = await it.next();
+					if (!first.done) await it.next();
+					ended = true;
+				};
+				const drained = drain();
+				await settleMacrotask();
+				strictEqual(ended, false);
+				ac.abort();
+				await settleMacrotask();
+				strictEqual(ended, true);
+				await drained;
+			});
+		}
+
+		test(`${name} reads again from the same iterator after a throttled GetRecords`, async () => {
+			const client = flakyShard(["1", "2"], toRecord, [
+				serviceError(throttled, 400),
+			]);
+			const { deliveries, errors } = await deliver(makePoller(client), toSeqs, [
+				{},
+				{},
+			]);
+			deepStrictEqual(deliveries, [["1"], ["2"]]);
+			deepStrictEqual(client.reads, ["0", "0", "1"]);
+			strictEqual(client.seeks(), 1);
+			deepStrictEqual(
+				errors.map((e) => e.name),
+				[throttled],
+			);
+		});
+	}
+
+	const kinesisRecord = (seq) => ({
+		PartitionKey: "p",
+		SequenceNumber: seq,
+		Data: "",
+	});
+	const paceKinesis = (count, onBatch = noop) => {
+		const seqs = Array.from({ length: count }, (_, i) => String(i + 1));
+		const client = flakyShard(seqs, kinesisRecord, []);
+		const ac = new AbortController();
+		const loop = runPollLoop({
+			poller: pollKinesis({
+				streamName: "s",
+				shardId: "0",
+				pollingDelay: 0,
+				client,
+			}),
+			handler: async (event) => {
+				onBatch(kinesisSeqs(event)[0]);
+				return {};
+			},
+			timeout: 1000,
+			signal: ac.signal,
+		});
+		return { client, ac, loop };
+	};
+
+	test("pollKinesis sends no more than five GetRecords calls in any one second", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+		const { client, ac, loop } = paceKinesis(7);
+		await settleMacrotask();
+		strictEqual(client.reads.length, 5);
+		t.mock.timers.tick(999);
+		await settleMacrotask();
+		strictEqual(client.reads.length, 5);
+		t.mock.timers.tick(1);
+		await settleMacrotask();
+		strictEqual(client.reads.length, 10);
+		ac.abort();
+		await loop;
+	});
+
+	test("pollKinesis does not hold a read back once the fifth last one is a second old", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+		const { client, ac, loop } = paceKinesis(6, (seq) => {
+			if (seq === "5") t.mock.timers.tick(1000);
+		});
+		await settleMacrotask();
+		strictEqual(client.reads.length, 10);
+		ac.abort();
+		await loop;
+	});
+
+	test("pollKinesis sends no read it was holding back when shut down", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+		const { client, ac, loop } = paceKinesis(7);
+		await settleMacrotask();
+		ac.abort();
+		await loop;
+		strictEqual(client.reads.length, 5);
+	});
+
+	const tags = (messages) => messages.map((m) => m.fields.deliveryTag);
+
+	const runRmq = async (options, responses) => {
+		const channel = makeFakeRmqChannel();
+		const ac = new AbortController();
+		const deliveries = [];
+		const errors = [];
+		const loop = runPollLoop({
+			poller: pollRmq({
+				queue: "q",
+				batchSize: 2,
+				batchWindowMs: 0,
+				connection: makeFakeRmqConnection(channel),
+				channel,
+				...options,
+			}),
+			timeout: 1000,
+			signal: ac.signal,
+			onError: (err, event) => errors.push([err, event]),
+			handler: async (event) => {
+				deliveries.push(event);
+				const response = responses[deliveries.length - 1];
+				if (typeof response === "function") return response(event);
+				return response;
+			},
+		});
+		for (let i = 0; i < 8; i++) await Promise.resolve();
+		return { channel, ac, deliveries, errors, loop };
+	};
+	const settle = async () => {
+		for (let i = 0; i < 8; i++) await settleMacrotask();
+	};
+	const rmqBodies = (event) =>
+		event.rmqMessagesByQueue["q::/"].map((r) =>
+			Buffer.from(r.data, "base64").toString(),
+		);
+	const rmqDelivery = (tag) => ({
+		fields: { deliveryTag: tag, redelivered: false },
+		properties: {},
+		content: Buffer.from(`body-${tag}`),
+	});
+
+	test("pollRmq holds a batch the handler threw on and delivers it again after retryDelayMs", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout"] });
+		const { channel, ac, deliveries, loop } = await runRmq(
+			{ retryDelayMs: 100 },
+			[boom, {}],
+		);
+		channel.consumeCb()(rmqDelivery(1));
+		channel.consumeCb()(rmqDelivery(2));
+		await settle();
+		strictEqual(deliveries.length, 1);
+		t.mock.timers.tick(99);
+		await settle();
+		strictEqual(deliveries.length, 1);
+		deepStrictEqual(channel.nacked, []);
+		t.mock.timers.tick(1);
+		await settle();
+		deepStrictEqual(deliveries.map(rmqBodies), [
+			["body-1", "body-2"],
+			["body-1", "body-2"],
+		]);
+		deepStrictEqual(tags(channel.acked), [1, 2]);
+		deepStrictEqual(channel.nacked, []);
+		ac.abort();
+		await loop;
+	});
+
+	test("pollRmq backs off exponentially while the same delivery keeps failing", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout"] });
+		const { channel, ac, deliveries, loop } = await runRmq(
+			{ retryDelayMs: 100 },
+			[boom, boom, boom, {}],
+		);
+		channel.consumeCb()(rmqDelivery(1));
+		await settle();
+		for (const [attempt, expected] of [100, 200, 400].entries()) {
+			t.mock.timers.tick(expected - 1);
+			await settle();
+			strictEqual(
+				deliveries.length,
+				attempt + 1,
+				`still backing off before ${expected} ms`,
+			);
+			t.mock.timers.tick(1);
+			await settle();
+		}
+		strictEqual(deliveries.length, 4);
+		ac.abort();
+		await loop;
+	});
+
+	test("pollRmq starts the backoff again for the next batch", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout"] });
+		const { channel, ac, deliveries, loop } = await runRmq(
+			{ retryDelayMs: 100 },
+			[boom, {}, boom, {}],
+		);
+		channel.consumeCb()(rmqDelivery(1));
+		await settle();
+		t.mock.timers.tick(100);
+		await settle();
+		channel.consumeCb()(rmqDelivery(2));
+		await settle();
+		t.mock.timers.tick(100);
+		await settle();
+		deepStrictEqual(deliveries.map(rmqBodies), [
+			["body-1"],
+			["body-1"],
+			["body-2"],
+			["body-2"],
+		]);
+		ac.abort();
+		await loop;
+	});
+
+	test("pollRmq discards a delivery past maxRetryAttempts without requeueing it, reports it and moves on", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout"] });
+		const { channel, ac, deliveries, errors, loop } = await runRmq(
+			{ retryDelayMs: 10, maxRetryAttempts: 1 },
+			[boom, boom, {}],
+		);
+		channel.consumeCb()(rmqDelivery(1));
+		await settle();
+		t.mock.timers.tick(10);
+		await settle();
+		deepStrictEqual(tags(channel.nacked), [1]);
+		deepStrictEqual(channel.nackArgs, [[false, false]]);
+		deepStrictEqual(
+			errors.map(([err]) => err.message),
+			["boom", "boom", "Retry attempts exhausted"],
+		);
+		deepStrictEqual(errors[2][0].cause, {
+			package: "@middy/ecs-batch/pollRmq",
+			data: { queue: "q", deliveryTags: [1] },
+		});
+		strictEqual(errors[2][1], deliveries[1]);
+		channel.consumeCb()(rmqDelivery(2));
+		await settle();
+		deepStrictEqual(deliveries.map(rmqBodies), [
+			["body-1"],
+			["body-1"],
+			["body-2"],
+		]);
+		deepStrictEqual(tags(channel.acked), [2]);
+		ac.abort();
+		await loop;
+	});
+
+	test("pollRmq rejects a batch past maxRetryAttempts when polled without onError", async () => {
+		const channel = makeFakeRmqChannel();
+		const ac = new AbortController();
+		const batches = pollRmq({
+			queue: "q",
+			batchWindowMs: 0,
+			connection: makeFakeRmqConnection(channel),
+			channel,
+			maxRetryAttempts: 0,
+		}).poll(ac.signal);
+		const first = batches.next();
+		await settle();
+		channel.consumeCb()(rmqDelivery(1));
+		await first;
+		const next = batches.next();
+		await settle();
+		deepStrictEqual(tags(channel.nacked), [1]);
+		ac.abort();
+		deepStrictEqual(await next, { done: true, value: undefined });
+	});
+
+	const ids = (messages) => messages.map((m) => m.headers["message-id"]);
+
+	const runAmq = async (options, responses) => {
+		const stomp = makeFakeStompClient();
+		const ac = new AbortController();
+		const deliveries = [];
+		const errors = [];
+		const loop = runPollLoop({
+			poller: pollAmq({
+				connectOptions: {},
+				destination: "/queue/q",
+				batchSize: 3,
+				batchWindowMs: 0,
+				client: stomp,
+				...options,
+			}),
+			timeout: 1000,
+			signal: ac.signal,
+			onError: (err, event) => errors.push([err, event]),
+			handler: async (event) => {
+				deliveries.push(event);
+				const response = responses[deliveries.length - 1];
+				if (typeof response === "function") return response(event);
+				return response;
+			},
+		});
+		for (let i = 0; i < 8; i++) await Promise.resolve();
+		const push = async (...messageIds) => {
+			for (const id of messageIds) {
+				stomp.subscribeCb()(null, fakeStompMessage(id, `body-${id}`));
+			}
+			await settle();
+		};
+		return { stomp, ac, deliveries, errors, loop, push };
+	};
+	const amqIds = (event) => event.messages.map((m) => m.messageID);
+
+	test("pollAmq holds a batch the handler threw on and delivers it again after retryDelayMs", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout"] });
+		const { stomp, ac, deliveries, loop, push } = await runAmq(
+			{ retryDelayMs: 100 },
+			[boom, {}],
+		);
+		await push("m1", "m2");
+		strictEqual(deliveries.length, 1);
+		t.mock.timers.tick(99);
+		await settle();
+		strictEqual(deliveries.length, 1);
+		t.mock.timers.tick(1);
+		await settle();
+		deepStrictEqual(deliveries.map(amqIds), [
+			["m1", "m2"],
+			["m1", "m2"],
+		]);
+		deepStrictEqual(ids(stomp.acked), ["m1", "m2"]);
+		deepStrictEqual(stomp.nacked, []);
+		ac.abort();
+		await loop;
+	});
+
+	test("pollAmq backs off exponentially while the same message keeps failing", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout"] });
+		const { ac, deliveries, loop, push } = await runAmq({ retryDelayMs: 100 }, [
+			boom,
+			boom,
+			boom,
+			{},
+		]);
+		await push("m1");
+		for (const [attempt, expected] of [100, 200, 400].entries()) {
+			t.mock.timers.tick(expected - 1);
+			await settle();
+			strictEqual(
+				deliveries.length,
+				attempt + 1,
+				`still backing off before ${expected} ms`,
+			);
+			t.mock.timers.tick(1);
+			await settle();
+		}
+		strictEqual(deliveries.length, 4);
+		ac.abort();
+		await loop;
+	});
+
+	test("pollAmq starts the backoff again for the next batch", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout"] });
+		const { ac, deliveries, loop, push } = await runAmq({ retryDelayMs: 100 }, [
+			boom,
+			{},
+			boom,
+			{},
+		]);
+		await push("m1");
+		t.mock.timers.tick(100);
+		await settle();
+		await push("m2");
+		t.mock.timers.tick(100);
+		await settle();
+		deepStrictEqual(deliveries.map(amqIds), [["m1"], ["m1"], ["m2"], ["m2"]]);
+		ac.abort();
+		await loop;
+	});
+
+	test("pollAmq counts the retries of each batch on its own", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout"] });
+		const { stomp, ac, loop, push } = await runAmq(
+			{ retryDelayMs: 10, maxRetryAttempts: 1 },
+			[boom, boom, boom, {}],
+		);
+		await push("m1");
+		t.mock.timers.tick(10);
+		await settle();
+		deepStrictEqual(ids(stomp.nacked), ["m1"]);
+		await push("m2");
+		t.mock.timers.tick(10);
+		await settle();
+		deepStrictEqual(ids(stomp.nacked), ["m1"]);
+		deepStrictEqual(ids(stomp.acked), ["m2"]);
+		ac.abort();
+		await loop;
+	});
+
+	test("pollAmq NACKs a message past maxRetryAttempts so ActiveMQ dead-letters it, reports it and moves on", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout"] });
+		const { stomp, ac, deliveries, errors, loop, push } = await runAmq(
+			{ retryDelayMs: 10, maxRetryAttempts: 1 },
+			[boom, boom, {}],
+		);
+		await push("m1");
+		t.mock.timers.tick(10);
+		await settle();
+		deepStrictEqual(ids(stomp.nacked), ["m1"]);
+		deepStrictEqual(
+			errors.map(([err]) => err.message),
+			["boom", "boom", "Retry attempts exhausted"],
+		);
+		deepStrictEqual(errors[2][0].cause, {
+			package: "@middy/ecs-batch/pollAmq",
+			data: { messageIDs: ["m1"] },
+		});
+		strictEqual(errors[2][1], deliveries[1]);
+		await push("m2");
+		deepStrictEqual(deliveries.map(amqIds), [["m1"], ["m1"], ["m2"]]);
+		deepStrictEqual(ids(stomp.acked), ["m2"]);
+		ac.abort();
+		await loop;
+	});
+
+	test("pollAmq NACKs a batch past maxRetryAttempts when polled without onError", async () => {
+		const stomp = makeFakeStompClient();
+		const ac = new AbortController();
+		const batches = pollAmq({
+			connectOptions: {},
+			destination: "/queue/q",
+			batchWindowMs: 0,
+			client: stomp,
+			maxRetryAttempts: 0,
+		}).poll(ac.signal);
+		const first = batches.next();
+		stomp.subscribeCb()(null, fakeStompMessage("m1", "body-m1"));
+		await first;
+		const next = batches.next();
+		await settle();
+		deepStrictEqual(ids(stomp.nacked), ["m1"]);
+		ac.abort();
+		deepStrictEqual(await next, { done: true, value: undefined });
+	});
+
+	test("pollRmq leaves a held batch to the channel close when shut down during its backoff", async () => {
+		const { channel, ac, deliveries, loop } = await runRmq(
+			{ retryDelayMs: 60_000 },
+			[boom],
+		);
+		channel.consumeCb()(rmqDelivery(1));
+		await settle();
+		ac.abort();
+		await loop;
+		strictEqual(deliveries.length, 1);
+		deepStrictEqual(channel.acked, []);
+		deepStrictEqual(channel.nacked, []);
+		strictEqual(channel.closeCalls, 1);
+	});
+
+	test("pollRmq ends a backoff at once, without another delivery, when its channel closes", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout"] });
+		const { channel, deliveries, loop } = await runRmq({ retryDelayMs: 100 }, [
+			boom,
+		]);
+		let rejection;
+		loop.catch((err) => {
+			rejection = err;
+		});
+		channel.consumeCb()(rmqDelivery(1));
+		await settle();
+		const closeError = new Error("Channel closed by server");
+		channel.emit("error", closeError);
+		channel.emit("close");
+		await settle();
+		strictEqual(rejection, closeError);
+		strictEqual(deliveries.length, 1);
+	});
+
+	test("pollAmq ends a backoff at once, without another delivery, when its client fails", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout"] });
+		const { stomp, deliveries, loop, push } = await runAmq(
+			{ retryDelayMs: 100 },
+			[boom],
+		);
+		let rejection;
+		loop.catch((err) => {
+			rejection = err;
+		});
+		await push("m1");
+		const clientError = new Error("socket hang up");
+		stomp.emit("error", clientError);
+		await settle();
+		strictEqual(rejection, clientError);
+		strictEqual(deliveries.length, 1);
+	});
+
+	test("pollAmq leaves a held batch to the broker when shut down during its backoff", async () => {
+		const { stomp, ac, deliveries, loop, push } = await runAmq(
+			{ retryDelayMs: 60_000 },
+			[boom],
+		);
+		await push("m1");
+		ac.abort();
+		await loop;
+		strictEqual(deliveries.length, 1);
+		deepStrictEqual(stomp.acked, []);
+		deepStrictEqual(stomp.nacked, []);
+		strictEqual(stomp.disconnectCalls, 1);
+	});
+
+	test("pollRmq neither retries nor discards a batch the handler threw on during shutdown", async () => {
+		const run = await runRmq({ maxRetryAttempts: 0 }, [
+			() => {
+				run.ac.abort();
+				throw new Error("boom");
+			},
+		]);
+		run.channel.consumeCb()(rmqDelivery(1));
+		await run.loop;
+		deepStrictEqual(run.channel.nacked, []);
+		deepStrictEqual(
+			run.errors.map(([err]) => err.message),
+			["boom"],
+		);
+		strictEqual(run.channel.closeCalls, 1);
+	});
+
+	test("pollRmq does not discard a batch the handler threw on once its channel has closed", async () => {
+		const closeError = new Error("Channel closed by server");
+		const run = await runRmq({ maxRetryAttempts: 0 }, [
+			() => {
+				run.channel.emit("error", closeError);
+				run.channel.emit("close");
+				throw new Error("boom");
+			},
+		]);
+		const failed = rejects(run.loop, (err) => err === closeError);
+		run.channel.consumeCb()(rmqDelivery(1));
+		await failed;
+		deepStrictEqual(run.channel.nacked, []);
+		deepStrictEqual(
+			run.errors.map(([err]) => err.message),
+			["boom"],
+		);
+	});
+
+	test("pollAmq neither retries nor discards a batch the handler threw on during shutdown", async () => {
+		const run = await runAmq({ maxRetryAttempts: 0 }, [
+			() => {
+				run.ac.abort();
+				throw new Error("boom");
+			},
+		]);
+		await run.push("m1");
+		await run.loop;
+		deepStrictEqual(run.stomp.nacked, []);
+		deepStrictEqual(
+			run.errors.map(([err]) => err.message),
+			["boom"],
+		);
+		strictEqual(run.stomp.disconnectCalls, 1);
+	});
+
+	test("pollAmq does not discard a batch the handler threw on once its client has failed", async () => {
+		const clientError = new Error("socket hang up");
+		const run = await runAmq({ maxRetryAttempts: 0 }, [
+			() => {
+				run.stomp.emit("error", clientError);
+				throw new Error("boom");
+			},
+		]);
+		const failed = rejects(run.loop, (err) => err === clientError);
+		await run.push("m1");
+		await failed;
+		deepStrictEqual(run.stomp.nacked, []);
+		deepStrictEqual(
+			run.errors.map(([err]) => err.message),
+			["boom"],
+		);
+	});
+
+	const brokerResponses = [
+		undefined,
+		{},
+		{ batchItemFailures: [] },
+		{ batchItemFailures: [{ itemIdentifier: "2" }] },
+		{ batchItemFailures: [{ itemIdentifier: "m2" }] },
+		{ batchItemFailures: [{ itemIdentifier: "no-such-message" }] },
+		{ batchItemFailures: [{ itemIdentifier: null }] },
+		{ batchItemFailures: [null] },
+	];
+
+	test("pollRmq acknowledges the whole batch once the handler returned, whatever it returned", async () => {
+		for (const response of brokerResponses) {
+			const { channel, ac, deliveries, errors, loop } = await runRmq({}, [
+				response,
+			]);
+			channel.consumeCb()(rmqDelivery(1));
+			channel.consumeCb()(rmqDelivery(2));
+			await settle();
+			deepStrictEqual(tags(channel.acked), [1, 2], JSON.stringify(response));
+			deepStrictEqual(channel.nacked, []);
+			strictEqual(deliveries.length, 1);
+			deepStrictEqual(errors, []);
+			ac.abort();
+			await loop;
+		}
+	});
+
+	test("pollRmq counts the retries of each batch on its own", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout"] });
+		const { channel, ac, loop } = await runRmq(
+			{ retryDelayMs: 10, maxRetryAttempts: 1 },
+			[boom, boom, boom, {}],
+		);
+		channel.consumeCb()(rmqDelivery(1));
+		await settle();
+		t.mock.timers.tick(10);
+		await settle();
+		deepStrictEqual(tags(channel.nacked), [1]);
+		channel.consumeCb()(rmqDelivery(2));
+		await settle();
+		t.mock.timers.tick(10);
+		await settle();
+		deepStrictEqual(tags(channel.nacked), [1]);
+		deepStrictEqual(tags(channel.acked), [2]);
+		ac.abort();
+		await loop;
+	});
+
+	for (const ackMode of ["client-individual", "client"]) {
+		test(`pollAmq acknowledges the whole batch once the handler returned, whatever it returned (${ackMode})`, async () => {
+			for (const response of brokerResponses) {
+				const { stomp, ac, deliveries, errors, loop, push } = await runAmq(
+					{ ackMode },
+					[response],
+				);
+				await push("m1", "m2", "m3");
+				deepStrictEqual(
+					ids(stomp.acked),
+					["m1", "m2", "m3"],
+					JSON.stringify(response),
+				);
+				deepStrictEqual(stomp.nacked, []);
+				strictEqual(deliveries.length, 1);
+				deepStrictEqual(errors, []);
+				ac.abort();
+				await loop;
+			}
+		});
+	}
 });

@@ -16,6 +16,7 @@ test("requires price, payTo, and asset", () => {
 		price: 0.001,
 		payTo: "0xpayto",
 		asset: "0xasset",
+		facilitatorUrl: "https://facilitator.example.com",
 	});
 	expect(middleware).type.toBe<
 		middy.MiddlewareObj<RequestEvent, unknown, Error, LambdaContext, Internal>
@@ -27,6 +28,7 @@ test("event type can be narrowed", () => {
 		price: 0.001,
 		payTo: "0xpayto",
 		asset: "0xasset",
+		facilitatorUrl: "https://facilitator.example.com",
 	});
 	expect(middleware).type.toBe<
 		middy.MiddlewareObj<
@@ -44,6 +46,7 @@ test("versions toggle accepts 1 and 2 only", () => {
 		price: 0.001,
 		payTo: "0xpayto",
 		asset: "0xasset",
+		facilitatorUrl: "https://facilitator.example.com",
 		versions: [2],
 	});
 	expect(middleware).type.toBe<
@@ -55,6 +58,7 @@ test("versions toggle accepts 1 and 2 only", () => {
 		price: 0.001,
 		payTo: "0xpayto",
 		asset: "0xasset",
+		facilitatorUrl: "https://facilitator.example.com",
 		versions: pinned,
 	});
 	expect(readonlyVersions).type.toBe<
@@ -65,6 +69,7 @@ test("versions toggle accepts 1 and 2 only", () => {
 		price: 0.001,
 		payTo: "0xpayto",
 		asset: "0xasset",
+		facilitatorUrl: "https://facilitator.example.com",
 		// @ts-expect-error not assignable
 		versions: [3],
 	});
@@ -102,6 +107,7 @@ test("custom FacilitatorClient class is accepted", () => {
 		price: 0.001,
 		payTo: "0xpayto",
 		asset: "0xasset",
+		facilitatorUrl: "https://facilitator.example.com",
 		FacilitatorClient: CustomFacilitatorClient,
 	});
 	expect(middleware).type.toBe<
@@ -112,6 +118,7 @@ test("custom FacilitatorClient class is accepted", () => {
 		price: 0.001,
 		payTo: "0xpayto",
 		asset: "0xasset",
+		facilitatorUrl: "https://facilitator.example.com",
 		// @ts-expect-error not assignable
 		FacilitatorClient: class {},
 	});
@@ -122,6 +129,7 @@ test("string price is accepted", () => {
 		price: "0.001",
 		payTo: "0xpayto",
 		asset: "0xasset",
+		facilitatorUrl: "https://facilitator.example.com",
 	});
 	expect(middleware).type.toBe<
 		middy.MiddlewareObj<RequestEvent, unknown, Error, LambdaContext, Internal>
@@ -133,6 +141,7 @@ test("amount override without price is accepted", () => {
 		amount: "1000",
 		payTo: "0xpayto",
 		asset: "0xasset",
+		facilitatorUrl: "https://facilitator.example.com",
 	});
 	expect(middleware).type.toBe<
 		middy.MiddlewareObj<RequestEvent, unknown, Error, LambdaContext, Internal>
@@ -146,11 +155,28 @@ test("Options type requires price, payTo, asset", () => {
 
 test("Options type requires price or amount", () => {
 	// @ts-expect-error not assignable to type 'Options'
-	const _opts: Options = { payTo: "0x", asset: "0x" };
+	const _opts: Options = {
+		payTo: "0x",
+		asset: "0x",
+		facilitatorUrl: "https://facilitator.example.com",
+	};
+});
+
+test("Options type requires facilitatorUrl", () => {
+	expect(httpX402).type.not.toBeCallableWith({
+		price: 0.001,
+		payTo: "0xpayto",
+		asset: "0xasset",
+	});
 });
 
 test("Options type allows partial optional fields", () => {
-	const opts: Options = { price: 0.001, payTo: "0x", asset: "0x" };
+	const opts: Options = {
+		price: 0.001,
+		payTo: "0x",
+		asset: "0x",
+		facilitatorUrl: "https://facilitator.example.com",
+	};
 	expect(opts).type.toBeAssignableTo<Options>();
 });
 
@@ -163,7 +189,14 @@ test("httpX402ValidateOptions accepts typed options and returns them", () => {
 
 test("internal carries the verified payment under x402", () => {
 	middy()
-		.use(httpX402({ price: 0.001, payTo: "0xpayto", asset: "0xasset" }))
+		.use(
+			httpX402({
+				price: 0.001,
+				payTo: "0xpayto",
+				asset: "0xasset",
+				facilitatorUrl: "https://facilitator.example.com",
+			}),
+		)
 		.before((request) => {
 			expect(request.internal.x402).type.toBe<
 				| {
@@ -183,6 +216,7 @@ test("rejects misspelled option", () => {
 		price: 0.001,
 		payTo: "0xpayto",
 		asset: "0xasset",
+		facilitatorUrl: "https://facilitator.example.com",
 		facilitatorURL: "https://x402.org/facilitator",
 	});
 });

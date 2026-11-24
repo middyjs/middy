@@ -3,6 +3,7 @@ import {
 	notStrictEqual,
 	ok,
 	strictEqual,
+	throws,
 } from "node:assert/strict";
 import { describe, test } from "node:test";
 import localize from "ajv-ftl-i18n";
@@ -779,6 +780,79 @@ describe("@middy/validator", () => {
 		} catch (e) {
 			ok(e.message.includes("defaultLanguage"));
 		}
+	});
+
+	test("validatorValidateOptions takes an RFC 5646 language tag as defaultLanguage", () => {
+		for (const defaultLanguage of ["en", "pt-BR", "zh-TW", "it-it"]) {
+			validatorValidateOptions({ defaultLanguage });
+		}
+		for (const defaultLanguage of ["en_US", "en US", "-en", ""]) {
+			throws(() => validatorValidateOptions({ defaultLanguage }), {
+				name: "TypeError",
+				message: /^Option 'defaultLanguage' must match pattern /,
+				cause: { package: "@middy/validator" },
+			});
+		}
+		throws(
+			() =>
+				validatorValidateOptions({
+					defaultLanguage: `en${"-abcdefgh".repeat(114)}`,
+				}),
+			{
+				name: "TypeError",
+				message: "Option 'defaultLanguage' must have length <= 1024",
+			},
+		);
+	});
+
+	test("validatorValidateOptions keys languages by RFC 5646 language tag, up to 1024 of them", () => {
+		validatorValidateOptions({
+			languages: { "pt-BR": () => {}, "zh-TW": () => {} },
+		});
+		throws(() => validatorValidateOptions({ languages: { en_US: () => {} } }), {
+			name: "TypeError",
+			message: "Unknown option 'languages.en_US'",
+		});
+		throws(() => validatorValidateOptions({ languages: { "e n": () => {} } }), {
+			name: "TypeError",
+			message: /^Invalid property name 'e n' in option 'languages': /,
+		});
+		const languages = {};
+		for (let i = 0; i < 1025; i++) languages[`x-${i}`] = () => {};
+		throws(() => validatorValidateOptions({ languages }), {
+			name: "TypeError",
+			message: "Option 'languages' must have <= 1024 properties",
+		});
+	});
+
+	test("validatorValidateOptions takes contextKeyHttpContentNegotiation in the shape of that middleware's contextKey", () => {
+		for (const contextKeyHttpContentNegotiation of [
+			"http-content-negotiation",
+			"@middy/x",
+		]) {
+			validatorValidateOptions({ contextKeyHttpContentNegotiation });
+		}
+		for (const contextKeyHttpContentNegotiation of ["", "a b"]) {
+			throws(
+				() => validatorValidateOptions({ contextKeyHttpContentNegotiation }),
+				{
+					name: "TypeError",
+					message:
+						/^Option 'contextKeyHttpContentNegotiation' must match pattern /,
+				},
+			);
+		}
+		throws(
+			() =>
+				validatorValidateOptions({
+					contextKeyHttpContentNegotiation: "k".repeat(1025),
+				}),
+			{
+				name: "TypeError",
+				message:
+					"Option 'contextKeyHttpContentNegotiation' must have length <= 1024",
+			},
+		);
 	});
 
 	test("validatorValidateOptions rejects non-function localizer in languages", () => {

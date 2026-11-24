@@ -8,12 +8,20 @@ import type { Context as LambdaContext } from "aws-lambda";
 export type ParamType<T> = string & { __returnType?: T };
 export declare function dsqlSignerParam<T>(name: string): ParamType<T>;
 
-export type DsqlSignerFetchConfig = DsqlSignerConfig & { username?: string };
+/**
+ * The signer config for one token. `hostname` may be left out: it falls back
+ * to `PGHOST` (or `DBHOST`), then to `awsClientOptions`, and throws at
+ * construction when none of them has it. `username` falls back to `PGUSER`
+ * (or `DBUSER`), then to `awsClientOptions`; `"admin"` selects the admin
+ * token and anything else the custom database role token.
+ */
+export type DsqlSignerFetchConfig = Omit<DsqlSignerConfig, "hostname"> &
+	Partial<Pick<DsqlSignerConfig, "hostname">> & { username?: string };
 
 // The signer is constructed directly rather than through `createClient`, so
 // assume-role and X-Ray capture are not honoured.
 export type DsqlSignerOptions<AwsSigner = DsqlSigner> = Omit<
-	MiddyOptions<AwsSigner, DsqlSignerFetchConfig>,
+	MiddyOptions<AwsSigner, DsqlSignerConfig & { username?: string }>,
 	"fetchData" | "awsClientAssumeRole" | "awsClientCapture"
 > & {
 	fetchData?: {

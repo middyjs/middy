@@ -1,4 +1,5 @@
 ---
+
 title: ecs-http
 description: "Run a Middy handler as an HTTP server on AWS ECS/Fargate, with cluster-managed workers and graceful shutdown."
 ---
@@ -57,41 +58,42 @@ NOTES:
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import { ecsHttpRunner } from '@middy/ecs-http'
-import httpErrorHandler from '@middy/http-error-handler'
-import httpJsonBodyParser from '@middy/http-json-body-parser'
-import httpRouter from '@middy/http-router'
+import middy from "@middy/core";
+import { ecsHttpRunner } from "@middy/ecs-http";
+import httpErrorHandler from "@middy/http-error-handler";
+import httpJsonBodyParser from "@middy/http-json-body-parser";
+import httpRouter from "@middy/http-router";
 
-const getHandler = middy()
-  .handler((event) => ({
-    statusCode: 200,
-    body: JSON.stringify({ id: event.pathParameters.id }),
-  }))
+const getHandler = middy().handler((event) => ({
+	statusCode: 200,
+	body: JSON.stringify({ id: event.pathParameters.id }),
+}));
 
 const postHandler = middy()
-  .use(httpJsonBodyParser())
-  .handler((event) => ({
-    statusCode: 201,
-    body: JSON.stringify(event.body),
-  }))
+	.use(httpJsonBodyParser())
+	.handler((event) => ({
+		statusCode: 201,
+		body: JSON.stringify(event.body),
+	}));
 
 const handler = middy()
-  .use(httpErrorHandler())
-  .handler(httpRouter([
-    { method: 'GET',  path: '/user/{id}', handler: getHandler },
-    { method: 'POST', path: '/user',      handler: postHandler },
-  ]))
+	.use(httpErrorHandler())
+	.handler(
+		httpRouter([
+			{ method: "GET", path: "/user/{id}", handler: getHandler },
+			{ method: "POST", path: "/user", handler: postHandler },
+		]),
+	);
 
 await ecsHttpRunner({
-  handler,
-  port: Number(process.env.PORT ?? 8080),
-  eventVersion: '2.0',
-  requestContext: {
-    accountId: process.env.AWS_ACCOUNT_ID ?? 'local',
-    apiId: process.env.API_ID ?? 'local',
-  },
-})
+	handler,
+	port: Number(process.env.PORT ?? 8080),
+	eventVersion: "2.0",
+	requestContext: {
+		accountId: process.env.AWS_ACCOUNT_ID ?? "local",
+		apiId: process.env.API_ID ?? "local",
+	},
+});
 ```
 
 ## Early timeout
@@ -100,8 +102,8 @@ For every request, Middy arms a timer so that `timeoutEarlyResponse` can answer 
 
 ```javascript
 const handler = middy({ timeoutEarlyInMillis: 0 })
-  .use(httpErrorHandler())
-  .handler(lambdaHandler)
+	.use(httpErrorHandler())
+	.handler(lambdaHandler);
 ```
 
 With it off, the runner no longer turns a handler that overruns `timeout` into an error response: the client waits until it, or the load balancer, gives up (an ALB's idle timeout is 60 s by default), and the handler keeps running in the meantime. `context.getRemainingTimeInMillis()` still counts down for handlers that check it themselves. On a Lambda Web Function the revision's `timeoutSeconds` still bounds each request.
@@ -112,11 +114,11 @@ In a cluster, every process runs your entry file, including the primary, which o
 
 ```javascript
 // index.js
-import { ecsHttpRunner } from '@middy/ecs-http'
+import { ecsHttpRunner } from "@middy/ecs-http";
 
 await ecsHttpRunner({
-  loadHandler: () => import('./handler.js').then((m) => m.handler),
-})
+	loadHandler: () => import("./handler.js").then((m) => m.handler),
+});
 ```
 
 With an application that takes about 135 ms to import (Middy HTTP middlewares, the DynamoDB and S3 clients, and zod), a two-worker cluster answered its first request in about 350 ms instead of 500 ms and used 227 MB instead of 255 MB. The saving grows with the application's import time. With a single worker the process serves requests itself, so both forms start the same.
@@ -126,22 +128,24 @@ With an application that takes about 135 ms to import (Middy HTTP middlewares, t
 ECS-fronting load balancers (ALB, NLB with target health checks) need an endpoint that returns `2xx`. The runner does not bake one in, so add it to your routes and skip any heavy middleware on that path:
 
 ```javascript
-import middy from '@middy/core'
-import { ecsHttpRunner } from '@middy/ecs-http'
-import httpRouter from '@middy/http-router'
+import middy from "@middy/core";
+import { ecsHttpRunner } from "@middy/ecs-http";
+import httpRouter from "@middy/http-router";
 
-const healthHandler = () => ({ statusCode: 200, body: 'ok' })
+const healthHandler = () => ({ statusCode: 200, body: "ok" });
 
 const apiHandler = middy()
-  // ... your real middleware stack
-  .handler((event) => ({ statusCode: 200, body: '{}' }))
+	// ... your real middleware stack
+	.handler((event) => ({ statusCode: 200, body: "{}" }));
 
-const handler = middy().handler(httpRouter([
-  { method: 'GET', path: '/_health', handler: healthHandler },
-  { method: 'ANY', path: '/{proxy+}', handler: apiHandler },
-]))
+const handler = middy().handler(
+	httpRouter([
+		{ method: "GET", path: "/_health", handler: healthHandler },
+		{ method: "ANY", path: "/{proxy+}", handler: apiHandler },
+	]),
+);
 
-await ecsHttpRunner({ handler, port: 8080, eventVersion: '2.0' })
+await ecsHttpRunner({ handler, port: 8080, eventVersion: "2.0" });
 ```
 
 Configure your ALB target group to hit `/_health` with the default `HTTP 200` matcher. ALB sends `SIGTERM` to the task on deregistration; the runner's primary forwards it to all workers and stops replacing them, each worker stops accepting new connections, answers with `Connection: close` so keep-alive sockets close after their in-flight response, and exits `0` once they have drained, or force-closes the remaining connections and exits `1` after `gracefulShutdownMs`, and the primary exits once the last worker is gone with the highest exit code any worker reported during the drain (`0` when all drained cleanly; a worker killed by a signal counts as `1`). Only exits after `SIGTERM` count: a worker that crashed earlier was replaced with backoff and does not affect the task's exit code. With `workers: 1` there is no primary: the process drains itself the same way and exits `0` or `1`.
@@ -151,20 +155,19 @@ Configure your ALB target group to hit `/_health` with the default `HTTP 200` ma
 If your ECS service is registered directly to an ALB target group (no API Gateway in front), use the ALB event shape so handler and middleware see the fields ALB actually sends:
 
 ```javascript
-import middy from '@middy/core'
-import { ecsHttpRunner } from '@middy/ecs-http'
+import middy from "@middy/core";
+import { ecsHttpRunner } from "@middy/ecs-http";
 
-const handler = middy()
-  .handler((event) => {
-    // event.httpMethod, event.path, event.headers, event.requestContext.elb
-    // No requestContext.identity: the client address is in
-    // event.headers['x-forwarded-for'], as on Lambda.
-    return { statusCode: 200, body: 'ok' }
-  })
+const handler = middy().handler((event) => {
+	// event.httpMethod, event.path, event.headers, event.requestContext.elb
+	// No requestContext.identity: the client address is in
+	// event.headers['x-forwarded-for'], as on Lambda.
+	return { statusCode: 200, body: "ok" };
+});
 
 await ecsHttpRunner({
-  handler,
-  port: 8080,
-  eventVersion: 'alb',
-})
+	handler,
+	port: 8080,
+	eventVersion: "alb",
+});
 ```

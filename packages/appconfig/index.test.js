@@ -3,6 +3,7 @@ import {
 	deepStrictEqual,
 	ok,
 	strictEqual,
+	throws,
 } from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
@@ -10,9 +11,9 @@ import {
 	GetLatestConfigurationCommand,
 	StartConfigurationSessionCommand,
 } from "@aws-sdk/client-appconfigdata";
+import middy from "@middy/core";
 import { clearCache, getCache, getInternal } from "@middy/util";
 import { mockClient } from "aws-sdk-client-mock";
-import middy from "../core/index.js";
 import appConfig, { appConfigValidateOptions } from "./index.js";
 
 describe("@middy/appconfig", () => {
@@ -893,6 +894,40 @@ describe("@middy/appconfig", () => {
 		}
 	});
 
+	const pollIntervalOptions = (RequiredMinimumPollIntervalInSeconds) => ({
+		fetchData: {
+			key: {
+				ApplicationIdentifier: "a",
+				ConfigurationProfileIdentifier: "c",
+				EnvironmentIdentifier: "e",
+				RequiredMinimumPollIntervalInSeconds,
+			},
+		},
+	});
+
+	test("appConfigValidateOptions rejects RequiredMinimumPollIntervalInSeconds above the AWS maximum", () => {
+		throws(() => appConfigValidateOptions(pollIntervalOptions(86401)), {
+			message: /RequiredMinimumPollIntervalInSeconds/,
+		});
+	});
+
+	test("appConfigValidateOptions rejects a fractional RequiredMinimumPollIntervalInSeconds", () => {
+		throws(() => appConfigValidateOptions(pollIntervalOptions(30.5)), {
+			message: /RequiredMinimumPollIntervalInSeconds/,
+		});
+	});
+
+	test("appConfigValidateOptions accepts both ends of the AWS RequiredMinimumPollIntervalInSeconds range", () => {
+		appConfigValidateOptions(pollIntervalOptions(15));
+		appConfigValidateOptions(pollIntervalOptions(86400));
+	});
+
+	test("appConfigValidateOptions rejects RequiredMinimumPollIntervalInSeconds just below the AWS minimum", () => {
+		throws(() => appConfigValidateOptions(pollIntervalOptions(14)), {
+			message: /RequiredMinimumPollIntervalInSeconds/,
+		});
+	});
+
 	test("appConfigValidateOptions rejects fetchData entry missing required identifiers", () => {
 		try {
 			appConfigValidateOptions({
@@ -1044,20 +1079,133 @@ describe("@middy/appconfig", () => {
 		}
 	});
 
-	test("appConfigValidateOptions accepts extra properties on a fetchData entry (pins additionalProperties true)", () => {
-		// fetchData entries set additionalProperties:true, so unknown extra keys
-		// (passed through to StartConfigurationSession) must be accepted. A mutation
-		// to additionalProperties:false would reject this.
-		appConfigValidateOptions({
+	const sessionInput = {
+		ApplicationIdentifier: "a",
+		ConfigurationProfileIdentifier: "c",
+		EnvironmentIdentifier: "e",
+	};
+	const rejectsOptions = (options, message) => {
+		throws(() => appConfigValidateOptions(options), {
+			name: "TypeError",
+			message,
+			cause: { package: "@middy/appconfig" },
+		});
+	};
+
+	test("appConfigValidateOptions rejects a fetchData key StartConfigurationSession does not take", () => {
+		rejectsOptions(
+			{ fetchData: { key: { ...sessionInput, SomeFutureSdkField: "x" } } },
+			"Unknown option 'fetchData.key.SomeFutureSdkField'",
+		);
+	});
+
+	test("appConfigValidateOptions accepts identifiers up to the AWS limit of 128 characters", () => {
+		const options = {
 			fetchData: {
 				key: {
-					ApplicationIdentifier: "a",
-					ConfigurationProfileIdentifier: "c",
-					EnvironmentIdentifier: "e",
-					SomeFutureSdkField: "x",
+					ApplicationIdentifier: "a".repeat(128),
+					ConfigurationProfileIdentifier: "My Profile 名前",
+					EnvironmentIdentifier: "prod-env_1.0",
 				},
 			},
-		});
+		};
+		deepStrictEqual(appConfigValidateOptions(options), options);
+	});
+
+	test("appConfigValidateOptions rejects identifiers outside the AWS length or text rules", () => {
+		for (const identifier of [
+			"ApplicationIdentifier",
+			"ConfigurationProfileIdentifier",
+			"EnvironmentIdentifier",
+		]) {
+			rejectsOptions(
+				{
+					fetchData: {
+						key: { ...sessionInput, [identifier]: "a".repeat(129) },
+					},
+				},
+				`Option 'fetchData.key.${identifier}' must have length <= 128`,
+			);
+			rejectsOptions(
+				{ fetchData: { key: { ...sessionInput, [identifier]: "" } } },
+				`Option 'fetchData.key.${identifier}' must match pattern /^[\\p{L}\\p{M}\\p{N}\\p{P}\\p{S} ]+$/u`,
+			);
+			rejectsOptions(
+				{ fetchData: { key: { ...sessionInput, [identifier]: "a\nb" } } },
+				`Option 'fetchData.key.${identifier}' must match pattern /^[\\p{L}\\p{M}\\p{N}\\p{P}\\p{S} ]+$/u`,
+			);
+			rejectsOptions(
+				{ fetchData: { key: { ...sessionInput, [identifier]: 1 } } },
+				`Option 'fetchData.key.${identifier}' must be string`,
+			);
+		}
+		rejectsOptions(
+			{
+				fetchData: {
+					key: { ...sessionInput, EnvironmentIdentifier: undefined },
+				},
+			},
+			"Missing required option 'fetchData.key.EnvironmentIdentifier'",
+		);
+	});
+
+	test("appConfigValidateOptions bounds the fetchData map", () => {
+		rejectsOptions(
+			{ fetchData: { "bad key": sessionInput } },
+			"Invalid property name 'bad key' in option 'fetchData': Option 'fetchData.bad key' must match pattern /^[\\x21-\\x7E]+$/u",
+		);
+		rejectsOptions(
+			{ fetchData: { ["k".repeat(1025)]: sessionInput } },
+			`Invalid property name '${"k".repeat(1025)}' in option 'fetchData': Option 'fetchData.${"k".repeat(1025)}' must have length <= 1024`,
+		);
+		rejectsOptions(
+			{
+				fetchData: Object.fromEntries(
+					Array.from({ length: 1025 }, (_, i) => [`k${i}`, sessionInput]),
+				),
+			},
+			"Option 'fetchData' must have <= 1024 properties",
+		);
+		rejectsOptions(
+			{ fetchData: { key: "a" } },
+			"Option 'fetchData.key' must be object",
+		);
+		const options = {
+			fetchData: Object.fromEntries(
+				Array.from({ length: 1024 }, (_, i) => [`k${i}`, sessionInput]),
+			),
+		};
+		deepStrictEqual(appConfigValidateOptions(options), options);
+	});
+
+	test("appConfigValidateOptions checks awsClientOptions keys", () => {
+		rejectsOptions(
+			{ awsClientOptions: { maxRetries: 3 } },
+			"Unknown option 'awsClientOptions.maxRetries'",
+		);
+		deepStrictEqual(
+			appConfigValidateOptions({
+				awsClientOptions: { endpoint: "http://localhost:4566" },
+			}),
+			{ awsClientOptions: { endpoint: "http://localhost:4566" } },
+		);
+	});
+
+	test("appConfigValidateOptions bounds the string options", () => {
+		for (const key of ["awsClientAssumeRole", "cacheKey", "contextKey"]) {
+			deepStrictEqual(appConfigValidateOptions({ [key]: "k".repeat(1024) }), {
+				[key]: "k".repeat(1024),
+			});
+			rejectsOptions(
+				{ [key]: "k".repeat(1025) },
+				`Option '${key}' must have length <= 1024`,
+			);
+			rejectsOptions(
+				{ [key]: "a b" },
+				`Option '${key}' must match pattern /^[\\x21-\\x7E]+$/u`,
+			);
+		}
+		rejectsOptions({ contextKey: 1 }, "Option 'contextKey' must be string");
 	});
 
 	// --- runtime behaviour ---
@@ -1895,5 +2043,100 @@ describe("@middy/appconfig", () => {
 
 		await handler(defaultEvent, defaultContext);
 		ok(sends > afterFirst);
+	});
+
+	const pollIntervalFetchData = {
+		key: { ...retryFetchData.key, RequiredMinimumPollIntervalInSeconds: 60 },
+	};
+	const mockPollIntervalService = () => {
+		const mockService = mockClient(AppConfigDataClient);
+		mockService.on(StartConfigurationSessionCommand).resolves({
+			InitialConfigurationToken: "token",
+		});
+		mockService
+			.on(GetLatestConfigurationCommand, { ConfigurationToken: "token" })
+			.resolves({
+				ContentType: "application/json",
+				Configuration: strToUintArray('{"option":"value"}'),
+				NextPollConfigurationToken: "next",
+				NextPollIntervalInSeconds: 60,
+			})
+			.on(GetLatestConfigurationCommand, { ConfigurationToken: "next" })
+			.resolves({
+				ContentType: "application/json",
+				Configuration: strToUintArray('{"option":"newValue"}'),
+				NextPollConfigurationToken: "later",
+				NextPollIntervalInSeconds: 60,
+			});
+		return mockService;
+	};
+	const pollIntervalHandler = (cacheExpiry) =>
+		middy(() => {})
+			.use(
+				appConfig({
+					AwsClient: AppConfigDataClient,
+					cacheExpiry,
+					disablePrefetch: true,
+					fetchData: pollIntervalFetchData,
+				}),
+			)
+			.before(async (request) => {
+				const values = await getInternal(["key"], request);
+				return values.key.option;
+			});
+
+	test("It should answer a refetch inside NextPollIntervalInSeconds from the cached configuration", async (t) => {
+		t.mock.timers.enable({ apis: ["Date"], now: 1790000000000 });
+		const mockService = mockPollIntervalService();
+		const handler = pollIntervalHandler(30 * 1000);
+
+		strictEqual(await handler(defaultEvent, defaultContext), "value");
+		t.mock.timers.tick(31 * 1000);
+		strictEqual(await handler(defaultEvent, defaultContext), "value");
+		strictEqual(
+			mockService.commandCalls(GetLatestConfigurationCommand).length,
+			1,
+		);
+		strictEqual(
+			mockService.commandCalls(StartConfigurationSessionCommand).length,
+			1,
+		);
+	});
+
+	test("It should poll again with the stored token once NextPollIntervalInSeconds has passed", async (t) => {
+		t.mock.timers.enable({ apis: ["Date"], now: 1790000000000 });
+		const mockService = mockPollIntervalService();
+		const handler = pollIntervalHandler(0);
+
+		strictEqual(await handler(defaultEvent, defaultContext), "value");
+		t.mock.timers.tick(60 * 1000 - 1);
+		strictEqual(await handler(defaultEvent, defaultContext), "value");
+		strictEqual(
+			mockService.commandCalls(GetLatestConfigurationCommand).length,
+			1,
+		);
+
+		t.mock.timers.tick(1);
+		strictEqual(await handler(defaultEvent, defaultContext), "newValue");
+		strictEqual(
+			mockService.commandCalls(StartConfigurationSessionCommand).length,
+			1,
+		);
+	});
+
+	test("It should poll as soon as the interval allows after an early refetch", async (t) => {
+		t.mock.timers.enable({ apis: ["Date"], now: 1790000000000 });
+		const mockService = mockPollIntervalService();
+		const handler = pollIntervalHandler(45 * 1000);
+
+		strictEqual(await handler(defaultEvent, defaultContext), "value");
+		t.mock.timers.tick(45 * 1000);
+		strictEqual(await handler(defaultEvent, defaultContext), "value");
+		t.mock.timers.tick(15 * 1000);
+		strictEqual(await handler(defaultEvent, defaultContext), "newValue");
+		strictEqual(
+			mockService.commandCalls(GetLatestConfigurationCommand).length,
+			2,
+		);
 	});
 });

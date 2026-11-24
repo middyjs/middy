@@ -7,7 +7,9 @@ import {
 } from "@aws-sdk/client-ssm";
 import {
 	assignSetToContext,
+	awsClientOptionsSchema,
 	buildSetToContextSpec,
+	cacheOptionSchemaProperties,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClientInit,
@@ -15,6 +17,7 @@ import {
 	evictCacheOnFailure,
 	jsonSafeParse,
 	processCache,
+	reservedPropertyNames,
 	sanitizeKey,
 	validateOptions,
 } from "@middy/util";
@@ -37,42 +40,46 @@ const defaults = {
 	awsRequestLimit: 10,
 };
 
+const internalKeySchema = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\x21-\x7E]+$/u,
+	not: { type: "string", enum: reservedPropertyNames },
+};
+
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:ssm:options",
+	$defs: { Function: false, Object: false },
 	type: "object",
 	properties: {
-		AwsClient: { instanceof: "Function" },
-		awsClientOptions: { type: "object" },
-		awsClientAssumeRole: { type: "string" },
-		awsClientCapture: { instanceof: "Function" },
+		AwsClient: { $ref: "#/$defs/Function" },
+		awsClientOptions: awsClientOptionsSchema,
+		awsClientAssumeRole: internalKeySchema,
+		awsClientCapture: { $ref: "#/$defs/Function" },
 		fetchData: {
 			type: "object",
-			additionalProperties: { type: "string" },
-		},
-		disablePrefetch: { type: "boolean" },
-		cacheKey: { type: "string" },
-		cacheKeyExpiry: {
-			type: "object",
+			propertyNames: internalKeySchema,
+			maxProperties: 1024,
+			required: [],
+			// "Parameter names can't contain spaces."
+			// https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_GetParameters.html
+			// https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_GetParametersByPath.html
 			additionalProperties: {
-				type: "number",
-				minimum: -1,
-				maximum: Number.MAX_SAFE_INTEGER,
+				type: "string",
+				maxLength: 2048,
+				pattern: /^[\x21-\x7E]+$/u,
 			},
+			unevaluatedProperties: false,
 		},
-		cacheExpiry: {
-			type: "number",
-			minimum: -1,
-			maximum: Number.MAX_SAFE_INTEGER,
-		},
-		cacheMaxSize: {
-			type: "integer",
-			minimum: 1,
-			maximum: Number.MAX_SAFE_INTEGER,
-		},
+		...cacheOptionSchemaProperties,
 		setToContext: { type: "boolean" },
-		contextKey: { type: "string" },
+		contextKey: internalKeySchema,
 		awsRequestLimit: { type: "integer", minimum: 1, maximum: 10 },
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const ssmValidateOptions = (options) =>

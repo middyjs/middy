@@ -1,4 +1,5 @@
 ---
+
 title: secrets-manager
 description: "Fetch and cache AWS Secrets Manager secrets in your Lambda handler context."
 ---
@@ -46,34 +47,40 @@ NOTES:
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import secretsManager from '@middy/secrets-manager'
+import middy from "@middy/core";
+import secretsManager from "@middy/secrets-manager";
 
 const lambdaHandler = (event, context) => {
-  return {}
-}
+	return {};
+};
 
 export const handler = middy()
-  .use(
-    secretsManager({
-      fetchData: {
-        apiToken: 'dev/api_token'
-      },
-      awsClientOptions: {
-        region: 'us-east-1'
-      },
-      setToContext: true
-    })
-  )
-  .handler(lambdaHandler)
+	.use(
+		secretsManager({
+			fetchData: {
+				apiToken: "dev/api_token",
+			},
+			awsClientOptions: {
+				region: "us-east-1",
+			},
+			setToContext: true,
+		}),
+	)
+	.handler(lambdaHandler);
 
 // Before running the function handler, the middleware will fetch from Secrets Manager
-const event = {}
-const context = {}
-await handler(event, context)
+const event = {};
+const context = {};
+await handler(event, context);
 // assuming the dev/api_token has two keys, 'Username' and 'Password'
-strictEqual(context.middyContext['secrets-manager'].apiToken.Username, 'username')
-strictEqual(context.middyContext['secrets-manager'].apiToken.Password, 'password')
+strictEqual(
+	context.middyContext["secrets-manager"].apiToken.Username,
+	"username",
+);
+strictEqual(
+	context.middyContext["secrets-manager"].apiToken.Password,
+	"password",
+);
 ```
 
 ## Bundling
@@ -93,38 +100,40 @@ This way TypeScript can understand how to treat the additional data attached to 
 The following example illustrates how to use `secretsManagerParam`:
 
 ```typescript
-import middy from '@middy/core'
-import { getInternal } from '@middy/util'
-import secretsManager, { secretsManagerParam } from '@middy/secrets-manager'
+import middy from "@middy/core";
+import { getInternal } from "@middy/util";
+import secretsManager, { secretsManagerParam } from "@middy/secrets-manager";
 
 const lambdaHandler = (event, context) => {
-  const response = {
-    statusCode: 200,
-    headers: {},
-    body: JSON.stringify({ message: 'hello world' })
-  }
+	const response = {
+		statusCode: 200,
+		headers: {},
+		body: JSON.stringify({ message: "hello world" }),
+	};
 
-  return response
-}
+	return response;
+};
 
 export const handler = middy()
-  .use(
-    secretsManager({
-      fetchData: {
-        someSecret: secretsManagerParam<{User: string, Password: string}>('someHiddenSecret')
-      },
-      setToContext: true
-    })
-  )
-  .before(async (request) => {
-    const data = await getInternal('someSecret', request)
-    // data.someSecret.User (string)
-    // data.someSecret.Password (string)
-    // or, since we have `setToContext: true`
-    // request.context.middyContext['secrets-manager'].someSecret.User (string)
-    // request.context.middyContext['secrets-manager'].someSecret.Password (string)
-  })
-  .handler(lambdaHandler)
+	.use(
+		secretsManager({
+			fetchData: {
+				someSecret: secretsManagerParam<{ User: string; Password: string }>(
+					"someHiddenSecret",
+				),
+			},
+			setToContext: true,
+		}),
+	)
+	.before(async (request) => {
+		const data = await getInternal("someSecret", request);
+		// data.someSecret.User (string)
+		// data.someSecret.Password (string)
+		// or, since we have `setToContext: true`
+		// request.context.middyContext['secrets-manager'].someSecret.User (string)
+		// request.context.middyContext['secrets-manager'].someSecret.Password (string)
+	})
+	.handler(lambdaHandler);
 ```
 
 ## Pairs well with

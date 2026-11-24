@@ -4,7 +4,7 @@ on:
   pull_request:
 
 env:
-  NODE_VERSION: 24.x
+  NODE_VERSION: 24.22.3
 
 permissions:
   contents: read
@@ -49,6 +49,7 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
           registry-url: https://registry.npmjs.org
       # allowed-endpoints: >
       #   registry.npmjs.org:443
@@ -57,4 +58,4 @@ jobs:
           npm ci --ignore-scripts
       - name: Linting
         run: |
-          ./node_modules/.bin/biome ci --no-errors-on-unmatched
+          npm run test:lint

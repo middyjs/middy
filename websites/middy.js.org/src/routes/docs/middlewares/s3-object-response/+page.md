@@ -1,4 +1,5 @@
 ---
+
 title: s3-object-response
 description: "Fetch S3 objects as streams and write back transformed S3 Object Lambda responses."
 ---
@@ -51,65 +52,65 @@ NOTES:
 ### Stream
 
 ```javascript
-import zlib from 'zlib'
-import middy from '@middy/core'
-import s3ObjectResponse from '@middy/s3-object-response'
-import {captureFetchGlobal} from 'aws-xray-sdk-fetch'
+import zlib from "zlib";
+import middy from "@middy/core";
+import s3ObjectResponse from "@middy/s3-object-response";
+import { captureFetchGlobal } from "aws-xray-sdk-fetch";
 
-captureFetchGlobal(true) // Enable XRay
+captureFetchGlobal(true); // Enable XRay
 
 const lambdaHandler = async (event, context) => {
-  const readStream = await context.middyContext['s3-object-response'].then(
-    (res) => res.body
-  )
-  const transformStream = zlib.createBrotliCompress()
-  return {
-    Body: readStream.pipe(transformStream)
-  }
-}
+	const readStream = await context.middyContext["s3-object-response"].then(
+		(res) => res.body,
+	);
+	const transformStream = zlib.createBrotliCompress();
+	return {
+		Body: readStream.pipe(transformStream),
+	};
+};
 
-export const handler = middy().use(s3ObjectResponse()).handler(lambdaHandler)
+export const handler = middy().use(s3ObjectResponse()).handler(lambdaHandler);
 ```
 
 ### JSON
 
 ```javascript
-import middy from '@middy/core'
-import s3ObjectResponse from '@middy/s3-object-response'
+import middy from "@middy/core";
+import s3ObjectResponse from "@middy/s3-object-response";
 
 const lambdaHandler = async (event, context) => {
-  let body = await context.middyContext['s3-object-response'].then((res) =>
-    res.json()
-  )
-  // change body
-  return {
-    Body: JSON.stringify(body),
-    ContentType: 'application/json'
-  }
-}
+	let body = await context.middyContext["s3-object-response"].then((res) =>
+		res.json(),
+	);
+	// change body
+	return {
+		Body: JSON.stringify(body),
+		ContentType: "application/json",
+	};
+};
 
-export const handler = middy().use(s3ObjectResponse()).handler(lambdaHandler)
+export const handler = middy().use(s3ObjectResponse()).handler(lambdaHandler);
 ```
 
 ### Deny the request
 
 ```javascript
-import middy from '@middy/core'
-import s3ObjectResponse from '@middy/s3-object-response'
+import middy from "@middy/core";
+import s3ObjectResponse from "@middy/s3-object-response";
 
 const lambdaHandler = async (event, context) => {
-  if (!event.userRequest.headers['x-required-token']) {
-    return {
-      StatusCode: 403,
-      ErrorCode: 'MissingRequiredToken',
-      ErrorMessage: 'The required token was not present in the request.'
-    }
-  }
-  const res = await context.middyContext['s3-object-response']
-  return { Body: res.body }
-}
+	if (!event.userRequest.headers["x-required-token"]) {
+		return {
+			StatusCode: 403,
+			ErrorCode: "MissingRequiredToken",
+			ErrorMessage: "The required token was not present in the request.",
+		};
+	}
+	const res = await context.middyContext["s3-object-response"];
+	return { Body: res.body };
+};
 
-export const handler = middy().use(s3ObjectResponse()).handler(lambdaHandler)
+export const handler = middy().use(s3ObjectResponse()).handler(lambdaHandler);
 ```
 
 ## Bundling

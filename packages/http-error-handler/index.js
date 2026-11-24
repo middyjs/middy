@@ -5,6 +5,8 @@ import {
 	isJsonStructured,
 	normalizeHttpResponse,
 	omit,
+	omitPathsSchema,
+	validateOmitPaths,
 	validateOptions,
 } from "@middy/util";
 
@@ -19,18 +21,36 @@ const defaults = {
 };
 
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:http-error-handler:options",
+	$defs: { Function: false },
 	type: "object",
 	properties: {
-		logger: { oneOf: [{ instanceof: "Function" }, { const: false }] },
-		fallbackMessage: { type: "string" },
-		omitPaths: { type: "array", items: { type: "string" } },
-		mask: { type: "string" },
+		logger: {
+			oneOf: [{ $ref: "#/$defs/Function" }, { type: "boolean", const: false }],
+		},
+		fallbackMessage: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\p{L}\p{M}\p{N}\p{P}\p{S} \t\n\r]*$/u,
+		},
+		omitPaths: omitPathsSchema,
+		mask: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\p{L}\p{N}\p{P}\p{S} ]*$/u,
+		},
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
-export const httpErrorHandlerValidateOptions = (options) =>
-	validateOptions(pkg, optionSchema, options);
+export const httpErrorHandlerValidateOptions = (options) => {
+	const validated = validateOptions(pkg, optionSchema, options);
+	validateOmitPaths(validated.omitPaths);
+	return validated;
+};
 
 // An Error `cause` keeps its `name`, its `message` and, when it has one, its
 // own `cause`, all the way down; the stack stays out. Anything that is not an
@@ -74,6 +94,12 @@ class FallbackError extends Error {
 	}
 }
 
+const isExposableHttpError = (error) =>
+	error.expose === true &&
+	Number.isInteger(error.statusCode) &&
+	error.statusCode >= 400 &&
+	error.statusCode <= 599;
+
 const httpErrorHandlerMiddleware = (opts = {}) => {
 	const { logger, fallbackMessage, omitPaths, mask } = { ...defaults, ...opts };
 
@@ -82,23 +108,34 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
 	const httpErrorHandlerMiddlewareOnError = (request) => {
 		if (typeof request.response !== "undefined") return;
 		if (typeof logger === "function") {
-			logger(omit(request, omitPathTree, mask));
+			try {
+				const logged = logger(omit(request, omitPathTree, mask));
+				if (typeof logged?.then === "function") {
+					return setErrorResponseAfterLogger(logged, request);
+				}
+			} catch (e) {
+				console.error(e);
+			}
 		}
+		setErrorResponse(request);
+	};
 
+	const setErrorResponseAfterLogger = async (logged, request) => {
+		try {
+			await logged;
+		} catch (e) {
+			console.error(e);
+		}
+		setErrorResponse(request);
+	};
+
+	const setErrorResponse = (request) => {
 		const error =
 			typeof request.error === "object" ? (request.error ?? {}) : {};
 
-		// Set default expose value, only passes in when there is an override
-		if (error.statusCode && typeof error.expose === "undefined") {
-			error.expose = error.statusCode < 500;
-		}
-
-		// Replace non-http errors (or errors with expose: false) with a generic
-		// fallback. When the guard is false, request.error already holds the http
-		// error to expose (error === request.error), so it is left untouched.
 		// The original stays reachable as `cause` for onError middleware that run
 		// after this one (those registered before it).
-		if (!error.expose || !error.statusCode) {
+		if (!isExposableHttpError(error)) {
 			request.error = new FallbackError(fallbackMessage, request.error);
 		}
 

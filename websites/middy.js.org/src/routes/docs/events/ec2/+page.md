@@ -1,4 +1,5 @@
 ---
+
 title: EC2
 description: "Use Middy with EC2 lifecycle hook and state change Lambda events."
 ---
@@ -35,14 +36,15 @@ flowchart LR
 ```
 
 ## AWS Documentation
+
 - [Using AWS Lambda with Amazon EC2](https://docs.aws.amazon.com/lambda/latest/dg/services-ec2.html)
 
 ## Example
-```javascript
-import middy from '@middy/core'
 
-export const handler = middy()
-  .handler((event, context, {signal}) => {
-    // ...
-  })
+```javascript
+import middy from "@middy/core";
+
+export const handler = middy().handler((event, context, { signal }) => {
+	// ...
+});
 ```

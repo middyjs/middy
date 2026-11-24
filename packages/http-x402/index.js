@@ -1,14 +1,18 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { normalizeHttpResponse, validateOptions } from "@middy/util";
-import { HTTPFacilitatorClient } from "@x402/core/http";
+import { HttpError, normalizeHttpResponse, validateOptions } from "@middy/util";
+import {
+	FacilitatorResponseError,
+	FacilitatorTimeoutError,
+	HTTPFacilitatorClient,
+} from "@x402/core/http";
 
 const name = "http-x402";
 const pkg = `@middy/${name}`;
 
 const defaults = {
 	FacilitatorClient: HTTPFacilitatorClient,
-	facilitatorUrl: "https://x402.org/facilitator",
+	facilitatorUrl: undefined,
 	// v1 acceptance is opt-in (smaller attack surface, no legacy facilitator
 	// path): pass `versions: [1, 2]` to also accept the X-PAYMENT v1 flow.
 	versions: [2],
@@ -24,12 +28,95 @@ const defaults = {
 	human: undefined,
 };
 
-const optionSchema = {
+const textSchema = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\p{L}\p{N}\p{P}\p{S} ]*$/u,
+};
+
+const visibleSchema = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\x21-\x7E]+$/u,
+};
+
+const decimalSchema = { type: "string", maxLength: 1024, pattern: /^\d+$/u };
+
+const httpsUrlSchema = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^https:\/\/[\x21-\x7E]+$/u,
+};
+
+// The `extra` keys of the `exact` scheme on each network, leaving out
+// `paymentFlow` and `assetTransferMethod`, which select flows this middleware
+// does not run.
+// https://github.com/coinbase/x402/tree/0e6e8c55d86b4f14234fb6e49a4052074fb93e57/specs/schemes/exact
+const extraSchema = {
 	type: "object",
 	properties: {
-		FacilitatorClient: { instanceof: "Function" },
-		facilitatorUrl: { type: "string" },
-		versions: { type: "array", items: { enum: [1, 2] } },
+		// EVM (EIP-3009) and Casper: the EIP-712 domain name and version.
+		name: { ...textSchema, minLength: 1 },
+		version: { ...textSchema, minLength: 1 },
+		// SVM, Algorand, Aptos, Concordium, Hedera and Starknet.
+		feePayer: visibleSchema,
+		// SVM: "A seller-defined UTF-8 string ... Maximum 256 bytes."
+		memo: { ...textSchema, maxLength: 256 },
+		recentBlockhash: visibleSchema,
+		// SVM: "as a decimal string".
+		lastValidBlockHeight: decimalSchema,
+		// Keeta.
+		external: visibleSchema,
+		// Stellar, TON, XRPL and Cardano.
+		areFeesSponsored: { type: "boolean" },
+		// Sui: the gas station URL.
+		gasStation: httpsUrlSchema,
+		// TON: an address, a base64-encoded cell and an amount of nanotons.
+		responseDestination: visibleSchema,
+		forwardPayload: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\w+/=-]+$/u,
+		},
+		forwardTonAmount: decimalSchema,
+		// XRPL: DestinationTag is a UInt32.
+		// https://xrpl.org/docs/references/protocol/transactions/types/payment
+		invoiceId: { ...textSchema, minLength: 1 },
+		destinationTag: { type: "integer", minimum: 0, maximum: 4294967295 },
+		issuer: visibleSchema,
+		// Cardano: "`confirmationPolicy.l1Confirmations` is an integer from `-1`
+		// through `20`".
+		confirmationPolicy: {
+			type: "object",
+			properties: {
+				l1Confirmations: { type: "integer", minimum: -1, maximum: 20 },
+			},
+			required: [],
+			additionalProperties: false,
+			unevaluatedProperties: false,
+		},
+	},
+	required: [],
+	additionalProperties: false,
+	unevaluatedProperties: false,
+};
+
+const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:http-x402:options",
+	$defs: { Function: false },
+	type: "object",
+	properties: {
+		FacilitatorClient: { $ref: "#/$defs/Function" },
+		facilitatorUrl: httpsUrlSchema,
+		versions: {
+			type: "array",
+			items: { type: "integer", enum: [1, 2] },
+			minItems: 1,
+			maxItems: 2,
+			uniqueItems: true,
+			unevaluatedItems: false,
+		},
 		price: {
 			oneOf: [
 				{
@@ -37,21 +124,39 @@ const optionSchema = {
 					exclusiveMinimum: 0,
 					maximum: Number.MAX_SAFE_INTEGER,
 				},
-				{ type: "string" },
+				{
+					type: "string",
+					maxLength: 1024,
+					pattern: /^(\d+(\.\d+)?|\.\d+)$/u,
+				},
 			],
 		},
-		amount: { type: "string" },
-		decimals: { type: "integer" },
-		network: { type: "string" },
-		payTo: { type: "string" },
-		asset: { type: "string" },
-		description: { type: "string" },
-		mimeType: { type: "string" },
-		extra: { type: "object" },
-		human: { instanceof: "Function" },
+		amount: decimalSchema,
+		// EIP-20: `function decimals() public view returns (uint8)`.
+		// https://eips.ethereum.org/EIPS/eip-20
+		decimals: { type: "integer", minimum: 0, maximum: 255 },
+		// CAIP-2: `[-a-z0-9]{3,8}` namespace, `:`, `[-_a-zA-Z0-9]{1,32}` reference.
+		// https://github.com/ChainAgnostic/CAIPs/blob/main/CAIPs/caip-2.md
+		network: {
+			type: "string",
+			maxLength: 41,
+			pattern: /^[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$/u,
+		},
+		payTo: visibleSchema,
+		asset: visibleSchema,
+		description: textSchema,
+		// RFC 6838 section 4.2: type and subtype names are at most 127 characters.
+		mimeType: {
+			type: "string",
+			maxLength: 255,
+			pattern: /^[\w.+-]{1,127}\/[\w.+-]{1,127}$/u,
+		},
+		extra: extraSchema,
+		human: { $ref: "#/$defs/Function" },
 	},
-	required: ["payTo", "asset"],
+	required: ["payTo", "asset", "facilitatorUrl"],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const httpX402ValidateOptions = (options) =>
@@ -74,6 +179,14 @@ const httpX402Middleware = (opts = {}) => {
 		extra,
 		human,
 	} = options;
+
+	// @x402/core's HTTPFacilitatorClient falls back to its default facilitator,
+	// https://x402.org/facilitator, when `url` is empty (@x402/core 2.29.0).
+	if (typeof facilitatorUrl !== "string" || facilitatorUrl === "") {
+		throw new Error(`${pkg} facilitatorUrl is required`, {
+			cause: { package: pkg },
+		});
+	}
 
 	const v1Enabled = versions.includes(1);
 	const v2Enabled = versions.includes(2);
@@ -187,6 +300,17 @@ const httpX402Middleware = (opts = {}) => {
 		return albMultiValueResponse(request);
 	};
 
+	const verifyPayment = async (payload, paymentRequirements) => {
+		try {
+			return await facilitator.verify(payload, paymentRequirements);
+		} catch (error) {
+			if (error instanceof FacilitatorResponseError) {
+				throw exposedFacilitatorGatewayError("verify", error);
+			}
+			return { isValid: false, invalidReason: verifyReason(error) };
+		}
+	};
+
 	const httpX402V2Before = async (request, paymentHeader) => {
 		// An undecodable header is treated the same as no payment at all.
 		const payload = decodeHeader(paymentHeader);
@@ -204,12 +328,7 @@ const httpX402Middleware = (opts = {}) => {
 			);
 		}
 
-		let verifyResult;
-		try {
-			verifyResult = await facilitator.verify(payload, requirements);
-		} catch (error) {
-			return respondPaymentRequired(request, verifyReason(error));
-		}
+		const verifyResult = await verifyPayment(payload, requirements);
 		if (!verifyResult.isValid) {
 			return respondPaymentRequired(request, verifyResult.invalidReason);
 		}
@@ -240,12 +359,7 @@ const httpX402Middleware = (opts = {}) => {
 		}
 
 		const requirementsV1 = buildRequirementsV1(request.event);
-		let verifyResult;
-		try {
-			verifyResult = await facilitator.verify(payload, requirementsV1);
-		} catch (error) {
-			return respondPaymentRequiredV1(request, verifyReason(error));
-		}
+		const verifyResult = await verifyPayment(payload, requirementsV1);
 		if (!verifyResult.isValid) {
 			return respondPaymentRequiredV1(request, verifyResult.invalidReason);
 		}
@@ -326,27 +440,33 @@ const httpX402Middleware = (opts = {}) => {
 		// PAYMENT-RESPONSE.
 		const responseHeader =
 			payload.x402Version === 1 ? "X-PAYMENT-RESPONSE" : "PAYMENT-RESPONSE";
-		let settleResult;
-		try {
-			settleResult = await facilitator.settle(payload, storedRequirements);
-		} catch (error) {
-			const settleResponse = {
-				success: false,
-				errorReason: settleReason(error),
-				// settlement_pending MUST carry the broadcast hash so the client
-				// can reconcile on chain; forward it when the thrown error has one.
-				transaction:
-					typeof error?.transaction === "string" ? error.transaction : "",
-				network: storedRequirements.network,
-			};
-			request.response = settlementRefused(
-				payload,
-				responseHeader,
-				settleResponse,
-				request.response,
-				multiValue,
-			);
-			return;
+		const settlePayment = async () => {
+			try {
+				return await facilitator.settle(payload, storedRequirements);
+			} catch (error) {
+				if (error instanceof FacilitatorResponseError) {
+					throw exposedFacilitatorGatewayError("settle", error);
+				}
+				return {
+					success: false,
+					errorReason: settleReason(error),
+					// settlement_pending MUST carry the broadcast hash so the client
+					// can reconcile on chain; forward it when the thrown error has one.
+					transaction:
+						typeof error?.transaction === "string" ? error.transaction : "",
+					network: storedRequirements.network,
+				};
+			}
+		};
+
+		let settleResult = await settlePayment();
+		// A `settlement_pending` failure with a transaction hash was broadcast but
+		// not confirmed. Settling the same payload again lets the facilitator
+		// reconcile against that transaction instead of broadcasting another.
+		// @x402/core's x402ResourceServer retries exactly once
+		// (`settleWithPendingRetry`, @x402/core 2.29.0).
+		if (isSettlementPending(settleResult)) {
+			settleResult = await settlePayment();
 		}
 
 		if (!settleResult.success) {
@@ -499,6 +619,25 @@ const settleReason = (error) =>
 	typeof error?.errorReason === "string"
 		? error.errorReason
 		: "unexpected_settle_error";
+
+// @x402/core raises `FacilitatorResponseError` when the facilitator's answer
+// cannot be read, and its subclass `FacilitatorTimeoutError` when the answer
+// did not come in time. The reference server rethrows both instead of
+// answering 402 (@x402/core 2.29.0, src/http/x402HTTPResourceServer.ts,
+// `processHTTPRequest` and `processSettlement`).
+const exposedFacilitatorGatewayError = (operation, error) =>
+	new HttpError(error instanceof FacilitatorTimeoutError ? 504 : 502, {
+		expose: true,
+		cause: {
+			package: pkg,
+			data: { reason: `Facilitator ${operation} failed: ${error.message}` },
+		},
+	});
+
+const isSettlementPending = (settleResult) =>
+	!settleResult.success &&
+	settleResult.errorReason === "settlement_pending" &&
+	Boolean(settleResult.transaction);
 
 const integerPattern = /^[0-9]+$/;
 

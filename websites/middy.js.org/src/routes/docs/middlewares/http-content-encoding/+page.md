@@ -1,4 +1,5 @@
 ---
+
 title: http-content-encoding
 description: "Compress HTTP response bodies with Brotli, gzip, deflate, or zstd encoding using Middy."
 ---

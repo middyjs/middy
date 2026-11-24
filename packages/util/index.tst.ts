@@ -446,16 +446,139 @@ test("resolveHttpEventVersion", () => {
 test("buildPathTree", () => {
 	const tree = util.buildPathTree(["event.headers.authorization"]);
 	expect(tree).type.toBe<util.PathTree>();
-	expect(util.buildPathTree([["event", "list", 0]])).type.toBe<util.PathTree>();
+	expect(
+		util.buildPathTree([["event", "CodePipeline.job", "data"]]),
+	).type.toBe<util.PathTree>();
+	const paths: util.OmitPath[] = ["event.Records.[].body", ["event", "a.b"]];
+	expect(util.buildPathTree(paths)).type.toBe<util.PathTree>();
+	const readonlyPaths = [["event", "a.b"], "event.c"] as const;
+	expect(util.buildPathTree(readonlyPaths)).type.toBe<util.PathTree>();
 });
 
-test("omit preserves the value type", () => {
-	const tree = util.buildPathTree(["error.cause.data.body"]);
-	expect(util.omit(sampleRequest, tree)).type.toBe<typeof sampleRequest>();
-	expect(util.omit(sampleRequest, tree, "***")).type.toBe<
-		typeof sampleRequest
-	>();
+test("buildPathTree rejects a segment that is not a string", () => {
+	expect(util.buildPathTree).type.not.toBeCallableWith([["event", "list", 0]]);
+	expect(util.buildPathTree).type.not.toBeCallableWith([0]);
+	expect<util.OmitPath>().type.toBe<string | ReadonlyArray<string>>();
+});
+
+test("omitPathsSchema is an option schema rule", () => {
+	expect(util.omitPathsSchema).type.toBe<util.ArrayRule>();
+	const schema: util.OptionSchema = {
+		type: "object",
+		properties: { omitPaths: util.omitPathsSchema },
+		additionalProperties: false,
+	};
+	expect(schema).type.toBe<util.OptionSchema>();
+});
+
+test("awsClientOptionsSchema is an option schema rule", () => {
+	expect(util.awsClientOptionsSchema).type.toBe<util.ObjectRule>();
+	const schema: util.OptionSchema = {
+		$defs: { Function: false, Object: false },
+		type: "object",
+		properties: { awsClientOptions: util.awsClientOptionsSchema },
+		additionalProperties: false,
+	};
+	expect(schema).type.toBe<util.OptionSchema>();
+});
+
+test("cacheOptionSchemaProperties spreads into properties", () => {
+	expect(
+		util.cacheOptionSchemaProperties.cacheKey,
+	).type.toBe<util.StringRule>();
+	expect(
+		util.cacheOptionSchemaProperties.cacheKeyExpiry,
+	).type.toBe<util.ObjectRule>();
+	expect(
+		util.cacheOptionSchemaProperties.cacheExpiry,
+	).type.toBe<util.NumberRule>();
+	expect(
+		util.cacheOptionSchemaProperties.cacheMaxSize,
+	).type.toBe<util.NumberRule>();
+	expect(
+		util.cacheOptionSchemaProperties.disablePrefetch,
+	).type.toBe<util.BooleanRule>();
+	const schema: util.OptionSchema = {
+		type: "object",
+		properties: { ...util.cacheOptionSchemaProperties },
+		additionalProperties: false,
+	};
+	expect(schema).type.toBe<util.OptionSchema>();
+});
+
+test("validateOmitPaths", () => {
+	expect(util.validateOmitPaths(["event.body"])).type.toBe<void>();
+	expect(util.validateOmitPaths(undefined)).type.toBe<void>();
+	const readonlyPaths = [["event", "a.b"], "event.c"] as const;
+	expect(util.validateOmitPaths(readonlyPaths)).type.toBe<void>();
+	expect(util.validateOmitPaths).type.not.toBeCallableWith([["event", 0]]);
+	expect(util.validateOmitPaths).type.not.toBeCallableWith("event.body");
+});
+
+test("pathTreeOmitsString", () => {
+	const tree = util.buildPathTree(["response.body"]);
+	expect(
+		util.pathTreeOmitsString(tree, ["response", "body"]),
+	).type.toBe<boolean>();
+	expect(
+		util.pathTreeOmitsString(undefined, ["response"]),
+	).type.toBe<boolean>();
+	const segments = ["response"] as const;
+	expect(util.pathTreeOmitsString(tree, segments)).type.toBe<boolean>();
+	expect(util.pathTreeOmitsString).type.not.toBeCallableWith(tree, "response");
+	expect(util.pathTreeOmitsString).type.not.toBeCallableWith(
+		["response"],
+		["response"],
+	);
+});
+
+test("isUnwrappedHttpResponse", () => {
+	expect(util.isUnwrappedHttpResponse({ foo: "bar" })).type.toBe<boolean>();
+	expect(util.isUnwrappedHttpResponse(undefined)).type.toBe<boolean>();
+	expect(
+		util.isUnwrappedHttpResponse(sampleRequest.response),
+	).type.toBe<boolean>();
+	expect(util.isUnwrappedHttpResponse).type.not.toBeCallableWith();
+});
+
+test("omit returns the value type when no tree is passed", () => {
 	expect(util.omit(sampleRequest)).type.toBe<typeof sampleRequest>();
+});
+
+test("omit types an Error it may have turned into a plain object", () => {
+	const tree = util.buildPathTree(["error.cause.data.body"]);
+	expect(util.omit(sampleRequest, tree)).type.toBe<
+		util.Omitted<typeof sampleRequest>
+	>();
+	const request = {
+		error: new Error("x") as Error | undefined,
+		event: { body: "" },
+	};
+	type Redacted = {
+		error: Error | util.OmittedError | undefined;
+		event: { body: string };
+	};
+	expect(util.omit(request, tree)).type.toBe<Redacted>();
+	expect(util.omit(request, tree, "***")).type.toBe<Redacted>();
+	expect(util.omit(request, undefined)).type.toBe<Redacted>();
+	expect(util.omit(new TypeError("x"), tree)).type.toBe<
+		TypeError | util.OmittedError
+	>();
+	expect(
+		util.omit({ errors: [new Error("x")], n: 1, f: (): number => 1 }, tree),
+	).type.toBe<{
+		errors: (Error | util.OmittedError)[];
+		n: number;
+		f: () => number;
+	}>();
+	expect(util.omit("s" as string, tree)).type.toBe<string>();
+	expect(util.omit(sampleRequest as unknown, tree)).type.toBe<unknown>();
+	expect<util.OmittedError>().type.not.toBeAssignableTo<Error>();
+	expect<util.OmittedError>().type.toHaveProperty("name");
+});
+
+test("reservedPropertyNames is a readonly list of names", () => {
+	expect(util.reservedPropertyNames).type.toBe<readonly string[]>();
 });
 
 test("validateOptions returns the options it validated", () => {
@@ -468,6 +591,207 @@ test("validateOptions returns the options it validated", () => {
 	expect(util.validateOptions("@middy/test", schema, options)).type.toBe<{
 		name: string;
 	}>();
+	expect(util.validateOptions("@middy/test", schema)).type.toBe<
+		Record<string, unknown>
+	>();
+});
+
+test("option schema rules declare the size keywords", () => {
+	expect<util.ArrayRule>().type.toHaveProperty("minItems");
+	expect<util.ArrayRule>().type.toHaveProperty("maxItems");
+	expect<util.ObjectRule>().type.toHaveProperty("maxProperties");
+	expect<util.ArrayRule>().type.toHaveProperty("uniqueItems");
+	const schema: util.OptionSchema = {
+		type: "object",
+		properties: {
+			topics: {
+				type: "array",
+				items: { type: "string" },
+				minItems: 1,
+				maxItems: 5,
+			},
+			dimensions: {
+				type: "object",
+				additionalProperties: { type: "string" },
+				maxProperties: 30,
+			},
+		},
+		additionalProperties: false,
+	};
+	expect(util.validateOptions("@middy/test", schema)).type.toBe<
+		Record<string, unknown>
+	>();
+});
+
+test("a rule may carry constraints next to const, enum, oneOf, allOf and $ref", () => {
+	const schema: util.OptionSchema = {
+		$defs: { Array: false },
+		type: "object",
+		properties: {
+			mode: { type: "string", enum: ["a", "b"], minLength: 1 },
+			level: { type: "integer", const: 5, minimum: 1 },
+			path: { type: "string", allOf: [{ type: "string", pattern: /^\//u }] },
+			list: { type: "array", $ref: "#/$defs/Array", minItems: 1 },
+			target: {
+				type: "object",
+				properties: { x: { type: "string" } },
+				additionalProperties: false,
+				oneOf: [{ type: "object", required: ["x"] }],
+			},
+			either: { oneOf: [{ type: "string" }, { type: "array" }], minItems: 1 },
+		},
+		additionalProperties: false,
+	};
+	expect(schema).type.toBeAssignableTo<util.ObjectRule>();
+});
+
+test("option schema rules declare the sast-json-schema keywords", () => {
+	expect<util.ArrayRule["uniqueItems"]>().type.toBe<boolean | undefined>();
+	expect<util.ArrayRule["unevaluatedItems"]>().type.toBe<false | undefined>();
+	expect<util.ObjectRule["unevaluatedProperties"]>().type.toBe<
+		false | undefined
+	>();
+	expect<util.ObjectRule["propertyNames"]>().type.toBe<
+		util.OptionSchemaRule | undefined
+	>();
+	expect<util.ObjectRule["required"]>().type.toBe<
+		readonly string[] | undefined
+	>();
+	expect<util.NumberRule["exclusiveMaximum"]>().type.toBe<number | undefined>();
+	expect<util.RefRule["$ref"]>().type.toBe<`#/$defs/${string}`>();
+	expect<util.RefRule>().type.toBeAssignableTo<util.OptionSchemaRule>();
+	expect<{
+		$ref: "#/definitions/Function";
+	}>().type.not.toBeAssignableTo<util.RefRule>();
+	expect<{
+		instanceof: "Function";
+	}>().type.not.toBeAssignableTo<util.OptionSchemaRule>();
+});
+
+test("OptionSchema is the root of an option schema", () => {
+	const schema: util.OptionSchema = {
+		$schema: "https://json-schema.org/draft/2020-12/schema",
+		$id: "urn:middy:test:options",
+		$defs: { Function: false },
+		type: "object",
+		properties: {
+			handler: { $ref: "#/$defs/Function" },
+			name: { type: "string", pattern: /^[a-z]+$/u, maxLength: 64 },
+			routes: {
+				type: "array",
+				items: { $ref: "#/$defs/Function" },
+				maxItems: 10,
+				uniqueItems: true,
+				unevaluatedItems: false,
+			},
+			tags: {
+				type: "object",
+				additionalProperties: {
+					type: "string",
+					maxLength: 64,
+					pattern: /^.$/u,
+				},
+				unevaluatedProperties: false,
+				propertyNames: { type: "string", maxLength: 64, pattern: /^[a-z]$/u },
+				maxProperties: 10,
+				required: [],
+			},
+			ratio: { type: "number", minimum: 0, exclusiveMaximum: 1 },
+		},
+		required: [],
+		additionalProperties: false,
+		unevaluatedProperties: false,
+	};
+	expect(util.validateOptions("@middy/test", schema)).type.toBe<
+		Record<string, unknown>
+	>();
+	expect<util.OptionSchema["$schema"]>().type.toBe<
+		"https://json-schema.org/draft/2020-12/schema" | undefined
+	>();
+	expect<util.OptionSchema["$id"]>().type.toBe<string | undefined>();
+	expect<util.OptionSchema["$defs"]>().type.toBe<
+		Record<string, false> | undefined
+	>();
+	expect<util.OptionSchema>().type.toBeAssignableTo<util.ObjectRule>();
+});
+
+test("type may be null or a list of type names", () => {
+	expect<util.JsonSchemaType>().type.toBe<
+		"string" | "number" | "integer" | "boolean" | "null" | "object" | "array"
+	>();
+	expect<util.TypeListRule["type"]>().type.toBe<
+		readonly util.JsonSchemaType[]
+	>();
+	expect<util.EnumRule["type"]>().type.toBe<
+		util.JsonSchemaType | readonly util.JsonSchemaType[] | undefined
+	>();
+	expect<{ type: "null" }>().type.toBeAssignableTo<util.OptionSchemaRule>();
+	expect<{
+		type: "string";
+		pattern: string;
+	}>().type.not.toBeAssignableTo<util.OptionSchemaRule>();
+	expect<{
+		type: "string";
+		pattern: RegExp;
+		not: { type: "string"; enum: readonly string[] };
+	}>().type.toBeAssignableTo<util.OptionSchemaRule>();
+	expect<{
+		type: ["string", "bigint"];
+	}>().type.not.toBeAssignableTo<util.OptionSchemaRule>();
+	const header = {
+		type: "string",
+		maxLength: 8,
+		pattern: /^[a-z]+$/u,
+	} as const;
+	const schema: util.OptionSchema = {
+		type: "object",
+		properties: {
+			defaultHeaders: {
+				type: ["string", "array"],
+				maxLength: 8,
+				pattern: /^[a-z]+$/u,
+				items: header,
+				maxItems: 2,
+				uniqueItems: true,
+				unevaluatedItems: false,
+			},
+			expectedClaims: {
+				type: ["string", "number", "boolean"],
+				minimum: 0,
+				maximum: 100,
+				maxLength: 8,
+				pattern: /^[a-z]+$/u,
+			},
+			nothing: { type: ["string", "null"] },
+		},
+		additionalProperties: false,
+	};
+	expect(util.validateOptions("@middy/test", schema)).type.toBe<
+		Record<string, unknown>
+	>();
+});
+
+test("ObjectRule declares patternProperties", () => {
+	expect<util.ObjectRule["patternProperties"]>().type.toBe<
+		Record<string, util.OptionSchemaRule> | undefined
+	>();
+	const tag = /^[A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8}){0,127}$/u;
+	const schema: util.OptionSchema = {
+		$defs: { Function: false },
+		type: "object",
+		properties: {
+			languages: {
+				type: "object",
+				patternProperties: { [tag.source]: { $ref: "#/$defs/Function" } },
+				propertyNames: { type: "string", maxLength: 1024, pattern: tag },
+				maxProperties: 1024,
+				additionalProperties: false,
+				required: [],
+				unevaluatedProperties: false,
+			},
+		},
+		additionalProperties: false,
+	};
 	expect(util.validateOptions("@middy/test", schema)).type.toBe<
 		Record<string, unknown>
 	>();

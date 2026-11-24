@@ -5,8 +5,8 @@ import {
 	ApiGatewayManagementApiClient,
 	PostToConnectionCommand,
 } from "@aws-sdk/client-apigatewaymanagementapi";
+import middy from "@middy/core";
 import { mockClient } from "aws-sdk-client-mock";
-import middy from "../core/index.js";
 
 import wsResponse, { wsResponseValidateOptions } from "./index.js";
 
@@ -519,47 +519,98 @@ describe("@middy/ws-response", () => {
 		deepStrictEqual(response, { statusCode: 200 });
 	});
 
-	test("It leaves a response carrying only ConnectionId unwrapped", async (t) => {
-		const client = mockClient(ApiGatewayManagementApiClient);
-		let sentInput;
-		client.on(PostToConnectionCommand).callsFake(async (input) => {
-			sentInput = input;
-			return { statusCode: 200 };
-		});
+	const postSpy = () => {
+		const spy = { sent: [], clients: 0 };
+		mockClient(ApiGatewayManagementApiClient)
+			.on(PostToConnectionCommand)
+			.callsFake(async (input) => {
+				spy.sent.push(input);
+				return { statusCode: 200 };
+			});
+		spy.AwsClient = class extends ApiGatewayManagementApiClient {
+			constructor(config) {
+				super(config);
+				spy.clients += 1;
+			}
+		};
+		return spy;
+	};
+	const messageEvent = {
+		requestContext: {
+			domainName: "d.example.com",
+			stage: "production",
+			connectionId: "conn-event",
+		},
+	};
 
-		// Response already has a ConnectionId (but no Data): it must NOT be re-wrapped
-		// into { Data: JSON.stringify(response) }. No Data key should appear.
+	test("It should not post when the handler returns only a ConnectionId", async (t) => {
+		const spy = postSpy();
 		const handler = middy(() => ({ ConnectionId: "explicit-conn" })).use(
-			wsResponse({ AwsClient: ApiGatewayManagementApiClient }),
+			wsResponse({ AwsClient: spy.AwsClient }),
 		);
 
-		const event = {
-			requestContext: {
-				domainName: "d.example.com",
-				stage: "production",
-				connectionId: "ignored",
-			},
-		};
-		await handler(event, defaultContext);
+		const response = await handler(messageEvent, defaultContext);
 
-		strictEqual(sentInput.ConnectionId, "explicit-conn");
-		strictEqual(Object.hasOwn(sentInput, "Data"), false);
+		deepStrictEqual(spy.sent, []);
+		strictEqual(spy.clients, 0);
+		deepStrictEqual(response, { ConnectionId: "explicit-conn" });
 	});
 
-	test("It normalizes an undefined response to {} when a connectionId exists", async (t) => {
+	test("It should not post when the handler returns a null Data", async (t) => {
+		for (const result of [
+			{ Data: null },
+			{ Data: null, ConnectionId: "explicit-conn" },
+		]) {
+			const spy = postSpy();
+			const expected = { ...result };
+			const handler = middy(() => result).use(
+				wsResponse({ AwsClient: spy.AwsClient }),
+			);
+
+			const response = await handler(messageEvent, defaultContext);
+
+			deepStrictEqual(spy.sent, []);
+			strictEqual(spy.clients, 0);
+			deepStrictEqual(response, expected);
+		}
+	});
+
+	test("It should still post an empty Data", async (t) => {
+		for (const [result, data] of [
+			[{ Data: "" }, ""],
+			["", ""],
+			[{ Data: new Uint8Array(0) }, new Uint8Array(0)],
+		]) {
+			const spy = postSpy();
+			const handler = middy(() => result).use(
+				wsResponse({ AwsClient: spy.AwsClient }),
+			);
+
+			const response = await handler(messageEvent, defaultContext);
+
+			strictEqual(spy.sent.length, 1);
+			deepStrictEqual(spy.sent[0], { Data: data, ConnectionId: "conn-event" });
+			deepStrictEqual(response, { statusCode: 200 });
+		}
+	});
+
+	test("It should not post when the handler returns undefined, even with a connectionId", async (t) => {
 		const client = mockClient(ApiGatewayManagementApiClient);
-		let sentInput;
-		let called = false;
+		const sent = [];
 		client.on(PostToConnectionCommand).callsFake(async (input) => {
-			sentInput = input;
-			called = true;
+			sent.push(input);
 			return { statusCode: 200 };
 		});
+		let clients = 0;
+		class CountingClient extends ApiGatewayManagementApiClient {
+			constructor(config) {
+				super(config);
+				clients += 1;
+			}
+		}
 
-		// Handler returns undefined but the event carries a connectionId, so the
-		// undefined response is normalized to {} and ConnectionId is injected.
 		const handler = middy(() => undefined).use(
-			wsResponse({ AwsClient: ApiGatewayManagementApiClient }),
+			wsResponse({ AwsClient: CountingClient }),
 		);
 
 		const event = {
@@ -571,12 +622,9 @@ describe("@middy/ws-response", () => {
 		};
 		const response = await handler(event, defaultContext);
 
-		ok(called);
-		strictEqual(sentInput.ConnectionId, "conn-undef");
-		// An undefined response is normalized to {} (no Data key at all), NOT wrapped
-		// into { Data: JSON.stringify(undefined) }. The Data property must be absent.
-		strictEqual(Object.hasOwn(sentInput, "Data"), false);
-		deepStrictEqual(response, { statusCode: 200 });
+		deepStrictEqual(sent, []);
+		strictEqual(clients, 0);
+		strictEqual(response, undefined);
 	});
 
 	test("wsResponseValidateOptions accepts valid options and rejects typos", () => {
@@ -1014,6 +1062,51 @@ describe("@middy/ws-response", () => {
 				["https://d.example.com", { accessKeyId: "b" }],
 				["https://d.example.com", { accessKeyId: "c" }],
 			],
+		);
+	});
+
+	const expectSharedOptionError = (options, messagePart) => {
+		let error;
+		try {
+			wsResponseValidateOptions(options);
+		} catch (e) {
+			error = e;
+		}
+		ok(error instanceof TypeError, `expected a TypeError for ${messagePart}`);
+		strictEqual(error.cause.package, "@middy/ws-response");
+		ok(error.message.includes(messagePart), error.message);
+	};
+
+	test("wsResponseValidateOptions validates awsClientOptions keys against the AWS SDK client config", () => {
+		wsResponseValidateOptions({
+			awsClientOptions: {
+				region: "us-east-1",
+				endpoint: "https://example.com",
+				credentials: async () => ({
+					accessKeyId: "AKID",
+					secretAccessKey: "secret",
+				}),
+			},
+		});
+		expectSharedOptionError(
+			{ awsClientOptions: { regoin: "us-east-1" } },
+			"awsClientOptions.regoin",
+		);
+	});
+
+	test("wsResponseValidateOptions validates awsClientAssumeRole as an internal key name", () => {
+		wsResponseValidateOptions({
+			awsClientAssumeRole: "@middy/sts.role-arn:a/b_1!",
+		});
+		wsResponseValidateOptions({ awsClientAssumeRole: "k".repeat(1024) });
+		expectSharedOptionError(
+			{ awsClientAssumeRole: "k".repeat(1025) },
+			"awsClientAssumeRole",
+		);
+		expectSharedOptionError({ awsClientAssumeRole: "" }, "awsClientAssumeRole");
+		expectSharedOptionError(
+			{ awsClientAssumeRole: "a b" },
+			"awsClientAssumeRole",
 		);
 	});
 });

@@ -8,6 +8,19 @@ import type { Context as LambdaContext } from "aws-lambda";
 export type ParamType<T> = string & { __returnType?: T };
 export declare function rdsSignerParam<T>(name: string): ParamType<T>;
 
+/**
+ * The signer config for one token. `hostname`, `port` and `username` may be
+ * left out: each falls back to `PGHOST` / `PGPORT` / `PGUSER` (or `DBHOST` /
+ * `DBPORT` / `DBUSER`), then to `awsClientOptions`, and `port` finally to
+ * 5432. A `hostname` or `username` found in none of them throws at
+ * construction.
+ */
+export type RdsSignerFetchConfig = Omit<
+	SignerConfig,
+	"hostname" | "port" | "username"
+> &
+	Partial<Pick<SignerConfig, "hostname" | "port" | "username">>;
+
 // The signer is constructed directly rather than through `createClient`, so
 // assume-role and X-Ray capture are not honoured.
 export type RdsSignerOptions<AwsSigner = Signer> = Omit<
@@ -15,7 +28,7 @@ export type RdsSignerOptions<AwsSigner = Signer> = Omit<
 	"fetchData" | "awsClientAssumeRole" | "awsClientCapture"
 > & {
 	fetchData?: {
-		[key: string]: SignerConfig;
+		[key: string]: RdsSignerFetchConfig;
 	};
 };
 

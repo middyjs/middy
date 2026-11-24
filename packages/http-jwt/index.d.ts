@@ -16,6 +16,11 @@ export interface IssuerConfig {
 	 * check. One of the two is required (RFC 9068 section 4).
 	 */
 	audience?: string | string[] | null;
+	/**
+	 * Overrides the top-level `algorithm` for this issuer. An `HS*` algorithm is
+	 * refused, here or inherited: a key published in a JWKS is not a secret (RFC
+	 * 7517 section 9.2). HMAC secrets go through `internalKey`.
+	 */
 	algorithm?: string | string[];
 	/** Overrides the top-level `typ` for this issuer; `null` disables the check. */
 	typ?: string | null;
@@ -28,9 +33,16 @@ export interface Options {
 	tokenHeaderName?: string;
 	tokenQueryStringName?: string;
 	algorithm?: string | string[];
-	/** Expected `aud`. `null` disables the check. Required for `issuers` unless every entry sets its own. */
+	/**
+	 * Expected `aud`. `null` disables the check. Required with `internalKey`,
+	 * and with `issuers` unless every entry sets its own (RFC 9068 section 4).
+	 */
 	audience?: string | string[] | null;
-	issuer?: string | string[];
+	/**
+	 * Expected `iss`. `null` disables the check. Required with `internalKey`
+	 * (RFC 9068 section 4); ignored with `issuers`, whose keys name the issuers.
+	 */
+	issuer?: string | string[] | null;
 	/**
 	 * Expected JWS `typ` header (RFC 9068 section 4). Defaults to "at+jwt";
 	 * `null` disables the check. Compared case-insensitively, with an optional

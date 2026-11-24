@@ -1,4 +1,5 @@
 ---
+
 title: Streamify Response
 description: "Stream Lambda responses progressively using Middy with Function URLs and API Gateway."
 position: 5
@@ -20,34 +21,38 @@ Any other body type throws before a byte is written, so no half-sent `200` reach
 ## Lambda Function URL Example
 
 ```javascript
-import middy from '@middy/core'
-import { executionModeStreamifyResponse } from '@middy/core/StreamifyResponse'
-import { createReadableStream } from '@datastream/core'
+import middy from "@middy/core";
+import { executionModeStreamifyResponse } from "@middy/core/StreamifyResponse";
+import { createReadableStream } from "@datastream/core";
 
 const lambdaHandler = (event, context) => {
-  return {
-    statusCode: 200,
-    headers: {
-      'Content-Type': 'text/csv'
-    },
-    body: createReadableStream('...') // or string
-  }
-}
+	return {
+		statusCode: 200,
+		headers: {
+			"Content-Type": "text/csv",
+		},
+		body: createReadableStream("..."), // or string
+	};
+};
 
-export const handler = middy({ executionMode: executionModeStreamifyResponse }).handler(lambdaHandler)
+export const handler = middy({
+	executionMode: executionModeStreamifyResponse,
+}).handler(lambdaHandler);
 ```
 
 ## Lambda InvokeWithResponseStream Example
 
 ```javascript
-import middy from '@middy/core'
-import { executionModeStreamifyResponse } from '@middy/core/StreamifyResponse'
-import { createReadableStream } from '@datastream/core'
+import middy from "@middy/core";
+import { executionModeStreamifyResponse } from "@middy/core/StreamifyResponse";
+import { createReadableStream } from "@datastream/core";
 
 const lambdaHandler = (event, context) => {
-  return createReadableStream('...') // or string
-}
-export const handler = middy({ executionMode: executionModeStreamifyResponse }).handler(lambdaHandler)
+	return createReadableStream("..."); // or string
+};
+export const handler = middy({
+	executionMode: executionModeStreamifyResponse,
+}).handler(lambdaHandler);
 ```
 
 ### Requesting Lambda

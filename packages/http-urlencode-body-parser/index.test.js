@@ -1,6 +1,6 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { describe, test } from "node:test";
-import middy from "../core/index.js";
+import middy from "@middy/core";
 import urlEncodeBodyParser, {
 	httpUrlencodeBodyParserValidateOptions,
 } from "./index.js";
@@ -216,6 +216,32 @@ describe("@middy/http-urlencode-body-parser", () => {
 		// querystring.parse returns null-prototype object, so __proto__ is just a key, not a prototype setter
 		strictEqual({}.polluted, undefined);
 		strictEqual(Object.getPrototypeOf(body), null);
+	});
+
+	test("It should keep a field named __proto__ as an own key", async (t) => {
+		const handler = middy((event) => {
+			return event.body;
+		});
+
+		handler.use(urlEncodeBodyParser());
+
+		const body = await handler(
+			{
+				headers: {
+					"Content-Type": "application/x-www-form-urlencoded",
+				},
+				body: "__proto__=a&%5F%5Fproto%5F%5F=b&foo=bar",
+			},
+			defaultContext,
+		);
+
+		strictEqual(Object.getPrototypeOf(body), null);
+		deepStrictEqual(Object.getOwnPropertyDescriptor(body, "__proto__").value, [
+			"a",
+			"b",
+		]);
+		strictEqual(body.foo, "bar");
+		strictEqual({}[0], undefined);
 	});
 
 	test("It should not pollute prototype with constructor key in body", async (t) => {

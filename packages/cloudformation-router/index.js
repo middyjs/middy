@@ -22,24 +22,32 @@ const requestTypes = ["Create", "Update", "Delete"];
 const requestTypesSet = new Set(requestTypes);
 
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:cloudformation-router:options",
+	$defs: { Function: false },
 	type: "object",
 	properties: {
 		routes: {
 			type: "array",
-			uniqueItems: true,
 			items: {
 				type: "object",
-				required: ["requestType", "handler"],
 				properties: {
 					requestType: { type: "string", enum: requestTypes },
-					handler: { instanceof: "Function" },
+					handler: { $ref: "#/$defs/Function" },
 				},
+				required: ["requestType", "handler"],
 				additionalProperties: false,
+				unevaluatedProperties: false,
 			},
+			maxItems: requestTypes.length,
+			uniqueItems: true,
+			unevaluatedItems: false,
 		},
-		notFoundResponse: { instanceof: "Function" },
+		notFoundResponse: { $ref: "#/$defs/Function" },
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const cloudformationRouterValidateOptions = (options) =>
@@ -57,6 +65,11 @@ const cloudformationCustomResourceRouteHandler = (opts = {}) => {
 		const { requestType, handler } = route;
 		if (!requestTypesSet.has(requestType)) {
 			throw new Error("Invalid route", {
+				cause: { package: pkg, data: { requestType } },
+			});
+		}
+		if (requestType in routesStatic) {
+			throw new Error("Duplicate route", {
 				cause: { package: pkg, data: { requestType } },
 			});
 		}

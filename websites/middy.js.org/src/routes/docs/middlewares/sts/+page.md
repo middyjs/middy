@@ -1,4 +1,5 @@
 ---
+
 title: sts
 description: "Assume IAM roles and fetch STS credentials for cross-account access in Lambda."
 ---
@@ -39,31 +40,31 @@ NOTES:
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import sts from '@middy/sts'
+import middy from "@middy/core";
+import sts from "@middy/sts";
 
 const lambdaHandler = (event, context) => {
-  const response = {
-    statusCode: 200,
-    headers: {},
-    body: JSON.stringify({ message: 'hello world' })
-  }
+	const response = {
+		statusCode: 200,
+		headers: {},
+		body: JSON.stringify({ message: "hello world" }),
+	};
 
-  return response
-}
+	return response;
+};
 
 export const handler = middy()
-  .use(
-    sts({
-      fetchData: {
-        assumeRole: {
-          RoleArn: '...',
-          RoleSessionName: '' // optional
-        }
-      }
-    })
-  )
-  .handler(lambdaHandler)
+	.use(
+		sts({
+			fetchData: {
+				assumeRole: {
+					RoleArn: "...",
+					RoleSessionName: "", // optional
+				},
+			},
+		}),
+	)
+	.handler(lambdaHandler);
 ```
 
 ## Bundling

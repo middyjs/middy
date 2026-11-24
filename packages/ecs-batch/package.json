@@ -71,7 +71,9 @@
 		"pollAmq.js",
 		"pollAmq.d.ts",
 		"pollRmq.js",
-		"pollRmq.d.ts"
+		"pollRmq.d.ts",
+		"pollHelpers.js",
+		"pollHelpers.d.ts"
 	],
 	"scripts": {
 		"test": "npm run test:unit && npm run test:fuzz",

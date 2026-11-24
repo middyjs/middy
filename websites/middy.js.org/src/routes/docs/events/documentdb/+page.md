@@ -1,4 +1,5 @@
 ---
+
 title: DocumentDB
 description: "Use Middy with Amazon DocumentDB change stream Lambda events."
 ---
@@ -30,9 +31,9 @@ flowchart LR
 ## Example
 
 ```javascript
-import middy from '@middy/core'
+import middy from "@middy/core";
 
 export const handler = middy().handler((event, context, { signal }) => {
-  // ...
-})
+	// ...
+});
 ```

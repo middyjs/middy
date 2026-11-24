@@ -12,10 +12,13 @@ import { STATUS_CODES } from "node:http";
 import { Readable, Writable } from "node:stream";
 import { describe, test } from "node:test";
 import middy from "@middy/core";
+import { analyze } from "sast-json-schema/cli";
 import {
 	assignSetToContext,
+	awsClientOptionsSchema,
 	buildPathTree,
 	buildSetToContextSpec,
+	cacheOptionSchemaProperties,
 	canPrefetch,
 	catchInvalidSignatureException,
 	clearCache,
@@ -30,6 +33,7 @@ import {
 	HttpError,
 	isExecutionModeDurable,
 	isJsonStructured,
+	isUnwrappedHttpResponse,
 	jsonContentTypePattern,
 	jsonParseProtectProto,
 	jsonSafeParse,
@@ -37,13 +41,24 @@ import {
 	modifyCache,
 	normalizeHttpResponse,
 	omit,
+	omitPathsSchema,
+	pathTreeOmitsString,
 	processCache,
 	resolveHttpEventVersion,
 	sanitizeKey,
 	setCacheKeyExpiry,
 	setContextNamespace,
+	validateOmitPaths,
 	validateOptions,
 } from "./index.js";
+
+// sast-json-schema reads JSON Schema, where `pattern` is a source string.
+const toJsonSchema = (schema) =>
+	JSON.parse(
+		JSON.stringify(schema, (key, value) =>
+			value instanceof RegExp ? value.source : value,
+		),
+	);
 
 process.env.AWS_REGION = "ca-central-1";
 
@@ -280,6 +295,13 @@ describe("@middy/util", () => {
 		test("canPrefetch should not prefetch with assume role set", async (t) => {
 			const prefetch = canPrefetch({
 				awsClientAssumeRole: "admin",
+			});
+			strictEqual(prefetch, false);
+		});
+
+		test("canPrefetch should not prefetch when awsClientCapture is set", async (t) => {
+			const prefetch = canPrefetch({
+				awsClientCapture: (client) => client,
 			});
 			strictEqual(prefetch, false);
 		});
@@ -2111,6 +2133,21 @@ describe("@middy/util", () => {
 		clearCache();
 	});
 
+	test("processCache without a cacheExpiry returns a finite (now) expiry", async (t) => {
+		const fetchRequest = t.mock.fn(() => "value");
+		t.mock.timers.tick(500);
+		for (const cacheExpiry of [undefined, null]) {
+			const result = processCache(
+				{ cacheKey: "no-expiry-value", cacheExpiry },
+				fetchRequest,
+				{ internal: {} },
+			);
+			deepStrictEqual(result, { value: "value", expiry: 500 });
+		}
+		strictEqual(getCache("no-expiry-value").value, undefined);
+		clearCache();
+	});
+
 	test("normalizeHttpResponse does not wrap a response that already has statusCode", async (t) => {
 		// A response object with a statusCode (but no body/headers) must NOT be
 		// treated as a raw body and wrapped.
@@ -2994,19 +3031,58 @@ describe("@middy/util", () => {
 			strictEqual(result, captured);
 		});
 
-		test("warns and returns raw client when capture but not disablePrefetch", () => {
-			let warned = 0;
-			const original = console.warn;
-			console.warn = () => {
-				warned++;
+		test("builds and captures the client inside the invocation when awsClientCapture is set", async (t) => {
+			const warn = t.mock.method(console, "warn", () => {});
+			let built = 0;
+			const AwsClient = class {
+				constructor() {
+					built += 1;
+				}
 			};
+			const captured = [];
+			const options = {
+				AwsClient,
+				awsClientCapture: (raw) => {
+					const wrapped = { raw };
+					captured.push(wrapped);
+					return wrapped;
+				},
+			};
+			let client;
+			const used = [];
+			const clientInit = createClientInit(options);
+			if (canPrefetch(options)) {
+				client = createPrefetchClient(options);
+			}
+			strictEqual(built, 0);
+			const handler = middy()
+				.before(async (request) => {
+					client ??= await clientInit(request);
+					used.push(client);
+				})
+				.handler(() => {});
+			await handler({}, {});
+			await handler({}, {});
+			strictEqual(built, 1);
+			strictEqual(captured.length, 1);
+			strictEqual(used.length, 2);
+			strictEqual(used[0], captured[0]);
+			strictEqual(used[1], captured[0]);
+			strictEqual(warn.mock.callCount(), 0);
+		});
+
+		test("returns the captured client without a warning when prefetch is not disabled", (t) => {
+			const warn = t.mock.method(console, "warn", () => {});
+			const captured = { id: "captured" };
 			const result = createPrefetchClient({
 				AwsClient: RawClient,
-				awsClientCapture: () => ({ id: "captured" }),
+				awsClientCapture: (client) => {
+					strictEqual(client.id, "raw");
+					return captured;
+				},
 			});
-			console.warn = original;
-			strictEqual(result.id, "raw");
-			strictEqual(warned, 1);
+			strictEqual(result, captured);
+			strictEqual(warn.mock.callCount(), 0);
 		});
 
 		test("returns raw client when no capture configured (no warning)", () => {
@@ -3019,23 +3095,6 @@ describe("@middy/util", () => {
 			console.warn = original;
 			strictEqual(result.id, "raw");
 			strictEqual(warned, 0);
-		});
-
-		test("warning message names the X-Ray scoping limitation", () => {
-			let message;
-			const original = console.warn;
-			console.warn = (m) => {
-				message = m;
-			};
-			createPrefetchClient({
-				AwsClient: RawClient,
-				awsClientCapture: () => ({}),
-			});
-			console.warn = original;
-			strictEqual(
-				message,
-				"Unable to apply X-Ray outside of handler invocation scope.",
-			);
 		});
 	});
 
@@ -3211,11 +3270,43 @@ describe("@middy/util", () => {
 				},
 			});
 		});
-		test("accepts non-string segments in an array path", () => {
-			const tree = buildPathTree([["event", "list", 0]]);
-			deepStrictEqual(omit({ event: { list: { 0: "s", 1: "t" } } }, tree), {
-				event: { list: { 1: "t" } },
+		test("an array path names each key literally", () => {
+			const tree = buildPathTree([
+				["event", "CodePipeline.job", "data", "artifactCredentials"],
+				["event", "a[0]"],
+				["event", "*"],
+				["event", "0"],
+				["event", "Records", "[]", "x.y"],
+			]);
+			const event = {
+				"CodePipeline.job": {
+					id: "1",
+					data: { artifactCredentials: { secretAccessKey: "s" }, keep: 1 },
+				},
+				"a[0]": "s",
+				"*": "s",
+				0: "s",
+				Records: [{ "x.y": "s", keep: 2 }],
+			};
+			deepStrictEqual(omit({ event }, tree), {
+				event: {
+					"CodePipeline.job": { id: "1", data: { keep: 1 } },
+					Records: [{ keep: 2 }],
+				},
 			});
+		});
+		test("rejects an array path with a segment that is not a string", () => {
+			for (const [path, segment] of [
+				[["event", "Records", 0, "body"], "0"],
+				[["event", null], "null"],
+				[[["event"], "body"], '["event"]'],
+			]) {
+				throws(() => buildPathTree(["keep", path]), {
+					name: "TypeError",
+					message: `Invalid path ${JSON.stringify(path)}: segment ${segment} must be a string. Use "[]" to match every element of an array, or a string to match that key literally`,
+					cause: { package: "@middy/util", data: { path } },
+				});
+			}
 		});
 		test("masks every key that differs only by case when none matches exactly", () => {
 			const tree = buildPathTree(["a.token"]);
@@ -3230,13 +3321,62 @@ describe("@middy/util", () => {
 			// The length check keeps a large batch cheap: a key that cannot match
 			// is rejected without being lower-cased.
 			const tree = buildPathTree(["records.[].body"]);
-			const obj = { records: [{ Body: "s", MessageId: "m", Attributes: {} }] };
+			const obj = {
+				records: [
+					{ Body: "s", MessageId: "m", Attributes: {}, Md5: "x", Id: 1, B: 2 },
+				],
+			};
 			const toLowerCase = t.mock.method(String.prototype, "toLowerCase");
 			const result = omit(obj, tree, "**");
 			strictEqual(toLowerCase.mock.callCount(), 1);
 			strictEqual(toLowerCase.mock.calls[0].this, "Body");
 			deepStrictEqual(result, {
-				records: [{ Body: "**", MessageId: "m", Attributes: {} }],
+				records: [
+					{ Body: "**", MessageId: "m", Attributes: {}, Md5: "x", Id: 1, B: 2 },
+				],
+			});
+		});
+		test("matches a key whose lower-case form is longer than the key", (t) => {
+			const tree = buildPathTree(["event.\u0130d", "event.\u0130\u0130.x"]);
+			const obj = {
+				event: {
+					"\u0130d": "one unit shorter",
+					"i\u0307d": "same length",
+					"\u0130\u0130": { x: 1, y: 2 },
+					"\u0130i\u0307": { x: 1, y: 2 },
+					x: "too short to match",
+					keep: 1,
+				},
+			};
+			const toLowerCase = t.mock.method(String.prototype, "toLowerCase");
+			const result = omit(obj, tree, "**");
+			const lowerCased = toLowerCase.mock.calls.map((call) => call.this);
+			t.mock.restoreAll();
+			deepStrictEqual(result, {
+				event: {
+					"\u0130d": "**",
+					"i\u0307d": "**",
+					"\u0130\u0130": { x: "**", y: 2 },
+					"\u0130i\u0307": { x: "**", y: 2 },
+					x: "too short to match",
+					keep: 1,
+				},
+			});
+			deepStrictEqual(lowerCased, [
+				"\u0130d",
+				"\u0130\u0130",
+				"y",
+				"\u0130i\u0307",
+				"y",
+				"keep",
+			]);
+			deepStrictEqual(omit(obj, tree), {
+				event: {
+					"\u0130\u0130": { y: 2 },
+					"\u0130i\u0307": { y: 2 },
+					x: "too short to match",
+					keep: 1,
+				},
 			});
 		});
 		test("redacts every casing of a key, even when one matches exactly", () => {
@@ -3270,24 +3410,163 @@ describe("@middy/util", () => {
 				records: [{ id: 1 }],
 			});
 		});
-		test("skips prototype-polluting paths", () => {
-			const tree = buildPathTree([
+		test("a path ending in [] masks every element of the array", () => {
+			const tree = buildPathTree(["event.tokens.[]", "event.Records.[]"]);
+			const obj = {
+				event: {
+					tokens: ["secret-1", "secret-2"],
+					Records: [{ body: "secret" }, { body: "other" }],
+					keep: [1],
+				},
+			};
+			deepStrictEqual(omit(obj, tree, "***"), {
+				event: { tokens: ["***", "***"], Records: ["***", "***"], keep: [1] },
+			});
+			deepStrictEqual(obj.event.tokens, ["secret-1", "secret-2"]);
+		});
+		test("a path ending in [] drops every element of the array without a mask", () => {
+			const tree = buildPathTree(["event.tokens.[]", "event.Records.[]"]);
+			const obj = {
+				event: {
+					tokens: ["secret-1", "secret-2"],
+					Records: [{ body: "secret" }],
+					keep: [1],
+				},
+			};
+			deepStrictEqual(omit(obj, tree), {
+				event: { tokens: [], Records: [], keep: [1] },
+			});
+			deepStrictEqual(obj.event.tokens, ["secret-1", "secret-2"]);
+		});
+		test("a path ending in [] reaches a top-level and a nested array", () => {
+			deepStrictEqual(omit(["a", "b"], buildPathTree(["[]"]), "*"), ["*", "*"]);
+			deepStrictEqual(
+				omit({ rows: [["a", "b"], ["c"]] }, buildPathTree(["rows.[].[]"]), "*"),
+				{ rows: [["*", "*"], ["*"]] },
+			);
+		});
+		test("rejects a string path whose segment carries a bracket or a star", () => {
+			for (const [path, segment] of [
+				["event.Records[].body", "Records[]"],
+				["event.Records[0].body", "Records[0]"],
+				["event.Records.[0].body", "[0]"],
+				["event.Records.*.body", "*"],
+				["event.headers.x-*", "x-*"],
+				["event.list.[", "["],
+				["event.list.]", "]"],
+			]) {
+				throws(() => buildPathTree(["keep", path]), {
+					name: "TypeError",
+					message: `Invalid path "${path}": segment "${segment}" is not supported in a string path. Use ".[]." to match every element of an array, or the array form ${JSON.stringify(path.split("."))} to match that key literally`,
+					cause: { package: "@middy/util", data: { path } },
+				});
+			}
+		});
+		test("rejects a string path with an all-digit segment", () => {
+			for (const [path, segment] of [
+				["event.Records.0.body", "0"],
+				["event.Records.10", "10"],
+				["007.secret", "007"],
+			]) {
+				throws(() => buildPathTree(["keep", path]), {
+					name: "TypeError",
+					message: `Invalid path "${path}": segment "${segment}" is not supported in a string path. Use ".[]." to match every element of an array, or the array form ${JSON.stringify(path.split("."))} to match that key literally`,
+					cause: { package: "@middy/util", data: { path } },
+				});
+			}
+		});
+		test("rejects a string path with an empty segment", () => {
+			for (const path of ["event.", "a..b", ".event", ""]) {
+				throws(() => buildPathTree(["keep", path]), {
+					name: "TypeError",
+					message: `Invalid path "${path}": segment "" is not supported in a string path. Use ".[]." to match every element of an array, or the array form ${JSON.stringify(path.split("."))} to match that key literally`,
+					cause: { package: "@middy/util", data: { path } },
+				});
+			}
+		});
+		test("an array path can name the empty key", () => {
+			const tree = buildPathTree([["event", ""]]);
+			deepStrictEqual(omit({ event: { "": "s", keep: 1 } }, tree), {
+				event: { keep: 1 },
+			});
+		});
+		test("accepts a string segment that only contains digits", () => {
+			const tree = buildPathTree(["event.address1", "event.2fa", "event.a1b"]);
+			deepStrictEqual(
+				omit({ event: { address1: "s", "2fa": "s", a1b: "s", keep: 1 } }, tree),
+				{ event: { keep: 1 } },
+			);
+		});
+		test("a [] segment also matches a key that is literally named []", () => {
+			for (const path of ["a.[].b", ["a", "[]", "b"]]) {
+				const tree = buildPathTree([path]);
+				deepStrictEqual(omit({ a: { "[]": { b: 1, c: 2 } } }, tree), {
+					a: { "[]": { c: 2 } },
+				});
+				deepStrictEqual(omit({ a: [{ b: 1, c: 2 }] }, tree), {
+					a: [{ c: 2 }],
+				});
+			}
+		});
+		test("rejects an array path with no segment", () => {
+			throws(() => buildPathTree(["keep", []]), {
+				name: "TypeError",
+				message: "Invalid path []: an array path needs at least one segment",
+				cause: { package: "@middy/util", data: { path: [] } },
+			});
+		});
+		test("rejects an entry that is neither a string nor an array", () => {
+			for (const [path, shown] of [
+				[42, "42"],
+				[null, "null"],
+				[{ path: "event" }, '{"path":"event"}'],
+				[undefined, "undefined"],
+			]) {
+				throws(() => buildPathTree(["keep", path]), {
+					name: "TypeError",
+					message: `Invalid path ${shown}: a path is a string or an array of string segments`,
+					cause: { package: "@middy/util", data: { path } },
+				});
+			}
+		});
+		test("rejects a path with a prototype-polluting segment", () => {
+			for (const path of [
 				"__proto__.x",
 				"constructor.y",
 				"a.prototype",
-			]);
-			deepStrictEqual(tree, new Map());
-			// A Map node cannot reach Object.prototype, but `omit` turns these
-			// segments back into property names, so an empty tree is what keeps the
-			// walk off them.
+				"event.constructor",
+				["event", "body", "prototype"],
+			]) {
+				throws(() => buildPathTree(["keep", path]), {
+					name: "TypeError",
+					message: `Invalid path ${JSON.stringify(path)}: "__proto__", "constructor" and "prototype" segments cannot be redacted`,
+					cause: { package: "@middy/util", data: { path } },
+				});
+			}
 			strictEqual({}.x, undefined);
 			strictEqual(Object.prototype.y, undefined);
-			const obj = { x: 1, y: 2 };
-			strictEqual(omit(obj, tree), obj);
 		});
 		test("a leaf path overrides a longer path on the same branch", () => {
 			const tree = buildPathTree(["a.b.c", "a.b"]);
 			deepStrictEqual(omit({ a: { b: { c: 1, d: 2 } } }, tree), { a: {} });
+		});
+		test("a shorter path covers a longer one whatever their order, casing or form", () => {
+			for (const paths of [
+				["a.b", "a.b.c"],
+				["a.b", "A.b.c"],
+				["event.headers", "event.Headers.Authorization"],
+				["a.b", ["a", "b", "c"]],
+				[["a", "b", "c"], "a.b"],
+				["a.b", "a.b.c.d"],
+			]) {
+				const [root, branch] = Array.isArray(paths[0])
+					? paths[0]
+					: paths[0].split(".");
+				const obj = { [root]: { [branch]: { c: { d: 1 }, x: 2 }, keep: 3 } };
+				deepStrictEqual(omit(obj, buildPathTree(paths)), {
+					[root]: { keep: 3 },
+				});
+			}
 		});
 		test("accepts pre-split array paths", () => {
 			const tree = buildPathTree([["a", "b"]]);
@@ -3415,10 +3694,45 @@ describe("@middy/util", () => {
 			strictEqual(omit(arr, undefined), arr);
 		});
 
-		test("returns an array unchanged when no [] child path applies", () => {
-			const list = [{ x: 1 }, { x: 2 }];
-			const tree = buildPathTree(["list.x"]);
-			strictEqual(omit({ list }, tree).list, list);
+		test("redacts an array whole when a key segment meets it", () => {
+			const tree = buildPathTree(["event.Records.body"]);
+			const obj = { event: { Records: [{ body: "secret" }], keep: 1 } };
+			deepStrictEqual(omit(obj, tree, "***"), {
+				event: { Records: "***", keep: 1 },
+			});
+			deepStrictEqual(omit(obj, tree), { event: { keep: 1 } });
+			deepStrictEqual(obj.event.Records, [{ body: "secret" }]);
+		});
+
+		test("redacts an array whole when a key segment sits next to []", () => {
+			const tree = buildPathTree(["list.[].a", "list.total"]);
+			const obj = { list: [{ a: 1, b: 2 }], keep: 1 };
+			deepStrictEqual(omit(obj, tree, "***"), { list: "***", keep: 1 });
+			deepStrictEqual(omit(obj, tree), { keep: 1 });
+		});
+
+		test("redacts an element that is itself an array a key segment meets", () => {
+			const tree = buildPathTree(["rows.[].x"]);
+			const obj = { rows: [[{ x: 1 }], { x: 2, y: 3 }, [4]] };
+			deepStrictEqual(omit(obj, tree, "***"), {
+				rows: ["***", { x: "***", y: 3 }, "***"],
+			});
+			deepStrictEqual(omit(obj, tree), { rows: [{ y: 3 }] });
+			strictEqual(obj.rows.length, 3);
+		});
+
+		test("redacts the value passed in when it is an array a key segment meets", () => {
+			const tree = buildPathTree(["body"]);
+			strictEqual(omit([{ body: "secret" }], tree, "***"), "***");
+			strictEqual(omit([{ body: "secret" }], tree), undefined);
+		});
+
+		test("an empty tree changes nothing, whatever the value", () => {
+			const tree = buildPathTree([]);
+			for (const value of [["a"], "a", new Map(), new Set(), { a: 1 }, 1]) {
+				strictEqual(omit(value, tree), value);
+				strictEqual(omit(value, tree, "***"), value);
+			}
 		});
 
 		test("omits inside array elements without mutating the source array", () => {
@@ -3481,12 +3795,48 @@ describe("@middy/util", () => {
 			deepStrictEqual(b, { secret: "sb", keep: "kb" });
 		});
 
-		test("does not treat primitives as records", () => {
-			const obj = { prim: 42, str: "s", fn: () => {} };
-			strictEqual(
-				omit(obj, buildPathTree(["prim.secret", "str.secret", "fn.secret"])),
-				obj,
+		test("leaves a number, boolean, null, undefined or function under a continuing path", () => {
+			const obj = {
+				num: 42,
+				bool: true,
+				nil: null,
+				undef: undefined,
+				big: 10n,
+				fn: () => {},
+			};
+			const tree = buildPathTree(
+				Object.keys(obj).map((key) => `${key}.secret`),
 			);
+			strictEqual(omit(obj, tree), obj);
+			strictEqual(omit(obj, tree, "***"), obj);
+		});
+
+		test("redacts a string whole when a path continues into it", () => {
+			const tree = buildPathTree([
+				"event.body.password",
+				"event.Records.[].body.ssn",
+			]);
+			const obj = {
+				event: {
+					body: '{"password":"hunter2"}',
+					Records: [{ body: '{"ssn":"123"}', id: 1 }],
+				},
+			};
+			deepStrictEqual(omit(obj, tree, "***"), {
+				event: { body: "***", Records: [{ body: "***", id: 1 }] },
+			});
+			deepStrictEqual(omit(obj, tree), { event: { Records: [{ id: 1 }] } });
+		});
+
+		test("redacts a string element and a string passed in under a continuing path", () => {
+			const tree = buildPathTree(["list.[].secret"]);
+			const obj = { list: ["raw", { secret: "s", keep: 1 }] };
+			deepStrictEqual(omit(obj, tree, "***"), {
+				list: ["***", { secret: "***", keep: 1 }],
+			});
+			deepStrictEqual(omit(obj, tree), { list: [{ keep: 1 }] });
+			strictEqual(omit("raw", tree, "***"), "***");
+			strictEqual(omit("raw", tree), undefined);
 		});
 
 		test("walks a class instance through a copy of its own properties", () => {
@@ -3524,33 +3874,6 @@ describe("@middy/util", () => {
 			const tree = buildPathTree(["wrapped.secret"]);
 			strictEqual(omit({ wrapped: proxy }, tree).wrapped, proxy);
 			strictEqual(omit({ wrapped: proxy }, tree, "***").wrapped, proxy);
-		});
-
-		// A literal own `constructor` key still equal to Object keeps the payload a
-		// record, so it would be omitted if the guard did not skip the segment.
-		test("skips an omitPath containing the constructor segment", () => {
-			const obj = { foo: "bar" };
-			Object.defineProperty(obj, "constructor", {
-				value: Object,
-				enumerable: true,
-				configurable: true,
-				writable: true,
-			});
-			ok(
-				Object.hasOwn(
-					omit({ event: obj }, buildPathTree(["event.constructor"])).event,
-					"constructor",
-				),
-			);
-		});
-
-		test("skips an omitPath containing the prototype segment", () => {
-			const obj = { foo: "bar", prototype: "own-prototype" };
-			strictEqual(
-				omit({ event: obj }, buildPathTree(["event.prototype"])).event
-					.prototype,
-				"own-prototype",
-			);
 		});
 
 		test("omits multiple nested leaves under a shared parent", () => {
@@ -3596,48 +3919,275 @@ describe("@middy/util", () => {
 		});
 
 		test("does not mutate the caller-provided paths array", () => {
-			const paths = ["a.b", "c.d"];
-			const original = [...paths];
+			const paths = ["a.b", "c.d", ["E", "F"]];
+			const original = structuredClone(paths);
 			buildPathTree(paths);
 			deepStrictEqual(paths, original);
 		});
 	});
 
-	// stableStringify releases each value from `seen` on the way out, so a value
-	// reached twice through sibling paths serializes in full both times. Without
-	// that release the second occurrence collapses to "[Circular]", and two items
-	// that are genuinely equal stop comparing equal.
-	describe("uniqueItems repeated sibling references", () => {
+	describe("omitPathsSchema / validateOmitPaths", () => {
 		const schema = {
 			type: "object",
-			properties: {
-				routes: { type: "array", uniqueItems: true },
-			},
+			properties: { omitPaths: omitPathsSchema },
 			additionalProperties: false,
 		};
 
-		test("treats a shared sibling reference as equal to an identical literal", () => {
-			const shared = { a: 1 };
-			throws(
-				() =>
-					validateOptions("@middy/test", schema, {
-						routes: [
-							{ x: shared, y: shared },
-							{ x: { a: 1 }, y: { a: 1 } },
-						],
-					}),
-				/Duplicate item/,
+		test("omitPathsSchema passes sast-json-schema", async () => {
+			const findings = await analyze(
+				toJsonSchema({
+					$schema: "https://json-schema.org/draft/2020-12/schema",
+					$id: "urn:middy:util:options",
+					type: "object",
+					properties: { omitPaths: omitPathsSchema },
+					required: [],
+					additionalProperties: false,
+					unevaluatedProperties: false,
+				}),
+				{ offline: true, lang: "js" },
+			);
+			deepStrictEqual(findings, []);
+		});
+
+		test("omitPathsSchema accepts string paths and non-empty arrays of string segments", () => {
+			for (const omitPaths of [
+				[],
+				["event.body"],
+				[["event", "CodePipeline.job"], "event.headers.authorization"],
+				["event.Records.[].body", "event.headers.x-api-key", "event.$_+"],
+				["event.body.名前", ["event", "हिन्दी"]],
+				[Array.from({ length: 64 }, (_, i) => `k${i}`)],
+				Array.from({ length: 256 }, (_, i) => `event.k${i}`),
+				["x".repeat(1024)],
+			]) {
+				deepStrictEqual(validateOptions("@middy/test", schema, { omitPaths }), {
+					omitPaths,
+				});
+			}
+		});
+
+		test("omitPathsSchema rejects anything else", () => {
+			for (const omitPaths of [
+				"event.body",
+				[1],
+				[null],
+				[[]],
+				[["event", 1]],
+				[{ path: "event" }],
+				[""],
+				[[""]],
+				["event\nbody"],
+				["event\u0000body"],
+				["event.\u200bbody"],
+				[["event", "a\tb"]],
+				["x".repeat(1025)],
+				[Array.from({ length: 65 }, (_, i) => `k${i}`)],
+				Array.from({ length: 257 }, (_, i) => `event.k${i}`),
+			]) {
+				throws(() => validateOptions("@middy/test", schema, { omitPaths }), {
+					name: "TypeError",
+					cause: { package: "@middy/test" },
+				});
+			}
+		});
+
+		test("omitPathsSchema rejects a duplicate path and a repeated segment in array form", () => {
+			for (const [omitPaths, message] of [
+				[["event.body", "event.body"], "Duplicate item at 'omitPaths[1]'"],
+				[
+					[
+						["event", "body"],
+						["event", "body"],
+					],
+					"Duplicate item at 'omitPaths[1]'",
+				],
+				[
+					[["matrix", "[]", "[]"]],
+					"Option 'omitPaths[0]' must match exactly one schema in oneOf",
+				],
+				[
+					[["a", "a"]],
+					"Option 'omitPaths[0]' must match exactly one schema in oneOf",
+				],
+			]) {
+				throws(() => validateOptions("@middy/test", schema, { omitPaths }), {
+					name: "TypeError",
+					message,
+					cause: { package: "@middy/test" },
+				});
+			}
+		});
+
+		test("omitPathsSchema accepts repeated segments in string form", () => {
+			const omitPaths = ["matrix.[].[]", "a.a"];
+			deepStrictEqual(validateOptions("@middy/test", schema, { omitPaths }), {
+				omitPaths,
+			});
+			strictEqual(validateOmitPaths(omitPaths), undefined);
+		});
+
+		test("validateOmitPaths accepts no paths and paths that can match", () => {
+			strictEqual(validateOmitPaths(undefined), undefined);
+			strictEqual(validateOmitPaths([]), undefined);
+			strictEqual(
+				validateOmitPaths(["event.Records.[].body", ["event", "a.b"]]),
+				undefined,
 			);
 		});
 
-		test("still reports genuinely distinct items as unique", () => {
-			const shared = { a: 1 };
-			validateOptions("@middy/test", schema, {
-				routes: [
-					{ x: shared, y: shared },
-					{ x: { a: 2 }, y: { a: 2 } },
-				],
-			});
+		test("validateOmitPaths throws the error buildPathTree throws for a path that could never match", () => {
+			for (const path of [
+				"event.Records.0.body",
+				"event.headers.x-*",
+				"event.",
+				[],
+				["event", 0],
+				42,
+				"event.__proto__.x",
+				["event", "Constructor"],
+			]) {
+				const paths = ["keep", path];
+				const expected = (() => {
+					try {
+						buildPathTree(paths);
+					} catch (e) {
+						return e;
+					}
+				})();
+				ok(expected instanceof TypeError);
+				throws(() => validateOmitPaths(paths), {
+					name: "TypeError",
+					message: expected.message,
+					cause: { package: "@middy/util", data: { path } },
+				});
+			}
+		});
+	});
+
+	describe("pathTreeOmitsString", () => {
+		test("is true when a path ends at the string or above it", () => {
+			ok(pathTreeOmitsString(buildPathTree(["response"]), ["response"]));
+			ok(
+				pathTreeOmitsString(buildPathTree(["response"]), ["response", "body"]),
+			);
+			ok(
+				pathTreeOmitsString(buildPathTree(["response.body"]), [
+					"response",
+					"body",
+				]),
+			);
+		});
+
+		test("is true when a path continues into the string", () => {
+			ok(
+				pathTreeOmitsString(buildPathTree(["response.body.token"]), [
+					"response",
+					"body",
+				]),
+			);
+			ok(
+				pathTreeOmitsString(buildPathTree(["response.headers.set-cookie"]), [
+					"response",
+				]),
+			);
+			ok(pathTreeOmitsString(buildPathTree(["anything"]), []));
+		});
+
+		test("is false when no path reaches the string", () => {
+			strictEqual(pathTreeOmitsString(undefined, ["response"]), false);
+			strictEqual(pathTreeOmitsString(undefined, []), false);
+			strictEqual(pathTreeOmitsString(buildPathTree([]), ["response"]), false);
+			strictEqual(pathTreeOmitsString(buildPathTree([]), []), false);
+			strictEqual(
+				pathTreeOmitsString(buildPathTree(["event.response"]), ["response"]),
+				false,
+			);
+			strictEqual(
+				pathTreeOmitsString(
+					buildPathTree(["response.headers.set-cookie", "response.bodyless"]),
+					["response", "body"],
+				),
+				false,
+			);
+		});
+
+		test("matches segments case-insensitively, as omit matches keys", () => {
+			ok(
+				pathTreeOmitsString(buildPathTree(["response.body"]), [
+					"Response",
+					"BODY",
+				]),
+			);
+			ok(
+				pathTreeOmitsString(buildPathTree(["Response.Body.token"]), [
+					"response",
+					"Body",
+				]),
+			);
+		});
+
+		test("agrees with omit on a string at the segments", () => {
+			const trees = [
+				undefined,
+				buildPathTree([]),
+				buildPathTree(["response"]),
+				buildPathTree(["response.body"]),
+				buildPathTree(["Response.Body.token"]),
+				buildPathTree(["response.headers.set-cookie"]),
+				buildPathTree(["response.[].body"]),
+				buildPathTree(["event.response", "response.bodyless"]),
+			];
+			const segmentLists = [
+				[],
+				["response"],
+				["Response"],
+				["response", "body"],
+				["response", "BODY"],
+				["response", "body", "token"],
+			];
+			for (const tree of trees) {
+				for (const segments of segmentLists) {
+					const value = segments.reduceRight(
+						(inner, segment) => ({ [segment]: inner }),
+						"text",
+					);
+					strictEqual(
+						pathTreeOmitsString(tree, segments),
+						omit(value, tree) !== value,
+						`${JSON.stringify(segments)} under ${JSON.stringify([...(tree ?? [])])}`,
+					);
+				}
+			}
+		});
+	});
+
+	describe("isUnwrappedHttpResponse", () => {
+		test("is true for a response with no statusCode, body or headers", () => {
+			for (const response of [
+				undefined,
+				null,
+				"",
+				"text",
+				0,
+				[],
+				{},
+				{ foo: "bar" },
+				{ statusCode: undefined, body: undefined, headers: undefined },
+			]) {
+				strictEqual(isUnwrappedHttpResponse(response), true);
+			}
+		});
+
+		test("is false once a response carries statusCode, body or headers", () => {
+			for (const response of [
+				{ statusCode: 200 },
+				{ body: "" },
+				{ body: null },
+				{ headers: {} },
+				{ statusCode: 204, headers: {} },
+			]) {
+				strictEqual(isUnwrappedHttpResponse(response), false);
+			}
 		});
 	});
 
@@ -4720,8 +5270,6 @@ describe("@middy/util", () => {
 		test("keeps built-ins closed even when a path names one of their own properties", () => {
 			const values = {
 				date: new Date(0),
-				map: new Map([["secret", 1]]),
-				set: new Set([1]),
 				weakMap: new WeakMap(),
 				weakSet: new WeakSet(),
 				buffer: Buffer.from("secret"),
@@ -4736,7 +5284,7 @@ describe("@middy/util", () => {
 			const tree = buildPathTree(
 				Object.keys(values).flatMap((key) => [
 					`${key}.secret`,
-					`${key}.0`,
+					[key, "0"],
 					`${key}.lastIndex`,
 					`${key}._readableState`,
 					`${key}._writableState`,
@@ -4746,6 +5294,39 @@ describe("@middy/util", () => {
 			strictEqual(omit(values, tree, "***"), values);
 		});
 
+		test("redacts a Map or a Set whole when a path continues into it", () => {
+			class Registry extends Map {}
+			const values = {
+				map: new Map([["password", "hunter2"]]),
+				set: new Set(["hunter2"]),
+				registry: new Registry([["password", "hunter2"]]),
+				keep: 1,
+			};
+			const tree = buildPathTree([
+				"map.password",
+				"set.password",
+				"registry.password",
+			]);
+			deepStrictEqual(omit(values, tree, "***"), {
+				map: "***",
+				set: "***",
+				registry: "***",
+				keep: 1,
+			});
+			deepStrictEqual(omit(values, tree), { keep: 1 });
+			strictEqual(omit(values.map, buildPathTree(["password"]), "***"), "***");
+			strictEqual(values.map.get("password"), "hunter2");
+		});
+
+		test("leaves a Map or a Set no path continues into", () => {
+			const values = {
+				map: new Map([["k", 1]]),
+				set: new Set([1]),
+				a: { b: 1 },
+			};
+			strictEqual(omit(values, buildPathTree(["a.absent", "other.x"])), values);
+		});
+
 		// A property attached to a built-in (`map.meta = ...`) is not data to
 		// redact either: a spread copy would drop the entries, the time value or
 		// the bytes that make the value what it is, so the whole value stays a leaf.
@@ -4753,8 +5334,6 @@ describe("@middy/util", () => {
 			const values = {
 				date: new Date(0),
 				regexp: /x/g,
-				map: new Map([["k", 1]]),
-				set: new Set([1]),
 				weakMap: new WeakMap(),
 				weakSet: new WeakSet(),
 				arrayBuffer: new ArrayBuffer(1),
@@ -4817,13 +5396,15 @@ describe("@middy/util", () => {
 		// On an object node `node[seg] ??= {}` would resolve the inherited member
 		// and write the leaf onto the shared `Object.prototype.toString` function;
 		// a Map keyed by the segment has no such member to resolve.
-		test("skips prototype-polluting paths in any case", () => {
+		test("rejects prototype-polluting segments in any case", () => {
 			// Segments are lower-cased, so `Constructor` would otherwise reach a
 			// `constructor` key.
-			deepStrictEqual(
-				buildPathTree(["a.Constructor.x", "__PROTO__.y", "a.PROTOTYPE"]),
-				new Map(),
-			);
+			for (const path of ["a.Constructor.x", "__PROTO__.y", "a.PROTOTYPE"]) {
+				throws(() => buildPathTree([path]), {
+					name: "TypeError",
+					message: `Invalid path "${path}": "__proto__", "constructor" and "prototype" segments cannot be redacted`,
+				});
+			}
 		});
 		test("does not walk into Object.prototype members via an intermediate segment", () => {
 			const tree = buildPathTree(["event.toString.secret"]);
@@ -4835,5 +5416,698 @@ describe("@middy/util", () => {
 				]),
 			);
 		});
+	});
+});
+
+describe("awsClientOptionsSchema", () => {
+	const schema = {
+		$schema: "https://json-schema.org/draft/2020-12/schema",
+		$id: "urn:middy:util:options",
+		$defs: { Function: false, Object: false },
+		type: "object",
+		properties: { awsClientOptions: awsClientOptionsSchema },
+		required: [],
+		additionalProperties: false,
+		unevaluatedProperties: false,
+	};
+	const accepts = (awsClientOptions) => {
+		deepStrictEqual(
+			validateOptions("@middy/test", schema, { awsClientOptions }),
+			{ awsClientOptions },
+		);
+	};
+	const rejects = (awsClientOptions, message) => {
+		throws(() => validateOptions("@middy/test", schema, { awsClientOptions }), {
+			name: "TypeError",
+			message,
+			cause: { package: "@middy/test" },
+		});
+	};
+	const fn = () => {};
+	class Instance {}
+	const oneOf = (key) =>
+		`Option 'awsClientOptions.${key}' must match exactly one schema in oneOf`;
+
+	test("passes sast-json-schema", async () => {
+		const findings = await analyze(toJsonSchema(schema), {
+			offline: true,
+			lang: "js",
+		});
+		deepStrictEqual(findings, []);
+	});
+
+	test("accepts the values the middleware docs and tests pass", () => {
+		for (const awsClientOptions of [
+			{},
+			{ region: "us-east-1" },
+			{ region: "ca-central-1" },
+			{ region: "x" },
+			{ endpoint: "https://example/prod" },
+			{ endpoint: "http://localhost:4566" },
+			{ credentials: () => ({}) },
+			{ apiVersion: "2014-11-06" },
+		]) {
+			accepts(awsClientOptions);
+		}
+	});
+
+	test("accepts every client config key shared by the SDK clients", () => {
+		accepts({
+			apiVersion: "2014-11-06",
+			authSchemePreference: ["sigv4a", "aws.auth#sigv4"],
+			base64Decoder: fn,
+			base64Encoder: fn,
+			bodyLengthChecker: fn,
+			cacheMiddleware: true,
+			credentialDefaultProvider: fn,
+			credentials: {
+				accessKeyId: "AKIAIOSFODNN7EXAMPLE",
+				secretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+				sessionToken: "session/token+example==",
+				credentialScope: "us-east-1/s3/aws4_request",
+				accountId: "123456789012",
+				expiration: new Date(0),
+			},
+			customUserAgent: "my-app/1.0",
+			defaultUserAgentProvider: fn,
+			defaultsMode: "standard",
+			disableClockSkewCorrection: false,
+			disableHostPrefix: false,
+			endpoint: "https://ssm.us-east-1.amazonaws.com",
+			endpointProvider: fn,
+			extensions: [{ configure: fn }],
+			httpAuthSchemeProvider: fn,
+			httpAuthSchemes: [
+				{
+					schemeId: "aws.auth#sigv4",
+					identityProvider: fn,
+					signer: new Instance(),
+				},
+			],
+			ignoreConfiguredEndpointUrls: true,
+			logger: console,
+			maxAttempts: 3,
+			profile: "default",
+			protocol: new Instance(),
+			protocolSettings: {
+				awsQueryCompatible: true,
+				defaultNamespace: "com.amazonaws.ssm",
+				errorTypeRegistries: [new Instance()],
+				jsonCodec: new Instance(),
+				serviceTarget: "AmazonSSM",
+				version: "2014-11-06",
+				xmlNamespace: "http://ssm.amazonaws.com/doc/2014-11-06/",
+			},
+			region: "us-east-1",
+			requestHandler: new Instance(),
+			retryMode: "adaptive",
+			retryStrategy: new Instance(),
+			runtime: "node",
+			serviceId: "Secrets Manager",
+			sha256: Instance,
+			signer: new Instance(),
+			signerConstructor: Instance,
+			signingEscapePath: true,
+			signingRegion: "us-west-2",
+			streamCollector: fn,
+			systemClockOffset: -1500,
+			tls: true,
+			urlParser: fn,
+			useDualstackEndpoint: true,
+			useFipsEndpoint: false,
+			userAgentAppId: "my-app",
+			utf8Decoder: fn,
+			utf8Encoder: fn,
+		});
+	});
+
+	test("accepts a provider wherever the SDK takes one", () => {
+		for (const key of [
+			"authSchemePreference",
+			"credentials",
+			"defaultsMode",
+			"disableClockSkewCorrection",
+			"endpoint",
+			"maxAttempts",
+			"region",
+			"retryMode",
+			"useDualstackEndpoint",
+			"useFipsEndpoint",
+			"userAgentAppId",
+		]) {
+			accepts({ [key]: async () => undefined });
+		}
+	});
+
+	test("accepts a class or a function where the SDK takes either", () => {
+		accepts({ protocol: Instance, signer: async () => new Instance() });
+	});
+
+	test("accepts every enum value", () => {
+		for (const retryMode of ["standard", "adaptive"]) accepts({ retryMode });
+		for (const defaultsMode of [
+			"standard",
+			"in-region",
+			"cross-region",
+			"mobile",
+			"auto",
+			"legacy",
+		]) {
+			accepts({ defaultsMode });
+		}
+		for (const runtime of ["node", "browser", "react-native"]) {
+			accepts({ runtime });
+		}
+	});
+
+	test("accepts the endpoint object forms", () => {
+		accepts({
+			endpoint: {
+				protocol: "https:",
+				hostname: "localhost",
+				port: 4566,
+				path: "/",
+				query: { a: "1", b: ["x", "y"], c: null, d: "", e: [] },
+				headers: { "x-api-key": "secret", "x-empty": "" },
+			},
+		});
+		accepts({ endpoint: { protocol: "http", hostname: "[::1]", path: "/a" } });
+		accepts({
+			endpoint: {
+				protocol: "https:",
+				hostname: "localhost",
+				path: "/",
+				query: {
+					a: "x".repeat(1024),
+					b: Array.from({ length: 1024 }, (_, i) => `v${i}`),
+					c: ["x".repeat(1024)],
+				},
+			},
+		});
+		accepts({
+			endpoint: {
+				url: new URL("https://example.com/"),
+				headers: { "x-api-key": ["a", "b"] },
+			},
+		});
+	});
+
+	test("accepts a user agent given as name/version pairs", () => {
+		accepts({ customUserAgent: [["my-app", "1.0"], ["other"]] });
+	});
+
+	test("accepts values at each limit", () => {
+		accepts({
+			region: "a".repeat(63),
+			signingRegion: "a".repeat(63),
+			userAgentAppId: "a".repeat(50),
+			maxAttempts: Number.MAX_SAFE_INTEGER,
+			endpoint: `https://${"a".repeat(1016)}`,
+			credentials: {
+				accessKeyId: "A".repeat(128),
+				secretAccessKey: "s".repeat(1024),
+				sessionToken: "t".repeat(16384),
+			},
+		});
+		accepts({ maxAttempts: 1, systemClockOffset: 8.64e15 });
+		accepts({ systemClockOffset: -8.64e15 });
+		accepts({
+			endpoint: {
+				protocol: "https:",
+				hostname: "h".repeat(255),
+				port: 65535,
+				path: `/${"p".repeat(1023)}`,
+			},
+		});
+		accepts({
+			endpoint: { protocol: "https", hostname: "h", port: 1, path: "/" },
+		});
+	});
+
+	test("rejects what is not a client config", () => {
+		for (const [awsClientOptions, message] of [
+			["us-east-1", "Option 'awsClientOptions' must be object"],
+			[{ maxRetries: 3 }, "Unknown option 'awsClientOptions.maxRetries'"],
+			[
+				{ retryDelayOptions: { base: 300 } },
+				"Unknown option 'awsClientOptions.retryDelayOptions'",
+			],
+			[
+				{ serviceConfiguredEndpoint: "x" },
+				"Unknown option 'awsClientOptions.serviceConfiguredEndpoint'",
+			],
+		]) {
+			rejects(awsClientOptions, message);
+		}
+	});
+
+	test("rejects a value of the wrong kind for each key", () => {
+		for (const key of [
+			"base64Decoder",
+			"base64Encoder",
+			"bodyLengthChecker",
+			"credentialDefaultProvider",
+			"defaultUserAgentProvider",
+			"endpointProvider",
+			"httpAuthSchemeProvider",
+			"sha256",
+			"signerConstructor",
+			"streamCollector",
+			"urlParser",
+			"utf8Decoder",
+			"utf8Encoder",
+		]) {
+			rejects(
+				{ [key]: "x" },
+				`Option 'awsClientOptions.${key}' must be instanceof Function`,
+			);
+		}
+		for (const key of [
+			"logger",
+			"protocol",
+			"requestHandler",
+			"retryStrategy",
+			"signer",
+		]) {
+			rejects(
+				{ [key]: "x" },
+				`Option 'awsClientOptions.${key}' must be instanceof Object`,
+			);
+		}
+		for (const key of [
+			"cacheMiddleware",
+			"disableHostPrefix",
+			"ignoreConfiguredEndpointUrls",
+			"signingEscapePath",
+			"tls",
+		]) {
+			rejects(
+				{ [key]: "true" },
+				`Option 'awsClientOptions.${key}' must be boolean`,
+			);
+		}
+		for (const key of [
+			"disableClockSkewCorrection",
+			"useDualstackEndpoint",
+			"useFipsEndpoint",
+		]) {
+			rejects({ [key]: "true" }, oneOf(key));
+		}
+		for (const key of ["extensions", "httpAuthSchemes"]) {
+			rejects({ [key]: {} }, `Option 'awsClientOptions.${key}' must be array`);
+		}
+		rejects(
+			{ protocolSettings: [] },
+			"Option 'awsClientOptions.protocolSettings' must be object",
+		);
+		rejects(
+			{ systemClockOffset: "0" },
+			"Option 'awsClientOptions.systemClockOffset' must be number",
+		);
+		for (const key of ["apiVersion", "profile", "serviceId", "signingRegion"]) {
+			rejects({ [key]: 1 }, `Option 'awsClientOptions.${key}' must be string`);
+		}
+	});
+
+	test("rejects a region that is not a host label", () => {
+		for (const region of ["us east 1", "us_east_1", "", "a".repeat(64), 1]) {
+			rejects({ region }, oneOf("region"));
+		}
+		rejects(
+			{ signingRegion: "us east 1" },
+			"Option 'awsClientOptions.signingRegion' must match pattern /^[A-Za-z0-9-]+$/u",
+		);
+		rejects(
+			{ signingRegion: "a".repeat(64) },
+			"Option 'awsClientOptions.signingRegion' must have length <= 63",
+		);
+	});
+
+	test("rejects strings outside their pattern or length", () => {
+		for (const [awsClientOptions, message] of [
+			[
+				{ apiVersion: "2014-11-6" },
+				"Option 'awsClientOptions.apiVersion' must match pattern /^\\d{4}-\\d{2}-\\d{2}$/u",
+			],
+			[
+				{ profile: "my profile" },
+				"Option 'awsClientOptions.profile' must match pattern /^[\\x21-\\x7E]+$/u",
+			],
+			[
+				{ profile: "p".repeat(1025) },
+				"Option 'awsClientOptions.profile' must have length <= 1024",
+			],
+			[
+				{ serviceId: "SSM\n" },
+				"Option 'awsClientOptions.serviceId' must match pattern /^[\\x20-\\x7E]+$/u",
+			],
+			[
+				{ serviceId: "s".repeat(1025) },
+				"Option 'awsClientOptions.serviceId' must have length <= 1024",
+			],
+			[
+				{ runtime: "deno" },
+				'Option \'awsClientOptions.runtime\' must be one of ["node","browser","react-native"]',
+			],
+		]) {
+			rejects(awsClientOptions, message);
+		}
+		for (const [key, value] of [
+			["retryMode", "legacy"],
+			["defaultsMode", "fast"],
+			["userAgentAppId", "a".repeat(51)],
+			["userAgentAppId", "app\n"],
+			["userAgentAppId", ""],
+			["maxAttempts", 0],
+			["maxAttempts", 1.5],
+			["maxAttempts", Number.MAX_SAFE_INTEGER + 1],
+			["customUserAgent", "app\n"],
+			["customUserAgent", "a".repeat(1025)],
+			["customUserAgent", [["a", "1", "x"]]],
+			["customUserAgent", [[]]],
+			["customUserAgent", [["a", "a"]]],
+			["customUserAgent", [["a"], ["a"]]],
+			["customUserAgent", [[1]]],
+			["customUserAgent", [["a\n"]]],
+			["authSchemePreference", ["sig v4"]],
+			["authSchemePreference", ["sigv4", "sigv4"]],
+			["authSchemePreference", ["s".repeat(1025)]],
+			["authSchemePreference", "sigv4"],
+		]) {
+			rejects({ [key]: value }, oneOf(key));
+		}
+		rejects(
+			{ systemClockOffset: 8.64e15 + 1 },
+			"Option 'awsClientOptions.systemClockOffset' must be <= 8640000000000000",
+		);
+		rejects(
+			{ systemClockOffset: -8.64e15 - 1 },
+			"Option 'awsClientOptions.systemClockOffset' must be >= -8640000000000000",
+		);
+	});
+
+	test("rejects credentials that are not an AWS credential identity", () => {
+		for (const credentials of [
+			"AKIAIOSFODNN7EXAMPLE",
+			{ accessKeyId: "AKIAIOSFODNN7EXAMPLE" },
+			{ secretAccessKey: "s" },
+			{ accessKeyId: "A", secretAccessKey: "s", Expiration: new Date(0) },
+			{ accessKeyId: "AKIA-EXAMPLE", secretAccessKey: "s" },
+			{ accessKeyId: "A".repeat(129), secretAccessKey: "s" },
+			{ accessKeyId: "A", secretAccessKey: "with space" },
+			{ accessKeyId: "A", secretAccessKey: "s".repeat(1025) },
+			{
+				accessKeyId: "A",
+				secretAccessKey: "s",
+				sessionToken: "t".repeat(16385),
+			},
+			{ accessKeyId: "A", secretAccessKey: "s", sessionToken: "with space" },
+			{ accessKeyId: "A", secretAccessKey: "s", credentialScope: "a b" },
+			{ accessKeyId: "A", secretAccessKey: "s", accountId: "12345678901" },
+			{ accessKeyId: "A", secretAccessKey: "s", accountId: "1234567890123" },
+			{ accessKeyId: "A", secretAccessKey: "s", expiration: "2026-01-01" },
+		]) {
+			rejects({ credentials }, oneOf("credentials"));
+		}
+	});
+
+	test("rejects an endpoint that is not a URL, provider or endpoint object", () => {
+		const v1 = { protocol: "https:", hostname: "localhost", path: "/" };
+		for (const endpoint of [
+			"ftp://example.com",
+			"example.com",
+			"https://",
+			`https://${"a".repeat(1017)}`,
+			1,
+			{ hostname: "localhost", path: "/" },
+			{ protocol: "https:", path: "/" },
+			{ protocol: "https:", hostname: "localhost" },
+			{ ...v1, url: new URL("https://a/") },
+			{ ...v1, protocol: "ftp:" },
+			{ ...v1, protocol: "https::" },
+			{ ...v1, hostname: "a b" },
+			{ ...v1, hostname: "h".repeat(256) },
+			{ ...v1, port: 0 },
+			{ ...v1, port: 65536 },
+			{ ...v1, port: 1.5 },
+			{ ...v1, path: "a" },
+			{ ...v1, path: `/${"p".repeat(1024)}` },
+			{ ...v1, query: { a: 1 } },
+			{ ...v1, query: { a: "x\n" } },
+			{ ...v1, query: { a: true } },
+			{ ...v1, query: { a: "x".repeat(1025) } },
+			{ ...v1, query: { a: ["x", "x"] } },
+			{ ...v1, query: { a: [1] } },
+			{ ...v1, query: { a: [null] } },
+			{ ...v1, query: { a: ["x\n"] } },
+			{ ...v1, query: { a: ["x".repeat(1025)] } },
+			{ ...v1, query: { a: Array.from({ length: 1025 }, (_, i) => `v${i}`) } },
+			{ ...v1, query: { "a b": "1" } },
+			{ ...v1, headers: { "x-a": ["b"] } },
+			{ ...v1, headers: { "x a": "b" } },
+			{ ...v1, headers: { "x-a": "b\n" } },
+			{ url: "https://example.com/" },
+			{ headers: { "x-api-key": ["a"] } },
+			{ url: new URL("https://a/"), properties: {} },
+			{ url: new URL("https://a/"), headers: { "x-a": "b" } },
+			{ url: new URL("https://a/"), headers: { "x-a": ["b", "b"] } },
+			{ url: new URL("https://a/"), headers: { "x-a": ["b\n"] } },
+			{ url: new URL("https://a/"), headers: { "x a": ["b"] } },
+		]) {
+			rejects({ endpoint }, oneOf("endpoint"));
+		}
+	});
+
+	test("rejects extensions and auth schemes missing or adding keys", () => {
+		const scheme = {
+			schemeId: "aws.auth#sigv4",
+			identityProvider: fn,
+			signer: new Instance(),
+		};
+		for (const [awsClientOptions, message] of [
+			[
+				{ extensions: [{}] },
+				"Missing required option 'awsClientOptions.extensions[0].configure'",
+			],
+			[
+				{ extensions: [{ configure: fn, name: "x" }] },
+				"Unknown option 'awsClientOptions.extensions[0].name'",
+			],
+			[
+				{ extensions: [{ configure: "x" }] },
+				"Option 'awsClientOptions.extensions[0].configure' must be instanceof Function",
+			],
+			[
+				{ extensions: [{ configure: fn }, { configure: fn }] },
+				"Duplicate item at 'awsClientOptions.extensions[1]'",
+			],
+			[
+				{
+					extensions: Array.from({ length: 1025 }, () => ({
+						configure: () => {},
+					})),
+				},
+				"Option 'awsClientOptions.extensions' must have <= 1024 items",
+			],
+			[
+				{ httpAuthSchemes: [{ identityProvider: fn, signer: scheme.signer }] },
+				"Missing required option 'awsClientOptions.httpAuthSchemes[0].schemeId'",
+			],
+			[
+				{ httpAuthSchemes: [{ schemeId: "a", signer: scheme.signer }] },
+				"Missing required option 'awsClientOptions.httpAuthSchemes[0].identityProvider'",
+			],
+			[
+				{ httpAuthSchemes: [{ schemeId: "a", identityProvider: fn }] },
+				"Missing required option 'awsClientOptions.httpAuthSchemes[0].signer'",
+			],
+			[
+				{ httpAuthSchemes: [{ ...scheme, x: 1 }] },
+				"Unknown option 'awsClientOptions.httpAuthSchemes[0].x'",
+			],
+			[
+				{ httpAuthSchemes: [{ ...scheme, schemeId: "aws auth" }] },
+				"Option 'awsClientOptions.httpAuthSchemes[0].schemeId' must match pattern /^[\\w.#-]+$/u",
+			],
+			[
+				{ httpAuthSchemes: [scheme, scheme] },
+				"Duplicate item at 'awsClientOptions.httpAuthSchemes[1]'",
+			],
+		]) {
+			rejects(awsClientOptions, message);
+		}
+	});
+
+	test("rejects protocolSettings outside the settings the SDK passes", () => {
+		for (const [protocolSettings, message] of [
+			[
+				{ jsonName: "x" },
+				"Unknown option 'awsClientOptions.protocolSettings.jsonName'",
+			],
+			[
+				{ awsQueryCompatible: "true" },
+				"Option 'awsClientOptions.protocolSettings.awsQueryCompatible' must be boolean",
+			],
+			[
+				{ defaultNamespace: "com amazonaws" },
+				"Option 'awsClientOptions.protocolSettings.defaultNamespace' must match pattern /^[\\x21-\\x7E]+$/u",
+			],
+			[
+				{ errorTypeRegistries: {} },
+				"Option 'awsClientOptions.protocolSettings.errorTypeRegistries' must be array",
+			],
+			[
+				{ errorTypeRegistries: ["x"] },
+				"Option 'awsClientOptions.protocolSettings.errorTypeRegistries[0]' must be instanceof Object",
+			],
+			[
+				{ jsonCodec: "x" },
+				"Option 'awsClientOptions.protocolSettings.jsonCodec' must be instanceof Object",
+			],
+			[
+				{ serviceTarget: "Amazon SSM" },
+				"Option 'awsClientOptions.protocolSettings.serviceTarget' must match pattern /^[\\x21-\\x7E]+$/u",
+			],
+			[
+				{ version: "latest" },
+				"Option 'awsClientOptions.protocolSettings.version' must match pattern /^\\d{4}-\\d{2}-\\d{2}$/u",
+			],
+			[
+				{ xmlNamespace: "http://a b" },
+				"Option 'awsClientOptions.protocolSettings.xmlNamespace' must match pattern /^[\\x21-\\x7E]+$/u",
+			],
+		]) {
+			rejects({ protocolSettings }, message);
+		}
+	});
+});
+
+describe("cacheOptionSchemaProperties", () => {
+	const schema = {
+		$schema: "https://json-schema.org/draft/2020-12/schema",
+		$id: "urn:middy:util:options",
+		type: "object",
+		properties: { ...cacheOptionSchemaProperties },
+		required: [],
+		additionalProperties: false,
+		unevaluatedProperties: false,
+	};
+	const accepts = (options) => {
+		deepStrictEqual(validateOptions("@middy/test", schema, options), options);
+	};
+	const rejects = (options, message) => {
+		throws(() => validateOptions("@middy/test", schema, options), {
+			name: "TypeError",
+			message,
+			cause: { package: "@middy/test" },
+		});
+	};
+
+	test("holds exactly the cache options", () => {
+		deepStrictEqual(Object.keys(cacheOptionSchemaProperties), [
+			"disablePrefetch",
+			"cacheKey",
+			"cacheKeyExpiry",
+			"cacheExpiry",
+			"cacheMaxSize",
+		]);
+	});
+
+	test("passes sast-json-schema", async () => {
+		const findings = await analyze(toJsonSchema(schema), {
+			offline: true,
+			lang: "js",
+		});
+		deepStrictEqual(findings, []);
+	});
+
+	test("accepts the documented cache values", () => {
+		for (const options of [
+			{},
+			{ disablePrefetch: true },
+			{ disablePrefetch: false },
+			{ cacheKey: "@middy/ssm" },
+			{ cacheKey: "ssm-admin" },
+			{ cacheKey: "k".repeat(1024) },
+			{ cacheExpiry: -1 },
+			{ cacheExpiry: 0 },
+			{ cacheExpiry: 1.5 },
+			{ cacheExpiry: Number.MAX_SAFE_INTEGER },
+			{ cacheKeyExpiry: {} },
+			{
+				cacheKeyExpiry: {
+					"@middy/ssm": -1,
+					k: 0,
+					max: Number.MAX_SAFE_INTEGER,
+				},
+			},
+			{
+				cacheKeyExpiry: Object.fromEntries(
+					Array.from({ length: 1024 }, (_, i) => [`k${i}`, 0]),
+				),
+			},
+			{ cacheMaxSize: 1 },
+			{ cacheMaxSize: Number.MAX_SAFE_INTEGER },
+		]) {
+			accepts(options);
+		}
+	});
+
+	test("rejects cache values outside their rules", () => {
+		for (const [options, message] of [
+			[{ disablePrefetch: "true" }, "Option 'disablePrefetch' must be boolean"],
+			[{ cacheKey: 1 }, "Option 'cacheKey' must be string"],
+			[
+				{ cacheKey: "" },
+				"Option 'cacheKey' must match pattern /^[\\x21-\\x7E]+$/u",
+			],
+			[
+				{ cacheKey: "a b" },
+				"Option 'cacheKey' must match pattern /^[\\x21-\\x7E]+$/u",
+			],
+			[
+				{ cacheKey: "k".repeat(1025) },
+				"Option 'cacheKey' must have length <= 1024",
+			],
+			[{ cacheExpiry: "1" }, "Option 'cacheExpiry' must be number"],
+			[{ cacheExpiry: -2 }, "Option 'cacheExpiry' must be >= -1"],
+			[
+				{ cacheExpiry: Number.MAX_SAFE_INTEGER + 2 },
+				`Option 'cacheExpiry' must be <= ${Number.MAX_SAFE_INTEGER}`,
+			],
+			[{ cacheKeyExpiry: [] }, "Option 'cacheKeyExpiry' must be object"],
+			[
+				{ cacheKeyExpiry: { k: "1" } },
+				"Option 'cacheKeyExpiry.k' must be number",
+			],
+			[
+				{ cacheKeyExpiry: { k: -2 } },
+				"Option 'cacheKeyExpiry.k' must be >= -1",
+			],
+			[
+				{ cacheKeyExpiry: { k: Number.MAX_SAFE_INTEGER + 2 } },
+				`Option 'cacheKeyExpiry.k' must be <= ${Number.MAX_SAFE_INTEGER}`,
+			],
+			[
+				{ cacheKeyExpiry: { "a b": 0 } },
+				"Invalid property name 'a b' in option 'cacheKeyExpiry': Option 'cacheKeyExpiry.a b' must match pattern /^[\\x21-\\x7E]+$/u",
+			],
+			[
+				{
+					cacheKeyExpiry: Object.fromEntries(
+						Array.from({ length: 1025 }, (_, i) => [`k${i}`, 0]),
+					),
+				},
+				"Option 'cacheKeyExpiry' must have <= 1024 properties",
+			],
+			[{ cacheMaxSize: 0 }, "Option 'cacheMaxSize' must be >= 1"],
+			[{ cacheMaxSize: 1.5 }, "Option 'cacheMaxSize' must be integer"],
+			[
+				{ cacheMaxSize: Number.MAX_SAFE_INTEGER + 1 },
+				`Option 'cacheMaxSize' must be <= ${Number.MAX_SAFE_INTEGER}`,
+			],
+		]) {
+			rejects(options, message);
+		}
 	});
 });

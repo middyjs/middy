@@ -1263,6 +1263,73 @@ describe("@middy/ssm", () => {
 		}
 	});
 
+	const rejectsOption = (options, messagePart) => {
+		try {
+			ssmValidateOptions(options);
+			ok(false, `expected throw for ${messagePart}`);
+		} catch (e) {
+			ok(e instanceof TypeError, "expected TypeError");
+			strictEqual(e.cause.package, "@middy/ssm");
+			ok(
+				e.message.includes(messagePart),
+				`expected message to include '${messagePart}', got: ${e.message}`,
+			);
+		}
+	};
+
+	test("ssmValidateOptions applies the GetParameters and GetParametersByPath limits to fetchData values", () => {
+		// https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_GetParameters.html
+		// https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_GetParametersByPath.html
+		ssmValidateOptions({
+			fetchData: {
+				name: "EC2DevServerType",
+				path: "/Branch312/Dev/",
+				label: "/dev/service_name/key:release",
+				version: "/dev/service_name/key:5",
+				arn: "arn:aws:ssm:us-east-2:111122223333:parameter/MyGitHubPassword",
+				secret: "/aws/reference/secretsmanager/prod/db+user=a@b",
+				long: `/${"p".repeat(2047)}`,
+			},
+		});
+		rejectsOption({ fetchData: { key: 1 } }, "fetchData.key");
+		rejectsOption({ fetchData: { key: "" } }, "fetchData.key");
+		rejectsOption(
+			{ fetchData: { key: `/${"p".repeat(2048)}` } },
+			"fetchData.key",
+		);
+		rejectsOption({ fetchData: { key: "/dev/a b" } }, "fetchData.key");
+		rejectsOption({ fetchData: { key: "/dev/ünï" } }, "fetchData.key");
+	});
+
+	test("ssmValidateOptions bounds the fetchData internal keys", () => {
+		ssmValidateOptions({
+			fetchData: { "@middy/db.password!": "/db/password" },
+		});
+		ssmValidateOptions({
+			fetchData: Object.fromEntries(
+				Array.from({ length: 1024 }, (_, i) => [`k${i}`, `/k${i}`]),
+			),
+		});
+		rejectsOption(
+			{
+				fetchData: Object.fromEntries(
+					Array.from({ length: 1025 }, (_, i) => [`k${i}`, `/k${i}`]),
+				),
+			},
+			"fetchData",
+		);
+		rejectsOption({ fetchData: { "a b": "/k" } }, "a b");
+		ssmValidateOptions({ fetchData: { ["k".repeat(1024)]: "/k" } });
+		rejectsOption({ fetchData: { ["k".repeat(1025)]: "/k" } }, "kkk");
+	});
+
+	test("ssmValidateOptions applies the GetParameters Names limit to awsRequestLimit", () => {
+		ssmValidateOptions({ awsRequestLimit: 1 });
+		ssmValidateOptions({ awsRequestLimit: 10 });
+		rejectsOption({ awsRequestLimit: 11 }, "awsRequestLimit");
+		rejectsOption({ awsRequestLimit: 1.5 }, "awsRequestLimit");
+	});
+
 	test("ssmValidateOptions should throw when cacheExpiry is below -1", () => {
 		try {
 			ssmValidateOptions({ cacheExpiry: -5 });
@@ -1860,5 +1927,65 @@ describe("@middy/ssm", () => {
 
 		await handler(event, context);
 		ok(sends > afterFirst);
+	});
+
+	const expectSharedOptionError = (options, messagePart) => {
+		let error;
+		try {
+			ssmValidateOptions(options);
+		} catch (e) {
+			error = e;
+		}
+		ok(error instanceof TypeError, `expected a TypeError for ${messagePart}`);
+		strictEqual(error.cause.package, "@middy/ssm");
+		ok(error.message.includes(messagePart), error.message);
+	};
+
+	test("ssmValidateOptions validates awsClientOptions keys against the AWS SDK client config", () => {
+		ssmValidateOptions({
+			awsClientOptions: {
+				region: "us-east-1",
+				endpoint: "https://example.com",
+				credentials: async () => ({
+					accessKeyId: "AKID",
+					secretAccessKey: "secret",
+				}),
+			},
+		});
+		expectSharedOptionError(
+			{ awsClientOptions: { regoin: "us-east-1" } },
+			"awsClientOptions.regoin",
+		);
+	});
+
+	test("ssmValidateOptions validates awsClientAssumeRole as an internal key name", () => {
+		ssmValidateOptions({ awsClientAssumeRole: "@middy/sts.role-arn:a/b_1!" });
+		ssmValidateOptions({ awsClientAssumeRole: "k".repeat(1024) });
+		expectSharedOptionError(
+			{ awsClientAssumeRole: "k".repeat(1025) },
+			"awsClientAssumeRole",
+		);
+		expectSharedOptionError({ awsClientAssumeRole: "" }, "awsClientAssumeRole");
+		expectSharedOptionError(
+			{ awsClientAssumeRole: "a b" },
+			"awsClientAssumeRole",
+		);
+	});
+
+	test("ssmValidateOptions validates contextKey as a key name", () => {
+		ssmValidateOptions({ contextKey: "@middy/ctx.name-a:b/c_1!" });
+		ssmValidateOptions({ contextKey: "k".repeat(1024) });
+		expectSharedOptionError({ contextKey: "k".repeat(1025) }, "contextKey");
+		expectSharedOptionError({ contextKey: "" }, "contextKey");
+		expectSharedOptionError({ contextKey: "a b" }, "contextKey");
+	});
+
+	test("ssmValidateOptions validates the cache options with the shared rules", () => {
+		ssmValidateOptions({
+			cacheKey: "@middy/ssm",
+			cacheKeyExpiry: { "@middy/ssm": 1000 },
+		});
+		expectSharedOptionError({ cacheKey: "a b" }, "cacheKey");
+		expectSharedOptionError({ cacheKeyExpiry: { "a b": 1000 } }, "a b");
 	});
 });

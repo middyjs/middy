@@ -33,6 +33,9 @@ export interface PollKinesisOptions {
 	/**
 	 * Backoff (ms) before a failed batch is retried, doubling per consecutive
 	 * failure of the same record up to 30 s (or this value when larger).
+	 * A GetRecords or GetShardIterator call that was throttled, failed with a
+	 * 5xx or got no response is repeated after the same backoff, however often
+	 * it takes.
 	 * Defaults to 1000.
 	 */
 	retryDelayMs?: number;

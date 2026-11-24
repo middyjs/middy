@@ -1,4 +1,5 @@
 ---
+
 title: API Gateway (REST)
 description: "Build APIs on AWS Lambda with Middy and API Gateway REST API (v1): payload differences from v2, recommended middleware stack, recipes."
 ---
@@ -30,70 +31,70 @@ The response must be `{ statusCode, headers, multiValueHeaders?, body, isBase64E
 
 ## Key differences from v2
 
-| | REST (v1) | HTTP (v2) |
-| --- | --- | --- |
-| Headers casing | Mixed/pascal | Lowercase |
-| Method field | `event.httpMethod` | `event.requestContext.http.method` |
-| Path field | `event.path` | `event.rawPath` |
-| Query params | `queryStringParameters` (can be `null`) | `queryStringParameters` (can be `undefined`) |
-| Cookies in | `event.headers.Cookie` (single string) | `event.cookies` (array) |
-| Cookies out | `multiValueHeaders['Set-Cookie']` | `cookies` array on response |
+|                | REST (v1)                               | HTTP (v2)                                    |
+| -------------- | --------------------------------------- | -------------------------------------------- |
+| Headers casing | Mixed/pascal                            | Lowercase                                    |
+| Method field   | `event.httpMethod`                      | `event.requestContext.http.method`           |
+| Path field     | `event.path`                            | `event.rawPath`                              |
+| Query params   | `queryStringParameters` (can be `null`) | `queryStringParameters` (can be `undefined`) |
+| Cookies in     | `event.headers.Cookie` (single string)  | `event.cookies` (array)                      |
+| Cookies out    | `multiValueHeaders['Set-Cookie']`       | `cookies` array on response                  |
 
 `httpHeaderNormalizer` + `httpEventNormalizer` reconcile most of this so the rest of your middleware chain stays identical.
 
 ## Recommended middlewares
 
-| Middleware | Why |
-| --- | --- |
+| Middleware                                                                  | Why                                                    |
+| --------------------------------------------------------------------------- | ------------------------------------------------------ |
 | [`@middy/http-header-normalizer`](/docs/middlewares/http-header-normalizer) | **Required.** Lowercase the pascal-case v1 header keys |
-| [`@middy/http-event-normalizer`](/docs/middlewares/http-event-normalizer) | Replace `null` query/path objects with `{}` |
-| [`@middy/http-json-body-parser`](/docs/middlewares/http-json-body-parser) | Parse `event.body` |
-| [`@middy/validator`](/docs/middlewares/validator) | JSON Schema validation |
-| [`@middy/http-cors`](/docs/middlewares/http-cors) | CORS headers |
-| [`@middy/http-security-headers`](/docs/middlewares/http-security-headers) | Security headers |
-| [`@middy/http-error-handler`](/docs/middlewares/http-error-handler) | Map thrown errors (put **last**) |
+| [`@middy/http-event-normalizer`](/docs/middlewares/http-event-normalizer)   | Replace `null` query/path objects with `{}`            |
+| [`@middy/http-json-body-parser`](/docs/middlewares/http-json-body-parser)   | Parse `event.body`                                     |
+| [`@middy/validator`](/docs/middlewares/validator)                           | JSON Schema validation                                 |
+| [`@middy/http-cors`](/docs/middlewares/http-cors)                           | CORS headers                                           |
+| [`@middy/http-security-headers`](/docs/middlewares/http-security-headers)   | Security headers                                       |
+| [`@middy/http-error-handler`](/docs/middlewares/http-error-handler)         | Map thrown errors (put **last**)                       |
 
 ## Production example
 
 ```javascript
-import middy from '@middy/core'
-import httpEventNormalizer from '@middy/http-event-normalizer'
-import httpHeaderNormalizer from '@middy/http-header-normalizer'
-import httpJsonBodyParser from '@middy/http-json-body-parser'
-import httpSecurityHeaders from '@middy/http-security-headers'
-import httpCors from '@middy/http-cors'
-import httpContentEncoding from '@middy/http-content-encoding'
-import httpErrorHandler from '@middy/http-error-handler'
-import validator from '@middy/validator'
-import { transpileSchema } from '@middy/validator/transpile'
+import middy from "@middy/core";
+import httpEventNormalizer from "@middy/http-event-normalizer";
+import httpHeaderNormalizer from "@middy/http-header-normalizer";
+import httpJsonBodyParser from "@middy/http-json-body-parser";
+import httpSecurityHeaders from "@middy/http-security-headers";
+import httpCors from "@middy/http-cors";
+import httpContentEncoding from "@middy/http-content-encoding";
+import httpErrorHandler from "@middy/http-error-handler";
+import validator from "@middy/validator";
+import { transpileSchema } from "@middy/validator/transpile";
 
 const schema = {
-  type: 'object',
-  properties: {
-    body: {
-      type: 'object',
-      properties: { email: { type: 'string', format: 'email' } },
-      required: ['email']
-    }
-  }
-}
+	type: "object",
+	properties: {
+		body: {
+			type: "object",
+			properties: { email: { type: "string", format: "email" } },
+			required: ["email"],
+		},
+	},
+};
 
 const lambdaHandler = async (event) => {
-  return { statusCode: 201, body: JSON.stringify({ email: event.body.email }) }
-}
+	return { statusCode: 201, body: JSON.stringify({ email: event.body.email }) };
+};
 
 export const handler = middy({
-  timeoutEarlyResponse: () => ({ statusCode: 408 })
+	timeoutEarlyResponse: () => ({ statusCode: 408 }),
 })
-  .use(httpHeaderNormalizer())
-  .use(httpEventNormalizer())
-  .use(httpJsonBodyParser())
-  .use(httpSecurityHeaders())
-  .use(httpCors({ origin: 'https://app.example.com' }))
-  .use(httpContentEncoding())
-  .use(validator({ eventSchema: transpileSchema(schema) }))
-  .use(httpErrorHandler())
-  .handler(lambdaHandler)
+	.use(httpHeaderNormalizer())
+	.use(httpEventNormalizer())
+	.use(httpJsonBodyParser())
+	.use(httpSecurityHeaders())
+	.use(httpCors({ origin: "https://app.example.com" }))
+	.use(httpContentEncoding())
+	.use(validator({ eventSchema: transpileSchema(schema) }))
+	.use(httpErrorHandler())
+	.handler(lambdaHandler);
 ```
 
 ## Common gotchas

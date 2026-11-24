@@ -37,9 +37,11 @@ describe("@middy/glue-schema-registry", () => {
 	const AVRO_SCHEMA =
 		'{"type":"record","name":"User","fields":[{"name":"id","type":"string"}]}';
 
+	const schemaVersionId = "b7b4a7f0-9c1e-4b8a-8f3e-2d9c5a6e1f00";
+
 	test("validateOptions accepts SchemaVersionId form", () => {
 		glueSchemaRegistryValidateOptions({
-			fetchData: { user: { SchemaVersionId: "uuid" } },
+			fetchData: { user: { SchemaVersionId: schemaVersionId } },
 		});
 	});
 
@@ -114,7 +116,7 @@ describe("@middy/glue-schema-registry", () => {
 				strictEqual(values.user.schemaVersionId, "uuid");
 			});
 
-		// Prefetch in flight, entry cleared, refetch succeeds.
+		strictEqual(send.mock.callCount(), 1);
 		clearCache();
 		await handler(defaultEvent, defaultContext);
 		rejectStale(new Error("stale"));
@@ -501,6 +503,33 @@ describe("@middy/glue-schema-registry", () => {
 		strictEqual(mock.commandCalls(GetSchemaVersionCommand).length, 0);
 	});
 
+	test("resolveSchemaVersion rejects an uppercase schemaVersionId (no Glue call)", async () => {
+		const mock = mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
+			SchemaVersionId: schemaVersionId,
+			SchemaDefinition: AVRO_SCHEMA,
+			DataFormat: "AVRO",
+		});
+		await assertRejects(
+			() =>
+				resolveSchemaVersion(
+					schemaVersionId.toUpperCase(),
+					{ cacheKey: "glue-schema-registry" },
+					{
+						internal: {},
+					},
+				),
+			(e) => {
+				ok(e instanceof TypeError);
+				strictEqual(
+					e.message,
+					"resolveSchemaVersion: schemaVersionId required",
+				);
+				return true;
+			},
+		);
+		strictEqual(mock.commandCalls(GetSchemaVersionCommand).length, 0);
+	});
+
 	test("resolveSchemaVersion accepts a canonical UUID schemaVersionId", async () => {
 		const uuid = "12345678-1234-1234-1234-123456789012";
 		mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
@@ -638,100 +667,139 @@ describe("@middy/glue-schema-registry", () => {
 		);
 	});
 
-	test("validateOptions: fetchData SchemaVersionId branch enforces string", () => {
+	const acceptsEntry = (entry) =>
+		doesNotThrow(() =>
+			glueSchemaRegistryValidateOptions({ fetchData: { user: entry } }),
+		);
+	const rejectsEntry = (entry) =>
+		throws(
+			() => glueSchemaRegistryValidateOptions({ fetchData: { user: entry } }),
+			/fetchData\.user.*oneOf/,
+		);
+	const bySchemaId = (schemaId, versionNumber) => ({
+		SchemaId: schemaId,
+		SchemaVersionNumber: versionNumber,
+	});
+
+	test("validateOptions: fetchData SchemaVersionId branch applies the GetSchemaVersion limits", () => {
+		acceptsEntry({ SchemaVersionId: schemaVersionId });
+		rejectsEntry({ SchemaVersionId: 123 });
+		rejectsEntry({ SchemaVersionId: "uuid" });
+		rejectsEntry({ SchemaVersionId: schemaVersionId.toUpperCase() });
+		rejectsEntry({ SchemaVersionId: `${schemaVersionId}0` });
+	});
+
+	test("validateOptions: fetchData entries reject keys GetSchemaVersion does not take", () => {
+		rejectsEntry({ SchemaVersionId: schemaVersionId, extra: 1 });
+		rejectsEntry({ ...bySchemaId({ SchemaName: "user" }), extra: 1 });
+		rejectsEntry(bySchemaId({ SchemaName: "user", extra: 1 }));
+		rejectsEntry(bySchemaId({ SchemaName: "user" }, { extra: 1 }));
+		rejectsEntry({
+			SchemaVersionId: schemaVersionId,
+			...bySchemaId({ SchemaName: "user" }),
+		});
+		rejectsEntry({});
+	});
+
+	test("validateOptions: fetchData SchemaId branch accepts every GetSchemaVersion parameter", () => {
+		acceptsEntry(
+			bySchemaId(
+				{
+					SchemaName: "user",
+					RegistryName: "default",
+					SchemaArn: "arn:aws:glue:us-east-1:123456789012:schema/default/user",
+				},
+				{ VersionNumber: 3, LatestVersion: true },
+			),
+		);
+		acceptsEntry({ SchemaId: {} });
+	});
+
+	test("validateOptions: fetchData SchemaId applies the SchemaId limits", () => {
+		rejectsEntry({ SchemaId: "user" });
+		for (const key of ["SchemaName", "RegistryName"]) {
+			acceptsEntry({ SchemaId: { [key]: "aZ09-_$#." } });
+			acceptsEntry({ SchemaId: { [key]: "n".repeat(255) } });
+			rejectsEntry({ SchemaId: { [key]: "n".repeat(256) } });
+			rejectsEntry({ SchemaId: { [key]: "" } });
+			rejectsEntry({ SchemaId: { [key]: "a b" } });
+			rejectsEntry({ SchemaId: { [key]: 1 } });
+		}
+		for (const partition of [
+			"aws",
+			"aws-cn",
+			"aws-us-gov",
+			"aws-eusc",
+			"aws-iso",
+			"aws-iso-b",
+			"aws-iso-e",
+			"aws-iso-f",
+		]) {
+			acceptsEntry({ SchemaId: { SchemaArn: `arn:${partition}:glue:x` } });
+		}
+		rejectsEntry({ SchemaId: { SchemaArn: "arn:aws-iso-c:glue:x" } });
+		rejectsEntry({ SchemaId: { SchemaArn: "xarn:aws:glue:x" } });
+		rejectsEntry({ SchemaId: { SchemaArn: "arn:aws:s3:x" } });
+		rejectsEntry({ SchemaId: { SchemaArn: "arn:aws:glue:" } });
+		rejectsEntry({ SchemaId: { SchemaArn: "arn:aws:glue:a b" } });
+		rejectsEntry({ SchemaId: { SchemaArn: 123 } });
+		acceptsEntry({
+			SchemaId: { SchemaArn: `arn:aws:glue:${"x".repeat(10227)}` },
+		});
+		rejectsEntry({
+			SchemaId: { SchemaArn: `arn:aws:glue:${"x".repeat(10228)}` },
+		});
+	});
+
+	test("validateOptions: fetchData SchemaVersionNumber applies the SchemaVersionNumber limits", () => {
+		const schemaId = { SchemaName: "user" };
+		rejectsEntry(bySchemaId(schemaId, 3));
+		acceptsEntry(bySchemaId(schemaId, { VersionNumber: 1 }));
+		acceptsEntry(bySchemaId(schemaId, { VersionNumber: 100000 }));
+		rejectsEntry(bySchemaId(schemaId, { VersionNumber: 0 }));
+		rejectsEntry(bySchemaId(schemaId, { VersionNumber: 100001 }));
+		rejectsEntry(bySchemaId(schemaId, { VersionNumber: 1.5 }));
+		rejectsEntry(bySchemaId(schemaId, { LatestVersion: "nope" }));
+	});
+
+	test("validateOptions bounds the fetchData internal keys", () => {
+		const entry = { SchemaVersionId: schemaVersionId };
 		doesNotThrow(() =>
 			glueSchemaRegistryValidateOptions({
-				fetchData: { user: { SchemaVersionId: "uuid" } },
+				fetchData: { "@middy/db.password!": entry },
 			}),
 		);
-		// non-string SchemaVersionId matches neither oneOf branch
+		doesNotThrow(() =>
+			glueSchemaRegistryValidateOptions({
+				fetchData: Object.fromEntries(
+					Array.from({ length: 1024 }, (_, i) => [`k${i}`, entry]),
+				),
+			}),
+		);
 		throws(
 			() =>
 				glueSchemaRegistryValidateOptions({
-					fetchData: { user: { SchemaVersionId: 123 } },
+					fetchData: Object.fromEntries(
+						Array.from({ length: 1025 }, (_, i) => [`k${i}`, entry]),
+					),
 				}),
-			/fetchData\.user.*oneOf/,
+			/fetchData/,
 		);
-	});
-
-	test("validateOptions: fetchData SchemaVersionId branch allows extra keys", () => {
+		throws(
+			() => glueSchemaRegistryValidateOptions({ fetchData: { "a b": entry } }),
+			/a b/,
+		);
 		doesNotThrow(() =>
 			glueSchemaRegistryValidateOptions({
-				fetchData: { user: { SchemaVersionId: "uuid", extra: 1 } },
-			}),
-		);
-	});
-
-	test("validateOptions: fetchData SchemaId object enforces string fields + extras", () => {
-		doesNotThrow(() =>
-			glueSchemaRegistryValidateOptions({
-				fetchData: {
-					user: {
-						SchemaId: {
-							SchemaName: "user",
-							RegistryName: "default",
-							SchemaArn: "arn:aws:glue:::schema/user",
-							extra: 1,
-						},
-						SchemaVersionNumber: { VersionNumber: 1 },
-					},
-				},
+				fetchData: { ["k".repeat(1024)]: entry },
 			}),
 		);
 		throws(
 			() =>
 				glueSchemaRegistryValidateOptions({
-					fetchData: {
-						user: {
-							SchemaId: { SchemaArn: 123 },
-							SchemaVersionNumber: { VersionNumber: 1 },
-						},
-					},
+					fetchData: { ["k".repeat(1025)]: entry },
 				}),
-			/fetchData\.user.*oneOf/,
-		);
-	});
-
-	test("validateOptions: fetchData SchemaVersionNumber enforces integer >= 1 + boolean + extras", () => {
-		doesNotThrow(() =>
-			glueSchemaRegistryValidateOptions({
-				fetchData: {
-					user: {
-						SchemaId: { SchemaName: "user" },
-						SchemaVersionNumber: {
-							VersionNumber: 3,
-							LatestVersion: true,
-							extra: 1,
-						},
-					},
-				},
-			}),
-		);
-		throws(
-			() =>
-				glueSchemaRegistryValidateOptions({
-					fetchData: {
-						user: {
-							SchemaId: { SchemaName: "user" },
-							SchemaVersionNumber: { LatestVersion: "nope" },
-						},
-					},
-				}),
-			/fetchData\.user.*oneOf/,
-		);
-	});
-
-	test("validateOptions: fetchData SchemaId branch allows extra keys on entry", () => {
-		doesNotThrow(() =>
-			glueSchemaRegistryValidateOptions({
-				fetchData: {
-					user: {
-						SchemaId: { SchemaName: "user" },
-						SchemaVersionNumber: { VersionNumber: 1 },
-						extra: 1,
-					},
-				},
-			}),
+			/kkk/,
 		);
 	});
 
@@ -1601,5 +1669,71 @@ describe("@middy/glue-schema-registry", () => {
 
 		await handler(defaultEvent, defaultContext);
 		ok(sends > afterFirst);
+	});
+
+	const expectSharedOptionError = (options, messagePart) => {
+		let error;
+		try {
+			glueSchemaRegistryValidateOptions(options);
+		} catch (e) {
+			error = e;
+		}
+		ok(error instanceof TypeError, `expected a TypeError for ${messagePart}`);
+		strictEqual(error.cause.package, "@middy/glue-schema-registry");
+		ok(error.message.includes(messagePart), error.message);
+	};
+
+	test("glueSchemaRegistryValidateOptions validates awsClientOptions keys against the AWS SDK client config", () => {
+		glueSchemaRegistryValidateOptions({
+			awsClientOptions: {
+				region: "us-east-1",
+				endpoint: "https://example.com",
+				credentials: async () => ({
+					accessKeyId: "AKID",
+					secretAccessKey: "secret",
+				}),
+			},
+		});
+		expectSharedOptionError(
+			{ awsClientOptions: { regoin: "us-east-1" } },
+			"awsClientOptions.regoin",
+		);
+	});
+
+	test("glueSchemaRegistryValidateOptions validates awsClientAssumeRole as an internal key name", () => {
+		glueSchemaRegistryValidateOptions({
+			awsClientAssumeRole: "@middy/sts.role-arn:a/b_1!",
+		});
+		glueSchemaRegistryValidateOptions({
+			awsClientAssumeRole: "k".repeat(1024),
+		});
+		expectSharedOptionError(
+			{ awsClientAssumeRole: "k".repeat(1025) },
+			"awsClientAssumeRole",
+		);
+		expectSharedOptionError({ awsClientAssumeRole: "" }, "awsClientAssumeRole");
+		expectSharedOptionError(
+			{ awsClientAssumeRole: "a b" },
+			"awsClientAssumeRole",
+		);
+	});
+
+	test("glueSchemaRegistryValidateOptions validates contextKey as a key name", () => {
+		glueSchemaRegistryValidateOptions({
+			contextKey: "@middy/ctx.name-a:b/c_1!",
+		});
+		glueSchemaRegistryValidateOptions({ contextKey: "k".repeat(1024) });
+		expectSharedOptionError({ contextKey: "k".repeat(1025) }, "contextKey");
+		expectSharedOptionError({ contextKey: "" }, "contextKey");
+		expectSharedOptionError({ contextKey: "a b" }, "contextKey");
+	});
+
+	test("glueSchemaRegistryValidateOptions validates the cache options with the shared rules", () => {
+		glueSchemaRegistryValidateOptions({
+			cacheKey: "@middy/glue-schema-registry",
+			cacheKeyExpiry: { "@middy/glue-schema-registry": 1000 },
+		});
+		expectSharedOptionError({ cacheKey: "a b" }, "cacheKey");
+		expectSharedOptionError({ cacheKeyExpiry: { "a b": 1000 } }, "a b");
 	});
 });

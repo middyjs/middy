@@ -1,4 +1,5 @@
 ---
+
 title: RDS
 description: "Use Middy with RDS Proxy and Aurora Lambda events."
 ---
@@ -35,16 +36,18 @@ flowchart LR
 Every hop through SNS, SQS, EventBridge, or EventBridge Pipes wraps the event Lambda receives in that service's envelope. [`@middy/event-normalizer`](/docs/middlewares/event-normalizer) unwraps the SNS and SQS envelopes.
 
 ## AWS Documentation
+
 - [Using AWS Lambda with Amazon RDS](https://docs.aws.amazon.com/lambda/latest/dg/services-rds.html)
 
 ## Example
+
 ```javascript
-import middy from '@middy/core'
-import eventNormalizerMiddleware from '@middy/event-normalizer'
+import middy from "@middy/core";
+import eventNormalizerMiddleware from "@middy/event-normalizer";
 
 export const handler = middy()
-  .use(eventNormalizerMiddleware()) // RDS -> SNS -> Lambda
-  .handler((event, context, {signal}) => {
-    // ...
-  })
+	.use(eventNormalizerMiddleware()) // RDS -> SNS -> Lambda
+	.handler((event, context, { signal }) => {
+		// ...
+	});
 ```

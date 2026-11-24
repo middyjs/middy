@@ -1,4 +1,5 @@
 ---
+
 title: Profiling
 description: "Profile Middy middleware execution time using built-in hooks for performance tuning."
 ---
@@ -8,70 +9,74 @@ Inside of `@middy/core` we've added some hook before and after every middleware 
 ## Time
 
 ```javascript
-
 const defaults = {
-  logger: console.log,
-  enabled: true
-}
+	logger: console.log,
+	enabled: true,
+};
 
 const timePlugin = (opts = {}) => {
-  const { logger, enabled } = { ...defaults, ...opts }
-  if (!enabled) {
+	const { logger, enabled } = { ...defaults, ...opts };
+	if (!enabled) {
 		return {};
 	}
-  
+
 	let cold = true;
-  const store = {}
+	const store = {};
 
-  const start = (id) => {
-    store[id] = process.hrtime.bigint()
-  }
-  const stop = (id) => {
-    if (!enabled) return
-    logger(id, Number.parseInt((process.hrtime.bigint() - store[id]).toString(), 10) / 1_000_000, 'ms')
-  }
+	const start = (id) => {
+		store[id] = process.hrtime.bigint();
+	};
+	const stop = (id) => {
+		if (!enabled) return;
+		logger(
+			id,
+			Number.parseInt((process.hrtime.bigint() - store[id]).toString(), 10) /
+				1_000_000,
+			"ms",
+		);
+	};
 
-  // Only run during cold start
-  const beforePrefetch = () => start('prefetch')
-  const requestStart = () => {
+	// Only run during cold start
+	const beforePrefetch = () => start("prefetch");
+	const requestStart = () => {
 		if (cold) {
 			cold = false;
 			stop("prefetch");
 		}
 		start("request");
 	};
-  const beforeMiddleware = start
-  const afterMiddleware = stop
-  const beforeHandler = () => start('handler')
-  const afterHandler = () => stop('handler')
-  const requestEnd = () => stop('request')
+	const beforeMiddleware = start;
+	const afterMiddleware = stop;
+	const beforeHandler = () => start("handler");
+	const afterHandler = () => stop("handler");
+	const requestEnd = () => stop("request");
 
-  return {
-    beforePrefetch,
-    requestStart,
-    beforeMiddleware,
-    afterMiddleware,
-    beforeHandler,
-    afterHandler,
-    requestEnd
-  }
-}
+	return {
+		beforePrefetch,
+		requestStart,
+		beforeMiddleware,
+		afterMiddleware,
+		beforeHandler,
+		afterHandler,
+		requestEnd,
+	};
+};
 
 export const handler = middy(timePlugin())
-  .use(eventLogger())
-  .use(responseLogger())
-  .use(errorLogger())
-  .use(httpEventNormalizer())
-  .use(httpHeaderNormalizer())
-  .use(httpUrlencodePathParametersParser())
-  .use(httpUrlencodeBodyParser())
-  .use(httpJsonBodyParser())
-  .use(httpCors())
-  .use(httpSecurityHeaders())
-  .use(validator({eventSchema}))
-  .handler(()=>{})
+	.use(eventLogger())
+	.use(responseLogger())
+	.use(errorLogger())
+	.use(httpEventNormalizer())
+	.use(httpHeaderNormalizer())
+	.use(httpUrlencodePathParametersParser())
+	.use(httpUrlencodeBodyParser())
+	.use(httpJsonBodyParser())
+	.use(httpCors())
+	.use(httpSecurityHeaders())
+	.use(validator({ eventSchema }))
+	.handler(() => {});
 
-await handler()
+await handler();
 ```
 
 This will log out something this:
@@ -106,68 +111,69 @@ If you've looked at the code for some the supported middlewares, you'll see thes
 This is why.
 
 ## Memory
+
 ```javascript
-import memwatch from '@airbnb/node-memwatch'
+import memwatch from "@airbnb/node-memwatch";
 
 const defaults = {
-  logger: console.log,
-  enabled: true,
-}
+	logger: console.log,
+	enabled: true,
+};
 
 const memoryPlugin = (opts = {}) => {
-  const { logger, enabled } = { ...defaults, ...opts }
-  if (!enabled) {
+	const { logger, enabled } = { ...defaults, ...opts };
+	if (!enabled) {
 		return {};
 	}
- 
+
 	let cold = true;
-  const store = {}
+	const store = {};
 
-  const start = (id) => {
-    store[id] = new memwatch.HeapDiff()
-  }
-  const stop = (id) => {
-    logger(id, store[id].end())
-  }
+	const start = (id) => {
+		store[id] = new memwatch.HeapDiff();
+	};
+	const stop = (id) => {
+		logger(id, store[id].end());
+	};
 
-  const beforePrefetch = () => start('prefetch')
-  const requestStart = () => {
+	const beforePrefetch = () => start("prefetch");
+	const requestStart = () => {
 		if (cold) {
 			cold = false;
 			stop("prefetch");
 		}
 		start("request");
 	};
-  const beforeMiddleware = start
-  const afterMiddleware = stop
-  const beforeHandler = () => start('handler')
-  const afterHandler = () => stop('handler')
-  const requestEnd = () => stop('request')
+	const beforeMiddleware = start;
+	const afterMiddleware = stop;
+	const beforeHandler = () => start("handler");
+	const afterHandler = () => stop("handler");
+	const requestEnd = () => stop("request");
 
-  return {
-    beforePrefetch,
-    requestStart,
-    beforeMiddleware,
-    afterMiddleware,
-    beforeHandler,
-    afterHandler,
-    requestEnd
-  }
-}
+	return {
+		beforePrefetch,
+		requestStart,
+		beforeMiddleware,
+		afterMiddleware,
+		beforeHandler,
+		afterHandler,
+		requestEnd,
+	};
+};
 
 export const handler = middy(memoryPlugin())
-  .use(eventLogger())
-  .use(responseLogger())
-  .use(errorLogger())
-  .use(httpEventNormalizer())
-  .use(httpHeaderNormalizer())
-  .use(httpUrlencodePathParametersParser())
-  .use(httpUrlencodeBodyParser())
-  .use(httpJsonBodyParser())
-  .use(httpCors())
-  .use(httpSecurityHeaders())
-  .use(validator({eventSchema}))
-  .handler(()=>{})
+	.use(eventLogger())
+	.use(responseLogger())
+	.use(errorLogger())
+	.use(httpEventNormalizer())
+	.use(httpHeaderNormalizer())
+	.use(httpUrlencodePathParametersParser())
+	.use(httpUrlencodeBodyParser())
+	.use(httpJsonBodyParser())
+	.use(httpCors())
+	.use(httpSecurityHeaders())
+	.use(validator({ eventSchema }))
+	.handler(() => {});
 
-await handler()
+await handler();
 ```

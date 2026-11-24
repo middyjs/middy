@@ -6,7 +6,7 @@ import {
 	throws,
 } from "node:assert/strict";
 import { describe, test } from "node:test";
-import middy from "../core/index.js";
+import middy from "@middy/core";
 import httpCors, { httpCorsValidateOptions } from "./index.js";
 
 const defaultContext = {
@@ -3871,5 +3871,344 @@ describe("@middy/http-cors", () => {
 		deepStrictEqual(response.multiValueHeaders.Vary, [
 			"Accept, Accept-Encoding, Origin",
 		]);
+	});
+
+	const allowedOriginFor = async (origins, origin) => {
+		const handler = middy(() => ({ statusCode: 200 })).use(
+			httpCors({ origins }),
+		);
+		const headers = origin === undefined ? {} : { Origin: origin };
+		const response = await handler(
+			{ httpMethod: "GET", headers },
+			defaultContext,
+		);
+		return response.headers["Access-Control-Allow-Origin"];
+	};
+
+	for (const [pattern, origin, allowed] of [
+		["https://*-*.example.com", "https://pr-12.example.com", true],
+		["https://*-*.example.com", "https://pr12.example.com", false],
+		["https://*-*.example.com", "https://a.b-c.example.com", false],
+		["https://*-*.example.com", "https://a-b.c.example.com", false],
+		["https://*-*-*.example.com", "https://a-b-c.example.com", true],
+		["https://*-*-*.example.com", "https://a-b.example.com", false],
+		["https://app*.example.com", "https://app.example.com", true],
+		["https://**.example.com", "https://app.example.com", true],
+		["https://a*a.example.com", "https://aa.example.com", true],
+		["https://a*a.example.com", "https://a.example.com", false],
+		["https://*.*.example.com", "https://a.b.example.com", true],
+		["https://*.*.example.com", "https://a.example.com", false],
+		["https://*.*.example.com", "https://a.b.c.example.com", false],
+		["https://*.api-*.example.com", "https://eu.api-1.example.com", true],
+		["https://*.api-*.example.com", "https://eu.x.api-1.example.com", false],
+		["http://localhost:*", "http://localhost:3000", true],
+		["http://*:*", "http://localhost:3000", true],
+		["http://*:*", "http://127.0.0.1:3000", false],
+		["https://*.example.com", "http://app.example.com", false],
+	]) {
+		test(`It should ${allowed ? "allow" : "refuse"} ${origin} for ${pattern}`, async () => {
+			strictEqual(
+				await allowedOriginFor([pattern], origin),
+				allowed ? origin : undefined,
+			);
+		});
+	}
+
+	test("It should match a long Origin against several wildcards in one label without backtracking", async () => {
+		const origin = `https://pr-${"-".repeat(2000)}`;
+
+		const start = performance.now();
+		const allowed = await allowedOriginFor(
+			["https://*-*-*.example.com"],
+			origin,
+		);
+		const elapsed = performance.now() - start;
+
+		strictEqual(allowed, undefined);
+		ok(elapsed < 1000, `matching took ${Math.round(elapsed)}ms`);
+	});
+
+	test("It should add Vary: Origin when a custom getOrigin is the only origin source", async () => {
+		const allowed = new Set(["https://a.example.com"]);
+		const handler = middy(() => ({ statusCode: 200 })).use(
+			httpCors({
+				getOrigin: (incomingOrigin) =>
+					allowed.has(incomingOrigin) ? incomingOrigin : null,
+			}),
+		);
+
+		const matched = await handler(
+			{ httpMethod: "GET", headers: { Origin: "https://a.example.com" } },
+			defaultContext,
+		);
+		const refused = await handler(
+			{ httpMethod: "GET", headers: { Origin: "https://b.example.com" } },
+			defaultContext,
+		);
+
+		deepStrictEqual(matched.headers, {
+			"Access-Control-Allow-Origin": "https://a.example.com",
+			Vary: "Origin",
+		});
+		deepStrictEqual(refused.headers, { Vary: "Origin" });
+	});
+
+	test("It should add Vary: Origin when the handler sets its own origin over a wildcard", async () => {
+		const handler = middy(() => ({
+			statusCode: 200,
+			headers: { "Access-Control-Allow-Origin": "https://a.example.com" },
+		})).use(httpCors({ origin: "*" }));
+
+		const response = await handler(
+			{ httpMethod: "GET", headers: { Origin: "https://a.example.com" } },
+			defaultContext,
+		);
+
+		deepStrictEqual(response.headers, {
+			"Access-Control-Allow-Origin": "https://a.example.com",
+			Vary: "Origin",
+		});
+	});
+
+	test("It should send no origin for a wildcard pattern when the request has none", async () => {
+		strictEqual(
+			await allowedOriginFor(["https://*.example.com"], undefined),
+			undefined,
+		);
+	});
+
+	const corsDocumentedOrigins = [
+		"*",
+		"https://example.com",
+		"https://localhost:3000",
+		"https://*.example.com",
+		"https://*.*.example.com",
+		"https://app(1).example.com",
+		"https://app[1].example.com",
+		"https://münchen.de",
+		"https://*.münchen.de",
+		"http://münchen.de",
+		"https://*.Example.COM",
+		"https://a.com:8080",
+		"http://a.com",
+		"example.com",
+		"a",
+	];
+
+	test("httpCorsValidateOptions accepts every origin form the tests and docs use", () => {
+		for (const origin of corsDocumentedOrigins) {
+			httpCorsValidateOptions({ origin });
+		}
+		httpCorsValidateOptions({ origins: corsDocumentedOrigins });
+	});
+
+	test("httpCorsValidateOptions rejects an origin that is not a URL, * or a wildcard host", () => {
+		for (const origin of [
+			"",
+			"https://invalid host.com",
+			"https://a.com\nx",
+			"xhttp://a.com",
+			"https://a.com/",
+			"https://a.com, https://b.com",
+		]) {
+			throws(() => httpCorsValidateOptions({ origin }), {
+				name: "TypeError",
+				message: "Option 'origin' must match exactly one schema in oneOf",
+			});
+			throws(() => httpCorsValidateOptions({ origins: [origin] }), {
+				name: "TypeError",
+				message: "Option 'origins[0]' must match exactly one schema in oneOf",
+			});
+		}
+	});
+
+	test("httpCorsValidateOptions accepts header lists with optional whitespace", () => {
+		for (const methods of [
+			"GET,POST",
+			"GET, POST",
+			"GET ,\tPOST",
+			"*",
+			"GET",
+		]) {
+			httpCorsValidateOptions({ methods });
+		}
+		for (const value of [
+			"x-example",
+			"Content-Type, Authorization",
+			"X-Middleware,X-Other",
+			"*",
+		]) {
+			httpCorsValidateOptions({
+				headers: value,
+				exposeHeaders: value,
+				vary: value,
+			});
+		}
+		for (const cacheControl of [
+			"max-age=3600",
+			"public, max-age=60",
+			'no-cache="Set-Cookie"',
+			'public, no-cache="Set-Cookie, Authorization"',
+		]) {
+			httpCorsValidateOptions({ cacheControl });
+		}
+	});
+
+	test("httpCorsValidateOptions rejects a header list that breaks the list grammar", () => {
+		for (const methods of [
+			"get;post",
+			"GET\n,POST",
+			"GET,,POST",
+			" GET",
+			"GET ",
+			"GET,",
+		]) {
+			throws(() => httpCorsValidateOptions({ methods }), {
+				name: "TypeError",
+				message: /^Option 'methods' must match pattern /,
+			});
+		}
+		for (const key of ["headers", "exposeHeaders", "vary"]) {
+			for (const value of ["", "a\r\nb", "a;b", "a,,b", "a b", " a"]) {
+				throws(() => httpCorsValidateOptions({ [key]: value }), {
+					name: "TypeError",
+					message: new RegExp(`^Option '${key}' must match pattern `),
+				});
+			}
+		}
+		for (const cacheControl of [
+			"",
+			"max-age=3600\r\nX: y",
+			"max-age=",
+			"a b",
+		]) {
+			throws(() => httpCorsValidateOptions({ cacheControl }), {
+				name: "TypeError",
+				message: /^Option 'cacheControl' must match pattern /,
+			});
+		}
+	});
+
+	test("httpCorsValidateOptions bounds maxAge to RFC 9111 delta-seconds", () => {
+		for (const maxAge of [0, 60, 2147483648, "60", "2147483648"]) {
+			httpCorsValidateOptions({ maxAge });
+		}
+		for (const maxAge of [
+			-1,
+			2147483649,
+			1.5,
+			"60s",
+			"-1",
+			"1.5",
+			"",
+			"12345678901",
+		]) {
+			throws(() => httpCorsValidateOptions({ maxAge }), {
+				name: "TypeError",
+				message: "Option 'maxAge' must match exactly one schema in oneOf",
+			});
+		}
+	});
+
+	test("httpCorsValidateOptions accepts a credentials token and rejects anything else", () => {
+		for (const credentials of [true, false, "true", "include"]) {
+			httpCorsValidateOptions({ credentials });
+		}
+		for (const credentials of ["", "a b", "tr\nue", "t".repeat(1025)]) {
+			throws(() => httpCorsValidateOptions({ credentials }), {
+				name: "TypeError",
+				message: "Option 'credentials' must match exactly one schema in oneOf",
+			});
+		}
+	});
+
+	test("httpCorsValidateOptions bounds string options to 1024 characters", () => {
+		const host = `https://${"a".repeat(1024 - "https://".length)}`;
+		const list = "a".repeat(1024);
+		throws(() => httpCorsValidateOptions({ origin: `${host}a` }), {
+			name: "TypeError",
+			message: "Option 'origin' must match exactly one schema in oneOf",
+		});
+		throws(() => httpCorsValidateOptions({ origins: [`${host}a`] }), {
+			name: "TypeError",
+			message: "Option 'origins[0]' must match exactly one schema in oneOf",
+		});
+		httpCorsValidateOptions({
+			origin: host,
+			origins: [host],
+			headers: list,
+			methods: "A".repeat(1024),
+			exposeHeaders: list,
+			cacheControl: list,
+			vary: list,
+			requestHeaders: [list],
+		});
+		for (const [key, value, path] of [
+			["headers", `${list}a`, "headers"],
+			["methods", "A".repeat(1025), "methods"],
+			["exposeHeaders", `${list}a`, "exposeHeaders"],
+			["cacheControl", `${list}a`, "cacheControl"],
+			["vary", `${list}a`, "vary"],
+			["requestHeaders", [`${list}a`], "requestHeaders[0]"],
+		]) {
+			throws(() => httpCorsValidateOptions({ [key]: value }), {
+				name: "TypeError",
+				message: `Option '${path}' must have length <= 1024`,
+			});
+		}
+	});
+
+	test("httpCorsValidateOptions rejects a requestHeaders entry that is not a header name", () => {
+		for (const name of ["", "content type", "a\r\nb", "a,b"]) {
+			throws(() => httpCorsValidateOptions({ requestHeaders: [name] }), {
+				name: "TypeError",
+				message: /^Option 'requestHeaders\[0\]' must match pattern /,
+			});
+		}
+	});
+
+	test("httpCorsValidateOptions caps the list options and rejects duplicates", () => {
+		const many = Array.from({ length: 1025 }, (_, i) => `x-${i}`);
+		const origins = many.map((name) => `https://${name}.example.com`);
+		httpCorsValidateOptions({
+			origins: origins.slice(0, 1024),
+			requestHeaders: many.slice(0, 1024),
+		});
+		for (const [key, value] of [
+			["origins", origins],
+			["requestHeaders", many],
+		]) {
+			throws(() => httpCorsValidateOptions({ [key]: value }), {
+				name: "TypeError",
+				message: `Option '${key}' must have <= 1024 items`,
+			});
+		}
+		for (const [key, value] of [
+			["origins", "https://a.com"],
+			["requestHeaders", "authorization"],
+			["requestMethods", "GET"],
+		]) {
+			throws(() => httpCorsValidateOptions({ [key]: [value, value] }), {
+				name: "TypeError",
+				message: `Duplicate item at '${key}[1]'`,
+			});
+		}
+		const methods = [
+			"GET",
+			"POST",
+			"PUT",
+			"PATCH",
+			"DELETE",
+			"OPTIONS",
+			"HEAD",
+		];
+		httpCorsValidateOptions({ requestMethods: methods });
+		throws(
+			() => httpCorsValidateOptions({ requestMethods: [...methods, "GET"] }),
+			{
+				name: "TypeError",
+				message: "Option 'requestMethods' must have <= 7 items",
+			},
+		);
 	});
 });

@@ -1,4 +1,5 @@
 ---
+
 title: Powertools for AWS Lambda
 description: "Use Middy with Powertools for AWS Lambda for logging, tracing, and metrics."
 ---
@@ -60,41 +61,40 @@ Middleware accepts the following options:
 ### Sample usage
 
 ```javascript
-import middy from '@middy/core';
-import { Logger } from '@aws-lambda-powertools/logger';
-import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
+import middy from "@middy/core";
+import { Logger } from "@aws-lambda-powertools/logger";
+import { injectLambdaContext } from "@aws-lambda-powertools/logger/middleware";
 
-const logger = new Logger({ serviceName: 'serverlessAirline' });
+const logger = new Logger({ serviceName: "serverlessAirline" });
 
 const lambdaHandler = async (event, context) => {
-  logger.info('This is an INFO log with some context', {
-    foo: {
-      bar: 'baz'
-    }
-  });
+	logger.info("This is an INFO log with some context", {
+		foo: {
+			bar: "baz",
+		},
+	});
 };
 
-export const handler = middy(lambdaHandler)
-  .use(injectLambdaContext(logger));
+export const handler = middy(lambdaHandler).use(injectLambdaContext(logger));
 ```
 
 The above code will output the following log:
 
 ```json
 {
-  "cold_start": true,
-  "function_arn": "arn:aws:lambda:eu-west-1:123456789012:function:shopping-cart-api-lambda-prod-eu-west-1",
-  "function_memory_size": 128,
-  "function_request_id": "c6af9ac6-7b61-11e6-9a41-93e812345678",
-  "function_name": "shopping-cart-api-lambda-prod-eu-west-1",
-  "level": "INFO",
-  "message": "This is an INFO log with some context",
-  "foo": {
-    "bar": "baz"
-  },
-  "service": "serverlessAirline",
-  "timestamp": "2021-12-12T21:21:08.921Z",
-  "xray_trace_id": "abcdef123456abcdef123456abcdef123456"
+	"cold_start": true,
+	"function_arn": "arn:aws:lambda:eu-west-1:123456789012:function:shopping-cart-api-lambda-prod-eu-west-1",
+	"function_memory_size": 128,
+	"function_request_id": "c6af9ac6-7b61-11e6-9a41-93e812345678",
+	"function_name": "shopping-cart-api-lambda-prod-eu-west-1",
+	"level": "INFO",
+	"message": "This is an INFO log with some context",
+	"foo": {
+		"bar": "baz"
+	},
+	"service": "serverlessAirline",
+	"timestamp": "2021-12-12T21:21:08.921Z",
+	"xray_trace_id": "abcdef123456abcdef123456abcdef123456"
 }
 ```
 
@@ -134,25 +134,22 @@ Middleware accepts the following options:
 ### Sample usage
 
 ```javascript
-import middy from '@middy/core';
-import { Tracer } from '@aws-lambda-powertools/tracer';
-import { captureLambdaHandler } from '@aws-lambda-powertools/tracer/middleware';
-import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
+import middy from "@middy/core";
+import { Tracer } from "@aws-lambda-powertools/tracer";
+import { captureLambdaHandler } from "@aws-lambda-powertools/tracer/middleware";
+import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 
 const tracer = new Tracer({
-  serviceName: 'serverlessAirline'
+	serviceName: "serverlessAirline",
 });
 
-const client = tracer.captureAWSv3Client(
-  new SecretsManagerClient({})
-);
+const client = tracer.captureAWSv3Client(new SecretsManagerClient({}));
 
 const lambdaHandler = async (event, context) => {
-  tracer.putAnnotation('successfulBooking', true);
+	tracer.putAnnotation("successfulBooking", true);
 };
 
-export const handler = middy(lambdaHandler)
-  .use(captureLambdaHandler(tracer));
+export const handler = middy(lambdaHandler).use(captureLambdaHandler(tracer));
 ```
 
 The above code instructs the Tracer utility to create a custom segment named `## index.handler` and to add an annotation to it with the key `successfulBooking` and the value `true`. The segment name is automatically generated based on the handler name, and the `##` prefix is used to indicate that this is a custom segment. The Tracer utility also automatically captures the cold start and service name as annotations, and the Lambda invocation result or any error thrown [as metadata](https://docs.powertools.aws.dev/lambda/typescript/latest/core/tracer/#annotations-metadata). The segment data will be automatically sent to AWS X-Ray when the Lambda Event Function completes its execution.
@@ -211,21 +208,23 @@ The above code will output a CloudWatch EMF object similar to the following:
 
 ```json
 {
-  "successfulBooking": 1.0,
-  "_aws": {
-    "Timestamp": 1592234975665,
-    "CloudWatchMetrics": [{
-      "Namespace": "successfulBooking",
-      "Dimensions": [
-        [ "service" ]
-      ],
-      "Metrics": [{
-        "Name": "successfulBooking",
-        "Unit": "Count"
-      }]
-    }],
-    "service": "orders"
-  }
+	"successfulBooking": 1.0,
+	"_aws": {
+		"Timestamp": 1592234975665,
+		"CloudWatchMetrics": [
+			{
+				"Namespace": "successfulBooking",
+				"Dimensions": [["service"]],
+				"Metrics": [
+					{
+						"Name": "successfulBooking",
+						"Unit": "Count"
+					}
+				]
+			}
+		],
+		"service": "orders"
+	}
 }
 ```
 
@@ -259,43 +258,39 @@ Middleware accepts the following options:
 ### Sample usage
 
 ```javascript
-import middy from '@middy/core';
-import { randomUUID } from 'node:crypto';
-import { makeHandlerIdempotent } from '@aws-lambda-powertools/idempotency/middleware';
-import { DynamoDBPersistenceLayer } from '@aws-lambda-powertools/idempotency/dynamodb';
+import middy from "@middy/core";
+import { randomUUID } from "node:crypto";
+import { makeHandlerIdempotent } from "@aws-lambda-powertools/idempotency/middleware";
+import { DynamoDBPersistenceLayer } from "@aws-lambda-powertools/idempotency/dynamodb";
 
 const persistenceStore = new DynamoDBPersistenceLayer({
-  tableName: 'idempotencyTableName',
+	tableName: "idempotencyTableName",
 });
 
-const createSubscriptionPayment = async (
-  event
-) => {
-  // ... create payment
-  return {
-    id: randomUUID(),
-    productId: event.productId,
-  };
+const createSubscriptionPayment = async (event) => {
+	// ... create payment
+	return {
+		id: randomUUID(),
+		productId: event.productId,
+	};
 };
 
-export const handler = middy(
-  async (event, context) => {
-    try {
-      const payment = await createSubscriptionPayment(event);
+export const handler = middy(async (event, context) => {
+	try {
+		const payment = await createSubscriptionPayment(event);
 
-      return {
-        paymentId: payment.id,
-        message: 'success',
-        statusCode: 200,
-      };
-    } catch (error) {
-      throw new Error('Error creating payment');
-    }
-  }
-).use(
-  makeHandlerIdempotent({
-    persistenceStore,
-  })
+		return {
+			paymentId: payment.id,
+			message: "success",
+			statusCode: 200,
+		};
+	} catch (error) {
+		throw new Error("Error creating payment");
+	}
+}).use(
+	makeHandlerIdempotent({
+		persistenceStore,
+	}),
 );
 ```
 
@@ -308,10 +303,12 @@ You can use multiple Powertools utilities in your Lambda Event Function by chain
 This is because the Tracer middleware will create a new segment for each Lambda invocation, and the Logger might want to log the event that triggered the Lambda invocation. With this placement you will be able to have a segment that closely matches the actual duration of your Lambda Event Function, and you will be able to see the event that triggered the function invocation before it's potentially modified by other middlewares.
 
 ```javascript
-export const handler = middy(() => { /* ... */ })
-  .use(captureLambdaHandler(tracer))
-  .use(injectLambdaContext(logger, { logEvent: true }))
-  .use(logMetrics(metrics, { captureColdStartMetric: true }));
+export const handler = middy(() => {
+	/* ... */
+})
+	.use(captureLambdaHandler(tracer))
+	.use(injectLambdaContext(logger, { logEvent: true }))
+	.use(logMetrics(metrics, { captureColdStartMetric: true }));
 ```
 
 ### Cleaning up on early returns
@@ -322,51 +319,51 @@ For example, if you are using the Tracer utility, you must make sure to call the
 
 Following the example described in the linked section, you can clean up all the utilities by doing the following:
 ```javascript
-import { cleanupMiddlewares } from '@aws-lambda-powertools/commons';
+import { cleanupMiddlewares } from "@aws-lambda-powertools/commons";
 
 // some function that calculates the cache id based on the current event
 const calculateCacheId = (event) => {
-  /* ... */
-}
-const storage = {}
+	/* ... */
+};
+const storage = {};
 
 // middleware
 const cacheMiddleware = (options) => {
-  let cacheKey
+	let cacheKey;
 
-  const cacheMiddlewareBefore = async (request) => {
-    cacheKey = options.calculateCacheId(request.event)
-    if (Object.hasOwnProperty.call(options.storage, cacheKey)) {
-      // clean up the Powertools utilities before returning
-      cleanupMiddlewares()
+	const cacheMiddlewareBefore = async (request) => {
+		cacheKey = options.calculateCacheId(request.event);
+		if (Object.hasOwnProperty.call(options.storage, cacheKey)) {
+			// clean up the Powertools utilities before returning
+			cleanupMiddlewares();
 
-      // exits early and returns the value from the cache if it's already there
-      return options.storage[cacheKey]
-    }
-  }
+			// exits early and returns the value from the cache if it's already there
+			return options.storage[cacheKey];
+		}
+	};
 
-  const cacheMiddlewareAfter = async (request) => {
-    // stores the calculated response in the cache
-    options.storage[cacheKey] = request.response
-  }
+	const cacheMiddlewareAfter = async (request) => {
+		// stores the calculated response in the cache
+		options.storage[cacheKey] = request.response;
+	};
 
-  return {
-    before: cacheMiddlewareBefore,
-    after: cacheMiddlewareAfter
-  }
-}
+	return {
+		before: cacheMiddlewareBefore,
+		after: cacheMiddlewareAfter,
+	};
+};
 
 // sample usage
 const handler = middy((event, context) => {
-  /* ... */
+	/* ... */
 })
-.use(captureLambdaHandler(tracer))
-.use(injectLambdaContext(logger, { logEvent: true }))
-.use(logMetrics(metrics, { captureColdStartMetric: true }))
-.use(
-  cacheMiddleware({
-    calculateCacheId,
-    storage
-  })
-);
+	.use(captureLambdaHandler(tracer))
+	.use(injectLambdaContext(logger, { logEvent: true }))
+	.use(logMetrics(metrics, { captureColdStartMetric: true }))
+	.use(
+		cacheMiddleware({
+			calculateCacheId,
+			storage,
+		}),
+	);
 ```

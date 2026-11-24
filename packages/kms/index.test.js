@@ -3,6 +3,7 @@ import {
 	deepStrictEqual,
 	ok,
 	strictEqual,
+	throws,
 } from "node:assert/strict";
 import { describe, test } from "node:test";
 import { GetPublicKeyCommand, KMSClient } from "@aws-sdk/client-kms";
@@ -318,6 +319,85 @@ describe("@middy/kms", () => {
 	test("kmsValidateOptions rejects a cacheExpiry below -1", () => {
 		rejects({ cacheExpiry: -2 }, "cacheExpiry");
 		kmsValidateOptions({ cacheExpiry: -1 });
+	});
+
+	const rejectsOptions = (options, message) => {
+		throws(() => kmsValidateOptions(options), {
+			name: "TypeError",
+			message,
+			cause: { package: "@middy/kms" },
+		});
+	};
+
+	test("kmsValidateOptions accepts every KeyId form GetPublicKey documents", () => {
+		const options = {
+			fetchData: {
+				keyId: "1234abcd-12ab-34cd-56ef-1234567890ab",
+				keyArn:
+					"arn:aws:kms:us-east-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+				aliasName: "alias/ExampleAlias",
+				aliasArn: "arn:aws:kms:us-east-2:111122223333:alias/ExampleAlias",
+				longest: "k".repeat(2048),
+			},
+		};
+		deepStrictEqual(kmsValidateOptions(options), options);
+	});
+
+	test("kmsValidateOptions rejects a KeyId outside the GetPublicKey limits", () => {
+		rejectsOptions(
+			{ fetchData: { key: "k".repeat(2049) } },
+			"Option 'fetchData.key' must have length <= 2048",
+		);
+		rejectsOptions(
+			{ fetchData: { key: "" } },
+			"Option 'fetchData.key' must match pattern /^[\\w.:/-]+$/u",
+		);
+		rejectsOptions(
+			{ fetchData: { key: "alias/my key" } },
+			"Option 'fetchData.key' must match pattern /^[\\w.:/-]+$/u",
+		);
+		rejectsOptions(
+			{ fetchData: { key: { KeyId: "alias/key" } } },
+			"Option 'fetchData.key' must be string",
+		);
+	});
+
+	test("kmsValidateOptions bounds the fetchData map", () => {
+		rejectsOptions(
+			{ fetchData: { "bad key": "alias/key" } },
+			"Invalid property name 'bad key' in option 'fetchData': Option 'fetchData.bad key' must match pattern /^[\\x21-\\x7E]+$/u",
+		);
+		rejectsOptions(
+			{
+				fetchData: Object.fromEntries(
+					Array.from({ length: 1025 }, (_, i) => [`k${i}`, "alias/key"]),
+				),
+			},
+			"Option 'fetchData' must have <= 1024 properties",
+		);
+	});
+
+	test("kmsValidateOptions checks awsClientOptions keys", () => {
+		rejectsOptions(
+			{ awsClientOptions: { maxRetries: 3 } },
+			"Unknown option 'awsClientOptions.maxRetries'",
+		);
+	});
+
+	test("kmsValidateOptions bounds the string options", () => {
+		for (const key of ["awsClientAssumeRole", "cacheKey", "contextKey"]) {
+			deepStrictEqual(kmsValidateOptions({ [key]: "k".repeat(1024) }), {
+				[key]: "k".repeat(1024),
+			});
+			rejectsOptions(
+				{ [key]: "k".repeat(1025) },
+				`Option '${key}' must have length <= 1024`,
+			);
+			rejectsOptions(
+				{ [key]: "a b" },
+				`Option '${key}' must match pattern /^[\\x21-\\x7E]+$/u`,
+			);
+		}
 	});
 
 	test("kmsValidateOptions rejects a non-boolean setToContext", () => {

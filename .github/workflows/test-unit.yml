@@ -12,13 +12,17 @@ concurrency:
 
 jobs:
   unit:
-    name: Tests (unit)
+    name: Tests (unit) (${{ matrix.line }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     strategy:
       matrix:
-        node-version: [24.x, 26.x]
+        include:
+          - line: 24.x
+            node-version: 24.22.3
+          - line: 26.x
+            node-version: 26.13.1
 
     steps:
       - name: Harden runner
@@ -52,6 +56,7 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ matrix.node-version }}
+          package-manager-cache: false
           registry-url: https://registry.npmjs.org
       # allowed-endpoints: >
       #   registry.npmjs.org:443
@@ -75,3 +80,8 @@ jobs:
         run: |
           export NODE_OPTIONS="--test-reporter=spec --test-reporter-destination=stdout --test-reporter=./.github/reporters/node-test.mjs --test-reporter-destination=$GITHUB_STEP_SUMMARY"
           npm run test:unit
+      - name: Option schema SAST
+        # sast-json-schema requires Node.js >= 26.
+        if: matrix.line == '26.x'
+        run: |
+          npm run test:sast:option-schema

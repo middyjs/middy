@@ -19,7 +19,9 @@ export default {
 	packageManager: "npm",
 	testRunner: "command",
 	commandRunner: {
-		command: `node --no-warnings=ExperimentalWarning --test --experimental-test-module-mocks ./${base}/**/*.test.js`,
+		// Quoted so node --test expands the glob. Unquoted, /bin/sh treats `**`
+		// as `*` and silently drops tests at other depths.
+		command: `node --no-warnings=ExperimentalWarning --test --experimental-test-module-mocks './${base}/**/*.test.js'`,
 	},
 	coverageAnalysis: "off",
 	mutate: [

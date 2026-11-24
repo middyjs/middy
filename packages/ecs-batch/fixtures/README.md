@@ -14,15 +14,15 @@ example values unless a note says they are illustrative.
 
 ## Sources
 
-| Fixture | Source page |
-| --- | --- |
-| `sqs.standard.json` | [Using Lambda with Amazon SQS](https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html) |
-| `kinesis.standard.json` | [Using Lambda with Amazon Kinesis Data Streams](https://docs.aws.amazon.com/lambda/latest/dg/with-kinesis.html) |
-| `ddb.new-and-old.json` | [Using Lambda with Amazon DynamoDB](https://docs.aws.amazon.com/lambda/latest/dg/with-ddb.html) |
-| `msk.standard.json` | [Using Lambda with Amazon MSK](https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html) |
-| `kafka.self-managed.json` | [Using Lambda with self-managed Apache Kafka](https://docs.aws.amazon.com/lambda/latest/dg/with-kafka.html) |
-| `mq.activemq.json` | [Using Lambda with Amazon MQ](https://docs.aws.amazon.com/lambda/latest/dg/with-mq.html) |
-| `mq.rabbitmq.json` | [Using Lambda with Amazon MQ](https://docs.aws.amazon.com/lambda/latest/dg/with-mq.html) |
+| Fixture                   | Source page                                                                                                     |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `sqs.standard.json`       | [Using Lambda with Amazon SQS](https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html)                      |
+| `kinesis.standard.json`   | [Using Lambda with Amazon Kinesis Data Streams](https://docs.aws.amazon.com/lambda/latest/dg/with-kinesis.html) |
+| `ddb.new-and-old.json`    | [Using Lambda with Amazon DynamoDB](https://docs.aws.amazon.com/lambda/latest/dg/with-ddb.html)                 |
+| `msk.standard.json`       | [Using Lambda with Amazon MSK](https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html)                      |
+| `kafka.self-managed.json` | [Using Lambda with self-managed Apache Kafka](https://docs.aws.amazon.com/lambda/latest/dg/with-kafka.html)     |
+| `mq.activemq.json`        | [Using Lambda with Amazon MQ](https://docs.aws.amazon.com/lambda/latest/dg/with-mq.html)                        |
+| `mq.rabbitmq.json`        | [Using Lambda with Amazon MQ](https://docs.aws.amazon.com/lambda/latest/dg/with-mq.html)                        |
 
 Batch failure responses differ per source. SQS, Kinesis and DynamoDB use a
 string `itemIdentifier`. Kafka uses a `{ partition, offset }` object

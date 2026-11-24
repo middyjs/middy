@@ -1,4 +1,5 @@
 ---
+
 title: ecs-batch
 description: "Run a Middy handler as a long-running batch consumer on AWS ECS/Fargate. Polls SQS, Kinesis, DynamoDB Streams, Kafka, ActiveMQ, or RabbitMQ; dispatches the same Lambda batch event your handler already understands."
 ---
@@ -67,35 +68,35 @@ It is **wrong** for **shard-based** sources where exactly-one consumer per shard
 ## Sample usage: SQS
 
 ```javascript
-import middy from '@middy/core'
-import { ecsBatchRunner } from '@middy/ecs-batch'
-import { pollSqs } from '@middy/ecs-batch/pollSqs'
-import eventBatchParser from '@middy/event-batch-parser'
-import parseJson from '@middy/event-batch-parser/parseJson'
-import eventBatchHandler from '@middy/event-batch-handler'
-import eventBatchResponse from '@middy/event-batch-response'
+import middy from "@middy/core";
+import { ecsBatchRunner } from "@middy/ecs-batch";
+import { pollSqs } from "@middy/ecs-batch/pollSqs";
+import eventBatchParser from "@middy/event-batch-parser";
+import parseJson from "@middy/event-batch-parser/parseJson";
+import eventBatchHandler from "@middy/event-batch-handler";
+import eventBatchResponse from "@middy/event-batch-response";
 
 const recordHandler = async (record) => {
-  // record.body is parsed JSON thanks to eventBatchParser
-  await processOrder(record.body)
-}
+	// record.body is parsed JSON thanks to eventBatchParser
+	await processOrder(record.body);
+};
 
 const lambdaHandler = (event, context) =>
-  eventBatchHandler(recordHandler)(event, context)
+	eventBatchHandler(recordHandler)(event, context);
 
 const handler = middy()
-  .use(eventBatchParser({ body: parseJson() }))
-  .use(eventBatchResponse())
-  .handler(lambdaHandler)
+	.use(eventBatchParser({ body: parseJson() }))
+	.use(eventBatchResponse())
+	.handler(lambdaHandler);
 
 await ecsBatchRunner({
-  handler,
-  poller: pollSqs({
-    queueUrl: 'https://sqs.us-east-1.amazonaws.com/111111111111/orders',
-    maxNumberOfMessages: 10,
-    waitTimeSeconds: 20,
-  }),
-})
+	handler,
+	poller: pollSqs({
+		queueUrl: "https://sqs.us-east-1.amazonaws.com/111111111111/orders",
+		maxNumberOfMessages: 10,
+		waitTimeSeconds: 20,
+	}),
+});
 ```
 
 The same handler runs unmodified on Lambda when wired to an SQS event source mapping with `ReportBatchItemFailures`.
@@ -103,57 +104,57 @@ The same handler runs unmodified on Lambda when wired to an SQS event source map
 ## Sample usage: Kinesis (one task per shard)
 
 ```javascript
-import { ecsBatchRunner } from '@middy/ecs-batch'
-import { pollKinesis } from '@middy/ecs-batch/pollKinesis'
+import { ecsBatchRunner } from "@middy/ecs-batch";
+import { pollKinesis } from "@middy/ecs-batch/pollKinesis";
 
 await ecsBatchRunner({
-  handler,
-  workers: 1,                           // required: one consumer per shard
-  poller: pollKinesis({
-    streamName: 'events',
-    shardId: process.env.KINESIS_SHARD_ID,   // injected per task
-    streamArn: 'arn:aws:kinesis:us-east-1:111:stream/events',
-    awsRegion: 'us-east-1',
-    shardIteratorType: 'LATEST',
-  }),
-})
+	handler,
+	workers: 1, // required: one consumer per shard
+	poller: pollKinesis({
+		streamName: "events",
+		shardId: process.env.KINESIS_SHARD_ID, // injected per task
+		streamArn: "arn:aws:kinesis:us-east-1:111:stream/events",
+		awsRegion: "us-east-1",
+		shardIteratorType: "LATEST",
+	}),
+});
 ```
 
 ## Sample usage: Kafka (MSK or self-managed)
 
 ```javascript
-import { ecsBatchRunner } from '@middy/ecs-batch'
-import { pollKafka } from '@middy/ecs-batch/pollKafka'
+import { ecsBatchRunner } from "@middy/ecs-batch";
+import { pollKafka } from "@middy/ecs-batch/pollKafka";
 
 await ecsBatchRunner({
-  handler,
-  poller: pollKafka({
-    brokers: ['b-1.cluster.kafka.us-east-1.amazonaws.com:9092'],
-    groupId: 'orders-consumer',
-    topics: ['orders'],
-    eventSourceArn: 'arn:aws:kafka:us-east-1:111:cluster/...',
-    // selfManaged: true  // emits "SelfManagedKafka" eventSource instead of "aws:kafka"
-  }),
-})
+	handler,
+	poller: pollKafka({
+		brokers: ["b-1.cluster.kafka.us-east-1.amazonaws.com:9092"],
+		groupId: "orders-consumer",
+		topics: ["orders"],
+		eventSourceArn: "arn:aws:kafka:us-east-1:111:cluster/...",
+		// selfManaged: true  // emits "SelfManagedKafka" eventSource instead of "aws:kafka"
+	}),
+});
 ```
 
 ## Sample usage: RabbitMQ
 
 ```javascript
-import { ecsBatchRunner } from '@middy/ecs-batch'
-import { pollRmq } from '@middy/ecs-batch/pollRmq'
+import { ecsBatchRunner } from "@middy/ecs-batch";
+import { pollRmq } from "@middy/ecs-batch/pollRmq";
 
 await ecsBatchRunner({
-  handler,
-  poller: pollRmq({
-    url: 'amqps://user:pass@b-xyz.mq.us-east-1.amazonaws.com:5671',
-    queue: 'orders',
-    vhost: '/',
-    prefetch: 20,
-    batchSize: 10,
-    batchWindowMs: 1000,
-  }),
-})
+	handler,
+	poller: pollRmq({
+		url: "amqps://user:pass@b-xyz.mq.us-east-1.amazonaws.com:5671",
+		queue: "orders",
+		vhost: "/",
+		prefetch: 20,
+		batchSize: 10,
+		batchWindowMs: 1000,
+	}),
+});
 ```
 
 ## Pollers
@@ -240,14 +241,14 @@ Connects to RabbitMQ via `amqplib`, sets `prefetch`, consumes the queue. Buffers
 
 Each poller produces the exact shape that `@middy/event-batch-parser` and `@middy/event-batch-response` already understand:
 
-| Poller | `eventSource` | Container |
-|---|---|---|
-| `pollSqs` | `"aws:sqs"` | `Records[]` |
-| `pollKinesis` | `"aws:kinesis"` | `Records[]` (each with `.kinesis.data` base64) |
-| `pollDynamoDBStreams` | `"aws:dynamodb"` | `Records[]` (each with `.dynamodb`) |
-| `pollKafka` | `"aws:kafka"` or `"SelfManagedKafka"` | `records["topic-partition"][]` |
-| `pollAmq` | `"aws:amq"` | `messages[]` |
-| `pollRmq` | `"aws:rmq"` | `rmqMessagesByQueue["queue::vhost"][]` |
+| Poller                | `eventSource`                         | Container                                      |
+| --------------------- | ------------------------------------- | ---------------------------------------------- |
+| `pollSqs`             | `"aws:sqs"`                           | `Records[]`                                    |
+| `pollKinesis`         | `"aws:kinesis"`                       | `Records[]` (each with `.kinesis.data` base64) |
+| `pollDynamoDBStreams` | `"aws:dynamodb"`                      | `Records[]` (each with `.dynamodb`)            |
+| `pollKafka`           | `"aws:kafka"` or `"SelfManagedKafka"` | `records["topic-partition"][]`                 |
+| `pollAmq`             | `"aws:amq"`                           | `messages[]`                                   |
+| `pollRmq`             | `"aws:rmq"`                           | `rmqMessagesByQueue["queue::vhost"][]`         |
 
 Record fields follow the Lambda developer guide for each source. The unit tests compare every poller against the documented fixtures in `packages/ecs-batch/fixtures/` (test data, not published). Where the raw SDK or broker payload differs from what Lambda delivers, the poller converts it:
 

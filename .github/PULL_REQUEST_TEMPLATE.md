@@ -1,4 +1,5 @@
 ---
+
 name: Pull request
 about: Pull request
 title: ''
@@ -16,9 +17,9 @@ assignees: ''
 **Any relevant logs, error output, etc?**
 
 **Environment:**
- - Node.js: [e.g. 24]
- - Middy: [e.g. 8.0.0]
- - AWS SDK [e.g. 3.999.0]
+- Node.js: [e.g. 24]
+- Middy: [e.g. 8.0.0]
+- AWS SDK [e.g. 3.999.0]
 
 **Any other comments?**
 

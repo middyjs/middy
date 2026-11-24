@@ -6,20 +6,20 @@ Snapshot: 56 published packages; 50 have `@middy/util` as their only runtime dep
 
 ## First-party
 
-| Dependency | Used by | Justification |
-| --- | --- | --- |
-| `@middy/util` | 54 packages | Shared internal helpers; kept dependency-free by policy |
-| `@middy/event-batch-response` | `@middy/event-batch-handler` | First-party split package |
+| Dependency                    | Used by                      | Justification                                           |
+| ----------------------------- | ---------------------------- | ------------------------------------------------------- |
+| `@middy/util`                 | 54 packages                  | Shared internal helpers; kept dependency-free by policy |
+| `@middy/event-batch-response` | `@middy/event-batch-handler` | First-party split package                               |
 
 ## Third-party
 
-| Dependency | Used by | Justification |
-| --- | --- | --- |
-| `ajv`, `ajv-errors`, `ajv-formats`, `ajv-keywords`, `@silverbucket/ajv-formats-draft2019`, `ajv-ftl-i18n` | `@middy/validator` | JSON Schema validation engine plus official/format plugins; spec-compliant validation is not worth reimplementing |
-| `@fastify/busboy` | `@middy/http-multipart-body-parser` | Multipart stream parsing; maintained by the Fastify org |
-| `aws-embedded-metrics` | `@middy/cloudwatch-metrics` | AWS's own Embedded Metric Format client |
-| `json-mask` | `@middy/http-partial-response` | Field-mask grammar parser (Google partial-response syntax) |
-| `negotiator` | `@middy/http-content-negotiation` | RFC 9110 content negotiation; the same library Express uses |
+| Dependency                                                                                                | Used by                             | Justification                                                                                                     |
+| --------------------------------------------------------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `ajv`, `ajv-errors`, `ajv-formats`, `ajv-keywords`, `@silverbucket/ajv-formats-draft2019`, `ajv-ftl-i18n` | `@middy/validator`                  | JSON Schema validation engine plus official/format plugins; spec-compliant validation is not worth reimplementing |
+| `@fastify/busboy`                                                                                         | `@middy/http-multipart-body-parser` | Multipart stream parsing; maintained by the Fastify org                                                           |
+| `aws-embedded-metrics`                                                                                    | `@middy/cloudwatch-metrics`         | AWS's own Embedded Metric Format client                                                                           |
+| `json-mask`                                                                                               | `@middy/http-partial-response`      | Field-mask grammar parser (Google partial-response syntax)                                                        |
+| `negotiator`                                                                                              | `@middy/http-content-negotiation`   | RFC 9110 content negotiation; the same library Express uses                                                       |
 
 ## Peer dependencies
 

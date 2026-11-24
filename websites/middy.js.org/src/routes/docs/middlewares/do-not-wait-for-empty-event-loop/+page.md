@@ -1,4 +1,5 @@
 ---
+
 title: do-not-wait-for-empty-event-loop
 description: "Deprecated in Middy 8 and removed from the monorepo. callbackWaitsForEmptyEventLoop only applies to callback-based handlers, which Lambda supports on Node.js 22 and earlier only."
 ---

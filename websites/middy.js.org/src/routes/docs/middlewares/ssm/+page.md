@@ -1,4 +1,5 @@
 ---
+
 title: ssm
 description: "Fetch and cache AWS Systems Manager Parameter Store values in Lambda with Middy."
 ---
@@ -49,69 +50,69 @@ NOTES:
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import ssm from '@middy/ssm'
+import middy from "@middy/core";
+import ssm from "@middy/ssm";
 
 const lambdaHandler = (event, context) => {
-  return {}
-}
+	return {};
+};
 
-let globalDefaults = {}
+let globalDefaults = {};
 export const handler = middy()
-  .use(
-    ssm({
-      fetchData: {
-        accessToken: '/dev/service_name/access_token', // single value
-        dbParams: '/dev/service_name/database/', // object of values, key for each path
-        defaults: '/dev/defaults'
-      },
-      setToContext: true
-    })
-  )
-  .before((request) => {
-    globalDefaults = request.context.middyContext.ssm.defaults.global
-  })
-  .handler(lambdaHandler)
+	.use(
+		ssm({
+			fetchData: {
+				accessToken: "/dev/service_name/access_token", // single value
+				dbParams: "/dev/service_name/database/", // object of values, key for each path
+				defaults: "/dev/defaults",
+			},
+			setToContext: true,
+		}),
+	)
+	.before((request) => {
+		globalDefaults = request.context.middyContext.ssm.defaults.global;
+	})
+	.handler(lambdaHandler);
 ```
 
 ```javascript
-import middy from '@middy/core'
-import { contextNamespace, getInternal } from '@middy/util'
-import ssm from '@middy/ssm'
+import middy from "@middy/core";
+import { contextNamespace, getInternal } from "@middy/util";
+import ssm from "@middy/ssm";
 
 const lambdaHandler = (event, context) => {
-  return {}
-}
+	return {};
+};
 
-let globalDefaults = {}
+let globalDefaults = {};
 export const handler = middy()
-  .use(
-    ssm({
-      fetchData: {
-        defaults: '/dev/defaults'
-      },
-      cacheKey: 'ssm-defaults'
-    })
-  )
-  .use(
-    ssm({
-      fetchData: {
-        accessToken: '/dev/service_name/access_token', // single value
-        dbParams: '/dev/service_name/database/' // object of values, key for each path
-      },
-      cacheExpiry: 15 * 60 * 1000,
-      cacheKey: 'ssm-secrets'
-    })
-  )
-  // ... other middleware that fetch
-  .before(async (request) => {
-    const data = await getInternal(
-      ['accessToken', 'dbParams', 'defaults'],
-      request
-    )
-    Object.assign(contextNamespace(request, 'ssm'), data)
-  })
-  .handler(lambdaHandler)
+	.use(
+		ssm({
+			fetchData: {
+				defaults: "/dev/defaults",
+			},
+			cacheKey: "ssm-defaults",
+		}),
+	)
+	.use(
+		ssm({
+			fetchData: {
+				accessToken: "/dev/service_name/access_token", // single value
+				dbParams: "/dev/service_name/database/", // object of values, key for each path
+			},
+			cacheExpiry: 15 * 60 * 1000,
+			cacheKey: "ssm-secrets",
+		}),
+	)
+	// ... other middleware that fetch
+	.before(async (request) => {
+		const data = await getInternal(
+			["accessToken", "dbParams", "defaults"],
+			request,
+		);
+		Object.assign(contextNamespace(request, "ssm"), data);
+	})
+	.handler(lambdaHandler);
 ```
 
 ## Pairs well with
@@ -141,33 +142,33 @@ This way TypeScript can understand how to treat the additional data attached to 
 The following example illustrates how to use `ssmParam`:
 
 ```typescript
-import middy from '@middy/core'
-import { getInternal } from '@middy/util'
-import ssm, { ssmParam } from '@middy/ssm'
+import middy from "@middy/core";
+import { getInternal } from "@middy/util";
+import ssm, { ssmParam } from "@middy/ssm";
 
 const lambdaHandler = (event, context) => {
-  return {}
-}
+	return {};
+};
 
-let globalDefaults = {}
+let globalDefaults = {};
 export const handler = middy()
-  .use(
-    ssm({
-      fetchData: {
-        accessToken: ssmParam<string>('/dev/service_name/access_token'), // single value (will be typed as string)
-        dbParams: ssmParam<{ user: string; pass: string }>(
-          '/dev/service_name/database/'
-        ) // object of values (typed as {user: string, pass: string})
-      },
-      cacheExpiry: 15 * 60 * 1000,
-      cacheKey: 'ssm-secrets'
-    })
-  )
-  // ... other middleware that fetch
-  .before(async (request) => {
-    const data = await getInternal(['accessToken', 'dbParams'], request)
-    // data.accessToken (string)
-    // data.dbParams ({user: string, pass: string})
-  })
-  .handler(lambdaHandler)
+	.use(
+		ssm({
+			fetchData: {
+				accessToken: ssmParam<string>("/dev/service_name/access_token"), // single value (will be typed as string)
+				dbParams: ssmParam<{ user: string; pass: string }>(
+					"/dev/service_name/database/",
+				), // object of values (typed as {user: string, pass: string})
+			},
+			cacheExpiry: 15 * 60 * 1000,
+			cacheKey: "ssm-secrets",
+		}),
+	)
+	// ... other middleware that fetch
+	.before(async (request) => {
+		const data = await getInternal(["accessToken", "dbParams"], request);
+		// data.accessToken (string)
+		// data.dbParams ({user: string, pass: string})
+	})
+	.handler(lambdaHandler);
 ```

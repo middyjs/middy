@@ -1,4 +1,5 @@
 ---
+
 title: Internal Context
 description: "Store and resolve async values between middlewares using Middy internal context."
 ---

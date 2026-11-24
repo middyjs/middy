@@ -30,6 +30,7 @@ packages/*/LICENSE
 .nova/
 
 # Agents
+.agents/
 ## /graphify hook install
 .husky/post-checkout
 .husky/post-commit
@@ -37,3 +38,4 @@ graphify-out
 
 # OS
 .DS_Store
+

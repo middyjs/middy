@@ -1,18 +1,28 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 
+import { constants as bufferConstants } from "node:buffer";
 import { Transform } from "node:stream";
 import { TransformStream } from "node:stream/web";
-import { buildPathTree, omit, validateOptions } from "@middy/util";
+import {
+	buildPathTree,
+	omit,
+	omitPathsSchema,
+	pathTreeOmitsString,
+	validateOmitPaths,
+	validateOptions,
+} from "@middy/util";
 
 const name = "response-logger";
 const pkg = `@middy/${name}`;
 
-// Largest response Lambda can stream: "200 MB for each streamed response",
-// where "the Lambda documentation ... use[s] the abbreviation MB (rather than
-// MiB) to refer to 1,024 KB".
-// docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html
-const LAMBDA_STREAMED_RESPONSE_MAX_BYTES = 200 * 1024 * 1024;
+// Largest single log event CloudWatch Logs accepts: "Event size: 1,024
+// Kilobytes", "The maximum log event size in KB".
+// https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/cloudwatch_limits_cwl.html
+// The table counts in binary units: its "Batch size: 1 Megabytes" is stated
+// by the API reference as "The maximum batch size is 1,048,576 bytes".
+// https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutLogEvents.html
+const CLOUDWATCH_LOGS_EVENT_MAX_BYTES = 1024 * 1024;
 
 // JSON.stringify throws on BigInt, which event-normalizer produces for
 // DynamoDB numbers beyond 2^53.
@@ -25,22 +35,40 @@ const defaults = {
 	},
 	omitPaths: undefined,
 	mask: undefined,
-	maxBodyBytes: LAMBDA_STREAMED_RESPONSE_MAX_BYTES,
+	maxBodyBytes: CLOUDWATCH_LOGS_EVENT_MAX_BYTES,
 };
 
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:response-logger:options",
+	$defs: { Function: false },
 	type: "object",
 	properties: {
-		logger: { instanceof: "Function" },
-		omitPaths: { type: "array", items: { type: "string" } },
-		mask: { type: "string" },
-		maxBodyBytes: { type: "integer", minimum: 1 },
+		logger: { $ref: "#/$defs/Function" },
+		omitPaths: omitPathsSchema,
+		mask: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\p{L}\p{N}\p{P}\p{S} ]*$/u,
+		},
+		// The logged body is one string: "the largest length allowed for a single
+		// string instance". https://nodejs.org/api/buffer.html#bufferconstantsmax_string_length
+		maxBodyBytes: {
+			type: "integer",
+			minimum: 1,
+			maximum: bufferConstants.MAX_STRING_LENGTH,
+		},
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
-export const responseLoggerValidateOptions = (options) =>
-	validateOptions(pkg, optionSchema, options);
+export const responseLoggerValidateOptions = (options) => {
+	const validated = validateOptions(pkg, optionSchema, options);
+	validateOmitPaths(validated.omitPaths);
+	return validated;
+};
 
 const responseLoggerMiddleware = (opts = {}) => {
 	// `{ ...defaults, ...opts }` lets an explicit `logger: undefined` override
@@ -63,7 +91,14 @@ const responseLoggerMiddleware = (opts = {}) => {
 		);
 	}
 
-	const omitPathTree = omitPaths && buildPathTree(omitPaths);
+	const omitPathTree = omitPaths ? buildPathTree(omitPaths) : undefined;
+	const redactsResponse = pathTreeOmitsString(omitPathTree, ["response"]);
+	const redactsResponseBody = pathTreeOmitsString(omitPathTree, [
+		"response",
+		"body",
+	]);
+
+	const unreadBody = () => makeBodyCapture(maxBodyBytes).end();
 
 	// A streamed response is only logged after flush, by which point `core` may
 	// have cleared `request.response`, so the reconstructed body is grafted onto
@@ -74,18 +109,23 @@ const responseLoggerMiddleware = (opts = {}) => {
 
 	const responseLoggerMiddlewareAfter = (request) => {
 		const { response } = request;
-		// Streams are teed so the body can be captured without consuming it.
-		if (isNodeStream(response) || isNodeStream(response?.body)) {
-			teeStream(request, logSnapshot, makeNodeTee, maxBodyBytes);
-		} else if (isWebStream(response) || isWebStream(response?.body)) {
-			teeStream(request, logSnapshot, makeWebTee, maxBodyBytes);
+		const makeTee = selectTee(response);
+		if (makeTee === undefined) return logSafely(logRequest, request);
+		if (response.body) {
+			const logBody = (body) => logSnapshot(request, { ...response, body });
+			if (redactsResponseBody) return logSafely(logBody, unreadBody());
+			response.body = makeTee(response.body, logBody, maxBodyBytes);
 		} else {
-			logSafely(logRequest, request);
+			const logBody = (body) => logSnapshot(request, body);
+			if (redactsResponse) return logSafely(logBody, unreadBody());
+			request.response = makeTee(response, logBody, maxBodyBytes);
 		}
 	};
 
 	const responseLoggerMiddlewareOnError = (request) => {
-		if (request.response !== undefined) responseLoggerMiddlewareAfter(request);
+		if (request.response !== undefined) {
+			return responseLoggerMiddlewareAfter(request);
+		}
 	};
 
 	return {
@@ -97,34 +137,16 @@ const responseLoggerMiddleware = (opts = {}) => {
 const isNodeStream = (value) => Boolean(value?._readableState);
 const isWebStream = (value) => value instanceof ReadableStream;
 
-// The response shape is snapshotted at tee-time and the accumulated body
-// reattached inside the flush callback. Each tee owns its own accumulation, so
-// no decoder state leaks between streams on a warm container.
-const teeStream = (request, log, makeTee, maxBodyBytes) => {
-	// `response` is a stream, or carries one on `.body`: the caller only reaches
-	// here once one of those held, so neither access needs guarding.
-	const { response } = request;
-	if (response.body) {
-		response.body = makeTee(
-			response.body,
-			(body) => log(request, { ...response, body }),
-			maxBodyBytes,
-		);
-	} else {
-		request.response = makeTee(
-			response,
-			(body) => log(request, body),
-			maxBodyBytes,
-		);
+const selectTee = (response) => {
+	if (isNodeStream(response) || isNodeStream(response?.body)) {
+		return makeNodeTee;
+	}
+	if (isWebStream(response) || isWebStream(response?.body)) {
+		return makeWebTee;
 	}
 };
 
-// Decodes at most `maxBodyBytes` of a streamed body for the log. A streamed
-// response can be far larger than a log line should be (Lambda response
-// streaming allows up to 200 MB), so bytes past the cap are counted but not
-// kept. A fresh decoder per stream, so state never carries over on a warm
-// container; streaming decode keeps multi-byte UTF-8 sequences that straddle
-// a chunk boundary intact, and one cut by the cap is dropped, not mangled.
+// Decodes at most `maxBodyBytes` of a streamed body for the log.
 const makeBodyCapture = (maxBodyBytes) => {
 	const decoder = new TextDecoder();
 	let body = "";
@@ -160,8 +182,12 @@ const makeNodeTee = (source, onBody, maxBodyBytes) => {
 			callback();
 		},
 		flush(callback) {
-			logSafely(onBody, capture.end());
-			callback();
+			const logged = logSafely(onBody, capture.end());
+			if (logged === undefined) {
+				callback();
+			} else {
+				logged.then(() => callback());
+			}
 		},
 	});
 	// A consumer that destroys the tee early (client gone, pipeline error)
@@ -176,7 +202,18 @@ const makeNodeTee = (source, onBody, maxBodyBytes) => {
 // stream error and fail a response whose body has already been written out.
 const logSafely = (log, value) => {
 	try {
-		log(value);
+		const logged = log(value);
+		if (typeof logged?.then === "function") {
+			return settleLoggerPromise(logged);
+		}
+	} catch (e) {
+		console.error(e);
+	}
+};
+
+const settleLoggerPromise = async (logged) => {
+	try {
+		await logged;
 	} catch (e) {
 		console.error(e);
 	}
@@ -197,7 +234,7 @@ const makeWebTee = (source, onBody, maxBodyBytes) => {
 				controller.enqueue(chunk);
 			},
 			flush() {
-				logSafely(onBody, capture.end());
+				return logSafely(onBody, capture.end());
 			},
 		}),
 	);

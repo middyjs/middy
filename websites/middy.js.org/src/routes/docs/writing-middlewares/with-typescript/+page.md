@@ -1,4 +1,5 @@
 ---
+
 title: With TypeScript
 description: "Write type-safe custom Middy middlewares using TypeScript with full type inference."
 position: 7
@@ -7,29 +8,34 @@ position: 7
 here's an example of how you can write a custom middleware for a Lambda receiving events from API Gateway:
 
 ```typescript
-import middy from '@middy/core'
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
+import middy from "@middy/core";
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 
-const middleware = (): middy.MiddlewareObj<APIGatewayProxyEvent, APIGatewayProxyResult> => {
-  const before: middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult> = async (
-    request
-  ): Promise<APIGatewayProxyResult> => {
-    // Your middleware logic
-  }
+const middleware = (): middy.MiddlewareObj<
+	APIGatewayProxyEvent,
+	APIGatewayProxyResult
+> => {
+	const before: middy.MiddlewareFn<
+		APIGatewayProxyEvent,
+		APIGatewayProxyResult
+	> = async (request): Promise<APIGatewayProxyResult> => {
+		// Your middleware logic
+	};
 
-  const after: middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult> = async (
-    request
-  ): Promise<undefined> => {
-    // Your middleware logic
-  }
+	const after: middy.MiddlewareFn<
+		APIGatewayProxyEvent,
+		APIGatewayProxyResult
+	> = async (request): Promise<undefined> => {
+		// Your middleware logic
+	};
 
-  return {
-    before,
-    after
-  }
-}
+	return {
+		before,
+		after,
+	};
+};
 
-export default middleware
+export default middleware;
 ```
 
 **Note**: The Middy core team does not use TypeScript often and we can't certainly claim that we are TypeScript experts. We tried our best to come up

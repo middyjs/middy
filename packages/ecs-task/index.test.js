@@ -83,6 +83,52 @@ describe("@middy/ecs-task", () => {
 		);
 	});
 
+	test("ecsTaskValidateOptions bounds every option", () => {
+		const accepted = [
+			{},
+			{ handler: async () => {} },
+			{ eventEnv: "MIDDY_ECS_TASK_EVENT" },
+			{ eventEnv: "_lower_case9" },
+			{ eventEnv: "MY-EVENT" },
+			{ eventEnv: "my.event" },
+			{ eventEnv: "1EVENT" },
+			{ eventEnv: "E".repeat(1024) },
+			{ eventArg: true },
+			{ timeout: 0 },
+			{ timeout: 2_147_483_647 },
+			{ stopTimeout: 0 },
+			{ stopTimeout: 2_147_483_647 },
+			{ onSuccess: async () => {} },
+			{ onFailure: async () => {} },
+			{ contextOverride: { awsRequestId: () => "id" } },
+		];
+		for (const extra of accepted) {
+			ecsTaskValidateOptions({ handler: noop, ...extra });
+		}
+		const rejected = [
+			{ handler: "handler" },
+			{ eventEnv: "A=B" },
+			{ eventEnv: "MY EVENT" },
+			{ eventEnv: "" },
+			{ eventEnv: "E".repeat(1025) },
+			{ eventArg: "true" },
+			{ timeout: -1 },
+			{ timeout: 1.5 },
+			{ timeout: 2_147_483_648 },
+			{ stopTimeout: -1 },
+			{ stopTimeout: 2_147_483_648 },
+			{ onFailure: "onFailure" },
+			{ contextOverride: { awsRequestId: "id" } },
+		];
+		for (const extra of rejected) {
+			throws(
+				() => ecsTaskValidateOptions({ handler: noop, ...extra }),
+				TypeError,
+				JSON.stringify(extra),
+			);
+		}
+	});
+
 	// --- resolveTaskEvent -------------------------------------------------------
 
 	test("resolveTaskEvent prefers argv[2] over env", () => {
@@ -287,7 +333,8 @@ describe("@middy/ecs-task", () => {
 		deepStrictEqual(exits, [1]);
 	});
 
-	test("ecsTaskRunner exits 1 even when onFailure itself throws", async () => {
+	test("ecsTaskRunner exits 1 even when onFailure itself throws", async (t) => {
+		t.mock.method(console, "error", noop);
 		const { exits, deps } = makeDeps();
 		await ecsTaskRunner(
 			{
@@ -299,6 +346,69 @@ describe("@middy/ecs-task", () => {
 				},
 			},
 			deps,
+		);
+		deepStrictEqual(exits, [1]);
+	});
+
+	test("ecsTaskRunner exits 0 and skips onFailure when onSuccess throws", async (t) => {
+		t.mock.method(console, "error", noop);
+		const calls = [];
+		const { exits, deps } = makeDeps();
+		await ecsTaskRunner(
+			{
+				handler: async () => "result",
+				onSuccess: async (result) => {
+					calls.push(["onSuccess", result]);
+					throw new Error("hook failed");
+				},
+				onFailure: async (err) => {
+					calls.push(["onFailure", err.message]);
+				},
+			},
+			deps,
+		);
+		deepStrictEqual(calls, [["onSuccess", "result"]]);
+		deepStrictEqual(exits, [0]);
+	});
+
+	test("ecsTaskRunner reports an onSuccess hook error to console.error", async (t) => {
+		const consoleError = t.mock.method(console, "error", noop);
+		const hookError = new Error("hook failed");
+		const { exits, deps } = makeDeps();
+		await ecsTaskRunner(
+			{
+				handler: async () => "result",
+				onSuccess: async () => {
+					throw hookError;
+				},
+			},
+			deps,
+		);
+		deepStrictEqual(
+			consoleError.mock.calls.map((call) => call.arguments),
+			[[hookError]],
+		);
+		deepStrictEqual(exits, [0]);
+	});
+
+	test("ecsTaskRunner reports an onFailure hook error to console.error", async (t) => {
+		const consoleError = t.mock.method(console, "error", noop);
+		const hookError = new Error("hook failed");
+		const { exits, deps } = makeDeps();
+		await ecsTaskRunner(
+			{
+				handler: async () => {
+					throw new Error("boom");
+				},
+				onFailure: async () => {
+					throw hookError;
+				},
+			},
+			deps,
+		);
+		deepStrictEqual(
+			consoleError.mock.calls.map((call) => call.arguments),
+			[[hookError]],
 		);
 		deepStrictEqual(exits, [1]);
 	});

@@ -1,4 +1,5 @@
 ---
+
 title: SQS
 description: "Process Amazon SQS messages on AWS Lambda with Middy: per-record handling, partial batch failures, JSON / Avro / Protobuf bodies."
 ---
@@ -34,58 +35,62 @@ The Lambda response should be `{ batchItemFailures: [{ itemIdentifier: messageId
 
 ## Recommended middlewares
 
-| Middleware | Why |
-| --- | --- |
-| [`@middy/event-batch-parser`](/docs/middlewares/event-batch-parser) | Parse each `record.body` (JSON, Avro, Protobuf) |
-| [`@middy/event-batch-response`](/docs/middlewares/event-batch-response) | Shape `batchItemFailures` |
-| [`@middy/event-batch-handler`](/docs/handlers/event-batch-handler) | Per-record handler wrapper |
+| Middleware                                                              | Why                                             |
+| ----------------------------------------------------------------------- | ----------------------------------------------- |
+| [`@middy/event-batch-parser`](/docs/middlewares/event-batch-parser)     | Parse each `record.body` (JSON, Avro, Protobuf) |
+| [`@middy/event-batch-response`](/docs/middlewares/event-batch-response) | Shape `batchItemFailures`                       |
+| [`@middy/event-batch-handler`](/docs/handlers/event-batch-handler)      | Per-record handler wrapper                      |
 
 For dynamic schemas, also [`@middy/glue-schema-registry`](/docs/middlewares/glue-schema-registry).
 
 ## JSON example
 
 ```javascript
-import middy from '@middy/core'
-import eventBatchParser from '@middy/event-batch-parser'
-import parseJson from '@middy/event-batch-parser/parseJson'
-import eventBatchResponse from '@middy/event-batch-response'
-import eventBatchHandler from '@middy/event-batch-handler'
+import middy from "@middy/core";
+import eventBatchParser from "@middy/event-batch-parser";
+import parseJson from "@middy/event-batch-parser/parseJson";
+import eventBatchResponse from "@middy/event-batch-response";
+import eventBatchHandler from "@middy/event-batch-handler";
 
 const recordHandler = async (record, context) => {
-  // record.body is the parsed JSON payload; throw to mark it as failed
-  await processOrder(record.body.orderId)
-}
-const lambdaHandler = eventBatchHandler(recordHandler)
+	// record.body is the parsed JSON payload; throw to mark it as failed
+	await processOrder(record.body.orderId);
+};
+const lambdaHandler = eventBatchHandler(recordHandler);
 
 export const handler = middy()
-  .use(eventBatchParser({ body: parseJson() }))
-  .use(eventBatchResponse())
-  .handler(lambdaHandler)
+	.use(eventBatchParser({ body: parseJson() }))
+	.use(eventBatchResponse())
+	.handler(lambdaHandler);
 ```
 
 ## Avro example
 
 ```javascript
-import middy from '@middy/core'
-import eventBatchParser from '@middy/event-batch-parser'
-import parseAvro from '@middy/event-batch-parser/parseAvro'
-import eventBatchResponse from '@middy/event-batch-response'
-import eventBatchHandler from '@middy/event-batch-handler'
+import middy from "@middy/core";
+import eventBatchParser from "@middy/event-batch-parser";
+import parseAvro from "@middy/event-batch-parser/parseAvro";
+import eventBatchResponse from "@middy/event-batch-response";
+import eventBatchHandler from "@middy/event-batch-handler";
 
-const schema = { type: 'record', name: 'Message', fields: [
-  { name: 'id', type: 'string' },
-  { name: 'payload', type: 'string' }
-] }
+const schema = {
+	type: "record",
+	name: "Message",
+	fields: [
+		{ name: "id", type: "string" },
+		{ name: "payload", type: "string" },
+	],
+};
 
 const recordHandler = async (record, context) => {
-  // record.body is the decoded Avro object
-}
-const lambdaHandler = eventBatchHandler(recordHandler)
+	// record.body is the decoded Avro object
+};
+const lambdaHandler = eventBatchHandler(recordHandler);
 
 export const handler = middy()
-  .use(eventBatchParser({ body: parseAvro({ schema }) }))
-  .use(eventBatchResponse())
-  .handler(lambdaHandler)
+	.use(eventBatchParser({ body: parseAvro({ schema }) }))
+	.use(eventBatchResponse())
+	.handler(lambdaHandler);
 ```
 
 For dynamic schemas resolved via [`@middy/glue-schema-registry`](/docs/middlewares/glue-schema-registry), omit `schema` and chain the registry middleware.
@@ -95,34 +100,38 @@ For dynamic schemas resolved via [`@middy/glue-schema-registry`](/docs/middlewar
 `parseProtobuf` needs a loaded `protobuf.Root` and a message type, either as factory options or as a `{ root, messageType }` entry on `request.internal`. Here the `.proto` definition is fetched once from the [AWS Glue Schema Registry](/docs/middlewares/glue-schema-registry) by the `SchemaVersionId` set in `fetchData`, then loaded with `protobufjs` in a `before` hook. The registry middleware does not look up the `SchemaVersionId` carried in each Glue-framed record.
 
 ```javascript
-import protobuf from 'protobufjs'
-import middy from '@middy/core'
-import glueSchemaRegistry from '@middy/glue-schema-registry'
-import eventBatchParser from '@middy/event-batch-parser'
-import parseProtobuf from '@middy/event-batch-parser/parseProtobuf'
-import eventBatchResponse from '@middy/event-batch-response'
-import eventBatchHandler from '@middy/event-batch-handler'
+import protobuf from "protobufjs";
+import middy from "@middy/core";
+import glueSchemaRegistry from "@middy/glue-schema-registry";
+import eventBatchParser from "@middy/event-batch-parser";
+import parseProtobuf from "@middy/event-batch-parser/parseProtobuf";
+import eventBatchResponse from "@middy/event-batch-response";
+import eventBatchHandler from "@middy/event-batch-handler";
 
 const recordHandler = async (record, context) => {
-  // record.body is the decoded Protobuf message (as JSON)
-}
-const lambdaHandler = eventBatchHandler(recordHandler)
+	// record.body is the decoded Protobuf message (as JSON)
+};
+const lambdaHandler = eventBatchHandler(recordHandler);
 
 export const handler = middy()
-  .use(glueSchemaRegistry({
-    fetchData: { messageSchema: { SchemaVersionId: '...' } },
-  }))
-  .before(async (request) => {
-    // Load the fetched .proto definition into the entry parseProtobuf reads
-    const { schemaDefinition } = await request.internal.messageSchema
-    request.internal.messageProto = {
-      root: protobuf.parse(schemaDefinition).root,
-      messageType: 'example.Message',
-    }
-  })
-  .use(eventBatchParser({ body: parseProtobuf({ internalKey: 'messageProto' }) }))
-  .use(eventBatchResponse())
-  .handler(lambdaHandler)
+	.use(
+		glueSchemaRegistry({
+			fetchData: { messageSchema: { SchemaVersionId: "..." } },
+		}),
+	)
+	.before(async (request) => {
+		// Load the fetched .proto definition into the entry parseProtobuf reads
+		const { schemaDefinition } = await request.internal.messageSchema;
+		request.internal.messageProto = {
+			root: protobuf.parse(schemaDefinition).root,
+			messageType: "example.Message",
+		};
+	})
+	.use(
+		eventBatchParser({ body: parseProtobuf({ internalKey: "messageProto" }) }),
+	)
+	.use(eventBatchResponse())
+	.handler(lambdaHandler);
 ```
 
 ## IaC: required event source mapping

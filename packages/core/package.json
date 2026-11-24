@@ -65,6 +65,8 @@
 		"executionModeDurableContext.d.ts",
 		"executionModeStreamifyResponse.js",
 		"executionModeStreamifyResponse.d.ts",
+		"timeoutEarlyTimers.js",
+		"timeoutEarlyTimers.d.ts",
 		"index.d.ts"
 	],
 	"scripts": {

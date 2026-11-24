@@ -1,4 +1,4 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { describe, test } from "node:test";
 import middy from "../core/index.js";
 import httpHeaderNormalizer, {
@@ -697,5 +697,135 @@ describe("@middy/http-header-normalizer", () => {
 			ok(e instanceof TypeError);
 			ok(e.message.includes("defaultHeaders.X"));
 		}
+	});
+
+	test("httpHeaderNormalizerValidateOptions accepts every documented defaultHeaders form", () => {
+		httpHeaderNormalizerValidateOptions({
+			defaultHeaders: {
+				"Content-Type": "application/json,*/*",
+				Accept: ["application/json", "*/*"],
+				Cookie: "a=1; b=2",
+				"X-Tab": "a\tb",
+				"x!#$%&'*+.^_`|~9": "",
+			},
+		});
+	});
+
+	test("httpHeaderNormalizerValidateOptions rejects a defaultHeaders name that is not an RFC 9110 token", () => {
+		for (const name of [
+			"Content Type",
+			"Content-Type:",
+			"a\r\nb",
+			"café",
+			"",
+		]) {
+			throws(
+				() =>
+					httpHeaderNormalizerValidateOptions({
+						defaultHeaders: { [name]: "x" },
+					}),
+				{
+					name: "TypeError",
+					message: new RegExp(
+						`^Invalid property name '${RegExp.escape(name)}' in option 'defaultHeaders': `,
+					),
+				},
+			);
+		}
+	});
+
+	test("httpHeaderNormalizerValidateOptions rejects a defaultHeaders name longer than 1024 characters", () => {
+		httpHeaderNormalizerValidateOptions({
+			defaultHeaders: { ["x".repeat(1024)]: "y" },
+		});
+		throws(
+			() =>
+				httpHeaderNormalizerValidateOptions({
+					defaultHeaders: { ["x".repeat(1025)]: "y" },
+				}),
+			{
+				name: "TypeError",
+				message:
+					/^Invalid property name 'x{1025}' in option 'defaultHeaders': .* must have length <= 1024$/,
+			},
+		);
+	});
+
+	const rejectsDefaultHeader = (value, message) =>
+		throws(
+			() =>
+				httpHeaderNormalizerValidateOptions({ defaultHeaders: { X: value } }),
+			{ name: "TypeError", message },
+		);
+
+	test("httpHeaderNormalizerValidateOptions rejects a defaultHeaders value with a control character", () => {
+		rejectsDefaultHeader(
+			"a\r\nX-Injected: 1",
+			/^Option 'defaultHeaders\.X' must match pattern /,
+		);
+		rejectsDefaultHeader(
+			["ok", "a\nb"],
+			/^Option 'defaultHeaders\.X\[1\]' must match pattern /,
+		);
+	});
+
+	test("httpHeaderNormalizerValidateOptions rejects a defaultHeaders value that is neither a string nor an array", () => {
+		rejectsDefaultHeader(
+			{ value: "x" },
+			"Option 'defaultHeaders.X' must be string or array",
+		);
+	});
+
+	test("httpHeaderNormalizerValidateOptions bounds defaultHeaders values to 1024 characters", () => {
+		httpHeaderNormalizerValidateOptions({
+			defaultHeaders: { X: "v".repeat(1024), Y: ["v".repeat(1024)] },
+		});
+		rejectsDefaultHeader(
+			"v".repeat(1025),
+			"Option 'defaultHeaders.X' must have length <= 1024",
+		);
+		rejectsDefaultHeader(
+			["v".repeat(1025)],
+			"Option 'defaultHeaders.X[0]' must have length <= 1024",
+		);
+	});
+
+	test("httpHeaderNormalizerValidateOptions caps a defaultHeaders list at 1024 distinct values", () => {
+		const values = Array.from({ length: 1025 }, (_, i) => `v${i}`);
+		httpHeaderNormalizerValidateOptions({
+			defaultHeaders: { X: values.slice(0, 1024) },
+		});
+		rejectsDefaultHeader(
+			values,
+			"Option 'defaultHeaders.X' must have <= 1024 items",
+		);
+		rejectsDefaultHeader(["a", "a"], "Duplicate item at 'defaultHeaders.X[1]'");
+	});
+
+	test("httpHeaderNormalizerValidateOptions caps defaultHeaders at 1024 headers", () => {
+		const headers = Object.fromEntries(
+			Array.from({ length: 1025 }, (_, i) => [`x-${i}`, "v"]),
+		);
+		const { "x-1024": _, ...allowed } = headers;
+		httpHeaderNormalizerValidateOptions({ defaultHeaders: allowed });
+		throws(
+			() => httpHeaderNormalizerValidateOptions({ defaultHeaders: headers }),
+			{
+				name: "TypeError",
+				message: "Option 'defaultHeaders' must have <= 1024 properties",
+			},
+		);
+	});
+
+	test("httpHeaderNormalizerValidateOptions requires normalizeHeaderKey to be a function", () => {
+		httpHeaderNormalizerValidateOptions({ normalizeHeaderKey: (k) => k });
+		throws(
+			() =>
+				httpHeaderNormalizerValidateOptions({ normalizeHeaderKey: "lower" }),
+			{
+				name: "TypeError",
+				message: "Option 'normalizeHeaderKey' must be instanceof Function",
+			},
+		);
 	});
 });

@@ -1,5 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import { constants as bufferConstants } from "node:buffer";
 import { inflateSync } from "node:zlib";
 import { HttpError, validateOptions } from "@middy/util";
 
@@ -24,16 +25,27 @@ const rawDataKey = Symbol.for("@middy/raw-data");
 const DEFAULT_MAX_DECOMPRESSED_BYTES = 10 * 1024 * 1024; // 10 MiB
 
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:event-batch-parser:options",
+	$defs: { Function: false },
 	type: "object",
 	properties: {
-		key: { instanceof: "Function" },
-		value: { instanceof: "Function" },
-		body: { instanceof: "Function" },
-		data: { instanceof: "Function" },
+		key: { $ref: "#/$defs/Function" },
+		value: { $ref: "#/$defs/Function" },
+		body: { $ref: "#/$defs/Function" },
+		data: { $ref: "#/$defs/Function" },
 		disableEventSourceError: { type: "boolean" },
-		maxDecompressedBytes: { type: "integer", minimum: 1 },
+		// zlib `maxOutputLength` "Default: buffer.kMaxLength", its upper bound.
+		// https://nodejs.org/api/zlib.html#class-options
+		maxDecompressedBytes: {
+			type: "integer",
+			minimum: 1,
+			maximum: bufferConstants.MAX_LENGTH,
+		},
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const eventBatchParserValidateOptions = (options) =>
@@ -201,6 +213,16 @@ const accKinesisData = {
 	get: (r) => r.kinesis?.data,
 	set: (r, v) => replaceField(r.kinesis, "data", v),
 };
+// A Firehose stream with Amazon MSK as its source names the payload
+// `kafkaRecordValue`; every other source uses `data`.
+// docs.aws.amazon.com/firehose/latest/dev/data-transformation-status-model.html
+// docs.aws.amazon.com/firehose/latest/dev/apache-iceberg-format-input-record-different.html
+const firehosePayloadField = (r) =>
+	Object.hasOwn(r, "kafkaRecordValue") ? "kafkaRecordValue" : "data";
+const accFirehoseData = {
+	get: (r) => r[firehosePayloadField(r)],
+	set: (r, v) => replaceField(r, firehosePayloadField(r), v),
+};
 
 // Each source declares its payload `encoding` so callers don't have to know
 // the AWS contract. See AWS docs cited per entry:
@@ -231,11 +253,16 @@ const sources = {
 		},
 		encoding: "base64",
 	},
-	// Kinesis Firehose: transform-records `data` is base64.
+	// Kinesis Firehose: transform-records `data` (`kafkaRecordValue` for an
+	// Amazon MSK source) is base64.
 	// docs.aws.amazon.com/firehose/latest/dev/data-transformation.html
 	"aws:lambda:events": {
 		getRecords: (event) => event.records,
-		fields: { value: accData, body: accData, data: accData },
+		fields: {
+			value: accFirehoseData,
+			body: accFirehoseData,
+			data: accFirehoseData,
+		},
 		encoding: "base64",
 	},
 	// SQS: `body` is a plain string, delivered as-is by Lambda.

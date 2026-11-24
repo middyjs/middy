@@ -1,4 +1,5 @@
 ---
+
 title: SNS
 description: "Process Amazon SNS notifications on AWS Lambda with Middy: per-record handling, JSON payloads, normalized envelopes for fan-out."
 ---
@@ -37,27 +38,25 @@ SNS typically delivers one record per Lambda invocation, but the schema is still
 
 ## Recommended middlewares
 
-| Middleware | Why |
-| --- | --- |
+| Middleware                                                      | Why                                                  |
+| --------------------------------------------------------------- | ---------------------------------------------------- |
 | [`@middy/event-normalizer`](/docs/middlewares/event-normalizer) | Parse `Message` as JSON, unwrap S3-via-SNS envelopes |
 
 ## Example
 
 ```javascript
-import middy from '@middy/core'
-import eventNormalizer from '@middy/event-normalizer'
+import middy from "@middy/core";
+import eventNormalizer from "@middy/event-normalizer";
 
 const lambdaHandler = async (event, context, { signal }) => {
-  for (const record of event.Records) {
-    // record.Sns.Message is now parsed if it was JSON
-    const payload = record.Sns.Message
-    // ...
-  }
-}
+	for (const record of event.Records) {
+		// record.Sns.Message is now parsed if it was JSON
+		const payload = record.Sns.Message;
+		// ...
+	}
+};
 
-export const handler = middy()
-  .use(eventNormalizer())
-  .handler(lambdaHandler)
+export const handler = middy().use(eventNormalizer()).handler(lambdaHandler);
 ```
 
 ## Common gotchas

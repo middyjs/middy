@@ -6,6 +6,7 @@
 		"node": ">=24.0"
 	},
 	"devDependencies": {
+		"ajv-cmd": "0.18.0",
 		"lockfile-lint": "5.1.0"
 	}
 }

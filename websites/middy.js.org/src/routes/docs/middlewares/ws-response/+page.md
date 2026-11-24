@@ -1,4 +1,5 @@
 ---
+
 title: ws-response
 description: "Post messages to WebSocket connections via API Gateway Management API with Middy."
 ---
@@ -36,38 +37,38 @@ NOTES:
 ### API Gateway
 
 ```javascript
-import middy from '@middy/core'
-import wsResponse from '@middy/ws-response'
+import middy from "@middy/core";
+import wsResponse from "@middy/ws-response";
 
 export const handler = middy((event, context) => {
-  return 'message'
-})
+	return "message";
+});
 
-handler.use(wsResponse())
+handler.use(wsResponse());
 ```
 
 ### General
 
 ```javascript
-import middy from '@middy/core'
-import wsResponse from '@middy/ws-response'
+import middy from "@middy/core";
+import wsResponse from "@middy/ws-response";
 
 const lambdaHandler = (event, context) => {
-  return {
-    ConnectionId: '...',
-    Data: 'message'
-  }
-}
+	return {
+		ConnectionId: "...",
+		Data: "message",
+	};
+};
 
 export const handler = middy()
-  .use(
-    wsResponse({
-      awsClientOptions: {
-        endpoint: '...'
-      }
-    })
-  )
-  .handler(lambdaHandler)
+	.use(
+		wsResponse({
+			awsClientOptions: {
+				endpoint: "...",
+			},
+		}),
+	)
+	.handler(lambdaHandler);
 ```
 
 ## Bundling

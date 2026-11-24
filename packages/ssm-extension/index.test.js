@@ -6,8 +6,8 @@ import {
 	strictEqual,
 } from "node:assert/strict";
 import { describe, test } from "node:test";
+import middy from "@middy/core";
 import { clearCache, getInternal, modifyCache } from "@middy/util";
-import middy from "../core/index.js";
 import ssmExtension, {
 	ssmExtensionParam,
 	ssmExtensionValidateOptions,
@@ -487,6 +487,7 @@ describe("@middy/ssm-extension", () => {
 	test("It should allow the fetch 30 s outside an invocation (prefetch)", async (t) => {
 		const timeout = t.mock.method(AbortSignal, "timeout");
 		ssmExtension({
+			cacheExpiry: -1,
 			fetchData: { key: "/dev/service_name/key_name" },
 		});
 		// The fetch starts once the session token has resolved.
@@ -624,11 +625,7 @@ describe("@middy/ssm-extension", () => {
 		strictEqual(fetchCount, 0);
 	});
 
-	test("It should not call extension again if param is cached forever (default cacheExpiry -1)", async (t) => {
-		// Fake Date so we can advance time far beyond any finite expiry. The default
-		// cacheExpiry is -1 (infinite): even after a large tick the cache must stay
-		// valid and the extension must not be called again.
-		t.mock.timers.enable({ apis: ["Date"] });
+	test("It should ask the extension on every invocation by default (cacheExpiry 0)", async (_t) => {
 		const handler = middy(() => {})
 			.use(
 				ssmExtension({
@@ -642,9 +639,17 @@ describe("@middy/ssm-extension", () => {
 				equal(values.key, "key-value");
 			});
 		await handler(event, context);
-		t.mock.timers.tick(1000000);
 		await handler(event, context);
-		equal(fetchCount, 1);
+		equal(fetchCount, 2);
+	});
+
+	test("It should not prefetch by default (cacheExpiry 0)", async (_t) => {
+		ssmExtension({
+			cacheKey: "ssm-ext-default-prefetch",
+			fetchData: { key: "/dev/service_name/key_name" },
+		});
+		await Promise.resolve();
+		strictEqual(fetchCount, 0);
 	});
 
 	test("It should not set value to context by default (setToContext false)", async (_t) => {
@@ -764,6 +769,64 @@ describe("@middy/ssm-extension", () => {
 		}
 	});
 
+	const rejectsOption = (options, messagePart) => {
+		try {
+			ssmExtensionValidateOptions(options);
+			ok(false, `expected throw for ${messagePart}`);
+		} catch (e) {
+			ok(e instanceof TypeError, "expected TypeError");
+			strictEqual(e.cause.package, "@middy/ssm-extension");
+			ok(
+				e.message.includes(messagePart),
+				`expected message to include '${messagePart}', got: ${e.message}`,
+			);
+		}
+	};
+
+	test("ssmExtensionValidateOptions applies the GetParameter Name limits to fetchData values", () => {
+		// https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_GetParameter.html
+		// https://docs.aws.amazon.com/systems-manager/latest/userguide/ps-integration-lambda-extensions.html
+		ssmExtensionValidateOptions({
+			fetchData: {
+				name: "MyParameter",
+				label: "/a/b/:release",
+				version: "MyParameter:5",
+				arn: "arn:aws:ssm:us-east-1:123456789012:parameter/MyParameter",
+				secret: "/aws/reference/secretsmanager/prod/db+user=a@b",
+				long: `/${"p".repeat(2047)}`,
+			},
+		});
+		rejectsOption({ fetchData: { key: "" } }, "fetchData.key");
+		rejectsOption(
+			{ fetchData: { key: `/${"p".repeat(2048)}` } },
+			"fetchData.key",
+		);
+		rejectsOption({ fetchData: { key: "/dev/a b" } }, "fetchData.key");
+		rejectsOption({ fetchData: { key: "/dev/ünï" } }, "fetchData.key");
+	});
+
+	test("ssmExtensionValidateOptions bounds the fetchData internal keys", () => {
+		ssmExtensionValidateOptions({
+			fetchData: { "@middy/db.password!": "/db/password" },
+		});
+		ssmExtensionValidateOptions({
+			fetchData: Object.fromEntries(
+				Array.from({ length: 1024 }, (_, i) => [`k${i}`, `/k${i}`]),
+			),
+		});
+		rejectsOption(
+			{
+				fetchData: Object.fromEntries(
+					Array.from({ length: 1025 }, (_, i) => [`k${i}`, `/k${i}`]),
+				),
+			},
+			"fetchData",
+		);
+		rejectsOption({ fetchData: { "a b": "/k" } }, "a b");
+		ssmExtensionValidateOptions({ fetchData: { ["k".repeat(1024)]: "/k" } });
+		rejectsOption({ fetchData: { ["k".repeat(1025)]: "/k" } }, "kkk");
+	});
+
 	test("ssmExtensionValidateOptions validates contextKey as a string", () => {
 		// Pins the rule itself: an empty `{}` rule would accept the number below,
 		// and a blank `type` would reject the valid string above.
@@ -796,5 +859,34 @@ describe("@middy/ssm-extension", () => {
 			ok(e instanceof TypeError);
 			ok(e.message.includes("awsSessionToken"));
 		}
+	});
+
+	const expectSharedOptionError = (options, messagePart) => {
+		let error;
+		try {
+			ssmExtensionValidateOptions(options);
+		} catch (e) {
+			error = e;
+		}
+		ok(error instanceof TypeError, `expected a TypeError for ${messagePart}`);
+		strictEqual(error.cause.package, "@middy/ssm-extension");
+		ok(error.message.includes(messagePart), error.message);
+	};
+
+	test("ssmExtensionValidateOptions validates contextKey as a key name", () => {
+		ssmExtensionValidateOptions({ contextKey: "@middy/ctx.name-a:b/c_1!" });
+		ssmExtensionValidateOptions({ contextKey: "k".repeat(1024) });
+		expectSharedOptionError({ contextKey: "k".repeat(1025) }, "contextKey");
+		expectSharedOptionError({ contextKey: "" }, "contextKey");
+		expectSharedOptionError({ contextKey: "a b" }, "contextKey");
+	});
+
+	test("ssmExtensionValidateOptions validates the cache options with the shared rules", () => {
+		ssmExtensionValidateOptions({
+			cacheKey: "@middy/ssm-extension",
+			cacheKeyExpiry: { "@middy/ssm-extension": 1000 },
+		});
+		expectSharedOptionError({ cacheKey: "a b" }, "cacheKey");
+		expectSharedOptionError({ cacheKeyExpiry: { "a b": 1000 } }, "a b");
 	});
 });

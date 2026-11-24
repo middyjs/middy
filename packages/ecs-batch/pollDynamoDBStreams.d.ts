@@ -8,7 +8,8 @@ export type DynamoDBShardIteratorType =
 	| "AT_SEQUENCE_NUMBER"
 	| "AFTER_SEQUENCE_NUMBER"
 	| "TRIM_HORIZON"
-	| "LATEST";
+	| "LATEST"
+	| "AT_TIMESTAMP";
 
 export interface PollDynamoDBStreamsOptions {
 	streamArn: string;
@@ -16,6 +17,8 @@ export interface PollDynamoDBStreamsOptions {
 	client?: DynamoDBStreamsClient;
 	shardIteratorType?: DynamoDBShardIteratorType;
 	sequenceNumber?: string;
+	/** Epoch seconds to start reading from with `AT_TIMESTAMP`. */
+	timestamp?: number;
 	limit?: number;
 	pollingDelay?: number;
 	/**
@@ -27,6 +30,9 @@ export interface PollDynamoDBStreamsOptions {
 	/**
 	 * Backoff (ms) before a failed batch is retried, doubling per consecutive
 	 * failure of the same record up to 30 s (or this value when larger).
+	 * A GetRecords or GetShardIterator call that was throttled, failed with a
+	 * 5xx or got no response is repeated after the same backoff, however often
+	 * it takes.
 	 * Defaults to 1000.
 	 */
 	retryDelayMs?: number;

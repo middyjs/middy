@@ -1,11 +1,14 @@
 import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { describe, test } from "node:test";
+import { setImmediate } from "node:timers/promises";
 import middy from "../core/index.js";
 import eventLogger, { eventLoggerValidateOptions } from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
+
+const thenKey = "then";
 
 describe("@middy/event-logger", () => {
 	test("It should log the event", async (t) => {
@@ -162,6 +165,98 @@ describe("@middy/event-logger", () => {
 		strictEqual(consoleError.mock.calls[0].arguments[0], loggerError);
 	});
 
+	test("It should report a rejected async logger via console.error and still run the handler", async (t) => {
+		const loggerError = new Error("log sink unreachable");
+		const consoleError = t.mock.method(console, "error", () => {});
+		const lambdaHandler = t.mock.fn(() => "handler");
+
+		const handler = middy(lambdaHandler).use(
+			eventLogger({
+				logger: async () => {
+					throw loggerError;
+				},
+			}),
+		);
+
+		const response = await handler({ foo: "bar" }, defaultContext);
+
+		strictEqual(response, "handler");
+		strictEqual(lambdaHandler.mock.callCount(), 1);
+		strictEqual(consoleError.mock.callCount(), 1);
+		strictEqual(consoleError.mock.calls[0].arguments[0], loggerError);
+	});
+
+	test("It should wait for an async logger before running the handler", async (t) => {
+		const order = [];
+
+		const handler = middy(() => {
+			order.push("handler");
+		}).use(
+			eventLogger({
+				logger: async () => {
+					await setImmediate();
+					order.push("logger");
+				},
+			}),
+		);
+
+		await handler({ foo: "bar" }, defaultContext);
+
+		deepStrictEqual(order, ["logger", "handler"]);
+	});
+
+	test("It should ignore what an async logger resolves to", async (t) => {
+		const lambdaHandler = t.mock.fn(() => "handler");
+
+		const handler = middy(lambdaHandler).use(
+			eventLogger({ logger: async () => ({ chained: true }) }),
+		);
+
+		const response = await handler({ foo: "bar" }, defaultContext);
+
+		strictEqual(lambdaHandler.mock.callCount(), 1);
+		strictEqual(response, "handler");
+	});
+
+	test("It should await a thenable returned by the logger", async (t) => {
+		const loggerError = new Error("log sink unreachable");
+		const consoleError = t.mock.method(console, "error", () => {});
+		const order = [];
+
+		const handler = middy(() => {
+			order.push("handler");
+			return "handler";
+		}).use(
+			eventLogger({
+				logger: () => ({
+					[thenKey]: (_resolve, reject) => {
+						order.push("logger");
+						reject(loggerError);
+					},
+				}),
+			}),
+		);
+
+		const response = await handler({ foo: "bar" }, defaultContext);
+
+		strictEqual(response, "handler");
+		deepStrictEqual(order, ["logger", "handler"]);
+		strictEqual(consoleError.mock.callCount(), 1);
+		strictEqual(consoleError.mock.calls[0].arguments[0], loggerError);
+	});
+
+	test("It should keep the hook synchronous for a synchronous logger", (t) => {
+		const consoleError = t.mock.method(console, "error", () => {});
+		const request = { event: { foo: "bar" } };
+
+		for (const result of [undefined, null, { chained: true }, "logged"]) {
+			const logger = t.mock.fn(() => result);
+			strictEqual(eventLogger({ logger }).before(request), undefined);
+			strictEqual(logger.mock.callCount(), 1);
+		}
+		strictEqual(consoleError.mock.callCount(), 0);
+	});
+
 	test("It should omit paths", async (t) => {
 		const logger = t.mock.fn();
 
@@ -255,6 +350,76 @@ describe("@middy/event-logger", () => {
 			ok(e instanceof TypeError);
 			strictEqual(e.cause.package, "@middy/event-logger");
 		}
+	});
+
+	test("eventLoggerValidateOptions caps mask at 1024 printable characters", () => {
+		eventLoggerValidateOptions({ mask: "***omitted***" });
+		eventLoggerValidateOptions({ mask: "x".repeat(1024) });
+		throws(() => eventLoggerValidateOptions({ mask: "x".repeat(1025) }), {
+			name: "TypeError",
+			message: "Option 'mask' must have length <= 1024",
+			cause: { package: "@middy/event-logger" },
+		});
+		throws(() => eventLoggerValidateOptions({ mask: "line\nbreak" }), {
+			name: "TypeError",
+			message: /^Option 'mask' must match pattern /,
+			cause: { package: "@middy/event-logger" },
+		});
+	});
+
+	test("It should omit an array path whose segment holds a dot", async (t) => {
+		const logger = t.mock.fn();
+		const omitPaths = [
+			["event", "CodePipeline.job", "data", "artifactCredentials"],
+		];
+		eventLoggerValidateOptions({ omitPaths });
+
+		const handler = middy((event) => event).use(
+			eventLogger({ logger, omitPaths }),
+		);
+
+		await handler(
+			{
+				"CodePipeline.job": {
+					id: "1",
+					data: { artifactCredentials: { secretAccessKey: "SECRET" } },
+				},
+			},
+			defaultContext,
+		);
+
+		deepStrictEqual(logger.mock.calls[0].arguments[0].event, {
+			"CodePipeline.job": { id: "1", data: {} },
+		});
+	});
+
+	test("eventLoggerValidateOptions rejects an omitPaths entry that is not a string or an array of strings", () => {
+		for (const entry of [1, null, {}, ["event", 1], [["event"]], []]) {
+			throws(() => eventLoggerValidateOptions({ omitPaths: [entry] }), {
+				name: "TypeError",
+				message: "Option 'omitPaths[0]' must match exactly one schema in oneOf",
+				cause: { package: "@middy/event-logger" },
+			});
+		}
+	});
+
+	test("eventLoggerValidateOptions rejects a path that could never match", () => {
+		for (const path of [
+			"event.Records[].body",
+			"event.Records.0.body",
+			"event.Records.*.body",
+			["event", "Records", "__proto__"],
+		]) {
+			const invalidPath = { name: "TypeError", message: /^Invalid path / };
+			throws(
+				() => eventLoggerValidateOptions({ omitPaths: [path] }),
+				invalidPath,
+			);
+			throws(() => eventLogger({ omitPaths: [path] }), invalidPath);
+		}
+		eventLoggerValidateOptions({
+			omitPaths: ["event.Records.[].body", ["event", "Records", "[]", "0"]],
+		});
 	});
 
 	test("eventLoggerValidateOptions rejects wrong types", () => {

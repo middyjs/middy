@@ -4,6 +4,7 @@ import { KeyObject } from "node:crypto";
 import {
 	getInternal,
 	HttpError,
+	reservedPropertyNames,
 	sanitizeKey,
 	setContextNamespace,
 	validateOptions,
@@ -37,15 +38,43 @@ const defaults = {
 	setToContext: false,
 };
 
+const textSchema = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\p{L}\p{N}\p{P}\p{S} ]+$/u,
+};
+const textKeySchema = {
+	...textSchema,
+	not: { type: "string", enum: reservedPropertyNames },
+};
+
+const nullableTextSchema = { oneOf: [textSchema, { const: null }] };
+
+const keyNameSchema = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\x21-\x7E]+$/u,
+};
+
+// RFC 9110 section 5.6.2 token, the syntax of a field name (section 5.1) and
+// of a cookie name (RFC 6265 section 4.1.1).
+const tokenSchema = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\w!#$%&'*+.^`|~-]+$/u,
+};
+
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:http-paseto:options",
 	type: "object",
 	properties: {
-		internalKey: { type: "string" },
-		tokenCookieName: { type: "string" },
-		tokenHeaderName: { type: "string" },
-		tokenQueryStringName: { type: "string" },
-		audience: { type: "string" },
-		issuer: { type: "string" },
+		internalKey: keyNameSchema,
+		tokenCookieName: tokenSchema,
+		tokenHeaderName: tokenSchema,
+		tokenQueryStringName: textSchema,
+		audience: nullableTextSchema,
+		issuer: nullableTextSchema,
 		// Seconds. paseto v4 dropped the `ms`-style strings v3 accepted, and
 		// requires a finite non-negative number. `maximum` is the finite bound,
 		// not a policy ceiling: ajv rejects NaN under `type: "number"` but lets
@@ -65,15 +94,25 @@ const optionSchema = {
 		// request with a message reading `is 'a,b', expected 'a,b'`.
 		expectedClaims: {
 			type: "object",
+			propertyNames: textKeySchema,
 			additionalProperties: {
-				oneOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }],
+				type: ["string", "number", "boolean"],
+				maxLength: 1024,
+				pattern: /^[\p{L}\p{N}\p{P}\p{S} ]*$/u,
+				minimum: -Number.MAX_SAFE_INTEGER,
+				maximum: Number.MAX_SAFE_INTEGER,
 			},
+			maxProperties: 1024,
+			required: [],
+			unevaluatedProperties: false,
 		},
-		payloadKey: { type: "string" },
-		tokenKey: { type: "string" },
+		payloadKey: keyNameSchema,
+		tokenKey: keyNameSchema,
 		setToContext: { type: "boolean" },
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const httpPasetoValidateOptions = (options) =>
@@ -85,14 +124,14 @@ const keyError = (reason) =>
 // One entry of `internalKey` -> a paseto PublicKey. Three shapes are accepted:
 //   - `{ publicKey: Uint8Array }`, what @middy/kms returns
 //   - a Uint8Array / Buffer of DER SPKI bytes
-//   - a KeyObject, for a caller that resolved its own key, e.g. from a PEM in the
+//   - a public KeyObject, for a caller that resolved its own key, e.g. from a PEM in the
 //     environment. A KMS asymmetric key never rotates in place, so its public half is
 //     immutable and there is nothing to refetch, which makes a plain env var a
 //     reasonable place to keep it. paseto v4 keys are WebCrypto-backed, so a
 //     KeyObject is re-exported to SPKI and re-imported through `crypto.subtle`.
 const importKey = async (entry) => {
 	const bytes =
-		entry instanceof KeyObject
+		entry instanceof KeyObject && entry.type === "public"
 			? entry.export({ type: "spki", format: "der" })
 			: entry?.publicKey instanceof Uint8Array
 				? entry.publicKey
@@ -198,6 +237,19 @@ const httpPasetoMiddleware = (opts = {}) => {
 		});
 	}
 
+	if (options.audience === undefined) {
+		throw new TypeError(
+			"audience is required: set it, or set null to skip the aud check",
+			{ cause: { package: pkg } },
+		);
+	}
+	if (options.issuer === undefined) {
+		throw new TypeError(
+			"issuer is required: set it, or set null to skip the iss check",
+			{ cause: { package: pkg } },
+		);
+	}
+
 	const cookieName = options.tokenCookieName;
 	const headerName = options.tokenHeaderName;
 	const queryStringName = options.tokenQueryStringName;
@@ -220,9 +272,10 @@ const httpPasetoMiddleware = (opts = {}) => {
 		throw unauthorized("No token found in configured sources", "Bearer");
 	};
 
+	// paseto skips a check only for `undefined`; `null` is the opt-out here.
 	const baseVerifyOptions = {
-		audience: options.audience,
-		issuer: options.issuer,
+		audience: options.audience ?? undefined,
+		issuer: options.issuer ?? undefined,
 		clockTolerance: options.clockTolerance,
 		maxTokenAge: options.maxTokenAge,
 	};

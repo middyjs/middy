@@ -1,4 +1,5 @@
 ---
+
 title: CodePipeline
 description: "Use Middy with CodePipeline Lambda action events for CI/CD pipelines."
 ---
@@ -24,16 +25,18 @@ flowchart LR
 ```
 
 ## AWS Documentation
+
 - [Using AWS Lambda with AWS CodePipeline](https://docs.aws.amazon.com/lambda/latest/dg/services-codepipeline.html)
 
 ## Example
+
 ```javascript
-import middy from '@middy/core'
-import eventNormalizerMiddleware from '@middy/event-normalizer'
+import middy from "@middy/core";
+import eventNormalizerMiddleware from "@middy/event-normalizer";
 
 export const handler = middy()
-  .use(eventNormalizerMiddleware())
-  .handler((event, context, {signal}) => {
-    // ...
-  })
+	.use(eventNormalizerMiddleware())
+	.handler((event, context, { signal }) => {
+		// ...
+	});
 ```

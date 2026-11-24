@@ -1,5 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import { constants as bufferConstants } from "node:buffer";
 import { gunzipSync } from "node:zlib";
 import {
 	HttpError,
@@ -24,12 +25,22 @@ const defaults = {
 };
 
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:event-normalizer:options",
 	type: "object",
 	properties: {
 		wrapNumbers: { type: "boolean" },
-		maxDecompressedBytes: { type: "integer", minimum: 1 },
+		// zlib `maxOutputLength` "Default: buffer.kMaxLength", its upper bound.
+		// https://nodejs.org/api/zlib.html#class-options
+		maxDecompressedBytes: {
+			type: "integer",
+			minimum: 1,
+			maximum: bufferConstants.MAX_LENGTH,
+		},
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const eventNormalizerValidateOptions = (options) =>
@@ -180,9 +191,15 @@ const events = Object.assign(Object.create(null), {
 		const { kinesis } = record;
 		replaceField(kinesis, "data", base64Parse(kinesis.data));
 	},
-	// Kinesis Firehose
+	// Kinesis Firehose. A stream with Amazon MSK as its source names the payload
+	// `kafkaRecordValue`; every other source uses `data`.
+	// docs.aws.amazon.com/firehose/latest/dev/data-transformation-status-model.html
+	// docs.aws.amazon.com/firehose/latest/dev/apache-iceberg-format-input-record-different.html
 	"aws:lambda:events": (record) => {
-		replaceField(record, "data", base64Parse(record.data));
+		const field = Object.hasOwn(record, "kafkaRecordValue")
+			? "kafkaRecordValue"
+			: "data";
+		replaceField(record, field, base64Parse(record[field]));
 	},
 	// MQ (RabbitMQ)
 	"aws:rmq": (event) => {

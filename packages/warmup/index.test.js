@@ -9,6 +9,8 @@ const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
+const thenKey = "then";
+
 describe("@middy/warmup", () => {
 	test("Should exit with 'warmup' if provided warmup check function is provide and returns true", async (t) => {
 		const handler = middy(() => {});
@@ -135,6 +137,91 @@ describe("@middy/warmup", () => {
 
 		strictEqual(response, "warmup");
 		strictEqual(receivedEvent, event);
+	});
+
+	test("Should execute handler when an async isWarmingUp resolves false", async (t) => {
+		const handler = middy(() => "executed").use(
+			warmup({ isWarmingUp: async () => false }),
+		);
+
+		const response = await handler(defaultEvent, defaultContext);
+
+		strictEqual(response, "executed");
+	});
+
+	test("Should exit with 'warmup' when an async isWarmingUp resolves true", async (t) => {
+		const lambdaHandler = t.mock.fn(() => "executed");
+		const handler = middy(lambdaHandler).use(
+			warmup({ isWarmingUp: async () => true }),
+		);
+
+		const response = await handler(defaultEvent, defaultContext);
+
+		strictEqual(response, "warmup");
+		strictEqual(lambdaHandler.mock.callCount(), 0);
+	});
+
+	test("Should execute handler when isWarmingUp returns a truthy value other than true", async (t) => {
+		for (const result of [1, "yes", {}, []]) {
+			const handler = middy(() => "executed").use(
+				warmup({ isWarmingUp: () => result }),
+			);
+			strictEqual(await handler(defaultEvent, defaultContext), "executed");
+
+			const asyncHandler = middy(() => "executed").use(
+				warmup({ isWarmingUp: async () => result }),
+			);
+			strictEqual(await asyncHandler(defaultEvent, defaultContext), "executed");
+		}
+	});
+
+	test("Should execute handler when isWarmingUp returns nothing", async (t) => {
+		for (const result of [undefined, null]) {
+			const handler = middy(() => "executed").use(
+				warmup({ isWarmingUp: () => result }),
+			);
+			strictEqual(await handler(defaultEvent, defaultContext), "executed");
+		}
+	});
+
+	test("Should await a thenable returned by isWarmingUp", async (t) => {
+		const thenable = (value) => ({ [thenKey]: (resolve) => resolve(value) });
+		const warm = middy(() => "executed").use(
+			warmup({ isWarmingUp: () => thenable(true) }),
+		);
+		strictEqual(await warm(defaultEvent, defaultContext), "warmup");
+
+		const cold = middy(() => "executed").use(
+			warmup({ isWarmingUp: () => thenable(false) }),
+		);
+		strictEqual(await cold(defaultEvent, defaultContext), "executed");
+	});
+
+	test("Should pass the rejection of an async isWarmingUp to the caller", async (t) => {
+		const error = new Error("check failed");
+		const handler = middy(() => "executed").use(
+			warmup({
+				isWarmingUp: async () => {
+					throw error;
+				},
+			}),
+		);
+
+		await t.assert.rejects(handler(defaultEvent, defaultContext), (e) => {
+			strictEqual(e, error);
+			return true;
+		});
+	});
+
+	test("Should keep the hook synchronous for a synchronous isWarmingUp", (t) => {
+		strictEqual(
+			warmup({ isWarmingUp: () => true }).before({ event: defaultEvent }),
+			"warmup",
+		);
+		strictEqual(
+			warmup({ isWarmingUp: () => false }).before({ event: defaultEvent }),
+			undefined,
+		);
 	});
 
 	test("warmupValidateOptions accepts valid options and rejects typos", () => {

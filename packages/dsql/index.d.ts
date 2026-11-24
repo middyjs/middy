@@ -2,9 +2,21 @@
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
 
+/**
+ * Builds the client from the connection config. With `internalKey` set, the
+ * config it receives carries `password` as a function (see `DsqlPassword`),
+ * never as a string, so a custom adapter has to hand it to a driver that
+ * accepts one or call it for every connection it opens.
+ */
 export type DsqlClient<TClient = unknown, TConfig = unknown> = (
 	config: TConfig,
 ) => TClient | Promise<TClient>;
+
+/**
+ * A database password: a string, or a function the driver calls for every
+ * connection it opens (`pg` and `postgres.js` both accept one).
+ */
+export type DsqlPassword = string | (() => string | Promise<string>);
 
 export interface DsqlBaseConfig {
 	host: string;
@@ -14,7 +26,11 @@ export interface DsqlBaseConfig {
 	username?: string;
 	database?: string;
 	port?: number;
-	password?: string;
+	/**
+	 * Replaced when `internalKey` is set: the client then receives a function
+	 * returning the token of the latest invocation.
+	 */
+	password?: DsqlPassword;
 	ssl?: boolean | object;
 	[key: string]: unknown;
 }
@@ -26,6 +42,10 @@ export interface DsqlOptions<
 	client: DsqlClient<TClient, TConfig>;
 	config: TConfig;
 	contextKey?: string;
+	/**
+	 * Key in `request.internal` holding the IAM auth token. The token is read
+	 * on every invocation and handed to the client as a `password` function.
+	 */
 	internalKey?: string;
 	disablePrefetch?: boolean;
 	cacheKey?: string;

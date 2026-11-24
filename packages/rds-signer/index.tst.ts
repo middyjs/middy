@@ -105,6 +105,21 @@ test("contextKey literal narrows middyContext without as const", () => {
 		});
 });
 
+test("fetchData entries may leave hostname, port and username to the environment", () => {
+	expect(rdsSigner).type.toBeCallableWith({ fetchData: { foo: {} } });
+	expect(rdsSigner).type.toBeCallableWith({
+		fetchData: { foo: { region: "ca-central-1" } },
+	});
+	expect<indexModule.RdsSignerFetchConfig>().type.toBeAssignableFrom({
+		hostname: "h",
+		port: 5432,
+		username: "u",
+	});
+	expect(rdsSigner).type.not.toBeCallableWith({
+		fetchData: { foo: { port: "5432" } },
+	});
+});
+
 test("rejects misspelled option alongside fetchData", () => {
 	expect(rdsSigner).type.not.toBeCallableWith({
 		fetchData: {

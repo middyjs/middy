@@ -4,13 +4,16 @@ import { randomUUID } from "node:crypto";
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
 import {
 	assignSetToContext,
+	awsClientOptionsSchema,
 	buildSetToContextSpec,
+	cacheOptionSchemaProperties,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClientInit,
 	createPrefetchClient,
 	evictCacheOnFailure,
 	processCache,
+	reservedPropertyNames,
 	setCacheKeyExpiry,
 	validateOptions,
 } from "@middy/util";
@@ -35,58 +38,184 @@ const defaults = {
 	contextKey: name,
 };
 
-const optionSchema = {
+const internalKeySchema = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\x21-\x7E]+$/u,
+	not: { type: "string", enum: reservedPropertyNames },
+};
+
+// https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html
+const arnPattern = /^arn:aws[\w-]*:[\w-]+:[\w-]*:[\w-]*:[\x21-\x7E]+$/u;
+// https://docs.aws.amazon.com/STS/latest/APIReference/API_Tag.html
+const tagKeySchema = {
+	type: "string",
+	minLength: 1,
+	maxLength: 128,
+	pattern: /^[\p{L}\p{Z}\p{N}_.:/=+@-]+$/u,
+};
+
+const assumeRoleInputSchema = {
 	type: "object",
 	properties: {
-		AwsClient: { instanceof: "Function" },
-		awsClientOptions: { type: "object" },
-		awsClientAssumeRole: { type: "string" },
-		awsClientCapture: { instanceof: "Function" },
-		disablePrefetch: { type: "boolean" },
-		cacheKey: { type: "string" },
-		cacheKeyExpiry: {
-			type: "object",
-			additionalProperties: {
-				type: "number",
-				minimum: -1,
-				maximum: Number.MAX_SAFE_INTEGER,
-			},
+		RoleArn: {
+			type: "string",
+			minLength: 20,
+			maxLength: 2048,
+			pattern: arnPattern,
 		},
-		cacheExpiry: {
-			type: "number",
-			minimum: -1,
-			maximum: Number.MAX_SAFE_INTEGER,
+		RoleSessionName: {
+			type: "string",
+			minLength: 2,
+			maxLength: 64,
+			pattern: /^[\w+=,.@-]+$/u,
 		},
-		cacheMaxSize: {
-			type: "integer",
-			minimum: 1,
-			maximum: Number.MAX_SAFE_INTEGER,
-		},
-		setToContext: { type: "boolean" },
-		contextKey: { type: "string" },
-		fetchData: {
-			type: "object",
-			additionalProperties: {
+		PolicyArns: {
+			type: "array",
+			maxItems: 10,
+			uniqueItems: true,
+			// https://docs.aws.amazon.com/STS/latest/APIReference/API_PolicyDescriptorType.html
+			items: {
 				type: "object",
-				required: ["RoleArn"],
 				properties: {
-					RoleArn: { type: "string" },
-					RoleSessionName: { type: "string" },
-					DurationSeconds: { type: "integer", minimum: 900, maximum: 43200 },
-					ExternalId: { type: "string" },
-					Policy: { type: "string" },
-					SerialNumber: { type: "string" },
-					TokenCode: { type: "string" },
-					TransitiveTagKeys: {
-						type: "array",
-						items: { type: "string" },
+					arn: {
+						type: "string",
+						minLength: 20,
+						maxLength: 2048,
+						pattern: arnPattern,
 					},
 				},
-				additionalProperties: true,
+				required: [],
+				additionalProperties: false,
+				unevaluatedProperties: false,
 			},
+			unevaluatedItems: false,
+		},
+		// "The plaintext that you use for both inline and managed session policies can't exceed 2,048 characters."
+		Policy: {
+			type: "string",
+			minLength: 1,
+			maxLength: 2048,
+			pattern: /^[\t\n\r\x20-\x7E\xA0-\xFF]+$/u,
+		},
+		DurationSeconds: { type: "integer", minimum: 900, maximum: 43200 },
+		Tags: {
+			type: "array",
+			maxItems: 50,
+			uniqueItems: true,
+			items: {
+				type: "object",
+				properties: {
+					Key: tagKeySchema,
+					Value: {
+						type: "string",
+						maxLength: 256,
+						pattern: /^[\p{L}\p{Z}\p{N}_.:/=+@-]*$/u,
+					},
+				},
+				required: ["Key", "Value"],
+				additionalProperties: false,
+				unevaluatedProperties: false,
+			},
+			unevaluatedItems: false,
+		},
+		TransitiveTagKeys: {
+			type: "array",
+			maxItems: 50,
+			uniqueItems: true,
+			items: tagKeySchema,
+			unevaluatedItems: false,
+		},
+		ExternalId: {
+			type: "string",
+			minLength: 2,
+			maxLength: 1224,
+			pattern: /^[\w+=,.@:/-]+$/u,
+		},
+		SerialNumber: {
+			type: "string",
+			minLength: 9,
+			maxLength: 256,
+			pattern: /^[\w+=/:,.@-]+$/u,
+		},
+		TokenCode: { type: "string", maxLength: 6, pattern: /^\d{6}$/u },
+		SourceIdentity: {
+			type: "string",
+			minLength: 2,
+			maxLength: 64,
+			pattern: /^[\w+=,.@-]+$/u,
+		},
+		ProvidedContexts: {
+			type: "array",
+			minItems: 1,
+			maxItems: 5,
+			uniqueItems: true,
+			// https://docs.aws.amazon.com/STS/latest/APIReference/API_ProvidedContext.html
+			items: {
+				type: "object",
+				properties: {
+					ProviderArn: {
+						type: "string",
+						minLength: 20,
+						maxLength: 2048,
+						pattern: arnPattern,
+					},
+					ContextAssertion: {
+						type: "string",
+						minLength: 4,
+						maxLength: 2048,
+						pattern: /^[\x21-\x7E]+$/u,
+					},
+				},
+				required: [],
+				additionalProperties: false,
+				unevaluatedProperties: false,
+			},
+			unevaluatedItems: false,
+		},
+		MinimumSessionTokenSize: { type: "integer", minimum: 0, maximum: 4096 },
+	},
+	required: ["RoleArn"],
+	additionalProperties: false,
+	unevaluatedProperties: false,
+};
+
+// node_modules/@aws-sdk/client-sts/dist-types/endpoint/EndpointParameters.d.ts (ClientInputEndpointParameters)
+const stsClientOptionsSchema = {
+	...awsClientOptionsSchema,
+	properties: {
+		...awsClientOptionsSchema.properties,
+		useGlobalEndpoint: {
+			oneOf: [{ type: "boolean" }, { $ref: "#/$defs/Function" }],
 		},
 	},
+};
+
+const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:sts:options",
+	$defs: { Function: false, Object: false },
+	type: "object",
+	properties: {
+		AwsClient: { $ref: "#/$defs/Function" },
+		awsClientOptions: stsClientOptionsSchema,
+		awsClientAssumeRole: internalKeySchema,
+		awsClientCapture: { $ref: "#/$defs/Function" },
+		...cacheOptionSchemaProperties,
+		setToContext: { type: "boolean" },
+		contextKey: internalKeySchema,
+		fetchData: {
+			type: "object",
+			propertyNames: internalKeySchema,
+			maxProperties: 1024,
+			required: [],
+			additionalProperties: assumeRoleInputSchema,
+			unevaluatedProperties: false,
+		},
+	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const stsValidateOptions = (options) =>

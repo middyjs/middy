@@ -1,4 +1,5 @@
 ---
+
 title: http-jwt
 description: "Verify JWTs on incoming HTTP requests. Supports JWKS endpoints (OIDC providers like Cognito, Auth0, Okta), KMS-hosted keys, and request-supplied secrets via internalKey."
 status: alpha
@@ -62,35 +63,35 @@ NOTES:
 `@middy/http-jwt` ships first-class support for JWKS-based verification via the `issuers` option. Configure one entry per issuer URL; on each request the middleware reads the token's (unverified) `iss` claim, looks up the entry, fetches the matching public key from that issuer's JWKS by `kid`, and verifies. Key rotation, kid lookup, JWKS caching, and refresh-on-miss are handled internally.
 
 ```javascript
-import middy from '@middy/core'
-import httpJwt from '@middy/http-jwt'
-import httpErrorHandler from '@middy/http-error-handler'
+import middy from "@middy/core";
+import httpJwt from "@middy/http-jwt";
+import httpErrorHandler from "@middy/http-error-handler";
 
-const { COGNITO_REGION, COGNITO_USER_POOL_ID, COGNITO_CLIENT_ID } = process.env
+const { COGNITO_REGION, COGNITO_USER_POOL_ID, COGNITO_CLIENT_ID } = process.env;
 
-const COGNITO_ISSUER = `https://cognito-idp.${COGNITO_REGION}.amazonaws.com/${COGNITO_USER_POOL_ID}`
+const COGNITO_ISSUER = `https://cognito-idp.${COGNITO_REGION}.amazonaws.com/${COGNITO_USER_POOL_ID}`;
 
 const lambdaHandler = async (event) => {
-  // The verified payload is on request.internal.jwt by default.
-  // To use context.middyContext.jwt as below, pass setToContext: true to httpJwt.
-  return { statusCode: 200, body: JSON.stringify({ ok: true }) }
-}
+	// The verified payload is on request.internal.jwt by default.
+	// To use context.middyContext.jwt as below, pass setToContext: true to httpJwt.
+	return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+};
 
 export const handler = middy()
-  .use(
-    httpJwt({
-      issuers: {
-        [COGNITO_ISSUER]: {
-          jwksUri: `${COGNITO_ISSUER}/.well-known/jwks.json`,
-          audience: COGNITO_CLIENT_ID,
-        },
-      },
-      algorithm: 'RS256',
-      typ: null, // Cognito tokens carry no typ header
-    }),
-  )
-  .use(httpErrorHandler())
-  .handler(lambdaHandler)
+	.use(
+		httpJwt({
+			issuers: {
+				[COGNITO_ISSUER]: {
+					jwksUri: `${COGNITO_ISSUER}/.well-known/jwks.json`,
+					audience: COGNITO_CLIENT_ID,
+				},
+			},
+			algorithm: "RS256",
+			typ: null, // Cognito tokens carry no typ header
+		}),
+	)
+	.use(httpErrorHandler())
+	.handler(lambdaHandler);
 ```
 
 ### Multi-pool / multi-issuer
@@ -98,24 +99,24 @@ export const handler = middy()
 The `issuers` map naturally supports more than one IdP. The middleware reads the token's `iss` claim, routes to the matching entry, and verifies with that entry's JWKS and audience. A token whose `iss` does not match any entry is rejected with 401 (`cause.data: 'Unknown issuer'`). A token claiming `iss: A` but signed by a key from another pool fails verification because pool A's JWKS does not contain the signing key.
 
 ```javascript
-const REGION = 'us-east-1'
-const POOL_A = 'us-east-1_AAA'
-const POOL_B = 'us-east-1_BBB'
+const REGION = "us-east-1";
+const POOL_A = "us-east-1_AAA";
+const POOL_B = "us-east-1_BBB";
 
 httpJwt({
-  issuers: {
-    [`https://cognito-idp.${REGION}.amazonaws.com/${POOL_A}`]: {
-      jwksUri: `https://cognito-idp.${REGION}.amazonaws.com/${POOL_A}/.well-known/jwks.json`,
-      audience: 'pool-a-client-id',
-    },
-    [`https://cognito-idp.${REGION}.amazonaws.com/${POOL_B}`]: {
-      jwksUri: `https://cognito-idp.${REGION}.amazonaws.com/${POOL_B}/.well-known/jwks.json`,
-      audience: ['pool-b-client-id-1', 'pool-b-client-id-2'],
-    },
-  },
-  algorithm: 'RS256',
-  typ: null, // Cognito tokens carry no typ header
-})
+	issuers: {
+		[`https://cognito-idp.${REGION}.amazonaws.com/${POOL_A}`]: {
+			jwksUri: `https://cognito-idp.${REGION}.amazonaws.com/${POOL_A}/.well-known/jwks.json`,
+			audience: "pool-a-client-id",
+		},
+		[`https://cognito-idp.${REGION}.amazonaws.com/${POOL_B}`]: {
+			jwksUri: `https://cognito-idp.${REGION}.amazonaws.com/${POOL_B}/.well-known/jwks.json`,
+			audience: ["pool-b-client-id-1", "pool-b-client-id-2"],
+		},
+	},
+	algorithm: "RS256",
+	typ: null, // Cognito tokens carry no typ header
+});
 ```
 
 ### Mixed algorithms
@@ -124,26 +125,26 @@ Each issuer entry can override the top-level `algorithm`. `algorithm` is `string
 
 ```javascript
 httpJwt({
-  issuers: {
-    'https://cognito-idp.us-east-1.amazonaws.com/POOL': {
-      jwksUri: '...',
-      audience: 'client',
-      typ: null, // Cognito tokens carry no typ header
-      // inherits algorithm: 'RS256'
-    },
-    'https://my-es256-idp.example.com': {
-      jwksUri: 'https://my-es256-idp.example.com/.well-known/jwks.json',
-      audience: 'client',
-      algorithm: 'ES256', // per-issuer override
-    },
-    'https://rotating-idp.example.com': {
-      jwksUri: 'https://rotating-idp.example.com/jwks.json',
-      audience: 'client',
-      algorithm: ['RS256', 'ES256'], // accept either during rotation
-    },
-  },
-  algorithm: 'RS256',
-})
+	issuers: {
+		"https://cognito-idp.us-east-1.amazonaws.com/POOL": {
+			jwksUri: "...",
+			audience: "client",
+			typ: null, // Cognito tokens carry no typ header
+			// inherits algorithm: 'RS256'
+		},
+		"https://my-es256-idp.example.com": {
+			jwksUri: "https://my-es256-idp.example.com/.well-known/jwks.json",
+			audience: "client",
+			algorithm: "ES256", // per-issuer override
+		},
+		"https://rotating-idp.example.com": {
+			jwksUri: "https://rotating-idp.example.com/jwks.json",
+			audience: "client",
+			algorithm: ["RS256", "ES256"], // accept either during rotation
+		},
+	},
+	algorithm: "RS256",
+});
 ```
 
 ### Issuers options
@@ -164,33 +165,33 @@ Per entry:
 Pair `@middy/kms` with `@middy/http-jwt` to verify tokens signed with an AWS KMS asymmetric key. The KMS middleware fetches the public key once per cold start and caches it; `http-jwt` reads it via `internalKey` and narrows the configured `algorithm` to what the key spec can produce.
 
 ```javascript
-import middy from '@middy/core'
-import kms from '@middy/kms'
-import httpJwt from '@middy/http-jwt'
-import httpErrorHandler from '@middy/http-error-handler'
+import middy from "@middy/core";
+import kms from "@middy/kms";
+import httpJwt from "@middy/http-jwt";
+import httpErrorHandler from "@middy/http-error-handler";
 
 const lambdaHandler = async (event) => {
-  return { statusCode: 200, body: JSON.stringify({ ok: true }) }
-}
+	return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+};
 
 export const handler = middy()
-  .use(
-    kms({
-      fetchData: {
-        jwtKey: 'alias/jwt-signing-key',
-      },
-    }),
-  )
-  .use(
-    httpJwt({
-      internalKey: 'jwtKey',
-      algorithm: 'RS256', // must be compatible with the KMS keySpec
-      issuer: 'https://auth.example.com',
-      audience: 'api.example.com',
-    }),
-  )
-  .use(httpErrorHandler())
-  .handler(lambdaHandler)
+	.use(
+		kms({
+			fetchData: {
+				jwtKey: "alias/jwt-signing-key",
+			},
+		}),
+	)
+	.use(
+		httpJwt({
+			internalKey: "jwtKey",
+			algorithm: "RS256", // must be compatible with the KMS keySpec
+			issuer: "https://auth.example.com",
+			audience: "api.example.com",
+		}),
+	)
+	.use(httpErrorHandler())
+	.handler(lambdaHandler);
 ```
 
 ### With an HMAC shared secret (HS256)
@@ -200,33 +201,33 @@ There is no top-level `secretKey` option. Symmetric secrets flow through the sam
 This shape works well for webhook signature verification (e.g., a third-party webhook that signs payloads with a shared secret), or for a contained internal trust boundary where you control both signer and verifier. For cross-service auth, prefer JWKS (`issuers` mode) or KMS, see the security note below.
 
 ```javascript
-import middy from '@middy/core'
-import httpJwt from '@middy/http-jwt'
-import httpErrorHandler from '@middy/http-error-handler'
+import middy from "@middy/core";
+import httpJwt from "@middy/http-jwt";
+import httpErrorHandler from "@middy/http-error-handler";
 
-const provideHmacSecret = ({ internalKey = 'hmacSecret' } = {}) => ({
-  before: (request) => {
-    request.internal[internalKey] = process.env.JWT_SECRET
-  },
-})
+const provideHmacSecret = ({ internalKey = "hmacSecret" } = {}) => ({
+	before: (request) => {
+		request.internal[internalKey] = process.env.JWT_SECRET;
+	},
+});
 
 const lambdaHandler = async (event) => {
-  return { statusCode: 200, body: JSON.stringify({ ok: true }) }
-}
+	return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+};
 
 export const handler = middy()
-  .use(provideHmacSecret())
-  .use(
-    httpJwt({
-      internalKey: 'hmacSecret',
-      algorithm: 'HS256',          // required: pinned, security gate against alg substitution
-      issuer: 'https://auth.example.com',
-      audience: 'api.example.com',
-      clockTolerance: 5,
-    }),
-  )
-  .use(httpErrorHandler())
-  .handler(lambdaHandler)
+	.use(provideHmacSecret())
+	.use(
+		httpJwt({
+			internalKey: "hmacSecret",
+			algorithm: "HS256", // required: pinned, security gate against alg substitution
+			issuer: "https://auth.example.com",
+			audience: "api.example.com",
+			clockTolerance: 5,
+		}),
+	)
+	.use(httpErrorHandler())
+	.handler(lambdaHandler);
 ```
 
 For multi-secret rotation, the `before` middleware can pick a secret based on a non-standard header or a custom claim (e.g., a `kid` you mint yourself) and place the chosen secret on `request.internal`. Keep the `algorithm` allowlist pinned in `httpJwt` either way.
@@ -235,13 +236,16 @@ For multi-secret rotation, the `before` middleware can pick a secret based on a 
 
 ```javascript
 httpJwt({
-  issuers: {
-    [COGNITO_ISSUER]: { jwksUri: `${COGNITO_ISSUER}/.well-known/jwks.json`, audience: 'client' },
-  },
-  algorithm: 'RS256',
-  typ: null,
-  tokenCookieName: 'session',
-})
+	issuers: {
+		[COGNITO_ISSUER]: {
+			jwksUri: `${COGNITO_ISSUER}/.well-known/jwks.json`,
+			audience: "client",
+		},
+	},
+	algorithm: "RS256",
+	typ: null,
+	tokenCookieName: "session",
+});
 ```
 
 ### Resolving across cookie, header, and query string
@@ -250,15 +254,18 @@ When more than one source is configured the middleware tries each in order (cook
 
 ```javascript
 httpJwt({
-  issuers: {
-    [COGNITO_ISSUER]: { jwksUri: `${COGNITO_ISSUER}/.well-known/jwks.json`, audience: 'client' },
-  },
-  algorithm: 'RS256',
-  typ: null,
-  tokenCookieName: 'session',
-  tokenHeaderName: 'Authorization',
-  tokenQueryStringName: 'id_token',
-})
+	issuers: {
+		[COGNITO_ISSUER]: {
+			jwksUri: `${COGNITO_ISSUER}/.well-known/jwks.json`,
+			audience: "client",
+		},
+	},
+	algorithm: "RS256",
+	typ: null,
+	tokenCookieName: "session",
+	tokenHeaderName: "Authorization",
+	tokenQueryStringName: "id_token",
+});
 ```
 
 ### Security note
@@ -266,7 +273,7 @@ httpJwt({
 The patterns above are safe against the two classic JWT verification mistakes:
 
 - **`alg` substitution.** Attackers can place `alg: none` or `alg: HS256` in the protected header to try to bypass signature checks or use an RSA public key as an HMAC secret. The defenses are: (1) the `algorithm` allowlist is pinned by configuration, never read from the token; (2) in the JWKS path the lookup is also filtered by that allowlist, so a token claiming an unconfigured `alg` cannot find a key at all; (3) `algorithm: 'none'` is rejected at factory time.
-- **Untrusted JWKS source.** Each `jwksUri` is configured once at factory time. The built-in resolver ignores any `jku` claim in the token header, so an attacker cannot redirect key fetching to a server they control. The `kid` from the token header is a *selector* into a trusted JWKS, not a source of trust on its own, an unknown `kid` fails the lookup, and the attacker cannot forge a signature without the IdP's private key.
+- **Untrusted JWKS source.** Each `jwksUri` is configured once at factory time. The built-in resolver ignores any `jku` claim in the token header, so an attacker cannot redirect key fetching to a server they control. The `kid` from the token header is a _selector_ into a trusted JWKS, not a source of trust on its own, an unknown `kid` fails the lookup, and the attacker cannot forge a signature without the IdP's private key.
 
 ### When to use which mode
 
@@ -288,14 +295,14 @@ The `internalKey` path is the one that needs help. An asymmetric signing key can
 
 ```javascript
 export const handler = middy()
-  .before((request) => {
-    // Two keys are genuinely current during the overlap. Order matters to
-    // nothing: the signing key's own failure is reported wherever it sits.
-    request.internal.signingKeys = [currentKey, retiringKey]
-  })
-  .use(httpJwt({ internalKey: 'signingKeys', algorithm: 'ES256' }))
-  .use(httpErrorHandler())
-  .handler(lambdaHandler)
+	.before((request) => {
+		// Two keys are genuinely current during the overlap. Order matters to
+		// nothing: the signing key's own failure is reported wherever it sits.
+		request.internal.signingKeys = [currentKey, retiringKey];
+	})
+	.use(httpJwt({ internalKey: "signingKeys", algorithm: "ES256" }))
+	.use(httpErrorHandler())
+	.handler(lambdaHandler);
 ```
 
 Each entry resolves on its own, which matters for the `@middy/kms` shape: a `keySpec` narrows the algorithm allowlist for **that key only**, not for the middleware as a whole. So an RSA key and an EC key can sit in the same array with `algorithm: ['RS256', 'ES256']`, and each is checked against the algorithms it can actually carry.
@@ -305,38 +312,44 @@ A token signed by any configured key verifies. A token signed by none is a `401`
 A resolved key is accepted alongside the raw bytes, for a key you already have in hand:
 
 ```javascript
-import { createPublicKey } from 'node:crypto'
+import { createPublicKey } from "node:crypto";
 
-const keys = process.env.JWT_PUBLIC_KEYS.split(/(?=-----BEGIN)/)
-  .map((pem) => createPublicKey(pem))
+const keys = process.env.JWT_PUBLIC_KEYS.split(/(?=-----BEGIN)/).map((pem) =>
+	createPublicKey(pem),
+);
 
 export const handler = middy()
-  .use({ before: (request) => { request.internal.signingKeys = keys } })
-  .use(httpJwt({ internalKey: 'signingKeys', algorithm: 'ES256' }))
-  .handler(lambdaHandler)
+	.use({
+		before: (request) => {
+			request.internal.signingKeys = keys;
+		},
+	})
+	.use(httpJwt({ internalKey: "signingKeys", algorithm: "ES256" }))
+	.handler(lambdaHandler);
 ```
 
 A `CryptoKey` works the same way, which is what jose's own `importSPKI`, `importJWK` and `generateKeyPair` hand back. Nothing here knows either one's provenance, so the configured `algorithm` is trusted exactly as it is for raw DER. jose refuses the pair if the key cannot carry that algorithm.
 
 ## Requiring claims
 
-A token that verifies is not automatically a token for *this*. Most issuers stamp a discriminator saying what kind of token it is. Amazon Cognito's `token_use` is the well-known one: an ID token and an access token are both signed by the same key set, and only that claim tells them apart. Accepting an ID token where an access token was meant is a real and common hole.
+A token that verifies is not automatically a token for _this_. Most issuers stamp a discriminator saying what kind of token it is. Amazon Cognito's `token_use` is the well-known one: an ID token and an access token are both signed by the same key set, and only that claim tells them apart. Accepting an ID token where an access token was meant is a real and common hole.
 
 `expectedClaims` closes it declaratively:
 
 ```javascript
 httpJwt({
-  issuers: {
-    'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_abc123': {
-      jwksUri: 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_abc123/.well-known/jwks.json',
-    },
-  },
-  algorithm: 'RS256',
-  typ: null, // Cognito tokens carry no typ header; token_use tells them apart
-  // An ID token from the same pool verifies perfectly. It is still not a token
-  // for calling this API.
-  expectedClaims: { token_use: 'access' },
-})
+	issuers: {
+		"https://cognito-idp.us-east-1.amazonaws.com/us-east-1_abc123": {
+			jwksUri:
+				"https://cognito-idp.us-east-1.amazonaws.com/us-east-1_abc123/.well-known/jwks.json",
+		},
+	},
+	algorithm: "RS256",
+	typ: null, // Cognito tokens carry no typ header; token_use tells them apart
+	// An ID token from the same pool verifies perfectly. It is still not a token
+	// for calling this API.
+	expectedClaims: { token_use: "access" },
+});
 ```
 
 Comparison is strict equality, and it applies on both the `issuers` and `internalKey` paths. A claim the payload does not carry at all fails the same way a wrong value does, which is what you want: a token minted before the discriminator existed must not slide through.
@@ -348,46 +361,52 @@ Do not confuse this with `requireExp`, which forwards jose's `requiredClaims` an
 `@middy/http-jwt` only verifies the signature and standard claims (`iss`, `aud`, `exp`, `nbf`). Role / scope / permission claims are application-specific and intentionally left to userland. The following inline middleware reads the decoded payload from `request.internal` (under `payloadKey`) and rejects the request when the required role is missing.
 
 ```javascript
-import middy from '@middy/core'
-import httpJwt from '@middy/http-jwt'
-import httpErrorHandler from '@middy/http-error-handler'
-import { HttpError } from '@middy/util'
+import middy from "@middy/core";
+import httpJwt from "@middy/http-jwt";
+import httpErrorHandler from "@middy/http-error-handler";
+import { HttpError } from "@middy/util";
 
-const requireRole = (requiredRole, { payloadKey = 'jwt', claim = 'roles' } = {}) => ({
-  before: (request) => {
-    const payload = request.internal[payloadKey]
-    const roles = payload?.[claim]
-    const has = Array.isArray(roles)
-      ? roles.includes(requiredRole)
-      : roles === requiredRole
-    if (!has) {
-      throw new HttpError(403, {
-        cause: {
-          package: 'custom/require-role',
-          data: { reason: 'Missing role', requiredRole },
-        },
-      })
-    }
-  },
-})
+const requireRole = (
+	requiredRole,
+	{ payloadKey = "jwt", claim = "roles" } = {},
+) => ({
+	before: (request) => {
+		const payload = request.internal[payloadKey];
+		const roles = payload?.[claim];
+		const has = Array.isArray(roles)
+			? roles.includes(requiredRole)
+			: roles === requiredRole;
+		if (!has) {
+			throw new HttpError(403, {
+				cause: {
+					package: "custom/require-role",
+					data: { reason: "Missing role", requiredRole },
+				},
+			});
+		}
+	},
+});
 
 const lambdaHandler = async (event) => {
-  return { statusCode: 200, body: JSON.stringify({ ok: true }) }
-}
+	return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+};
 
 export const handler = middy()
-  .use(
-    httpJwt({
-      issuers: {
-        [COGNITO_ISSUER]: { jwksUri: `${COGNITO_ISSUER}/.well-known/jwks.json`, audience: 'client' },
-      },
-      algorithm: 'RS256',
-      typ: null,
-    }),
-  )
-  .use(requireRole('admin'))
-  .use(httpErrorHandler())
-  .handler(lambdaHandler)
+	.use(
+		httpJwt({
+			issuers: {
+				[COGNITO_ISSUER]: {
+					jwksUri: `${COGNITO_ISSUER}/.well-known/jwks.json`,
+					audience: "client",
+				},
+			},
+			algorithm: "RS256",
+			typ: null,
+		}),
+	)
+	.use(requireRole("admin"))
+	.use(httpErrorHandler())
+	.handler(lambdaHandler);
 ```
 
 Order matters: `requireRole` must run **after** `httpJwt` so the decoded payload is already on `request.internal`.

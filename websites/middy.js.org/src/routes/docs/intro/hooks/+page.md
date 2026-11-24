@@ -1,4 +1,5 @@
 ---
+
 title: Hooks
 description: "Use Middy lifecycle hooks for monitoring, setup, and cleanup across middleware execution phases."
 position: 2

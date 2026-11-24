@@ -1,4 +1,5 @@
 ---
+
 title: http-x402
 description: "Gate Lambda HTTP endpoints behind x402 on-chain micropayments: verifies and settles v2 (PAYMENT-SIGNATURE) and v1 (X-PAYMENT) payments via a facilitator."
 status: alpha
@@ -35,46 +36,46 @@ npm install --save @middy/http-x402 @x402/core
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import httpX402 from '@middy/http-x402'
+import middy from "@middy/core";
+import httpX402 from "@middy/http-x402";
 
 export const handler = middy()
-  .use(
-    httpX402({
-      price: 0.001,
-      payTo: '0xYourWalletAddress',
-      asset: '0xYourAssetAddress', // USDC on Base
-    }),
-  )
-  .handler(async (event, context) => {
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: 'Paid content' }),
-    }
-  })
+	.use(
+		httpX402({
+			price: 0.001,
+			payTo: "0xYourWalletAddress",
+			asset: "0xYourAssetAddress", // USDC on Base
+		}),
+	)
+	.handler(async (event, context) => {
+		return {
+			statusCode: 200,
+			body: JSON.stringify({ message: "Paid content" }),
+		};
+	});
 ```
 
 ### Bypass for browser traffic
 
 ```javascript
-import middy from '@middy/core'
-import httpX402 from '@middy/http-x402'
+import middy from "@middy/core";
+import httpX402 from "@middy/http-x402";
 
 export const handler = middy()
-  .use(
-    httpX402({
-      price: 0.001,
-      payTo: '0xYourWalletAddress',
-      asset: '0xYourAssetAddress',
-      human: (request) => {
-        const ua = request.event.headers?.['user-agent'] ?? ''
-        return /Mozilla|Chrome|Safari/.test(ua)
-      },
-    }),
-  )
-  .handler(async (event, context) => {
-    return { statusCode: 200, body: JSON.stringify({ message: 'Content' }) }
-  })
+	.use(
+		httpX402({
+			price: 0.001,
+			payTo: "0xYourWalletAddress",
+			asset: "0xYourAssetAddress",
+			human: (request) => {
+				const ua = request.event.headers?.["user-agent"] ?? "";
+				return /Mozilla|Chrome|Safari/.test(ua);
+			},
+		}),
+	)
+	.handler(async (event, context) => {
+		return { statusCode: 200, body: JSON.stringify({ message: "Content" }) };
+	});
 ```
 
 ### Also accept v1 clients
@@ -82,34 +83,37 @@ export const handler = middy()
 The default `versions: [2]` shrinks the accepted protocol surface: v1 payment headers are ignored, agents are only ever challenged with v2 terms, and no facilitator call is spent on v1 traffic. Opt back in to v1 when you still serve `X-PAYMENT` clients.
 
 ```javascript
-import middy from '@middy/core'
-import httpX402 from '@middy/http-x402'
+import middy from "@middy/core";
+import httpX402 from "@middy/http-x402";
 
 export const handler = middy()
-  .use(
-    httpX402({
-      price: 0.001,
-      payTo: '0xYourWalletAddress',
-      asset: '0xYourAssetAddress',
-      versions: [1, 2],
-    }),
-  )
-  .handler(async (event, context) => {
-    return { statusCode: 200, body: JSON.stringify({ message: 'Paid content' }) }
-  })
+	.use(
+		httpX402({
+			price: 0.001,
+			payTo: "0xYourWalletAddress",
+			asset: "0xYourAssetAddress",
+			versions: [1, 2],
+		}),
+	)
+	.handler(async (event, context) => {
+		return {
+			statusCode: 200,
+			body: JSON.stringify({ message: "Paid content" }),
+		};
+	});
 ```
 
 ## Responses
 
 Per the v2 HTTP transport all protocol information is communicated through headers; v1 clients read the challenge from the 402 body instead. For requests recognized as v2 the JSON body mirrors the decoded `PAYMENT-REQUIRED` object. Advertisement follows the `versions` option: with `versions: [2]` the 402 body mirrors the v2 header instead of carrying a v1 challenge, and with `versions: [1]` the `PAYMENT-REQUIRED` header is omitted, so agents are only ever offered terms the server will accept.
 
-| Outcome | Status | Where the protocol object lands |
-| --- | --- | --- |
-| No payment header | 402 | v2 challenge in `PAYMENT-REQUIRED`, v1 challenge in the body when v1 is enabled |
-| Undecodable payment, unsupported `x402Version`, requirements mismatch, or verification failure (v2 request) | 402 | `PAYMENT-REQUIRED` with `error` set |
-| Undecodable payment, unsupported `x402Version`, requirements mismatch, or verification failure (v1 request) | 402 | v1 challenge in the body with `error` set |
-| Settlement failure | 402 | `PAYMENT-RESPONSE` (v2) or `X-PAYMENT-RESPONSE` (v1) with `success: false` and `errorReason` |
-| Payment settled | handler's status | `PAYMENT-RESPONSE` (v2) or `X-PAYMENT-RESPONSE` (v1) with the settlement result |
+| Outcome                                                                                                     | Status           | Where the protocol object lands                                                              |
+| ----------------------------------------------------------------------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------- |
+| No payment header                                                                                           | 402              | v2 challenge in `PAYMENT-REQUIRED`, v1 challenge in the body when v1 is enabled              |
+| Undecodable payment, unsupported `x402Version`, requirements mismatch, or verification failure (v2 request) | 402              | `PAYMENT-REQUIRED` with `error` set                                                          |
+| Undecodable payment, unsupported `x402Version`, requirements mismatch, or verification failure (v1 request) | 402              | v1 challenge in the body with `error` set                                                    |
+| Settlement failure                                                                                          | 402              | `PAYMENT-RESPONSE` (v2) or `X-PAYMENT-RESPONSE` (v1) with `success: false` and `errorReason` |
+| Payment settled                                                                                             | handler's status | `PAYMENT-RESPONSE` (v2) or `X-PAYMENT-RESPONSE` (v1) with the settlement result              |
 
 On a settlement failure the handler's response is discarded whole, not patched: its body, content headers (`Location`, `Set-Cookie`, ...), `multiValueHeaders` and HTTP API `cookies` never reach a client that did not pay. The 402 carries `Content-Type`, the settlement header, and the response-policy headers already on the replaced response: `Access-Control-*`, `Vary`, `Cross-Origin-*`, `Content-Security-Policy` and the rest of what [`http-security-headers`](/docs/middlewares/http-security-headers) sets. Those matter when [`http-cors`](/docs/middlewares/http-cors) is `.use()`d after this middleware (its after hook then runs first); without them a browser could not read the 402.
 

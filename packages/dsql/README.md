@@ -40,7 +40,7 @@ npm install --save @middy/dsql @middy/dsql-signer pg
 npm install --save @middy/dsql @middy/dsql-signer postgres
 ```
 
-Use `@middy/dsql-signer` before this middleware to generate IAM auth tokens and inject them via `internalKey`.
+Use `@middy/dsql-signer` before this middleware to generate IAM auth tokens and inject them via `internalKey`. The token is read on every invocation and handed to the driver as a `config.password` function, so a cached client or pool authenticates each new connection with the latest token. A custom `client` adapter receives that function instead of a string.
 
 
 ## Documentation and examples

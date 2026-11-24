@@ -1,7 +1,11 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 
-import { setContextNamespace, validateOptions } from "@middy/util";
+import {
+	reservedPropertyNames,
+	setContextNamespace,
+	validateOptions,
+} from "@middy/util";
 import awsEmbeddedMetrics from "aws-embedded-metrics";
 
 const name = "cloudwatch-metrics";
@@ -15,23 +19,66 @@ const defaults = {
 // `dimensions` accepts either a single dimension set (object of
 // string->string) or an array of dimension sets, matching the documented
 // API and aws-embedded-metrics' `setDimensions(dimensionSets)` signature.
+// Limits from the embedded metric format specification:
+// https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Embedded_Metric_Format_Specification.html
 const dimensionSetSchema = {
 	type: "object",
+	// "A DimensionSet MUST NOT contain more than 30 dimension keys." Each key
+	// "MUST contain 1 to 250 printable ASCII characters", "MUST NOT contain
+	// only whitespace" and "MUST NOT start with a colon".
+	propertyNames: {
+		type: "string",
+		maxLength: 250,
+		pattern: /^(?:[\x21-\x39\x3B-\x7E]| +[\x21-\x7E])[\x20-\x7E]*$/u,
+		not: { type: "string", enum: reservedPropertyNames },
+	},
 	maxProperties: 30,
-	additionalProperties: { type: "string", minLength: 1, maxLength: 1024 },
+	required: [],
+	// A value "MUST contain 1 to 1024 printable ASCII characters and MUST NOT
+	// contain only whitespace."
+	additionalProperties: {
+		type: "string",
+		maxLength: 1024,
+		pattern: /^ *[\x21-\x7E][\x20-\x7E]*$/u,
+	},
+	unevaluatedProperties: false,
 };
 
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:cloudwatch-metrics:options",
+	$defs: { Function: false },
 	type: "object",
 	properties: {
-		namespace: { type: "string", minLength: 1, maxLength: 256 },
-		dimensions: {
-			oneOf: [dimensionSetSchema, { type: "array", items: dimensionSetSchema }],
+		// "The namespace MUST contain 1 to 255 printable ASCII characters (0x20
+		// through 0x7E) and MUST NOT contain only whitespace."
+		namespace: {
+			type: "string",
+			maxLength: 255,
+			pattern: /^ *[\x21-\x7E][\x20-\x7E]*$/u,
 		},
-		onFlushError: { instanceof: "Function" },
-		contextKey: { type: "string" },
+		dimensions: {
+			oneOf: [
+				dimensionSetSchema,
+				{
+					type: "array",
+					items: dimensionSetSchema,
+					maxItems: 1024,
+					uniqueItems: true,
+					unevaluatedItems: false,
+				},
+			],
+		},
+		onFlushError: { $ref: "#/$defs/Function" },
+		contextKey: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\x21-\x7E]+$/u,
+		},
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const cloudwatchMetricsValidateOptions = (options) =>

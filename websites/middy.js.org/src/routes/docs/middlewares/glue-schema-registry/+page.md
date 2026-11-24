@@ -1,4 +1,5 @@
 ---
+
 title: glue-schema-registry
 description: "Fetch and cache AWS Glue Schema Registry schemas in Lambda."
 status: alpha
@@ -39,54 +40,64 @@ Each `fetchData` entry is written to `request.internal` under its key as `{ sche
 Dynamically fetch a schema by its `SchemaVersionId` UUID. All versions resolved under one `cacheKey` are cached together in a single shared-cache entry, `` `${cacheKey}:schemaVersions` ``, so however many versions a stream carries they take one slot of the global cache and never evict other middlewares' data. That entry holds at most `cacheMaxSize` versions (default `128`); past that the oldest is dropped and fetched again on its next use. `cacheExpiry` (or `cacheKeyExpiry[cacheKey]`) applies to the entry as a whole, so its versions are refreshed together: with a finite `cacheExpiry` each refresh issues one `GetSchemaVersion` per cached version at the same moment, which is why `-1` (versions are immutable) is recommended. A version whose fetch fails is dropped and is not refetched until it is requested again. One Glue client is created per `options` object and reused across schema versions, so define `options` once rather than inline on each call.
 
 ```javascript
-import { resolveSchemaVersion } from '@middy/glue-schema-registry'
+import { resolveSchemaVersion } from "@middy/glue-schema-registry";
 
-const options = { cacheExpiry: -1 }
-const schema = await resolveSchemaVersion(uuid, options, request)
+const options = { cacheExpiry: -1 };
+const schema = await resolveSchemaVersion(uuid, options, request);
 // schema = { schemaVersionId, schemaDefinition, dataFormat }
 ```
 
 ## Sample usage: static fetch
 
 ```javascript
-import middy from '@middy/core'
-import glueSchemaRegistry from '@middy/glue-schema-registry'
-import { getInternal } from '@middy/util'
+import middy from "@middy/core";
+import glueSchemaRegistry from "@middy/glue-schema-registry";
+import { getInternal } from "@middy/util";
 
 export const handler = middy()
-  .use(glueSchemaRegistry({
-    fetchData: {
-      userSchema: { SchemaVersionId: 'abc123-...' },
-      orderSchema: {
-        SchemaId: { SchemaName: 'orders', RegistryName: 'default' },
-        SchemaVersionNumber: { VersionNumber: 3 },
-      },
-    },
-    cacheExpiry: -1,
-  }))
-  .before(async (request) => {
-    const { userSchema } = await getInternal(['userSchema'], request)
-    // userSchema = { schemaVersionId, schemaDefinition, dataFormat }
-  })
-  .handler(async (event, context) => { /* ... */ })
+	.use(
+		glueSchemaRegistry({
+			fetchData: {
+				userSchema: { SchemaVersionId: "abc123-..." },
+				orderSchema: {
+					SchemaId: { SchemaName: "orders", RegistryName: "default" },
+					SchemaVersionNumber: { VersionNumber: 3 },
+				},
+			},
+			cacheExpiry: -1,
+		}),
+	)
+	.before(async (request) => {
+		const { userSchema } = await getInternal(["userSchema"], request);
+		// userSchema = { schemaVersionId, schemaDefinition, dataFormat }
+	})
+	.handler(async (event, context) => {
+		/* ... */
+	});
 ```
 
 ## Sample usage: paired with `event-batch-parser`
 
 ```javascript
-import middy from '@middy/core'
-import glueSchemaRegistry from '@middy/glue-schema-registry'
-import eventBatchParser from '@middy/event-batch-parser'
-import parseAvro from '@middy/event-batch-parser/parseAvro'
+import middy from "@middy/core";
+import glueSchemaRegistry from "@middy/glue-schema-registry";
+import eventBatchParser from "@middy/event-batch-parser";
+import parseAvro from "@middy/event-batch-parser/parseAvro";
 
 export const handler = middy()
-  .use(glueSchemaRegistry({
-    fetchData: { userSchema: { SchemaVersionId: 'abc123-...' } },
-  }))
-  .use(eventBatchParser({
-    data: parseAvro({ internalKey: 'userSchema' }),
-  }))
-  .handler(async (event) => { /* ... */ })
+	.use(
+		glueSchemaRegistry({
+			fetchData: { userSchema: { SchemaVersionId: "abc123-..." } },
+		}),
+	)
+	.use(
+		eventBatchParser({
+			data: parseAvro({ internalKey: "userSchema" }),
+		}),
+	)
+	.handler(async (event) => {
+		/* ... */
+	});
 ```
 
 ## Lambda IAM permissions

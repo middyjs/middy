@@ -1,4 +1,5 @@
 ---
+
 title: rds-signer
 description: "Generate RDS IAM authentication tokens for secure database connections in Lambda."
 ---
@@ -34,33 +35,33 @@ NOTES:
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import rdsSigner from '@middy/rds-signer'
+import middy from "@middy/core";
+import rdsSigner from "@middy/rds-signer";
 
 const lambdaHandler = (event, context) => {
-  const response = {
-    statusCode: 200,
-    headers: {},
-    body: JSON.stringify({ message: 'hello world' })
-  }
+	const response = {
+		statusCode: 200,
+		headers: {},
+		body: JSON.stringify({ message: "hello world" }),
+	};
 
-  return response
-}
+	return response;
+};
 
 export const handler = middy()
-  .use(
-    rdsSigner({
-      fetchData: {
-        rdsToken: {
-          region: 'ca-central-1',
-          hostname: '***.rds.amazonaws.com',
-          username: 'iam_role',
-          port: 5432
-        }
-      }
-    })
-  )
-  .handler(lambdaHandler)
+	.use(
+		rdsSigner({
+			fetchData: {
+				rdsToken: {
+					region: "ca-central-1",
+					hostname: "***.rds.amazonaws.com",
+					username: "iam_role",
+					port: 5432,
+				},
+			},
+		}),
+	)
+	.handler(lambdaHandler);
 ```
 
 ## Bundling

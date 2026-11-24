@@ -1,4 +1,5 @@
 ---
+
 title: Cognito
 description: "Use Middy with Cognito User Pool Lambda trigger events for auth workflows."
 ---
@@ -24,14 +25,15 @@ flowchart LR
 ```
 
 ## AWS Documentation
+
 - [Using AWS Lambda with Amazon Cognito](https://docs.aws.amazon.com/lambda/latest/dg/services-cognito.html)
 
 ## Example
-```javascript
-import middy from '@middy/core'
 
-export const handler = middy()
-  .handler((event, context, {signal}) => {
-    // ...
-  })
+```javascript
+import middy from "@middy/core";
+
+export const handler = middy().handler((event, context, { signal }) => {
+	// ...
+});
 ```

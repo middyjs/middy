@@ -6,13 +6,16 @@ import {
 } from "@aws-sdk/client-servicediscovery";
 import {
 	assignSetToContext,
+	awsClientOptionsSchema,
 	buildSetToContextSpec,
+	cacheOptionSchemaProperties,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClientInit,
 	createPrefetchClient,
 	evictCacheOnFailure,
 	processCache,
+	reservedPropertyNames,
 	validateOptions,
 } from "@middy/util";
 
@@ -33,62 +36,80 @@ const defaults = {
 	contextKey: name,
 };
 
-const optionSchema = {
+const internalKeySchema = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\x21-\x7E]+$/u,
+	not: { type: "string", enum: reservedPropertyNames },
+};
+
+// https://docs.aws.amazon.com/cloud-map/latest/api/API_DiscoverInstances.html
+const attributeFilterSchema = {
+	type: "object",
+	propertyNames: {
+		type: "string",
+		maxLength: 255,
+		pattern: /^[\x21-\x7E]+$/u,
+		not: { type: "string", enum: reservedPropertyNames },
+	},
+	maxProperties: 1024,
+	required: [],
+	additionalProperties: {
+		type: "string",
+		maxLength: 1024,
+		pattern: /^(?:[\x21-\x7E][\t\x20-\x7E]*)?$/u,
+	},
+	unevaluatedProperties: false,
+};
+
+const discoverInstancesInputSchema = {
 	type: "object",
 	properties: {
-		AwsClient: { instanceof: "Function" },
-		awsClientOptions: { type: "object" },
-		awsClientAssumeRole: { type: "string" },
-		awsClientCapture: { instanceof: "Function" },
+		NamespaceName: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\x21-\x7E]+$/u,
+		},
+		ServiceName: { type: "string", maxLength: 127, pattern: /^[\w.-]+$/u },
+		MaxResults: { type: "integer", minimum: 1, maximum: 1000 },
+		QueryParameters: attributeFilterSchema,
+		OptionalParameters: attributeFilterSchema,
+		HealthStatus: {
+			type: "string",
+			enum: ["HEALTHY", "UNHEALTHY", "ALL", "HEALTHY_OR_ELSE_ALL"],
+		},
+		OwnerAccount: { type: "string", maxLength: 12, pattern: /^\d{12}$/u },
+	},
+	required: ["NamespaceName", "ServiceName"],
+	additionalProperties: false,
+	unevaluatedProperties: false,
+};
+
+const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:service-discovery:options",
+	$defs: { Function: false, Object: false },
+	type: "object",
+	properties: {
+		AwsClient: { $ref: "#/$defs/Function" },
+		awsClientOptions: awsClientOptionsSchema,
+		awsClientAssumeRole: internalKeySchema,
+		awsClientCapture: { $ref: "#/$defs/Function" },
 		fetchData: {
 			type: "object",
-			additionalProperties: {
-				type: "object",
-				required: ["NamespaceName", "ServiceName"],
-				properties: {
-					NamespaceName: { type: "string" },
-					ServiceName: { type: "string" },
-					MaxResults: { type: "integer", minimum: 1 },
-					QueryParameters: {
-						type: "object",
-						additionalProperties: { type: "string" },
-					},
-					OptionalParameters: {
-						type: "object",
-						additionalProperties: { type: "string" },
-					},
-					HealthStatus: {
-						type: "string",
-						enum: ["HEALTHY", "UNHEALTHY", "ALL", "HEALTHY_OR_ELSE_ALL"],
-					},
-				},
-				additionalProperties: true,
-			},
+			propertyNames: internalKeySchema,
+			maxProperties: 1024,
+			required: [],
+			additionalProperties: discoverInstancesInputSchema,
+			unevaluatedProperties: false,
 		},
-		disablePrefetch: { type: "boolean" },
-		cacheKey: { type: "string" },
-		cacheKeyExpiry: {
-			type: "object",
-			additionalProperties: {
-				type: "number",
-				minimum: -1,
-				maximum: Number.MAX_SAFE_INTEGER,
-			},
-		},
-		cacheExpiry: {
-			type: "number",
-			minimum: -1,
-			maximum: Number.MAX_SAFE_INTEGER,
-		},
-		cacheMaxSize: {
-			type: "integer",
-			minimum: 1,
-			maximum: Number.MAX_SAFE_INTEGER,
-		},
+		...cacheOptionSchemaProperties,
 		setToContext: { type: "boolean" },
-		contextKey: { type: "string" },
+		contextKey: internalKeySchema,
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const serviceDiscoveryValidateOptions = (options) =>

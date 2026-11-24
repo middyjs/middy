@@ -1,4 +1,5 @@
 ---
+
 title: IoT Events
 description: "Use Middy with AWS IoT Events Lambda action events."
 ---
@@ -15,14 +16,15 @@ AWS ended support for AWS IoT Events on May 20, 2026. The console and IoT Events
 </Callout>
 
 ## AWS Documentation
+
 - [Using AWS Lambda with AWS IoT Events](https://docs.aws.amazon.com/lambda/latest/dg/services-iotevents.html)
 
 ## Example
-```javascript
-import middy from '@middy/core'
 
-export const handler = middy()
-  .handler((event, context, {signal}) => {
-    // ...
-  })
+```javascript
+import middy from "@middy/core";
+
+export const handler = middy().handler((event, context, { signal }) => {
+	// ...
+});
 ```

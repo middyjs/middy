@@ -5,10 +5,10 @@ on:
     types: [closed]
     branches: [main]
     paths:
-      - 'package.json'
+      - "package.json"
 
 env:
-  NODE_VERSION: 24.x
+  NODE_VERSION: 24.22.3
 
 permissions:
   contents: read
@@ -42,6 +42,7 @@ jobs:
             nodejs.org:443
             objects.githubusercontent.com:443
             registry.npmjs.org:443
+            raw.githubusercontent.com:443
             rekor.sigstore.dev:443
             release-assets.githubusercontent.com:443
             truststore.pki.rds.amazonaws.com:443
@@ -81,6 +82,11 @@ jobs:
       # allowed-endpoints: >
       #   registry.npmjs.org:443
       - name: Install dependencies
+        # Node permission model (SPVS V3.7.21). Writes stay open because npm
+        # symlinks workspaces.
+        env:
+          NODE_OPTIONS: --permission --allow-fs-read=* --allow-fs-write=*
+          npm_config_cache: ${{ runner.temp }}/npm-cache
         run: |
           npm ci --ignore-scripts
       # allowed-endpoints: >
@@ -90,17 +96,15 @@ jobs:
         run: |
           npm audit signatures
       # allowed-endpoints: >
-      #   registry.npmjs.org:443
       #   truststore.pki.rds.amazonaws.com:443
       #   truststore.pki.us-gov-west-1.rds.amazonaws.com:443
       - name: Build
-        # Per published workspace rather than `--workspaces`: the root has no
-        # build script and the website workspace has one that must not run
-        # here. Today only rds builds (its certificates/ modules), which
-        # `npm ci --ignore-scripts` above skipped.
+        # Run directly: `npm run` starts a shell, which the permission model
+        # refuses.
+        env:
+          NODE_OPTIONS: --permission --allow-fs-read=* --allow-fs-write=${{ github.workspace }}/packages/rds
         run: |
-          mapfile -t args < <(npm query '.workspace:not([private])' | jq -r '.[] | "--workspace", .location')
-          npm run build "${args[@]}" --if-present
+          node packages/rds/bin/certificates.js
       # allowed-endpoints: >
       #   registry.npmjs.org:443
       - name: Verify workspace versions
@@ -137,11 +141,21 @@ jobs:
       # allowed-endpoints: >
       #   registry.npmjs.org:443
       - name: Pack
+        env:
+          NODE_OPTIONS: --permission --allow-fs-read=* --allow-fs-write=${{ github.workspace }} --allow-fs-write=${{ runner.temp }}/npm-cache
+          npm_config_cache: ${{ runner.temp }}/npm-cache
         run: |
           mapfile -t args < <(npm query '.workspace:not([private])' | jq -r '.[] | "--workspace", .location')
           # npm only ships a LICENSE that sits inside the package directory.
           for dir in packages/*/; do cp LICENSE "$dir"; done
-          npm pack "${args[@]}"
+          npm pack --ignore-scripts "${args[@]}"
+      # allowed-endpoints: >
+      #   raw.githubusercontent.com:443
+      - name: SBOM
+        run: |
+          mapfile -t args < <(npm query '.workspace:not([private])' | jq -r '.[] | "--workspace", .location')
+          npm sbom --sbom-format spdx --omit dev "${args[@]}" > sbom.spdx.json
+          ./node_modules/.bin/ajv sbom sbom.spdx.json
       # allowed-endpoints: >
       #   api.github.com:443
       #   fulcio.sigstore.dev:443
@@ -152,12 +166,14 @@ jobs:
         with:
           subject-path: |
             **/*.tgz
+            sbom.spdx.json
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ env.tag }}
           path: |
             *.tgz
+            sbom.spdx.json
     outputs:
       tag: ${{ env.tag }}
       prerelease: ${{ env.prerelease }}
@@ -196,9 +212,7 @@ jobs:
           prerelease: ${{ needs.build.outputs.prerelease }}
           tag_name: ${{ needs.build.outputs.tag }}
           generate_release_notes: true
-          # Disabled, covered by GitHub Attestations & npm
-          #files: |
-          #  **/*.tgz
+          files: sbom.spdx.json
     outputs:
       tag: ${{ needs.build.outputs.tag }}
       dist_tag: ${{ needs.build.outputs.dist_tag }}

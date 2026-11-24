@@ -1,4 +1,5 @@
 ---
+
 title: http-router
 description: "Route HTTP requests to nested handlers based on method and path with Middy."
 ---
@@ -134,24 +135,28 @@ export const handler = middy()
 The router returns a plain handler function, `RouterHandler<TEvent, TResult>`, not a `MiddyfiedHandler`, so it has no `.use()`. Wrapping it with `middy().handler(httpRouterHandler(routes))` needs the same generics on `middy`, because `middy()` alone defaults its event to `unknown`; alternatively pass the router straight into `middy()` and attach middleware with `.use()`.
 
 ```typescript
-import middy from '@middy/core'
-import httpRouterHandler from '@middy/http-router'
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
+import middy from "@middy/core";
+import httpRouterHandler from "@middy/http-router";
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 
 const routes = [
-  {
-    method: 'GET' as const,
-    path: '/user/{id}',
-    handler: async (event, context) => ({ statusCode: 200, body: event.pathParameters?.id ?? '' })
-  }
-]
+	{
+		method: "GET" as const,
+		path: "/user/{id}",
+		handler: async (event, context) => ({
+			statusCode: 200,
+			body: event.pathParameters?.id ?? "",
+		}),
+	},
+];
 
 // Either name the event and result on `middy`
 export const handler = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
-  .use(httpHeaderNormalizer())
-  .handler(httpRouterHandler(routes))
+	.use(httpHeaderNormalizer())
+	.handler(httpRouterHandler(routes));
 
 // or wrap the router directly
-export const handler = middy(httpRouterHandler(routes))
-  .use(httpHeaderNormalizer())
+export const handler = middy(httpRouterHandler(routes)).use(
+	httpHeaderNormalizer(),
+);
 ```

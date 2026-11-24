@@ -1,4 +1,5 @@
 ---
+
 title: http-cors
 description: "Add CORS headers to Lambda HTTP responses for cross-origin requests with Middy."
 ---
@@ -40,46 +41,48 @@ npm install --save @middy/http-cors
 **Note**: ALB with [multi-value headers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers) enabled sends `multiValueHeaders` and no `headers`. Put [`http-event-normalizer`](/docs/middlewares/http-event-normalizer) in front so `Origin` and the preflight headers are found.
 
 ```javascript
-import middy from '@middy/core'
-import httpErrorHandler from '@middy/http-error-handler'
-import cors from '@middy/http-cors'
-import createError from 'http-errors'
+import middy from "@middy/core";
+import httpErrorHandler from "@middy/http-error-handler";
+import cors from "@middy/http-cors";
+import createError from "http-errors";
 
 const lambdaHandler = (event, context) => {
-  throw new createError.UnprocessableEntity()
-}
+	throw new createError.UnprocessableEntity();
+};
 export const handler = middy()
-  .use(cors({ origin: '*' }))
-  .use(httpErrorHandler())
-  .handler(lambdaHandler)
+	.use(cors({ origin: "*" }))
+	.use(httpErrorHandler())
+	.handler(lambdaHandler);
 
 // when Lambda runs the handler...
-const response = await handler({}, {})
-strictEqual(response.headers['Access-Control-Allow-Origin'], '*')
+const response = await handler({}, {});
+strictEqual(response.headers["Access-Control-Allow-Origin"], "*");
 deepStrictEqual(response, {
-  statusCode: 422,
-  headers: {
-    'Content-Type': 'text/plain',
-    'Access-Control-Allow-Origin': '*'
-  },
-  body: 'Unprocessable Entity'
-})
+	statusCode: 422,
+	headers: {
+		"Content-Type": "text/plain",
+		"Access-Control-Allow-Origin": "*",
+	},
+	body: "Unprocessable Entity",
+});
 ```
 
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import cors from '@middy/http-cors'
+import middy from "@middy/core";
+import cors from "@middy/http-cors";
 
 const lambdaHandler = (event, context) => {
-  return {}
-}
-export const handler = middy().use(cors({ origin: '*' })).handler(lambdaHandler)
+	return {};
+};
+export const handler = middy()
+	.use(cors({ origin: "*" }))
+	.handler(lambdaHandler);
 
 // when Lambda runs the handler...
-const response = await handler({}, {})
-strictEqual(response.headers['Access-Control-Allow-Origin'], '*')
+const response = await handler({}, {});
+strictEqual(response.headers["Access-Control-Allow-Origin"], "*");
 ```
 
 

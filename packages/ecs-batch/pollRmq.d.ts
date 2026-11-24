@@ -13,6 +13,21 @@ export interface PollRmqOptions {
 	channel?: unknown;
 	connect?: (url?: string) => Promise<unknown>;
 	eventSourceArn?: string;
+	/**
+	 * Retries of a batch whose handler threw before its deliveries are
+	 * rejected without a requeue (dead-lettered when the queue has a
+	 * dead-letter exchange, dropped otherwise) and reported through the
+	 * runner's onError. -1 (the default) retries forever, as Lambda does for
+	 * Amazon MQ.
+	 */
+	maxRetryAttempts?: number;
+	/**
+	 * Backoff (ms) before a failed batch is delivered again, doubling per
+	 * consecutive failure of that batch up to 30 s (or this value when
+	 * larger). The deliveries stay unacknowledged with this consumer meanwhile.
+	 * Defaults to 1000.
+	 */
+	retryDelayMs?: number;
 }
 
 // @types/aws-lambda has no RabbitMQ types; these mirror the documented event.
@@ -55,18 +70,11 @@ export interface RabbitMQEvent {
 	rmqMessagesByQueue: Record<string, RabbitMQMessage[]>;
 }
 
-// Lambda has no partial batch response for Amazon MQ. The runner accepts one
-// keyed by the AMQP delivery tag (as a string) so a handler can ack and nack
-// per message.
-export interface MQBatchItemFailure {
-	itemIdentifier: string;
-}
-
-export interface MQBatchResponse {
-	batchItemFailures: MQBatchItemFailure[];
-}
-
-export interface RmqPoller extends Poller<RabbitMQEvent, MQBatchResponse> {
+// Lambda has no partial batch response for Amazon MQ, so the handler's
+// response is not read: a batch whose handler returned is acknowledged in
+// full, and one whose handler threw is retried in full.
+// https://docs.aws.amazon.com/lambda/latest/dg/with-mq.html
+export interface RmqPoller extends Poller<RabbitMQEvent> {
 	source: "aws:rmq";
 }
 

@@ -3,7 +3,7 @@
 import type middy from "@middy/core";
 
 export interface Options {
-	isWarmingUp?: (event: unknown) => boolean;
+	isWarmingUp?: (event: unknown) => boolean | PromiseLike<boolean>;
 }
 
 declare function warmup(

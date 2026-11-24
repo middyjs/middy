@@ -1,7 +1,7 @@
 import { strictEqual } from "node:assert/strict";
 import { test } from "node:test";
+import middy from "@middy/core";
 import fc from "fast-check";
-import middy from "../core/index.js";
 import httpX402 from "./index.js";
 
 class AlwaysInvalidFacilitatorClient {
@@ -17,6 +17,7 @@ const fuzzOptions = {
 	price: 0.001,
 	payTo: "0xpayto",
 	asset: "0xasset",
+	facilitatorUrl: "https://facilitator.example.com",
 	versions: [1, 2],
 	FacilitatorClient: AlwaysInvalidFacilitatorClient,
 };

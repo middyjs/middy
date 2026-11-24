@@ -2,19 +2,22 @@
 
 This document outlines security procedures and general policies for the Middy Open Source projects as found on https://github.com/middyjs.
 
-* [Security Goals](#security-goals)
-* [Secure design principles](#secure-design-principles)
-* [Supported Versions](#supported-versions)
-* [Threat model](#threat-model)
-* [Trust Boundaries](#trust-boundaries)
-* [OWASP CICD-SEC Top 10 Threat Mapping](#owasp-cicd-sec-top-10-threat-mapping)
-* [Secrets Policy](#secrets-policy)
-* [OSS Component Policy](#oss-component-policy)
-* [Reporting a Vulnerability](#reporting-a-vulnerability)
-* [Disclosure Policy](#disclosure-policy)
-* [Pipeline Incident Response](#pipeline-incident-response)
+- [Security Goals](#security-goals)
+- [Secure design principles](#secure-design-principles)
+- [Secure coding standard](#secure-coding-standard)
+- [Supported Versions](#supported-versions)
+- [Threat model](#threat-model)
+- [Trust Boundaries](#trust-boundaries)
+- [OWASP CICD-SEC Top 10 Threat Mapping](#owasp-cicd-sec-top-10-threat-mapping)
+- [Secrets Policy](#secrets-policy)
+- [OSS Component Policy](#oss-component-policy)
+- [Dependency Vulnerability Remediation](#dependency-vulnerability-remediation)
+- [Reporting a Vulnerability](#reporting-a-vulnerability)
+- [Disclosure Policy](#disclosure-policy)
+- [Pipeline Incident Response](#pipeline-incident-response)
 
 ## Security Goals
+
 Our goal is to ensure Middy meets security best practices as outlined by the following standards.
 
 - [AWS Foundational Security Best Practices v1.0.0 (FSBP)](https://docs.aws.amazon.com/securityhub/latest/userguide/fsbp-standard.html)
@@ -32,7 +35,26 @@ Core maintainers use Middy extensively within their own organizations that meet 
 - follow least privilege
 - keep it simple
 
+## Secure coding standard
+
+Applies to all JavaScript in this repository (ES modules on Node.js, running in AWS Lambda). [CONTRIBUTING.md](docs/CONTRIBUTING.md) requires every change to follow it, and reviewers check it.
+
+- Treat every event field, header, and body as untrusted. Validate shape with JSON Schema (`@middy/validator`) before use, and parse bodies only through the body-parser middlewares.
+- Use strict equality (`===`, `!==`). `null` is a valid value; check for `undefined` explicitly.
+- No `eval`, `new Function`, or `vm` on any input. No child processes or shells in published packages.
+- Import Node.js built-ins with the `node:` prefix. No dynamic `import()` of computed specifiers.
+- Do not assign untrusted keys onto plain objects. Use `Map`, or reject `__proto__`, `constructor`, and `prototype`.
+- Regular expressions applied to input must run in linear time (no nested or overlapping quantifiers).
+- Compare secrets and signatures with `crypto.timingSafeEqual`. Use `node:crypto` only; no hand-rolled cryptography.
+- Secrets are loaded at runtime from AWS (Secrets Manager, SSM, and similar middlewares), never committed or hard-coded, and never logged. Do not log whole events.
+- Errors sent to clients carry no stack traces or internal messages; only errors marked `expose` reach the response (`@middy/http-error-handler`).
+- Fix lint findings in the code; no `biome-ignore` suppressions.
+- New behavior ships with tests at 100% line, branch, and function coverage, and input-handling code with fuzz tests.
+
+Enforced by Biome (pre-commit and CI), CodeQL, semgrep, the unit-test coverage thresholds, and pull request review.
+
 ## Supported Versions
+
 Only the latest version is supported for security updates.
 
 ## Threat model
@@ -47,24 +69,24 @@ Middy is implemented within AWS Lambda. The Lambda execution and configuration o
 
 Middy's CI/CD pipeline is designed against the [OWASP Top 10 CI/CD Security Risks](https://owasp.org/www-project-top-10-ci-cd-security-risks/). The table below maps each risk to its primary mitigation in this repository.
 
-| OWASP CICD-SEC | Risk | Primary mitigation |
-| --- | --- | --- |
-| CICD-SEC-1 | Insufficient Flow Control Mechanisms | Branch flow `feature -> develop -> main`, required reviews on protected branches (OSSF Scorecard `Branch-Protection` perfect score), DCO sign-off enforced ([test-dco.yml](.github/workflows/test-dco.yml)), `npm publish` gated on `npm-publish` GitHub Environment with required reviewers |
-| CICD-SEC-2 | Inadequate Identity and Access Management | GitHub teams (`@middyjs/owners`, `@middyjs/reviewers`) per [docs/GOVERNANCE.md](docs/GOVERNANCE.md); all maintainers require WebAuthn MFA; OIDC tokens for npm publish (no static `NPM_TOKEN`) |
-| CICD-SEC-3 | Dependency Chain Abuse | Lockfile committed with integrity hashes; `lockfile-lint` enforces npm-only HTTPS sources; `npm audit signatures` gates the build env in [release.yml](.github/workflows/release.yml); Trivy SCA + Dependabot weekly |
-| CICD-SEC-4 | Poisoned Pipeline Execution | All workflows are file-versioned and reviewed via PR; zizmor + actionlint lint workflows on every PR ([test-sast.yml](.github/workflows/test-sast.yml)); third-party actions pinned by commit SHA |
-| CICD-SEC-5 | Insufficient PBAC (Pipeline-Based Access Controls) | Scoped `permissions:` per job in every workflow; `step-security/harden-runner` audits runner egress; ephemeral GitHub-hosted runners only |
-| CICD-SEC-6 | Insufficient Credential Hygiene | See [Secrets Policy](#secrets-policy) |
-| CICD-SEC-7 | Insecure System Configuration | Runner hardening via `step-security/harden-runner` in every job; zizmor flags misconfigurations weekly |
-| CICD-SEC-8 | Ungoverned Usage of Third-Party Services | See [OSS Component Policy](#oss-component-policy); third-party actions pinned by SHA; Trivy license scan enforces SPDX allowlist in `.github/trivy.yml` |
-| CICD-SEC-9 | Improper Artifact Integrity Validation | SLSA L3 build provenance via `actions/attest-build-provenance` (Sigstore); `gh attestation verify` validates the tarball immediately before `npm publish`; npm `--provenance` round-trip |
-| CICD-SEC-10 | Insufficient Logging and Visibility | GitHub Actions run logs (retained per org policy); OSSF Scorecard weekly results published to the Scorecard dashboard; `harden-runner` egress audit log per job |
+| OWASP CICD-SEC | Risk                                               | Primary mitigation                                                                                                                                                                                                                                                                           |
+| -------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CICD-SEC-1     | Insufficient Flow Control Mechanisms               | Branch flow `feature -> develop -> main`, required reviews on protected branches (OSSF Scorecard `Branch-Protection` perfect score), DCO sign-off enforced ([test-dco.yml](.github/workflows/test-dco.yml)), `npm publish` gated on `npm-publish` GitHub Environment with required reviewers |
+| CICD-SEC-2     | Inadequate Identity and Access Management          | GitHub teams (`@middyjs/owners`, `@middyjs/reviewers`) per [docs/GOVERNANCE.md](docs/GOVERNANCE.md); all maintainers require WebAuthn MFA; OIDC tokens for npm publish (no static `NPM_TOKEN`)                                                                                               |
+| CICD-SEC-3     | Dependency Chain Abuse                             | Lockfile committed with integrity hashes; `lockfile-lint` enforces npm-only HTTPS sources and sha512 integrity; `npm audit signatures` gates the build env in [release.yml](.github/workflows/release.yml); Trivy SCA daily, Dependabot weekly                                               |
+| CICD-SEC-4     | Poisoned Pipeline Execution                        | All workflows are file-versioned and reviewed via PR; zizmor + actionlint lint workflows on every PR ([test-sast.yml](.github/workflows/test-sast.yml)); third-party actions pinned by commit SHA                                                                                            |
+| CICD-SEC-5     | Insufficient PBAC (Pipeline-Based Access Controls) | Scoped `permissions:` per job in every workflow; `step-security/harden-runner` audits runner egress; ephemeral GitHub-hosted runners only                                                                                                                                                    |
+| CICD-SEC-6     | Insufficient Credential Hygiene                    | See [Secrets Policy](#secrets-policy)                                                                                                                                                                                                                                                        |
+| CICD-SEC-7     | Insecure System Configuration                      | Runner hardening via `step-security/harden-runner` in every job; zizmor flags misconfigurations weekly                                                                                                                                                                                       |
+| CICD-SEC-8     | Ungoverned Usage of Third-Party Services           | See [OSS Component Policy](#oss-component-policy); third-party actions pinned by SHA; Trivy license scan enforces SPDX allowlist in `.github/trivy.yml`                                                                                                                                      |
+| CICD-SEC-9     | Improper Artifact Integrity Validation             | SLSA L3 build provenance via `actions/attest-build-provenance` (Sigstore); `gh attestation verify` validates the tarball immediately before `npm publish`; npm `--provenance` round-trip                                                                                                     |
+| CICD-SEC-10    | Insufficient Logging and Visibility                | GitHub Actions run logs (retained per org policy); OSSF Scorecard weekly results published to the Scorecard dashboard; `harden-runner` egress audit log per job                                                                                                                              |
 
 ## Secrets Policy
 
 - No static publish tokens. `npm publish` uses GitHub OIDC (`id-token: write`) to obtain a short-lived registry token per release run.
 - The only credential in the default workflow context is `GITHUB_TOKEN`, which GitHub auto-rotates per job and scopes via per-job `permissions:` declarations.
-- Long-lived secrets required by specific workflows (`GITLEAKS_LICENSE`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`) are stored as GitHub Secrets and only injected as environment variables into the steps that need them. They are never written to logs (GitHub Actions auto-redacts registered secrets).
+- Long-lived secrets required by specific workflows (`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`) are stored as GitHub Secrets and only injected as environment variables into the steps that need them. They are never written to logs (GitHub Actions auto-redacts registered secrets).
 - No credentials are committed to the repository. Every PR is scanned by both TruffleHog (`--only-verified`) and gitleaks; either tool failing blocks merge.
 - Maintainer accounts require WebAuthn MFA (see [docs/GOVERNANCE.md](docs/GOVERNANCE.md)).
 - A credential believed to be compromised follows the rotation procedure in [docs/INCIDENT-RESPONSE.md](docs/INCIDENT-RESPONSE.md).
@@ -72,13 +94,26 @@ Middy's CI/CD pipeline is designed against the [OWASP Top 10 CI/CD Security Risk
 ## OSS Component Policy
 
 - All runtime and development dependencies are declared in `package.json` files and pinned to integrity-hashed entries in the committed `package-lock.json`. `npm ci` is used everywhere (not `npm install`) so hashes are enforced on install.
-- Dependency sources are restricted to the public npm registry over HTTPS. `lockfile-lint --allowed-hosts npm --validate-https` enforces this on every PR.
+- Dependency sources are restricted to the public npm registry over HTTPS. `lockfile-lint --allowed-hosts npm --validate-https --validate-integrity --validate-integrity-strict` enforces this, and a sha512 hash on every entry, on every PR.
 - Dependency signatures from the npm registry are verified by `npm audit signatures` in the `build` job of [release.yml](.github/workflows/release.yml), gating the build environment before any artifact is produced.
-- Vulnerability scanning runs on every PR (Trivy SCA in [test-sast.yml](.github/workflows/test-sast.yml)) and weekly on schedule. Dependabot opens patch PRs weekly against `develop`.
+- Vulnerability scanning runs on every PR (Trivy SCA in [test-sast.yml](.github/workflows/test-sast.yml)) and daily on `main`. Dependabot opens patch PRs weekly against `develop`.
 - License compliance is enforced by Trivy license scan; permitted SPDX identifiers are 0BSD, Apache-2.0, BlueOak-1.0.0, BSD-1-Clause, BSD-2-Clause, BSD-3-Clause, CC-BY-4.0, CC0-1.0, ISC, LGPL-3.0-or-later, MIT, MPL-2.0, OFL-1.1, PSF-2.0, Python-2.0, Unlicense. The enforced list is `license.ignored` in [.github/trivy.yml](.github/trivy.yml), used by both CI and the `test:sast:trivy` script in [package.json](package.json); this document mirrors it. Any new dependency outside this set is rejected unless explicitly reviewed and added to both.
 - Third-party GitHub Actions are pinned by full commit SHA with a version comment; Dependabot tracks updates. No `@main` / `@latest` action references.
 - New dependencies must be added via PR and reviewed by at least one maintainer per [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md). Before first install, the reviewer verifies the exact package name against the intended project (repository link, publisher, download profile) to rule out typosquats, and reviews risk signals: install scripts, maintainer count, publication age, and a missing source repository are each grounds for rejection.
 - The runtime dependency inventory, with a recorded justification per dependency, lives in [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md) and is updated in the same PR that changes a runtime dependency.
+
+## Dependency Vulnerability Remediation
+
+A vulnerable dependency is fixed in a release within these timeframes, counted from when a fixed upstream version exists and the maintainers know about it:
+
+| Severity (CVSS)        | Fixed within |
+| ---------------------- | ------------ |
+| Critical (9.0 to 10.0) | 7 days       |
+| High (7.0 to 8.9)      | 30 days      |
+| Medium (4.0 to 6.9)    | 90 days      |
+| Low (0.1 to 3.9)       | Next release |
+
+New package versions wait 7 days before they can enter `package-lock.json` (npm `min-release-age` in the committed project config, Dependabot `cooldown`). Dependabot security updates are exempt from that wait.
 
 ## Reporting a Vulnerability
 
@@ -115,14 +150,14 @@ When the security team receives a security bug report, they will assign it
 to a primary handler. This person will coordinate the fix and release
 process, involving the following steps:
 
-  * Confirm the problem and determine the affected versions.
-  * Audit code to find any potential similar problems.
-  * Prepare fixes for all releases still under maintenance. These fixes
-    will be released as fast as possible to NPM, within the 90 day target
-    above and sooner for critical issues.
-  * Publish the GitHub Security Advisory together with the fix release,
-    request a CVE through it where one applies, and credit the reporter
-    unless they ask not to be named.
+- Confirm the problem and determine the affected versions.
+- Audit code to find any potential similar problems.
+- Prepare fixes for all releases still under maintenance. These fixes
+  will be released as fast as possible to NPM, within the 90 day target
+  above and sooner for critical issues.
+- Publish the GitHub Security Advisory together with the fix release,
+  request a CVE through it where one applies, and credit the reporter
+  unless they ask not to be named.
 
 Please keep the report private until the advisory is published.
 

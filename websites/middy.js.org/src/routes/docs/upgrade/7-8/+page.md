@@ -1,4 +1,5 @@
 ---
+
 title: Upgrade 7.x -> 8.x
 description: "Migrate from Middy 7.x to 8.x."
 ---
@@ -45,13 +46,17 @@ Version 8.x of Middy no longer supports Node.js versions 22.x. You are highly en
 ```javascript
 // 7.x
 middy(async (event, context) => {
-  console.log(context.DB_PASSWORD)
-}).use(ssm({ fetchData: { DB_PASSWORD: '/dev/db_password' }, setToContext: true }))
+	console.log(context.DB_PASSWORD);
+}).use(
+	ssm({ fetchData: { DB_PASSWORD: "/dev/db_password" }, setToContext: true }),
+);
 
 // 8.x
 middy(async (event, context) => {
-  console.log(context.middyContext.ssm.DB_PASSWORD)
-}).use(ssm({ fetchData: { DB_PASSWORD: '/dev/db_password' }, setToContext: true }))
+	console.log(context.middyContext.ssm.DB_PASSWORD);
+}).use(
+	ssm({ fetchData: { DB_PASSWORD: "/dev/db_password" }, setToContext: true }),
+);
 ```
 
 Every middleware that writes to the context now takes a `contextKey` option,
@@ -116,19 +121,19 @@ ssm({ fetchData: { ... }, setToContext: true, contextKey: 'ssmAdmin', cacheKey: 
 
 ```javascript
 // 7.x
-import { createError } from '@middy/util'
-throw createError(422, 'Invalid or malformed JSON was provided', {
-  cause: { package: '@middy/http-json-body-parser', data: body }
-})
+import { createError } from "@middy/util";
+throw createError(422, "Invalid or malformed JSON was provided", {
+	cause: { package: "@middy/http-json-body-parser", data: body },
+});
 
 // 8.x
-import { HttpError } from '@middy/util'
+import { HttpError } from "@middy/util";
 throw new HttpError(422, {
-  cause: {
-    package: '@middy/http-json-body-parser',
-    data: { reason: 'Invalid or malformed JSON was provided', body }
-  }
-})
+	cause: {
+		package: "@middy/http-json-body-parser",
+		data: { reason: "Invalid or malformed JSON was provided", body },
+	},
+});
 ```
 
 Because the message is now the status reason phrase, `http-error-handler` returns
@@ -145,10 +150,10 @@ normalizes `Error` instances first, which is what makes the non-enumerable `caus
 `stack` and `AggregateError.errors` reachable by path:
 
 ```javascript
-import { buildPathTree, omit } from '@middy/util'
+import { buildPathTree, omit } from "@middy/util";
 
-const tree = buildPathTree(['error.cause.data.body'])
-omit(request, tree, '[redacted]')
+const tree = buildPathTree(["error.cause.data.body"]);
+omit(request, tree, "[redacted]");
 ```
 
 ## Logging and PII
@@ -158,15 +163,15 @@ accepts `omitPaths` and `mask` to redact before logging. Paths are dot-delimited
 and relative to the `request`, with `[]` to descend into arrays:
 
 ```javascript
-import middy from '@middy/core'
-import httpErrorHandler from '@middy/http-error-handler'
+import middy from "@middy/core";
+import httpErrorHandler from "@middy/http-error-handler";
 
 middy(lambdaHandler).use(
-  httpErrorHandler({
-    omitPaths: ['error.cause.data.body', 'event.headers.authorization'],
-    mask: '[redacted]'
-  })
-)
+	httpErrorHandler({
+		omitPaths: ["error.cause.data.body", "event.headers.authorization"],
+		mask: "[redacted]",
+	}),
+);
 ```
 
 Path segments match keys case-insensitively, so `event.headers.authorization`
@@ -367,13 +372,13 @@ New. Together with [response-logger](/docs/middlewares/response-logger) it repla
 
 ```javascript
 // 7.x
-import inputOutputLogger from '@middy/input-output-logger'
-middy(lambdaHandler).use(inputOutputLogger())
+import inputOutputLogger from "@middy/input-output-logger";
+middy(lambdaHandler).use(inputOutputLogger());
 
 // 8.x
-import eventLogger from '@middy/event-logger'
-import responseLogger from '@middy/response-logger'
-middy(lambdaHandler).use(eventLogger()).use(responseLogger())
+import eventLogger from "@middy/event-logger";
+import responseLogger from "@middy/response-logger";
+middy(lambdaHandler).use(eventLogger()).use(responseLogger());
 ```
 
 Logging one direction is now just installing one package, and each side gets its
@@ -382,11 +387,13 @@ own `omitPaths` / `mask`. The `logger` receives the `request` rather than a
 
 ```javascript
 // 7.x
-inputOutputLogger({ logger: (message) => log(message.event ?? message.response) })
+inputOutputLogger({
+	logger: (message) => log(message.event ?? message.response),
+});
 
 // 8.x
-eventLogger({ logger: (request) => log(request.event) })
-responseLogger({ logger: (request) => log(request.response) })
+eventLogger({ logger: (request) => log(request.event) });
+responseLogger({ logger: (request) => log(request.response) });
 ```
 
 `executionContext` and `lambdaContext` are gone. The logger now has
@@ -394,15 +401,18 @@ responseLogger({ logger: (request) => log(request.response) })
 
 ```javascript
 // 7.x
-inputOutputLogger({ lambdaContext: true })
+inputOutputLogger({ lambdaContext: true });
 
 // 8.x
 eventLogger({
-  logger: ({ event, context }) =>
-    console.log(
-      JSON.stringify({ event, context: { awsRequestId: context.awsRequestId } })
-    )
-})
+	logger: ({ event, context }) =>
+		console.log(
+			JSON.stringify({
+				event,
+				context: { awsRequestId: context.awsRequestId },
+			}),
+		),
+});
 ```
 
 Because the logger sees the whole request, `request.internal` and
@@ -755,13 +765,14 @@ receives a copy of the `request` with the reconstructed body grafted onto
 ```javascript
 // 7.x
 sqsPartialBatchFailure({
-  logger: (reason, record) => console.error(record.messageId, reason)
-})
+	logger: (reason, record) => console.error(record.messageId, reason),
+});
 
 // 8.x
 sqsPartialBatchFailure({
-  logger: (request, { reason, record }) => console.error(record.messageId, reason)
-})
+	logger: (request, { reason, record }) =>
+		console.error(record.messageId, reason),
+});
 ```
 
 `reason` and `record` are read out of the redacted copy, so `omitPaths` covers them

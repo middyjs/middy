@@ -50,6 +50,15 @@ describe("@middy/ecs-batch/pollKafka", () => {
 		]);
 	});
 
+	test("pollKafka forwards ssl TLS connection options to the kafkajs client", () => {
+		const ssl = { rejectUnauthorized: true, ca: ["pem"] };
+		pollKafka({ ...base, ssl });
+		deepStrictEqual(constructed, [
+			{ clientId: "middy-ecs-batch", brokers: base.brokers, ssl },
+		]);
+		strictEqual(constructed[0].ssl, ssl);
+	});
+
 	test("pollKafka takes the consumer from an injected client", () => {
 		const groupIds = [];
 		const client = {

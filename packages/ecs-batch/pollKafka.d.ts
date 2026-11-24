@@ -1,5 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import type { ConnectionOptions } from "node:tls";
 import type { MSKEvent, SelfManagedKafkaEvent } from "aws-lambda";
 import type { Consumer, Kafka } from "kafkajs";
 import type { Poller } from "./index.js";
@@ -12,7 +13,8 @@ export interface PollKafkaOptions {
 	fromBeginning?: boolean;
 	client?: Kafka;
 	consumer?: Consumer;
-	ssl?: boolean;
+	/** `true`, or options kafkajs passes to `tls.connect()`. */
+	ssl?: boolean | ConnectionOptions;
 	eventSourceArn?: string;
 	selfManaged?: boolean;
 	/**

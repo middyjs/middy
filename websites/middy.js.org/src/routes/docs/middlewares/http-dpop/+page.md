@@ -1,4 +1,5 @@
 ---
+
 title: http-dpop
 description: "Require a DPoP (RFC 9449) proof of possession for sender-constrained access tokens, so a stolen token is useless on its own."
 status: alpha
@@ -52,43 +53,43 @@ NOTES:
 ### With `@middy/http-jwt`
 
 ```javascript
-import middy from '@middy/core'
-import httpJwt from '@middy/http-jwt'
-import httpDpop from '@middy/http-dpop'
-import httpErrorHandler from '@middy/http-error-handler'
+import middy from "@middy/core";
+import httpJwt from "@middy/http-jwt";
+import httpDpop from "@middy/http-dpop";
+import httpErrorHandler from "@middy/http-error-handler";
 
 const lambdaHandler = async (event) => {
-  // The verified proof is on request.internal.dpop.
-  return { statusCode: 200, body: JSON.stringify({ ok: true }) }
-}
+	// The verified proof is on request.internal.dpop.
+	return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+};
 
 export const handler = middy()
-  .use(
-    httpJwt({
-      issuers: {
-        'https://auth.example.com': {
-          jwksUri: 'https://auth.example.com/.well-known/jwks.json',
-          audience: 'https://api.example.com',
-        },
-      },
-      algorithm: 'RS256',
-    }),
-  )
-  // After the verifier: only it can turn the token into the `cnf` claim.
-  .use(httpDpop({ payloadKey: 'jwt' }))
-  .use(httpErrorHandler())
-  .handler(lambdaHandler)
+	.use(
+		httpJwt({
+			issuers: {
+				"https://auth.example.com": {
+					jwksUri: "https://auth.example.com/.well-known/jwks.json",
+					audience: "https://api.example.com",
+				},
+			},
+			algorithm: "RS256",
+		}),
+	)
+	// After the verifier: only it can turn the token into the `cnf` claim.
+	.use(httpDpop({ payloadKey: "jwt" }))
+	.use(httpErrorHandler())
+	.handler(lambdaHandler);
 ```
 
 ### With `@middy/http-paseto`
 
 ```javascript
 export const handler = middy()
-  .use(kms({ fetchData: { pasetoKey: 'alias/paseto-signing-key' } }))
-  .use(httpPaseto({ internalKey: 'pasetoKey', payloadKey: 'paseto' }))
-  .use(httpDpop({ payloadKey: 'paseto', origin: 'https://api.example.com' }))
-  .use(httpErrorHandler())
-  .handler(lambdaHandler)
+	.use(kms({ fetchData: { pasetoKey: "alias/paseto-signing-key" } }))
+	.use(httpPaseto({ internalKey: "pasetoKey", payloadKey: "paseto" }))
+	.use(httpDpop({ payloadKey: "paseto", origin: "https://api.example.com" }))
+	.use(httpErrorHandler())
+	.handler(lambdaHandler);
 ```
 
 ### Requiring a bound token
@@ -134,18 +135,22 @@ If your threat model needs it, the verified claims are published at `request.int
 
 ```javascript
 const dpopReplay = (table) => ({
-  before: async (request) => {
-    const { jti, iat } = request.internal.dpop ?? {}
-    if (!jti) return // unbound token, nothing to check
-    // Conditional put; throw a 401 if the jti already exists.
-    await putOnce(table, jti, iat + 60)
-  },
-})
+	before: async (request) => {
+		const { jti, iat } = request.internal.dpop ?? {};
+		if (!jti) return; // unbound token, nothing to check
+		// Conditional put; throw a 401 if the jti already exists.
+		await putOnce(table, jti, iat + 60);
+	},
+});
 
 export const handler = middy()
-  .use(httpJwt({ /* ... */ }))
-  .use(httpDpop())
-  .use(dpopReplay('dpop-jti'))
+	.use(
+		httpJwt({
+			/* ... */
+		}),
+	)
+	.use(httpDpop())
+	.use(dpopReplay("dpop-jti"));
 ```
 
 The stronger answer in the spec is the `DPoP-Nonce` flow (RFC 9449 §8), where the server controls freshness directly. It is not implemented here yet.

@@ -1,4 +1,5 @@
 ---
+
 title: Upgrade 6.x -> 7.x
 description: "Migrate from Middy 6.x to 7.x with durable function and streaming support."
 ---
@@ -20,26 +21,28 @@ Version 7.x of Middy no longer supports Node.js versions 20.x. You are highly en
 - Deprecate `streamifyResponse` option for `executionMode` **Breaking Change**
 
 ```javascript
-import middy from '@middy/core'
+import middy from "@middy/core";
 
 const lambdaHandler = (_event, _context) => {
-  // ...
-}
-export const handler = middy({ streamifyResponse: true })
-  .handler(lambdaHandler)
+	// ...
+};
+export const handler = middy({ streamifyResponse: true }).handler(
+	lambdaHandler,
+);
 ```
 
-changes to 
+changes to
 
 ```javascript
-import middy from '@middy/core'
-import { executionModeStreamifyResponse } from '@middy/core/StreamifyResponse'
+import middy from "@middy/core";
+import { executionModeStreamifyResponse } from "@middy/core/StreamifyResponse";
 
 const lambdaHandler = (_event, _context) => {
-  // ...
-}
-export const handler = middy({ executionMode: executionModeStreamifyResponse })
-  .handler(lambdaHandler)
+	// ...
+};
+export const handler = middy({
+	executionMode: executionModeStreamifyResponse,
+}).handler(lambdaHandler);
 ```
 
 ## Util

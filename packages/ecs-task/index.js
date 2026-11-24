@@ -15,26 +15,40 @@ const defaults = {
 	stopTimeout: 30_000,
 };
 
+// "When delay is larger than 2147483647 or less than 1 or NaN, the delay will be set to 1."
+// https://nodejs.org/api/timers.html#settimeoutcallback-delay-args
+const timerMs = { type: "integer", minimum: 0, maximum: 2_147_483_647 };
+
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:ecs-task:options",
+	$defs: { Function: false },
 	type: "object",
 	properties: {
-		handler: { instanceof: "Function" },
-		eventEnv: { type: "string" },
+		handler: { $ref: "#/$defs/Function" },
+		eventEnv: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\x21-\x3C\x3E-\x7E]+$/u,
+		},
 		eventArg: { type: "boolean" },
-		timeout: { type: "integer", minimum: 0 },
-		stopTimeout: { type: "integer", minimum: 0 },
-		onSuccess: { instanceof: "Function" },
-		onFailure: { instanceof: "Function" },
+		timeout: timerMs,
+		stopTimeout: timerMs,
+		onSuccess: { $ref: "#/$defs/Function" },
+		onFailure: { $ref: "#/$defs/Function" },
 		contextOverride: {
 			type: "object",
 			properties: {
-				awsRequestId: { instanceof: "Function" },
+				awsRequestId: { $ref: "#/$defs/Function" },
 			},
+			required: [],
 			additionalProperties: false,
+			unevaluatedProperties: false,
 		},
 	},
 	required: ["handler"],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const ecsTaskValidateOptions = (options) =>
@@ -174,25 +188,24 @@ export const ecsTaskRunner = async (opts, deps = {}) => {
 	};
 	procImpl.once("SIGTERM", onSigterm);
 
+	let exitCode = 0;
+	let hook = options.onSuccess;
+	let outcome;
 	try {
-		const result = await options.handler(event, context);
-		if (typeof options.onSuccess === "function") {
-			await options.onSuccess(result, context);
-		}
-		if (forcedExit) clearTimeoutImpl(forcedExit);
-		procImpl.removeListener?.("SIGTERM", onSigterm);
-		return exitImpl(0);
+		outcome = await options.handler(event, context);
 	} catch (err) {
-		try {
-			await (options.onFailure ?? noop)(err, context);
-		} catch {
-			// onFailure errors are swallowed: the original handler error is what
-			// matters for the task exit code.
-		}
-		if (forcedExit) clearTimeoutImpl(forcedExit);
-		procImpl.removeListener?.("SIGTERM", onSigterm);
-		return exitImpl(1);
+		exitCode = 1;
+		hook = options.onFailure;
+		outcome = err;
 	}
+	try {
+		await (hook ?? noop)(outcome, context);
+	} catch (error) {
+		console.error(error);
+	}
+	if (forcedExit) clearTimeoutImpl(forcedExit);
+	procImpl.removeListener?.("SIGTERM", onSigterm);
+	return exitImpl(exitCode);
 };
 
 export default ecsTaskRunner;

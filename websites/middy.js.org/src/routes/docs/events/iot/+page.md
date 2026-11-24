@@ -1,4 +1,5 @@
 ---
+
 title: Internet of things (IoT)
 description: "Use Middy with AWS IoT rule Lambda action events."
 ---
@@ -32,14 +33,15 @@ flowchart LR
 Every hop through SNS, SQS, EventBridge, or EventBridge Pipes wraps the event Lambda receives in that service's envelope. [`@middy/event-normalizer`](/docs/middlewares/event-normalizer) unwraps the SNS and SQS envelopes.
 
 ## AWS Documentation
+
 - [Using AWS Lambda with AWS IoT](https://docs.aws.amazon.com/lambda/latest/dg/services-iot.html)
 
 ## Example
-```javascript
-import middy from '@middy/core'
 
-export const handler = middy()
-  .handler((event, context, {signal}) => {
-    // ...
-  })
+```javascript
+import middy from "@middy/core";
+
+export const handler = middy().handler((event, context, { signal }) => {
+	// ...
+});
 ```

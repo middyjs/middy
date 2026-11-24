@@ -16,9 +16,11 @@ const pair = await crypto.subtle.generateKey("Ed25519", true, [
 const pubBytes = new Uint8Array(
 	await crypto.subtle.exportKey("spki", pair.publicKey),
 );
+const audience = "https://api.example.com";
+const issuer = "https://auth.example.com";
 const token = await new PublicProtocol(SignFactory).Sign(
 	await SecretKeyFromCryptoKey(pair.privateKey),
-	{ sub: "user-1" },
+	{ sub: "user-1", aud: audience, iss: issuer },
 	{ expiresIn: 3600 },
 );
 
@@ -27,7 +29,7 @@ const setupHandler = () =>
 		.before((request) => {
 			request.internal.pubKey = pubBytes;
 		})
-		.use(httpPaseto({ internalKey: "pubKey" }));
+		.use(httpPaseto({ internalKey: "pubKey", audience, issuer }));
 
 const warmHandler = setupHandler();
 

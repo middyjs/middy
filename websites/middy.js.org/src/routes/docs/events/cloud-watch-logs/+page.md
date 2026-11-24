@@ -1,4 +1,5 @@
 ---
+
 title: CloudWatch Logs
 description: "Use Middy with CloudWatch Logs subscription filter Lambda events."
 ---
@@ -30,12 +31,12 @@ flowchart LR
 ## Example
 
 ```javascript
-import middy from '@middy/core'
-import eventNormalizerMiddleware from '@middy/event-normalizer'
+import middy from "@middy/core";
+import eventNormalizerMiddleware from "@middy/event-normalizer";
 
 export const handler = middy()
-  .use(eventNormalizerMiddleware())
-  .handler((event, context, { signal }) => {
-    // ...
-  })
+	.use(eventNormalizerMiddleware())
+	.handler((event, context, { signal }) => {
+		// ...
+	});
 ```

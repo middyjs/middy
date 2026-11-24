@@ -1,4 +1,5 @@
 ---
+
 title: http-json-body-parser
 description: "Parse JSON HTTP request bodies automatically and handle malformed JSON gracefully."
 ---
@@ -37,29 +38,29 @@ npm install --save @middy/http-json-body-parser
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import httpHeaderNormalizer from '@middy/http-header-normalizer'
-import httpJsonBodyParser from '@middy/http-json-body-parser'
+import middy from "@middy/core";
+import httpHeaderNormalizer from "@middy/http-header-normalizer";
+import httpJsonBodyParser from "@middy/http-json-body-parser";
 
 const lambdaHandler = (event, context) => {
-  return event.body // propagates the parsed body as response
-}
+	return event.body; // propagates the parsed body as response
+};
 
 export const handler = middy()
-  .use(httpHeaderNormalizer())
-  .use(httpJsonBodyParser())
-  .handler(lambdaHandler)
+	.use(httpHeaderNormalizer())
+	.use(httpJsonBodyParser())
+	.handler(lambdaHandler);
 
 // invokes the handler
 const event = {
-  headers: {
-    'Content-Type': 'application/json'
-    // It is important that the request has the proper content type.
-  },
-  body: JSON.stringify({ foo: 'bar' })
-}
-const response = await handler(event, {})
-deepStrictEqual(response, { foo: 'bar' })
+	headers: {
+		"Content-Type": "application/json",
+		// It is important that the request has the proper content type.
+	},
+	body: JSON.stringify({ foo: "bar" }),
+};
+const response = await handler(event, {});
+deepStrictEqual(response, { foo: "bar" });
 ```
 
 ## Pairs well with

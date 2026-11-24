@@ -10,11 +10,21 @@ import type middy from "@middy/core";
 import type { ContextNamespace, Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
+/**
+ * A `GetItem` request whose `Key` holds native JavaScript values, such as
+ * `{ pk: "tenant", sk: 42 }`. The middleware marshalls the key itself, so a key
+ * that is already in DynamoDB's `{ S: "tenant" }` form would be marshalled
+ * twice and no longer match the table's key schema.
+ */
+export type DynamoDbGetItemInput = Omit<GetItemCommandInput, "Key"> & {
+	Key: Record<string, NativeAttributeValue>;
+};
+
 export type ParamType<T extends Record<string, NativeAttributeValue>> =
-	GetItemCommandInput & { __returnType?: T };
+	DynamoDbGetItemInput & { __returnType?: T };
 export declare function dynamoDbParam<
 	T extends Record<string, NativeAttributeValue>,
->(req: GetItemCommandInput): ParamType<T>;
+>(req: DynamoDbGetItemInput): ParamType<T>;
 
 export type DynamoDbOptions<AwsDynamoDBClient = DynamoDBClient> = Omit<
 	MiddyOptions<AwsDynamoDBClient, DynamoDBClientConfig>,
@@ -22,7 +32,7 @@ export type DynamoDbOptions<AwsDynamoDBClient = DynamoDBClient> = Omit<
 > & {
 	fetchData?: {
 		[key: string]:
-			| GetItemCommandInput
+			| DynamoDbGetItemInput
 			| ParamType<Record<string, NativeAttributeValue>>;
 	};
 };

@@ -1,2 +1,6 @@
 *  @middyjs/owners
 *  @middyjs/reviewers
+
+/.github/    @middyjs/owners
+/.husky/     @middyjs/owners
+AGENTS.md    @middyjs/owners

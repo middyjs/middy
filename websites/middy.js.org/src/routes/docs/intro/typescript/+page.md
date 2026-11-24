@@ -1,4 +1,5 @@
 ---
+
 title: Use with TypeScript
 description: "Use Middy with TypeScript, including built-in typings and AWS Lambda event types."
 position: 6
@@ -15,34 +16,34 @@ npm i -D @types/aws-lambda
 Here's an example of how you might be using Middy with TypeScript for a Lambda receiving events from API Gateway and fetching secrets from Secrets Manager:
 
 ```typescript
-import middy from '@middy/core'
-import secretsManager from '@middy/secrets-manager'
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
+import middy from "@middy/core";
+import secretsManager from "@middy/secrets-manager";
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 
 export const handler = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
-  .use(
-    secretsManager({
-      fetchData: {
-        apiToken: 'dev/api_token'
-      },
-      awsClientOptions: {
-        region: 'us-east-1'
-      },
-      setToContext: true
-    })
-  )
-  .handler(async (req, context) => {
-    // The context type gets augmented here by the secretsManager middleware.
-    // This is just an example, obviously don't ever log your secret in real life!
-    console.log(context.middyContext['secrets-manager'].apiToken)
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        message: `Hello from ${req.path}`,
-        req
-      })
-    }
-  })
+	.use(
+		secretsManager({
+			fetchData: {
+				apiToken: "dev/api_token",
+			},
+			awsClientOptions: {
+				region: "us-east-1",
+			},
+			setToContext: true,
+		}),
+	)
+	.handler(async (req, context) => {
+		// The context type gets augmented here by the secretsManager middleware.
+		// This is just an example, obviously don't ever log your secret in real life!
+		console.log(context.middyContext["secrets-manager"].apiToken);
+		return {
+			statusCode: 200,
+			body: JSON.stringify({
+				message: `Hello from ${req.path}`,
+				req,
+			}),
+		};
+	});
 ```
 
 Note that when using TypeScript, you should use what we call the _Middleware-first, Handler-last_ approach, which means that you should always call the `handler` method last, after you have attached all the middlewares you need.
@@ -52,28 +53,30 @@ This approach makes sure that, as you attach middlewares, the type system unders
 The event and response types come from one of three places. Any of these works:
 
 ```typescript
-import middy from '@middy/core'
+import middy from "@middy/core";
 import type {
-  APIGatewayProxyEvent,
-  APIGatewayProxyHandler,
-  APIGatewayProxyResult,
-  SQSEvent,
-  SQSHandler
-} from 'aws-lambda'
+	APIGatewayProxyEvent,
+	APIGatewayProxyHandler,
+	APIGatewayProxyResult,
+	SQSEvent,
+	SQSHandler,
+} from "aws-lambda";
 
 // 1. Annotate the exported handler
 export const sqsHandler: SQSHandler = middy().handler(async (event) => {
-  for (const record of event.Records) console.log(record.body)
-})
+	for (const record of event.Records) console.log(record.body);
+});
 
 // 2. Pass the types to middy()
-export const apiHandler: APIGatewayProxyHandler = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
-  .handler(async (event) => ({ statusCode: 200, body: event.path }))
+export const apiHandler: APIGatewayProxyHandler = middy<
+	APIGatewayProxyEvent,
+	APIGatewayProxyResult
+>().handler(async (event) => ({ statusCode: 200, body: event.path }));
 
 // 3. Pass the types to .handler()
 export const batchHandler = middy().handler<SQSEvent, void>(async (event) => {
-  console.log(event.Records.length)
-})
+	console.log(event.Records.length);
+});
 ```
 
 Annotating only the handler's parameter (`middy().handler(async (event: SQSEvent) => ...)`) is not used for inference; use one of the patterns above.
