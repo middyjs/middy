@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c # v2.23.0
         with:
           egress-policy: block
           disable-sudo: true
@@ -27,4 +27,4 @@ jobs:
       # allowed-endpoints: >
       #   api.github.com:443
       - name: Check for Developer Certificate of Origin (DCO) compliance
-        uses: KineticCafe/actions-dco@5f160e3ee086af8fc0fb567b8add0937d074123e # v3.2.0
+        uses: KineticCafe/actions-dco@e9627100b7f566546e67cde54bfa7d3790ab649b # v4.0.0
