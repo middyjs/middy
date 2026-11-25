@@ -4023,15 +4023,14 @@ describe("@middy/util", () => {
 			deepStrictEqual(validateOptions("@middy/test", schema, { omitPaths }), {
 				omitPaths,
 			});
-			strictEqual(validateOmitPaths(omitPaths), undefined);
+			doesNotThrow(() => validateOmitPaths(omitPaths));
 		});
 
 		test("validateOmitPaths accepts no paths and paths that can match", () => {
-			strictEqual(validateOmitPaths(undefined), undefined);
-			strictEqual(validateOmitPaths([]), undefined);
-			strictEqual(
+			doesNotThrow(() => validateOmitPaths(undefined));
+			doesNotThrow(() => validateOmitPaths([]));
+			doesNotThrow(() =>
 				validateOmitPaths(["event.Records.[].body", ["event", "a.b"]]),
-				undefined,
 			);
 		});
 
