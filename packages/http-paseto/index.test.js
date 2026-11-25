@@ -1,5 +1,9 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
-import { createPrivateKey, createPublicKey } from "node:crypto";
+import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
+import {
+	createPrivateKey,
+	createPublicKey,
+	createSecretKey,
+} from "node:crypto";
 import { describe, test } from "node:test";
 import { PublicProtocol } from "paseto";
 import { SecretKeyFromCryptoKey, SignFactory } from "paseto/v4/public";
@@ -39,8 +43,9 @@ const V4 = {
 // assertion convenience. The middleware default is internal-only (matches
 // `ssm`/`secrets-manager`), so we wrap with `setToContext: true` here. Tests
 // that exercise the default behavior call `realHttpPaseto` directly.
+const claimDefaults = { audience: null, issuer: null };
 const httpPaseto = (opts = {}) =>
-	realHttpPaseto({ setToContext: true, ...opts });
+	realHttpPaseto({ setToContext: true, ...claimDefaults, ...opts });
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -432,6 +437,40 @@ describe("@middy/http-paseto", () => {
 		} catch (e) {
 			ok(e instanceof TypeError);
 			strictEqual(e.message, "No key source configured: set internalKey");
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
+	});
+
+	test("It should throw TypeError at factory when audience is not set", () => {
+		try {
+			realHttpPaseto({
+				internalKey: "pubKey",
+				issuer: "https://auth.example.com",
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			strictEqual(
+				e.message,
+				"audience is required: set it, or set null to skip the aud check",
+			);
+			strictEqual(e.cause.package, "@middy/http-paseto");
+		}
+	});
+
+	test("It should throw TypeError at factory when issuer is not set", () => {
+		try {
+			realHttpPaseto({
+				internalKey: "pubKey",
+				audience: "https://api.example.com",
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			strictEqual(
+				e.message,
+				"issuer is required: set it, or set null to skip the iss check",
+			);
 			strictEqual(e.cause.package, "@middy/http-paseto");
 		}
 	});
@@ -935,7 +974,7 @@ describe("@middy/http-paseto", () => {
 			.before((request) => {
 				request.internal.pubKey = new Uint8Array(spkiDer);
 			})
-			.use(realHttpPaseto({ internalKey: "pubKey" }))
+			.use(realHttpPaseto({ ...claimDefaults, internalKey: "pubKey" }))
 			.before((request) => {
 				seen.internal = request.internal.paseto?.sub;
 				seen.context = request.context.middyContext.paseto?.sub;
@@ -1134,9 +1173,22 @@ describe("@middy/http-paseto", () => {
 		);
 	});
 
-	test("httpPasetoValidateOptions accepts and enforces string type for issuer", () => {
+	test("httpPasetoValidateOptions accepts a string or null issuer and rejects any other type", () => {
 		httpPasetoValidateOptions({ issuer: "https://iss" });
-		expectOptionTypeError({ issuer: 123 }, "Option 'issuer' must be string");
+		httpPasetoValidateOptions({ issuer: null });
+		expectOptionTypeError(
+			{ issuer: 123 },
+			"Option 'issuer' must match exactly one schema in oneOf",
+		);
+	});
+
+	test("httpPasetoValidateOptions accepts a string or null audience and rejects any other type", () => {
+		httpPasetoValidateOptions({ audience: "https://api" });
+		httpPasetoValidateOptions({ audience: null });
+		expectOptionTypeError(
+			{ audience: 123 },
+			"Option 'audience' must match exactly one schema in oneOf",
+		);
 	});
 
 	test("httpPasetoValidateOptions accepts and enforces number type for clockTolerance", () => {
@@ -1194,6 +1246,109 @@ describe("@middy/http-paseto", () => {
 		);
 	});
 
+	test("httpPasetoValidateOptions accepts RFC 9110 token header and cookie names only", () => {
+		httpPasetoValidateOptions({
+			tokenHeaderName: "X-Id-Token",
+			tokenCookieName: "__Host-paseto_token",
+			tokenQueryStringName: "paseto",
+		});
+		for (const name of ["X Id", "X-Id:", "a=b", "a;b", ""]) {
+			throws(() => httpPasetoValidateOptions({ tokenHeaderName: name }), {
+				name: "TypeError",
+			});
+			throws(() => httpPasetoValidateOptions({ tokenCookieName: name }), {
+				name: "TypeError",
+			});
+		}
+		throws(() => httpPasetoValidateOptions({ tokenQueryStringName: "" }), {
+			name: "TypeError",
+		});
+	});
+
+	test("httpPasetoValidateOptions bounds audience, issuer and expectedClaims values", () => {
+		httpPasetoValidateOptions({
+			audience: "api.example.com",
+			issuer: "https://auth.example.com",
+			expectedClaims: { typ: "access", tier: 2, verified: true },
+		});
+		for (const audience of ["", "a".repeat(1025), "a\nb"]) {
+			expectOptionTypeError(
+				{ audience },
+				"Option 'audience' must match exactly one schema in oneOf",
+			);
+			expectOptionTypeError(
+				{ issuer: audience },
+				"Option 'issuer' must match exactly one schema in oneOf",
+			);
+		}
+		throws(
+			() =>
+				httpPasetoValidateOptions({
+					expectedClaims: { tier: Number.MAX_SAFE_INTEGER + 2 },
+				}),
+			{
+				message: `Option 'expectedClaims.tier' must be <= ${Number.MAX_SAFE_INTEGER}`,
+			},
+		);
+		throws(
+			() =>
+				httpPasetoValidateOptions({
+					expectedClaims: { tier: -Number.MAX_SAFE_INTEGER - 2 },
+				}),
+			{
+				message: `Option 'expectedClaims.tier' must be >= ${-Number.MAX_SAFE_INTEGER}`,
+			},
+		);
+		throws(() => httpPasetoValidateOptions({ expectedClaims: { "": "x" } }), {
+			name: "TypeError",
+		});
+		throws(
+			() =>
+				httpPasetoValidateOptions({
+					expectedClaims: { typ: "a".repeat(1025) },
+				}),
+			{ message: "Option 'expectedClaims.typ' must have length <= 1024" },
+		);
+		throws(
+			() => httpPasetoValidateOptions({ expectedClaims: { typ: "a\nb" } }),
+			{
+				message:
+					"Option 'expectedClaims.typ' must match pattern /^[\\p{L}\\p{N}\\p{P}\\p{S} ]*$/u",
+			},
+		);
+		httpPasetoValidateOptions({
+			expectedClaims: {
+				typ: "",
+				tier: -Number.MAX_SAFE_INTEGER,
+				level: Number.MAX_SAFE_INTEGER,
+				verified: false,
+			},
+		});
+	});
+
+	test("httpPasetoValidateOptions accepts a visible ASCII key name for internalKey, payloadKey and tokenKey", () => {
+		httpPasetoValidateOptions({
+			internalKey: "kms.paseto-key",
+			payloadKey: "auth.paseto",
+			tokenKey: "paseto_token",
+		});
+		httpPasetoValidateOptions({
+			internalKey: "@middy/kms",
+			payloadKey: "@middy/http-paseto",
+			tokenKey: "token#1",
+		});
+		throws(() => httpPasetoValidateOptions({ internalKey: "a".repeat(1025) }), {
+			message: "Option 'internalKey' must have length <= 1024",
+		});
+		for (const key of ["", "a b", "a\nb"]) {
+			for (const option of ["internalKey", "payloadKey", "tokenKey"]) {
+				throws(() => httpPasetoValidateOptions({ [option]: key }), {
+					name: "TypeError",
+				});
+			}
+		}
+	});
+
 	// --- Verify-options forwarding to V4.verify (claim mismatches must 401) ---
 
 	test("It should reject a token whose audience does not match the configured audience", async (t) => {
@@ -1218,7 +1373,7 @@ describe("@middy/http-paseto", () => {
 		}
 	});
 
-	test("It should accept a token (no audience option) regardless of its aud claim", async (t) => {
+	test("It should accept a token regardless of its aud claim when audience is null", async (t) => {
 		const privateKey = await V4.generateKey();
 		const publicKey = createPublicKey(privateKey);
 		const token = await V4.sign(
@@ -1227,13 +1382,31 @@ describe("@middy/http-paseto", () => {
 			{ expiresIn: 3600 },
 		);
 
-		const handler = makeHandlerWithKey(publicKey);
+		const handler = makeHandlerWithKey(publicKey, { audience: null });
 
 		const result = await handler(makeEvent(`Bearer ${token}`), {
 			...defaultContext,
 		});
 
 		strictEqual(result.paseto.sub, "user-no-aud-opt");
+	});
+
+	test("It should accept a token regardless of its iss claim when issuer is null", async (t) => {
+		const privateKey = await V4.generateKey();
+		const publicKey = createPublicKey(privateKey);
+		const token = await V4.sign(
+			{ sub: "user-no-iss-opt", iss: "https://whoever.example.com" },
+			privateKey,
+			{ expiresIn: 3600 },
+		);
+
+		const handler = makeHandlerWithKey(publicKey, { issuer: null });
+
+		const result = await handler(makeEvent(`Bearer ${token}`), {
+			...defaultContext,
+		});
+
+		strictEqual(result.paseto.sub, "user-no-iss-opt");
 	});
 
 	test("It should reject a token whose issuer does not match the configured issuer", async (t) => {
@@ -1775,12 +1948,15 @@ describe("@middy/http-paseto", () => {
 			{ ctx: { tenant: "acme" } },
 			{ sub: null },
 		]) {
-			try {
-				httpPasetoValidateOptions({ internalKey: "pubKey", expectedClaims });
-				ok(false, `expected throw for ${JSON.stringify(expectedClaims)}`);
-			} catch (e) {
-				ok(e instanceof TypeError);
-			}
+			const [claim] = Object.keys(expectedClaims);
+			throws(
+				() =>
+					httpPasetoValidateOptions({ internalKey: "pubKey", expectedClaims }),
+				{
+					name: "TypeError",
+					message: `Option 'expectedClaims.${claim}' must be string or number or boolean`,
+				},
+			);
 		}
 	});
 
@@ -1851,6 +2027,32 @@ describe("@middy/http-paseto", () => {
 				e.cause.data.reason.includes("unsupported key shape"),
 				e.cause.data.reason,
 			);
+		}
+	});
+
+	test("It should refuse a KeyObject that is not a public key with the unsupported-shape 500", async (t) => {
+		const privateKey = await V4.generateKey();
+		const token = await V4.sign({ sub: "user-1" }, privateKey, {
+			expiresIn: 3600,
+		});
+
+		for (const keyObject of [
+			createSecretKey(Buffer.alloc(32, "k")),
+			privateKey,
+		]) {
+			try {
+				await makeHandlerWithKeys(keyObject)(makeEvent(`Bearer ${token}`), {
+					...defaultContext,
+				});
+				ok(false, "expected throw");
+			} catch (e) {
+				strictEqual(e.statusCode, 500);
+				strictEqual(e.cause.package, "@middy/http-paseto");
+				strictEqual(
+					e.cause.data.reason,
+					"internalKey holds an unsupported key shape; expected a KeyObject, SPKI DER bytes, or a { publicKey } object",
+				);
+			}
 		}
 	});
 

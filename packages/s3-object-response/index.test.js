@@ -1,10 +1,16 @@
-import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	ok,
+	rejects,
+	strictEqual,
+	throws,
+} from "node:assert/strict";
 import { Readable } from "node:stream";
 import { describe, test } from "node:test";
 import { S3Client, WriteGetObjectResponseCommand } from "@aws-sdk/client-s3";
-import { clearCache } from "@middy/util";
+import middy from "@middy/core";
+import { clearCache, HttpError } from "@middy/util";
 import { mockClient } from "aws-sdk-client-mock";
-import middy from "../core/index.js";
 
 import s3ObjectResponse, { s3ObjectResponseValidateOptions } from "./index.js";
 
@@ -39,8 +45,8 @@ describe("@middy/s3-object-response", () => {
 
 		mockClient(S3Client)
 			.on(WriteGetObjectResponseCommand, {
-				RequestRoute: defaultEvent.outputRoute,
-				RequestToken: defaultEvent.outputToken,
+				RequestRoute: defaultEvent.getObjectContext.outputRoute,
+				RequestToken: defaultEvent.getObjectContext.outputToken,
 				Body: s3Data,
 			})
 			.resolvesOnce({ statusCode: 200 });
@@ -73,8 +79,8 @@ describe("@middy/s3-object-response", () => {
 		});
 		mockClient(S3Client)
 			.on(WriteGetObjectResponseCommand, {
-				RequestRoute: defaultEvent.outputRoute,
-				RequestToken: defaultEvent.outputToken,
+				RequestRoute: defaultEvent.getObjectContext.outputRoute,
+				RequestToken: defaultEvent.getObjectContext.outputToken,
 				Body: s3Data,
 			})
 			.resolvesOnce({ statusCode: 200 });
@@ -107,8 +113,8 @@ describe("@middy/s3-object-response", () => {
 		});
 		mockClient(S3Client)
 			.on(WriteGetObjectResponseCommand, {
-				RequestRoute: defaultEvent.outputRoute,
-				RequestToken: defaultEvent.outputToken,
+				RequestRoute: defaultEvent.getObjectContext.outputRoute,
+				RequestToken: defaultEvent.getObjectContext.outputToken,
 				Body: s3Data,
 			})
 			.resolvesOnce({ statusCode: 200 });
@@ -251,28 +257,251 @@ describe("@middy/s3-object-response", () => {
 		strictEqual(result, paramName);
 	});
 
-	test("It should handle event without getObjectContext", async (t) => {
-		const responseBody = "test response";
-		mockClient(S3Client)
-			.on(WriteGetObjectResponseCommand)
-			.resolvesOnce({ statusCode: 200 });
+	for (const contextName of [
+		"headObjectContext",
+		"listObjectsContext",
+		"listObjectsV2Context",
+	]) {
+		test(`It should return the handler's JSON without WriteGetObjectResponse for a ${contextName} event`, async (t) => {
+			const mockService = mockClient(S3Client);
+			const json = { statusCode: 200, headers: { "Content-Length": 11 } };
 
-		const handler = middy(async (event, context) => {
-			strictEqual(context.middyContext["s3-object-response"], undefined);
-			return {
-				Body: responseBody,
+			const handler = middy(async (event, context) => {
+				strictEqual(context.middyContext["s3-object-response"], undefined);
+				return json;
+			});
+			handler.use(s3ObjectResponse({ AwsClient: S3Client }));
+
+			const event = {
+				[contextName]: { inputS3Url: `${awsOrigin}/key?signature` },
 			};
+			const response = await handler(event, defaultContext);
+			strictEqual(response, json);
+			strictEqual(
+				mockService.commandCalls(WriteGetObjectResponseCommand).length,
+				0,
+			);
 		});
+	}
 
-		handler.use(
-			s3ObjectResponse({
-				AwsClient: S3Client,
-			}),
+	const errorEvent = {
+		getObjectContext: { outputRoute: "route", outputToken: "token" },
+	};
+	const mockWriteGetObjectResponse = () => {
+		const mockService = mockClient(S3Client);
+		mockService.on(WriteGetObjectResponseCommand).resolves({});
+		return () =>
+			mockService
+				.commandCalls(WriteGetObjectResponseCommand)
+				.map((call) => call.args[0].input);
+	};
+
+	test("It should write an http error thrown by the handler through WriteGetObjectResponse", async (t) => {
+		const writes = mockWriteGetObjectResponse();
+		const error = new HttpError(403);
+		const handler = middy(async () => {
+			throw error;
+		}).use(s3ObjectResponse({ AwsClient: S3Client }));
+
+		await rejects(
+			() => handler(errorEvent, defaultContext),
+			(e) => e === error,
+		);
+		deepStrictEqual(writes(), [
+			{
+				RequestRoute: "route",
+				RequestToken: "token",
+				StatusCode: 403,
+				ErrorCode: "ForbiddenError",
+				ErrorMessage: "Forbidden",
+			},
+		]);
+	});
+
+	const internalServerError = {
+		RequestRoute: "route",
+		RequestToken: "token",
+		StatusCode: 500,
+		ErrorCode: "InternalServerError",
+		ErrorMessage: "Internal Server Error",
+	};
+	for (const [label, thrown] of [
+		["a plain Error", new Error("secret detail")],
+		[
+			"an Error with a bare statusCode",
+			Object.assign(new Error("Forbidden"), { statusCode: 403 }),
+		],
+		["an http error that is not exposed", new HttpError(503)],
+		["null", null],
+	]) {
+		test(`It should write a 500 through WriteGetObjectResponse when the handler throws ${label}`, async (t) => {
+			const writes = mockWriteGetObjectResponse();
+			const handler = middy(async () => {
+				throw thrown;
+			}).use(s3ObjectResponse({ AwsClient: S3Client }));
+
+			await rejects(
+				() => handler(errorEvent, defaultContext),
+				(e) => e === thrown,
+			);
+			deepStrictEqual(writes(), [internalServerError]);
+		});
+	}
+
+	test("It should write a 500 for an exposed http error whose status WriteGetObjectResponse does not list", async (t) => {
+		const writes = mockWriteGetObjectResponse();
+		const handler = middy(async () => {
+			throw new HttpError(422);
+		}).use(s3ObjectResponse({ AwsClient: S3Client }));
+
+		await rejects(() => handler(errorEvent, defaultContext), {
+			statusCode: 422,
+		});
+		deepStrictEqual(writes(), [internalServerError]);
+	});
+
+	for (const statusCode of [
+		400, 401, 403, 404, 405, 409, 411, 412, 416, 500, 503,
+	]) {
+		test(`It should write an exposed ${statusCode} with its own status, name and message`, async (t) => {
+			const writes = mockWriteGetObjectResponse();
+			const error = new HttpError(statusCode, { expose: true });
+			const handler = middy(async () => {
+				throw error;
+			}).use(s3ObjectResponse({ AwsClient: S3Client }));
+
+			await rejects(
+				() => handler(errorEvent, defaultContext),
+				(e) => e === error,
+			);
+			deepStrictEqual(writes(), [
+				{
+					RequestRoute: "route",
+					RequestToken: "token",
+					StatusCode: statusCode,
+					ErrorCode: error.name,
+					ErrorMessage: error.message,
+				},
+			]);
+		});
+	}
+
+	for (const name of ["forbiddenError", "Forbidden_Error"]) {
+		test(`It should write a 500 for an exposed http error named ${name}`, async (t) => {
+			const writes = mockWriteGetObjectResponse();
+			const error = Object.assign(new HttpError(403), { name });
+			const handler = middy(async () => {
+				throw error;
+			}).use(s3ObjectResponse({ AwsClient: S3Client }));
+
+			await rejects(
+				() => handler(errorEvent, defaultContext),
+				(e) => e === error,
+			);
+			deepStrictEqual(writes(), [internalServerError]);
+		});
+	}
+
+	test("It should not write an error after the response itself failed to send", async (t) => {
+		const mockService = mockClient(S3Client);
+		const error = new Error("write failed");
+		mockService
+			.on(WriteGetObjectResponseCommand)
+			.rejectsOnce(error)
+			.resolves({});
+		const handler = middy(async () => ({ Body: "object" })).use(
+			s3ObjectResponse({ AwsClient: S3Client }),
 		);
 
-		const event = {};
-		const response = await handler(event, defaultContext);
-		strictEqual(response.statusCode, 200);
+		await rejects(
+			() => handler(errorEvent, defaultContext),
+			(e) => e === error,
+		);
+		strictEqual(
+			mockService.commandCalls(WriteGetObjectResponseCommand).length,
+			1,
+		);
+	});
+
+	test("It should not write an error for an event without getObjectContext", async (t) => {
+		const writes = mockWriteGetObjectResponse();
+		const error = new HttpError(403);
+		const handler = middy(async () => {
+			throw error;
+		}).use(s3ObjectResponse({ AwsClient: S3Client }));
+
+		await rejects(
+			() =>
+				handler(
+					{ headObjectContext: { inputS3Url: `${awsOrigin}/key?signature` } },
+					defaultContext,
+				),
+			(e) => e === error,
+		);
+		deepStrictEqual(writes(), []);
+	});
+
+	test("It should write its own 400 for a disallowed inputS3Url through WriteGetObjectResponse", async (t) => {
+		const writes = mockWriteGetObjectResponse();
+		const handler = middy(async () => ({ Body: "object" })).use(
+			s3ObjectResponse({ AwsClient: S3Client }),
+		);
+
+		await rejects(
+			() =>
+				handler(
+					{
+						getObjectContext: {
+							...errorEvent.getObjectContext,
+							inputS3Url: "https://evil.example/key?signature",
+						},
+					},
+					defaultContext,
+				),
+			{ statusCode: 400 },
+		);
+		deepStrictEqual(writes(), [
+			{
+				RequestRoute: "route",
+				RequestToken: "token",
+				StatusCode: 400,
+				ErrorCode: "BadRequestError",
+				ErrorMessage: "Bad Request",
+			},
+		]);
+	});
+
+	test("It should URL encode an error message that has consecutive spaces", async (t) => {
+		const writes = mockWriteGetObjectResponse();
+		const error = Object.assign(new HttpError(404), {
+			message: "my  file.txt",
+		});
+		const handler = middy(async () => {
+			throw error;
+		}).use(s3ObjectResponse({ AwsClient: S3Client }));
+
+		await rejects(
+			() => handler(errorEvent, defaultContext),
+			(e) => e === error,
+		);
+		strictEqual(writes()[0].ErrorMessage, "my%20%20file.txt");
+	});
+
+	test("It should write an exposed error that has no message without an ErrorMessage", async (t) => {
+		const writes = mockWriteGetObjectResponse();
+		const error = { expose: true, statusCode: 403, name: "Forbidden" };
+		const handler = middy(async () => {
+			throw error;
+		}).use(s3ObjectResponse({ AwsClient: S3Client }));
+
+		await rejects(
+			() => handler(errorEvent, defaultContext),
+			(e) => e === error,
+		);
+		const [write] = writes();
+		strictEqual(write.StatusCode, 403);
+		strictEqual(write.ErrorCode, "Forbidden");
+		strictEqual(write.ErrorMessage, undefined);
 	});
 
 	test("It should handle event with getObjectContext but no inputS3Url", async (t) => {
@@ -337,8 +566,8 @@ describe("@middy/s3-object-response", () => {
 
 		mockClient(S3Client)
 			.on(WriteGetObjectResponseCommand, {
-				RequestRoute: defaultEvent.outputRoute,
-				RequestToken: defaultEvent.outputToken,
+				RequestRoute: defaultEvent.getObjectContext.outputRoute,
+				RequestToken: defaultEvent.getObjectContext.outputToken,
 				Body: s3Data,
 			})
 			.rejectsOnce(invalidSignatureError)
@@ -676,6 +905,40 @@ describe("@middy/s3-object-response", () => {
 		deepStrictEqual(calls, [inputS3Url]);
 	};
 
+	for (const contextName of [
+		"headObjectContext",
+		"listObjectsContext",
+		"listObjectsV2Context",
+	]) {
+		test(`It should reject a ${contextName}.inputS3Url on a host outside allowedHosts before the handler runs`, async (t) => {
+			const calls = fetchSpy(t);
+			mockClient(S3Client);
+			let handled = false;
+			const handler = middy(async () => {
+				handled = true;
+				return { statusCode: 200 };
+			}).use(s3ObjectResponse({ AwsClient: S3Client }));
+
+			await rejects(
+				() =>
+					handler(
+						{
+							[contextName]: {
+								inputS3Url: "https://evil.example/key?signature",
+							},
+						},
+						defaultContext,
+					),
+				(e) =>
+					e.statusCode === 400 &&
+					e.cause.package === "@middy/s3-object-response" &&
+					e.cause.data.hostname === "evil.example",
+			);
+			strictEqual(handled, false);
+			deepStrictEqual(calls, []);
+		});
+	}
+
 	test("It should reject an http inputS3Url without fetching it", async (t) => {
 		await expectRejectedInputUrl(
 			t,
@@ -723,6 +986,233 @@ describe("@middy/s3-object-response", () => {
 			ok(false, "expected throw");
 		} catch (e) {
 			ok(e.message.includes("allowedHosts"));
+		}
+	});
+
+	const rejectsOptions = (options, message) => {
+		throws(() => s3ObjectResponseValidateOptions(options), {
+			name: "TypeError",
+			message,
+			cause: { package: "@middy/s3-object-response" },
+		});
+	};
+
+	test("s3ObjectResponseValidateOptions accepts the documented allowedHosts shapes", () => {
+		const options = {
+			allowedHosts: [
+				"*.s3-accesspoint.*.amazonaws.com",
+				".amazonaws.com",
+				"MinIO.Internal",
+				"bücher.example",
+				"xn--bcher-kva.example",
+				"h".repeat(255),
+			],
+		};
+		deepStrictEqual(s3ObjectResponseValidateOptions(options), options);
+		const many = {
+			allowedHosts: Array.from({ length: 1024 }, (_, i) => `h${i}`),
+		};
+		deepStrictEqual(s3ObjectResponseValidateOptions(many), many);
+	});
+
+	test("s3ObjectResponseValidateOptions rejects allowedHosts that are not hostnames", () => {
+		for (const [allowedHosts, message] of [
+			[
+				["a b"],
+				"Option 'allowedHosts[0]' must match pattern /^[\\p{L}\\p{M}\\p{N}_*.-]+$/u",
+			],
+			[
+				["minio.internal:9000"],
+				"Option 'allowedHosts[0]' must match pattern /^[\\p{L}\\p{M}\\p{N}_*.-]+$/u",
+			],
+			[
+				["minio.internal/bucket"],
+				"Option 'allowedHosts[0]' must match pattern /^[\\p{L}\\p{M}\\p{N}_*.-]+$/u",
+			],
+			[
+				["user@minio.internal"],
+				"Option 'allowedHosts[0]' must match pattern /^[\\p{L}\\p{M}\\p{N}_*.-]+$/u",
+			],
+			[
+				[""],
+				"Option 'allowedHosts[0]' must match pattern /^[\\p{L}\\p{M}\\p{N}_*.-]+$/u",
+			],
+			[["h".repeat(256)], "Option 'allowedHosts[0]' must have length <= 255"],
+			[["a.example", "a.example"], "Duplicate item at 'allowedHosts[1]'"],
+			[
+				Array.from({ length: 1025 }, (_, i) => `h${i}`),
+				"Option 'allowedHosts' must have <= 1024 items",
+			],
+		]) {
+			rejectsOptions({ allowedHosts }, message);
+		}
+	});
+
+	test("s3ObjectResponseValidateOptions accepts the S3Client keys beyond the shared client config", () => {
+		const fn = () => {};
+		class Instance {}
+		const awsClientOptions = {
+			region: "us-east-1",
+			bucketEndpoint: false,
+			checksumAlgorithms: {
+				CRC32: Instance,
+				CRC32C: Instance,
+				CRC64NVME: Instance,
+				SHA1: Instance,
+				SHA256: Instance,
+			},
+			clientContextParams: { disableS3ExpressSessionAuth: true },
+			disableMultiregionAccessPoints: true,
+			disableS3ExpressSessionAuth: false,
+			eventStreamSerdeProvider: fn,
+			expectContinueHeader: true,
+			followRegionRedirects: true,
+			forcePathStyle: true,
+			getAwsChunkedEncodingStream: fn,
+			md5: Instance,
+			requestChecksumCalculation: "WHEN_REQUIRED",
+			requestStreamBufferSize: 65536,
+			responseChecksumValidation: "WHEN_SUPPORTED",
+			s3ExpressIdentityProvider: new Instance(),
+			sdkStreamMixin: fn,
+			sha1: Instance,
+			sigv4aSigningRegionSet: ["us-east-1", "*"],
+			streamHasher: fn,
+			useAccelerateEndpoint: false,
+			useArnRegion: true,
+			useGlobalEndpoint: false,
+		};
+		deepStrictEqual(s3ObjectResponseValidateOptions({ awsClientOptions }), {
+			awsClientOptions,
+		});
+		for (const extra of [
+			{ clientContextParams: { disableS3ExpressSessionAuth: fn } },
+			{ clientContextParams: {} },
+			{ disableS3ExpressSessionAuth: fn },
+			{ expectContinueHeader: 0 },
+			{ expectContinueHeader: Number.MAX_SAFE_INTEGER },
+			{ requestChecksumCalculation: "WHEN_SUPPORTED" },
+			{ requestChecksumCalculation: fn },
+			{ requestStreamBufferSize: false },
+			{ requestStreamBufferSize: 8192 },
+			{ requestStreamBufferSize: Number.MAX_SAFE_INTEGER },
+			{ responseChecksumValidation: "WHEN_REQUIRED" },
+			{ responseChecksumValidation: fn },
+			{ sigv4aSigningRegionSet: fn },
+			{ sigv4aSigningRegionSet: ["a".repeat(63)] },
+			{ useArnRegion: fn },
+			{ useGlobalEndpoint: fn },
+		]) {
+			deepStrictEqual(
+				s3ObjectResponseValidateOptions({ awsClientOptions: extra }),
+				{
+					awsClientOptions: extra,
+				},
+			);
+		}
+	});
+
+	test("s3ObjectResponseValidateOptions rejects S3Client keys outside their SDK types", () => {
+		const oneOf = (key) =>
+			`Option 'awsClientOptions.${key}' must match exactly one schema in oneOf`;
+		for (const [awsClientOptions, message] of [
+			[{ maxRetries: 3 }, "Unknown option 'awsClientOptions.maxRetries'"],
+			[
+				{ checksumAlgorithms: { MD5: () => {} } },
+				"Unknown option 'awsClientOptions.checksumAlgorithms.MD5'",
+			],
+			[
+				{ clientContextParams: { forcePathStyle: true } },
+				"Unknown option 'awsClientOptions.clientContextParams.forcePathStyle'",
+			],
+			[
+				{ clientContextParams: { disableS3ExpressSessionAuth: "true" } },
+				"Option 'awsClientOptions.clientContextParams.disableS3ExpressSessionAuth' must match exactly one schema in oneOf",
+			],
+			[
+				{ s3ExpressIdentityProvider: "x" },
+				"Option 'awsClientOptions.s3ExpressIdentityProvider' must be instanceof Object",
+			],
+			[{ expectContinueHeader: -1 }, oneOf("expectContinueHeader")],
+			[{ expectContinueHeader: 1.5 }, oneOf("expectContinueHeader")],
+			[{ expectContinueHeader: "true" }, oneOf("expectContinueHeader")],
+			[
+				{ requestChecksumCalculation: "ALWAYS" },
+				oneOf("requestChecksumCalculation"),
+			],
+			[
+				{ responseChecksumValidation: "ALWAYS" },
+				oneOf("responseChecksumValidation"),
+			],
+			[{ requestStreamBufferSize: 8191 }, oneOf("requestStreamBufferSize")],
+			[{ requestStreamBufferSize: true }, oneOf("requestStreamBufferSize")],
+			[{ requestStreamBufferSize: 8192.5 }, oneOf("requestStreamBufferSize")],
+			[
+				{ sigv4aSigningRegionSet: ["us east"] },
+				oneOf("sigv4aSigningRegionSet"),
+			],
+			[
+				{ sigv4aSigningRegionSet: ["a".repeat(64)] },
+				oneOf("sigv4aSigningRegionSet"),
+			],
+			[{ sigv4aSigningRegionSet: ["*", "*"] }, oneOf("sigv4aSigningRegionSet")],
+			[{ sigv4aSigningRegionSet: "*" }, oneOf("sigv4aSigningRegionSet")],
+			[
+				{ disableS3ExpressSessionAuth: "true" },
+				oneOf("disableS3ExpressSessionAuth"),
+			],
+			[{ useArnRegion: "true" }, oneOf("useArnRegion")],
+			[{ useGlobalEndpoint: "true" }, oneOf("useGlobalEndpoint")],
+		]) {
+			rejectsOptions({ awsClientOptions }, message);
+		}
+		for (const key of [
+			"bucketEndpoint",
+			"disableMultiregionAccessPoints",
+			"followRegionRedirects",
+			"forcePathStyle",
+			"useAccelerateEndpoint",
+		]) {
+			rejectsOptions(
+				{ awsClientOptions: { [key]: "true" } },
+				`Option 'awsClientOptions.${key}' must be boolean`,
+			);
+		}
+		for (const key of [
+			"eventStreamSerdeProvider",
+			"getAwsChunkedEncodingStream",
+			"md5",
+			"sdkStreamMixin",
+			"sha1",
+			"streamHasher",
+		]) {
+			rejectsOptions(
+				{ awsClientOptions: { [key]: "x" } },
+				`Option 'awsClientOptions.${key}' must be instanceof Function`,
+			);
+		}
+		for (const key of ["CRC32", "CRC32C", "CRC64NVME", "SHA1", "SHA256"]) {
+			rejectsOptions(
+				{ awsClientOptions: { checksumAlgorithms: { [key]: "x" } } },
+				`Option 'awsClientOptions.checksumAlgorithms.${key}' must be instanceof Function`,
+			);
+		}
+	});
+
+	test("s3ObjectResponseValidateOptions bounds the string options", () => {
+		for (const key of ["awsClientAssumeRole", "contextKey"]) {
+			deepStrictEqual(
+				s3ObjectResponseValidateOptions({ [key]: "k".repeat(1024) }),
+				{ [key]: "k".repeat(1024) },
+			);
+			rejectsOptions(
+				{ [key]: "k".repeat(1025) },
+				`Option '${key}' must have length <= 1024`,
+			);
+			rejectsOptions(
+				{ [key]: "a b" },
+				`Option '${key}' must match pattern /^[\\x21-\\x7E]+$/u`,
+			);
 		}
 	});
 

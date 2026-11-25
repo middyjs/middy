@@ -1,4 +1,5 @@
 ---
+
 title: appconfig-extension
 description: "Fetch AWS AppConfig feature flags and configuration data via the AppConfig Lambda Extension."
 status: alpha
@@ -54,56 +55,56 @@ npm install --save @middy/appconfig-extension
 ## Sample usage (JSON configuration)
 
 ```javascript
-import middy from '@middy/core'
-import appConfigExtension from '@middy/appconfig-extension'
+import middy from "@middy/core";
+import appConfigExtension from "@middy/appconfig-extension";
 
 export const handler = middy()
-  .use(
-    appConfigExtension({
-      fetchData: {
-        config: {
-          application: 'my-app',
-          environment: 'production',
-          configuration: 'my-config'
-        }
-      }
-    })
-  )
-  .handler((event, context) => {
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: 'hello world' })
-    }
-  })
+	.use(
+		appConfigExtension({
+			fetchData: {
+				config: {
+					application: "my-app",
+					environment: "production",
+					configuration: "my-config",
+				},
+			},
+		}),
+	)
+	.handler((event, context) => {
+		return {
+			statusCode: 200,
+			body: JSON.stringify({ message: "hello world" }),
+		};
+	});
 ```
 
 ## Sample usage (feature flags)
 
 ```javascript
-import middy from '@middy/core'
-import appConfigExtension from '@middy/appconfig-extension'
+import middy from "@middy/core";
+import appConfigExtension from "@middy/appconfig-extension";
 
 export const handler = middy()
-  .use(
-    appConfigExtension({
-      fetchData: {
-        flags: {
-          application: 'my-app',
-          environment: 'production',
-          configuration: 'my-flags',
-          flag: ['featureA', 'featureB']
-        }
-      },
-      setToContext: true
-    })
-  )
-  .handler(async (event, context) => {
-    const { featureA } = context.middyContext['appconfig-extension'].flags
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ featureEnabled: featureA.enabled })
-    }
-  })
+	.use(
+		appConfigExtension({
+			fetchData: {
+				flags: {
+					application: "my-app",
+					environment: "production",
+					configuration: "my-flags",
+					flag: ["featureA", "featureB"],
+				},
+			},
+			setToContext: true,
+		}),
+	)
+	.handler(async (event, context) => {
+		const { featureA } = context.middyContext["appconfig-extension"].flags;
+		return {
+			statusCode: 200,
+			body: JSON.stringify({ featureEnabled: featureA.enabled }),
+		};
+	});
 ```
 
 ## Usage with TypeScript
@@ -111,38 +112,40 @@ export const handler = middy()
 Configuration values in AppConfig can be arbitrary structured data. By default fetched values have type `unknown`. Use `appConfigExtensionParam<T>()` to provide type hints:
 
 ```typescript
-import middy from '@middy/core'
-import { getInternal } from '@middy/util'
-import appConfigExtension, { appConfigExtensionParam } from '@middy/appconfig-extension'
+import middy from "@middy/core";
+import { getInternal } from "@middy/util";
+import appConfigExtension, {
+	appConfigExtensionParam,
+} from "@middy/appconfig-extension";
 
 interface MyConfig {
-  featureFlag: boolean
-  maxRetries: number
+	featureFlag: boolean;
+	maxRetries: number;
 }
 
 const lambdaHandler = (event, context) => {
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ message: 'hello world' })
-  }
-}
+	return {
+		statusCode: 200,
+		body: JSON.stringify({ message: "hello world" }),
+	};
+};
 
 export const handler = middy()
-  .use(
-    appConfigExtension({
-      fetchData: {
-        config: appConfigExtensionParam<MyConfig>({
-          application: 'my-app',
-          environment: 'production',
-          configuration: 'my-config'
-        })
-      }
-    })
-  )
-  .before(async (request) => {
-    const { config } = await getInternal('config', request)
-    // config.featureFlag (boolean)
-    // config.maxRetries (number)
-  })
-  .handler(lambdaHandler)
+	.use(
+		appConfigExtension({
+			fetchData: {
+				config: appConfigExtensionParam<MyConfig>({
+					application: "my-app",
+					environment: "production",
+					configuration: "my-config",
+				}),
+			},
+		}),
+	)
+	.before(async (request) => {
+		const { config } = await getInternal("config", request);
+		// config.featureFlag (boolean)
+		// config.maxRetries (number)
+	})
+	.handler(lambdaHandler);
 ```

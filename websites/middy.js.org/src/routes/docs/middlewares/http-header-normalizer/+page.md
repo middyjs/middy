@@ -1,4 +1,5 @@
 ---
+
 title: http-header-normalizer
 description: "Normalize HTTP header names to lowercase or canonical form for consistent access."
 ---
@@ -32,14 +33,14 @@ npm install --save @middy/http-header-normalizer
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import httpHeaderNormalizer from '@middy/http-header-normalizer'
+import middy from "@middy/core";
+import httpHeaderNormalizer from "@middy/http-header-normalizer";
 
 const lambdaHandler = (event, context) => {
-  return {}
-}
+	return {};
+};
 
 export const handler = middy()
-  .use(httpHeaderNormalizer())
-  .handler(lambdaHandler)
+	.use(httpHeaderNormalizer())
+	.handler(lambdaHandler);
 ```

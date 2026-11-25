@@ -8,13 +8,17 @@ const pkg = `@middy/${name}`;
 
 const mimePattern = /^application\/x-www-form-urlencoded(;.*)?$/i;
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:http-urlencode-body-parser:options",
 	type: "object",
 	properties: {
 		disableContentTypeCheck: { type: "boolean" },
 		disableContentTypeError: { type: "boolean" },
 		maxKeys: { type: "integer", minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const httpUrlencodeBodyParserValidateOptions = (options) =>

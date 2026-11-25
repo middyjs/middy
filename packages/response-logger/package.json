@@ -1,6 +1,6 @@
 {
 	"name": "@middy/response-logger",
-	"version": "8.0.0-alpha.2",
+	"version": "8.0.0-rc.0",
 	"description": "Response logger middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -62,10 +62,10 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "8.0.0-alpha.2"
+		"@middy/util": "8.0.0-rc.0"
 	},
 	"peerDependencies": {
-		"@middy/core": "8.0.0-alpha.2"
+		"@middy/core": "8.0.0-rc.0"
 	},
 	"peerDependenciesMeta": {
 		"@middy/core": {
@@ -73,8 +73,8 @@
 		}
 	},
 	"devDependencies": {
-		"@datastream/core": "0.7.1",
-		"@middy/core": "8.0.0-alpha.2",
+		"@datastream/core": "0.9.2",
+		"@middy/core": "8.0.0-rc.0",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^24.0.0"
 	}

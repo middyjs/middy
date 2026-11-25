@@ -1,7 +1,13 @@
-import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	ok,
+	rejects,
+	strictEqual,
+	throws,
+} from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
+import middy from "@middy/core";
 import { clearCache, getInternal } from "@middy/util";
-import middy from "../core/index.js";
 import dsqlSigner, { dsqlSignerValidateOptions } from "./index.js";
 
 describe("@middy/dsql-signer", () => {
@@ -515,6 +521,80 @@ describe("@middy/dsql-signer", () => {
 		strictEqual(getDbConnectAuthToken.mock.callCount(), 1);
 	});
 
+	test("It should keep awsClientOptions values when no env var or fetchData value replaces them", async (t) => {
+		const savedPGHOST = process.env.PGHOST;
+		delete process.env.PGHOST;
+		t.after(() => {
+			process.env.PGHOST = savedPGHOST;
+		});
+
+		const getDbConnectAdminAuthToken = t.mock.fn(
+			async () => "X-Amz-Security-Token=admin-token",
+		);
+		let receivedConfig;
+		class AwsClient {
+			constructor(config) {
+				receivedConfig = config;
+			}
+			getDbConnectAdminAuthToken = getDbConnectAdminAuthToken;
+		}
+		const handler = middy(() => {}).use(
+			dsqlSigner({
+				AwsClient,
+				awsClientOptions: {
+					region: "us-east-1",
+					hostname: "options.dsql.us-east-1.on.aws",
+					username: "admin",
+				},
+				cacheExpiry: 0,
+				fetchData: { token: {} },
+				disablePrefetch: true,
+			}),
+		);
+
+		await handler(defaultEvent, defaultContext);
+		deepStrictEqual(receivedConfig, {
+			region: "us-east-1",
+			hostname: "options.dsql.us-east-1.on.aws",
+		});
+		strictEqual(getDbConnectAdminAuthToken.mock.callCount(), 1);
+	});
+
+	test("It should rank fetchData over env vars over awsClientOptions", async (t) => {
+		process.env.PGUSER = "admin";
+		t.after(() => {
+			delete process.env.PGUSER;
+		});
+		const getDbConnectAuthToken = t.mock.fn(
+			async () => "X-Amz-Security-Token=role-token",
+		);
+		let receivedConfig;
+		class AwsClient {
+			constructor(config) {
+				receivedConfig = config;
+			}
+			getDbConnectAuthToken = getDbConnectAuthToken;
+		}
+		const handler = middy(() => {}).use(
+			dsqlSigner({
+				AwsClient,
+				awsClientOptions: {
+					hostname: "options.dsql.us-east-1.on.aws",
+					username: "options_role",
+				},
+				cacheExpiry: 0,
+				fetchData: { token: { username: "app_reader" } },
+				disablePrefetch: true,
+			}),
+		);
+
+		await handler(defaultEvent, defaultContext);
+		deepStrictEqual(receivedConfig, {
+			hostname: "cluster.dsql.us-east-1.on.aws",
+		});
+		strictEqual(getDbConnectAuthToken.mock.callCount(), 1);
+	});
+
 	test("It should prefer explicit fetchData values over env var defaults", async (t) => {
 		const getDbConnectAuthToken = t.mock.fn(
 			async () => "X-Amz-Security-Token=role-token",
@@ -626,6 +706,33 @@ describe("@middy/dsql-signer", () => {
 		} catch (e) {
 			ok(e instanceof TypeError);
 			strictEqual(e.cause.package, "@middy/dsql-signer");
+		}
+	});
+
+	test("dsqlSignerValidateOptions accepts a PrivateLink cluster hostname", () => {
+		dsqlSignerValidateOptions({
+			fetchData: {
+				token: {
+					hostname: "01abc2ldefg3hijklmnopqurstu.dsql-fnh4.us-east-1.on.aws",
+				},
+			},
+		});
+	});
+
+	test("dsqlSignerValidateOptions rejects a PrivateLink endpoint domain name as hostname", () => {
+		try {
+			dsqlSignerValidateOptions({
+				fetchData: {
+					token: {
+						hostname:
+							"vpce-04037adb76c111221-d849uc2p.dsql-fnh4.us-east-1.vpce.amazonaws.com",
+					},
+				},
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("fetchData.token.hostname"));
 		}
 	});
 
@@ -1011,5 +1118,185 @@ describe("@middy/dsql-signer", () => {
 			ok(e instanceof TypeError);
 			ok(e.message.includes("cacheMaxSize"));
 		}
+	});
+});
+
+describe("dsqlSignerValidateOptions signer options", () => {
+	const fn = () => {};
+	const signer = {
+		region: "us-east-1",
+		hostname: "cluster.dsql.us-east-1.on.aws",
+		username: "admin",
+	};
+	const rejectsOption = (options, message) =>
+		throws(() => dsqlSignerValidateOptions(options), {
+			name: "TypeError",
+			message,
+			cause: { package: "@middy/dsql-signer" },
+		});
+	// Each entry is checked both as a fetchData entry and as awsClientOptions,
+	// which is merged into every entry before the DsqlSigner is built.
+	const bothWays = (entry, check) => {
+		check({ fetchData: { token: entry } }, "fetchData.token");
+		check({ awsClientOptions: entry }, "awsClientOptions");
+	};
+
+	test("accepts every key of the DsqlSigner configuration and username", () => {
+		for (const entry of [
+			{},
+			signer,
+			{
+				hostname: "01abc2ldefg3hijklmnopqurstu.dsql-fnh4.us-gov-west-1.on.aws",
+				username: "x".repeat(63),
+			},
+			{ expiresIn: 1 },
+			{ expiresIn: 900 },
+			{ expiresIn: 604800 },
+			{ region: fn, profile: "prod", sha256: class {} },
+			{ credentials: fn },
+			{
+				credentials: {
+					accessKeyId: "AKIAIOSFODNN7EXAMPLE",
+					secretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+				},
+			},
+		]) {
+			bothWays(entry, (options) => dsqlSignerValidateOptions(options));
+		}
+	});
+
+	test("rejects a key the DsqlSigner does not read", () => {
+		bothWays({ ...signer, port: 5432 }, (options, path) =>
+			rejectsOption(options, `Unknown option '${path}.port'`),
+		);
+	});
+
+	test("rejects an expiresIn outside one second to one week", () => {
+		bothWays({ expiresIn: 0 }, (options, path) =>
+			rejectsOption(options, `Option '${path}.expiresIn' must be >= 1`),
+		);
+		bothWays({ expiresIn: 604801 }, (options, path) =>
+			rejectsOption(options, `Option '${path}.expiresIn' must be <= 604800`),
+		);
+		bothWays({ expiresIn: 1.5 }, (options, path) =>
+			rejectsOption(options, `Option '${path}.expiresIn' must be integer`),
+		);
+	});
+
+	test("rejects a hostname that is not a DSQL cluster endpoint", () => {
+		const suffix = ".dsql.us-east-1.on.aws";
+		bothWays(
+			{ hostname: `${"a".repeat(253 - suffix.length)}${suffix}` },
+			(options) => dsqlSignerValidateOptions(options),
+		);
+		const pattern =
+			"/^[a-z0-9]+\\.dsql(-[a-z0-9]+)?\\.[a-z]{2}-[a-z]+(-[a-z]+)?-\\d+\\.on\\.aws$/u";
+		for (const [hostname, rule] of [
+			[`${"a".repeat(254 - suffix.length)}${suffix}`, "have length <= 253"],
+			["cluster-id.dsql.us-east-1.on.aws", `match pattern ${pattern}`],
+			["cluster.dsql.us-east-1.on.aws.example.com", `match pattern ${pattern}`],
+		]) {
+			bothWays({ hostname }, (options, path) =>
+				rejectsOption(options, `Option '${path}.hostname' must ${rule}`),
+			);
+		}
+	});
+
+	test("rejects a username that is not a role name", () => {
+		bothWays({ username: "x".repeat(64) }, (options, path) =>
+			rejectsOption(
+				options,
+				`Option '${path}.username' must have length <= 63`,
+			),
+		);
+		bothWays({ username: "app\treader" }, (options, path) =>
+			rejectsOption(
+				options,
+				`Option '${path}.username' must match pattern /^[\\p{L}\\p{N}\\p{P}\\p{S} ]+$/u`,
+			),
+		);
+	});
+
+	test("rejects credentials, region, profile or sha256 the SDK cannot use", () => {
+		for (const [entry, key] of [
+			[{ credentials: "AKIA" }, "credentials"],
+			[{ region: "us east 1" }, "region"],
+		]) {
+			bothWays(entry, (options, path) =>
+				rejectsOption(
+					options,
+					`Option '${path}.${key}' must match exactly one schema in oneOf`,
+				),
+			);
+		}
+		bothWays({ profile: "my profile" }, (options, path) =>
+			rejectsOption(
+				options,
+				`Option '${path}.profile' must match pattern /^[\\x21-\\x7E]+$/u`,
+			),
+		);
+		bothWays({ sha256: "sha256" }, (options, path) =>
+			rejectsOption(
+				options,
+				`Option '${path}.sha256' must be instanceof Function`,
+			),
+		);
+	});
+
+	test("rejects a fetchData key that is blank, or too many of them", () => {
+		dsqlSignerValidateOptions({ fetchData: { "@middy/x": {} } });
+		for (const key of ["dsql token", ""]) {
+			rejectsOption(
+				{ fetchData: { [key]: {} } },
+				`Invalid property name '${key}' in option 'fetchData': Option 'fetchData.${key}' must match pattern /^[\\x21-\\x7E]+$/u`,
+			);
+		}
+		rejectsOption(
+			{ fetchData: { ["x".repeat(1025)]: {} } },
+			`Invalid property name '${"x".repeat(1025)}' in option 'fetchData': Option 'fetchData.${"x".repeat(1025)}' must have length <= 1024`,
+		);
+		rejectsOption(
+			{
+				fetchData: Object.fromEntries(
+					Array.from({ length: 1025 }, (_, i) => [`token${i}`, {}]),
+				),
+			},
+			"Option 'fetchData' must have <= 1024 properties",
+		);
+	});
+
+	test("accepts the context options and cache options", () => {
+		dsqlSignerValidateOptions({
+			AwsClient: class {},
+			setToContext: true,
+			contextKey: "dsql-signer",
+			disablePrefetch: true,
+			cacheKey: "@middy/dsql-signer",
+			cacheKeyExpiry: { "@middy/dsql-signer": -1 },
+			cacheExpiry: 840_000,
+			cacheMaxSize: 128,
+		});
+	});
+
+	test("rejects a non-function AwsClient, or a context key that is blank or over-long", () => {
+		rejectsOption(
+			{ AwsClient: {} },
+			"Option 'AwsClient' must be instanceof Function",
+		);
+		rejectsOption(
+			{ setToContext: "yes" },
+			"Option 'setToContext' must be boolean",
+		);
+		dsqlSignerValidateOptions({ contextKey: "@middy/x" });
+		for (const contextKey of ["dsql signer", ""]) {
+			rejectsOption(
+				{ contextKey },
+				"Option 'contextKey' must match pattern /^[\\x21-\\x7E]+$/u",
+			);
+		}
+		rejectsOption(
+			{ contextKey: "x".repeat(1025) },
+			"Option 'contextKey' must have length <= 1024",
+		);
 	});
 });

@@ -1,4 +1,5 @@
 ---
+
 title: Bundling Lambda packages
 description: "Bundle AWS SDK and dependencies with your Lambda for faster cold starts and reliability."
 ---
@@ -29,17 +30,17 @@ node_modules/.bin/tsc
 
 ```json
 {
-  "compilerOptions": {
-    "esModuleInterop": true,
-    "preserveConstEnums": true,
-    "strictNullChecks": true,
-    "allowJs": false,
-    "target": "es2021",
-    "typeRoots": ["node_modules/@types"],
-    "resolveJsonModule": true,
-    "module": "nodenext",
-    "moduleResolution": "nodenext"
-  }
+	"compilerOptions": {
+		"esModuleInterop": true,
+		"preserveConstEnums": true,
+		"strictNullChecks": true,
+		"allowJs": false,
+		"target": "es2021",
+		"typeRoots": ["node_modules/@types"],
+		"resolveJsonModule": true,
+		"module": "nodenext",
+		"moduleResolution": "nodenext"
+	}
 }
 ```
 
@@ -69,35 +70,35 @@ node_modules/.bin/rollup --config
 #### rollup.config.mjs
 
 ```javascript
-import { nodeResolve } from '@rollup/plugin-node-resolve'
-import commonjs from '@rollup/plugin-commonjs'
+import { nodeResolve } from "@rollup/plugin-node-resolve";
+import commonjs from "@rollup/plugin-commonjs";
 
-const plugins = [nodeResolve({ preferBuiltins: true }), commonjs()]
+const plugins = [nodeResolve({ preferBuiltins: true }), commonjs()];
 
 export default (input) => ({
-  input: 'index.js',
-  output: {
-    file: 'index.bundle.rollup.mjs',
-    format: 'es' // cjs, es
-  },
-  plugins,
-  external: [
-    // AWS SDK: only when using the SDK provided by the Lambda runtime instead of bundling it
-    '@aws-sdk/client-apigatewaymanagementapi', // @middy/ws-response
-    '@aws-sdk/client-appconfigdata', // @middy/appconfig
-    '@aws-sdk/client-dynamodb', // @middy/dynamodb
-    '@aws-sdk/util-dynamodb', // @middy/dynamodb
-    '@aws-sdk/client-glue', // @middy/glue-schema-registry
-    '@aws-sdk/client-kms', // @middy/kms
-    '@aws-sdk/dsql-signer', // @middy/dsql-signer
-    '@aws-sdk/rds-signer', // @middy/rds-signer
-    '@aws-sdk/client-s3', // @middy/s3 @middy/s3-object-response
-    '@aws-sdk/client-secrets-manager', // @middy/secrets-manager
-    '@aws-sdk/client-servicediscovery', // @middy/service-discovery
-    '@aws-sdk/client-ssm', // @middy/ssm
-    '@aws-sdk/client-sts' // @middy/sts
-  ]
-})
+	input: "index.js",
+	output: {
+		file: "index.bundle.rollup.mjs",
+		format: "es", // cjs, es
+	},
+	plugins,
+	external: [
+		// AWS SDK: only when using the SDK provided by the Lambda runtime instead of bundling it
+		"@aws-sdk/client-apigatewaymanagementapi", // @middy/ws-response
+		"@aws-sdk/client-appconfigdata", // @middy/appconfig
+		"@aws-sdk/client-dynamodb", // @middy/dynamodb
+		"@aws-sdk/util-dynamodb", // @middy/dynamodb
+		"@aws-sdk/client-glue", // @middy/glue-schema-registry
+		"@aws-sdk/client-kms", // @middy/kms
+		"@aws-sdk/dsql-signer", // @middy/dsql-signer
+		"@aws-sdk/rds-signer", // @middy/rds-signer
+		"@aws-sdk/client-s3", // @middy/s3 @middy/s3-object-response
+		"@aws-sdk/client-secrets-manager", // @middy/secrets-manager
+		"@aws-sdk/client-servicediscovery", // @middy/service-discovery
+		"@aws-sdk/client-ssm", // @middy/ssm
+		"@aws-sdk/client-sts", // @middy/sts
+	],
+});
 ```
 
 ### swc/pack
@@ -122,45 +123,45 @@ node_modules/.bin/webpack
 #### webpack.config.mjs
 
 ```javascript
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export default {
-  mode: 'development',
-  entry: './index.js',
-  output: {
-    filename: 'index.bundle.webpack.mjs',
-    path: __dirname
-  },
-  experiments: {
-    outputModule: true
-  },
-  externals: [
-    // NodeJS modules
-    'events', // @middy/core
-    'https', // @middy/s3-object-response
-    'stream', // @middy/http-content-encoding @middy/s3-object-response
-    'util', // @middy/http-content-encoding
-    'zlib', // @middy/http-content-encoding
-    // AWS SDK: only when using the SDK provided by the Lambda runtime instead of bundling it
-    '@aws-sdk/client-apigatewaymanagementapi', // @middy/ws-response
-    '@aws-sdk/client-appconfigdata', // @middy/appconfig
-    '@aws-sdk/client-dynamodb', // @middy/dynamodb
-    '@aws-sdk/util-dynamodb', // @middy/dynamodb
-    '@aws-sdk/client-glue', // @middy/glue-schema-registry
-    '@aws-sdk/client-kms', // @middy/kms
-    '@aws-sdk/dsql-signer', // @middy/dsql-signer
-    '@aws-sdk/rds-signer', // @middy/rds-signer
-    '@aws-sdk/client-s3', // @middy/s3 @middy/s3-object-response
-    '@aws-sdk/client-secrets-manager', // @middy/secrets-manager
-    '@aws-sdk/client-servicediscovery', // @middy/service-discovery
-    '@aws-sdk/client-ssm', // @middy/ssm
-    '@aws-sdk/client-sts' // @middy/sts
-  ]
-}
+	mode: "development",
+	entry: "./index.js",
+	output: {
+		filename: "index.bundle.webpack.mjs",
+		path: __dirname,
+	},
+	experiments: {
+		outputModule: true,
+	},
+	externals: [
+		// NodeJS modules
+		"events", // @middy/core
+		"https", // @middy/s3-object-response
+		"stream", // @middy/http-content-encoding @middy/s3-object-response
+		"util", // @middy/http-content-encoding
+		"zlib", // @middy/http-content-encoding
+		// AWS SDK: only when using the SDK provided by the Lambda runtime instead of bundling it
+		"@aws-sdk/client-apigatewaymanagementapi", // @middy/ws-response
+		"@aws-sdk/client-appconfigdata", // @middy/appconfig
+		"@aws-sdk/client-dynamodb", // @middy/dynamodb
+		"@aws-sdk/util-dynamodb", // @middy/dynamodb
+		"@aws-sdk/client-glue", // @middy/glue-schema-registry
+		"@aws-sdk/client-kms", // @middy/kms
+		"@aws-sdk/dsql-signer", // @middy/dsql-signer
+		"@aws-sdk/rds-signer", // @middy/rds-signer
+		"@aws-sdk/client-s3", // @middy/s3 @middy/s3-object-response
+		"@aws-sdk/client-secrets-manager", // @middy/secrets-manager
+		"@aws-sdk/client-servicediscovery", // @middy/service-discovery
+		"@aws-sdk/client-ssm", // @middy/ssm
+		"@aws-sdk/client-sts", // @middy/sts
+	],
+};
 ```
 
 ## Transpilers
@@ -176,17 +177,17 @@ node_modules/.bin/babel index.js --out-file index.transpile.babel.mjs
 
 ```json
 {
-  "presets": [
-    [
-      "@babel/preset-env",
-      {
-        "targets": {
-          "node": "24"
-        },
-        "modules": false
-      }
-    ]
-  ]
+	"presets": [
+		[
+			"@babel/preset-env",
+			{
+				"targets": {
+					"node": "24"
+				},
+				"modules": false
+			}
+		]
+	]
 }
 ```
 
@@ -208,14 +209,14 @@ node_modules/.bin/swc index.js --out-file index.transpile.swc.mjs
 
 ```json
 {
-  "jsc": {
-    "parser": {
-      "syntax": "ecmascript"
-    },
-    "target": "es2021"
-  },
-  "module": {
-    "type": "es6"
-  }
+	"jsc": {
+		"parser": {
+			"syntax": "ecmascript"
+		},
+		"target": "es2021"
+	},
+	"module": {
+		"type": "es6"
+	}
 }
 ```

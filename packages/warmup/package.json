@@ -1,6 +1,6 @@
 {
 	"name": "@middy/warmup",
-	"version": "8.0.0-alpha.2",
+	"version": "8.0.0-rc.0",
 	"description": "Warmup (cold start mitigation) middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -63,10 +63,10 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "8.0.0-alpha.2"
+		"@middy/util": "8.0.0-rc.0"
 	},
 	"peerDependencies": {
-		"@middy/core": "8.0.0-alpha.2"
+		"@middy/core": "8.0.0-rc.0"
 	},
 	"peerDependenciesMeta": {
 		"@middy/core": {
@@ -74,7 +74,7 @@
 		}
 	},
 	"devDependencies": {
-		"@middy/core": "8.0.0-alpha.2",
+		"@middy/core": "8.0.0-rc.0",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^24.0.0"
 	}

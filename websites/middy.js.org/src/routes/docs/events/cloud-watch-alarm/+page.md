@@ -1,4 +1,5 @@
 ---
+
 title: CloudWatch Alarm
 description: "Use Middy with CloudWatch Alarm Lambda events for automated alerting."
 ---
@@ -43,9 +44,9 @@ Every hop through SNS, SQS, EventBridge, or EventBridge Pipes wraps the event La
 ## Example
 
 ```javascript
-import middy from '@middy/core'
+import middy from "@middy/core";
 
 export const handler = middy().handler((event, context, { signal }) => {
-  // ...
-})
+	// ...
+});
 ```

@@ -1,4 +1,5 @@
 ---
+
 title: ws-json-body-parser
 description: "Parse WebSocket request bodies as JSON automatically in API Gateway WebSocket handlers."
 ---
@@ -33,16 +34,16 @@ npm install --save @middy/ws-json-body-parser
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import wsJsonBodyParserMiddleware from '@middy/ws-json-body-parser'
-import wsResponseMiddleware from '@middy/ws-response'
+import middy from "@middy/core";
+import wsJsonBodyParserMiddleware from "@middy/ws-json-body-parser";
+import wsResponseMiddleware from "@middy/ws-response";
 
 const lambdaHandler = (event) => {
-  return event.body.message
-}
+	return event.body.message;
+};
 
 export const handler = middy()
-  .use(wsJsonBodyParserMiddleware())
-  .use(wsResponseMiddleware())
-  .handler(lambdaHandler)
+	.use(wsJsonBodyParserMiddleware())
+	.use(wsResponseMiddleware())
+	.handler(lambdaHandler);
 ```

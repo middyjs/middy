@@ -105,6 +105,20 @@ test("contextKey literal narrows middyContext without as const", () => {
 		});
 });
 
+test("fetchData entries may leave hostname and username to the environment", () => {
+	expect(dsqlSigner).type.toBeCallableWith({ fetchData: { foo: {} } });
+	expect(dsqlSigner).type.toBeCallableWith({
+		fetchData: { foo: { region: "ca-central-1", expiresIn: 900 } },
+	});
+	expect<indexModule.DsqlSignerFetchConfig>().type.toBeAssignableFrom({
+		hostname: "cluster.dsql.ca-central-1.on.aws",
+		username: "admin",
+	});
+	expect(dsqlSigner).type.not.toBeCallableWith({
+		fetchData: { foo: { hostname: 1 } },
+	});
+});
+
 test("rejects misspelled option alongside fetchData", () => {
 	expect(dsqlSigner).type.not.toBeCallableWith({
 		fetchData: {

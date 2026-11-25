@@ -9,7 +9,7 @@ on:
       - main
 
 env:
-  NODE_VERSION: 24.x
+  NODE_VERSION: 24.22.3
   DOMAIN_NAME: middy.js.org
 
 permissions:
@@ -27,7 +27,7 @@ jobs:
 
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: block
           disable-sudo: true
@@ -55,7 +55,7 @@ jobs:
       #   registry.npmjs.org:443
       #   release-assets.githubusercontent.com:443
       - name: Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           registry-url: "https://registry.npmjs.org"
@@ -75,7 +75,7 @@ jobs:
       - name: Install dependencies
         if: ${{ env.prerelease == 'false' }}
         run: |
-          npm ci --ignore-scripts --workspace websites/${{ env.DOMAIN_NAME }}
+          npm ci --ignore-scripts --workspace "websites/${DOMAIN_NAME}"
       # allowed-endpoints: >
       #   registry.npmjs.org:443
       - name: Build website
@@ -90,12 +90,10 @@ jobs:
       #   workers.cloudflare.com:443
       - name: Publish website
         if: ${{ env.prerelease == 'false' }}
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        working-directory: websites/${{ env.DOMAIN_NAME }}
         env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           WRANGLER_SEND_METRICS: "false"
-        with:
-          workingDirectory: websites/${{ env.DOMAIN_NAME }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          command: |
-            pages deploy
+        run: |
+          npm run release:deploy

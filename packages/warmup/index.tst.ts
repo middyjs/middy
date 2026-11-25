@@ -18,8 +18,17 @@ test("use with all options", () => {
 
 test("Options type", () => {
 	expect<Options>().type.toBeAssignableTo<{
-		isWarmingUp?: (event: unknown) => boolean;
+		isWarmingUp?: (event: unknown) => boolean | PromiseLike<boolean>;
 	}>();
+});
+
+test("isWarmingUp may be async", () => {
+	expect(warmup).type.toBeCallableWith({ isWarmingUp: async () => true });
+	expect(warmup).type.toBeCallableWith({
+		isWarmingUp: (event: unknown) => Promise.resolve(event === "warmup"),
+	});
+	expect(warmup).type.not.toBeCallableWith({ isWarmingUp: async () => "yes" });
+	expect(warmup).type.not.toBeCallableWith({ isWarmingUp: () => "yes" });
 });
 
 test("warmupValidateOptions accepts typed options and returns them", () => {

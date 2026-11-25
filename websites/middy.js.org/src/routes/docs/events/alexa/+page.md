@@ -1,4 +1,5 @@
 ---
+
 title: Alexa
 description: "Use Middy with Alexa Skills Kit Lambda triggers for voice application development."
 ---
@@ -14,14 +15,15 @@ import Callout from '@willfarrell-ds/svelte/components/Callout.svelte'
 
 
 ## AWS Documentation
+
 - [Using AWS Lambda with Alexa](https://docs.aws.amazon.com/lambda/latest/dg/services-alexa.html)
 
 ## Example
-```javascript
-import middy from '@middy/core'
 
-export const handler = middy()
-  .handler((event, context, {signal}) => {
-    // ...
-  })
+```javascript
+import middy from "@middy/core";
+
+export const handler = middy().handler((event, context, { signal }) => {
+	// ...
+});
 ```

@@ -35,9 +35,16 @@ export const executionModeStreamifyResponse = (
 				let handlerBody = handlerResponse ?? "";
 				let prelude;
 				if (handlerResponse?.statusCode) {
-					const { body, ...restResponse } = handlerResponse;
+					const { body, isBase64Encoded, ...restResponse } = handlerResponse;
 					handlerBody = body ?? ""; // #1137
 					prelude = restResponse;
+					// The prelude supports only `statusCode`, `headers`,
+					// `multiValueHeaders` and `cookies`, and the payload reaches the
+					// client exactly as it is written.
+					// https://docs.aws.amazon.com/apigateway/latest/developerguide/response-transfer-mode-lambda.html#response-transfer-mode-lambda-format
+					if (isBase64Encoded === true && typeof handlerBody === "string") {
+						handlerBody = Buffer.from(handlerBody, "base64");
+					}
 				}
 				// Classify the body before any byte goes out: the prelude commits
 				// the status to the client, so an invalid body must throw first.
@@ -97,6 +104,8 @@ export const executionModeStreamifyResponse = (
 	return middy;
 };
 
+const isHighSurrogate = (code) => code >= 0xd800 && code <= 0xdbff;
+
 // #1189 Streams the string body directly into the AWS Lambda response stream,
 // bypassing Readable.from + pipeline. One write per chunk, respecting
 // backpressure via `drain`. A body up to one chunk is a single write (V8 hands
@@ -108,7 +117,10 @@ const writeString = async (stream, body) => {
 	let position = 0;
 	const length = body.length;
 	do {
-		const next = position + chunkSize;
+		let next = position + chunkSize;
+		// The stream encodes each write to UTF-8 on its own, so a cut between the
+		// two halves of a surrogate pair would send both as U+FFFD.
+		if (isHighSurrogate(body.charCodeAt(next - 1))) next += 1;
 		const ok = stream.write(body.substring(position, next));
 		position = next;
 		if (!ok && position < length) {

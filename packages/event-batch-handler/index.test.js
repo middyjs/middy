@@ -6,7 +6,7 @@ import {
 } from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import middy from "../core/index.js";
+import middy from "@middy/core";
 import eventBatchResponse from "../event-batch-response/index.js";
 import eventBatchHandler, {
 	eventBatchHandlerValidateOptions,
@@ -25,6 +25,10 @@ const sqsEvent = (...records) => ({
 });
 
 describe("@middy/event-batch-handler", () => {
+	test.beforeEach((t) => {
+		t.mock.method(console, "error", () => {});
+	});
+
 	test("walks event.Records[] (SQS / Kinesis / DynamoDB)", async () => {
 		const handler = eventBatchHandler((record) => record.id);
 		const result = await handler(
@@ -209,6 +213,71 @@ describe("@middy/event-batch-handler", () => {
 		});
 	});
 
+	const streamEvent = (eventSource, ...records) => ({
+		Records: records.map((record) => ({ eventSource, ...record })),
+	});
+	const streamSources = ["aws:kinesis", "aws:dynamodb"];
+
+	for (const eventSource of streamSources) {
+		test(`${eventSource}: records run one at a time in order and stop at the first failure`, async () => {
+			const events = [];
+			const error = new Error("boom");
+			const handler = eventBatchHandler(async (record) => {
+				events.push(`start-${record.id}`);
+				await new Promise((resolve) => setTimeout(resolve, 4 - record.id));
+				events.push(`end-${record.id}`);
+				if (record.fail) throw error;
+				return record.id;
+			});
+
+			const result = await handler(
+				streamEvent(
+					eventSource,
+					{ id: 1 },
+					{ id: 2, fail: true },
+					{ id: 3 },
+					{ id: 4 },
+				),
+				defaultContext,
+			);
+			deepStrictEqual(events, ["start-1", "end-1", "start-2", "end-2"]);
+			deepStrictEqual(
+				result.map((r) => r.status),
+				["fulfilled", "rejected", "rejected", "rejected"],
+			);
+			strictEqual(result[0].value, 1);
+			strictEqual(result[1].reason, error);
+			strictEqual(
+				result[2].reason.message,
+				"Unprocessed: an earlier stream record failed",
+			);
+			strictEqual(result[3].reason, result[2].reason);
+		});
+	}
+
+	test("aws:kinesis: integrates with event-batch-response (failed + unprocessed reported)", async () => {
+		const lambda = middy()
+			.use(eventBatchResponse())
+			.handler(
+				eventBatchHandler((record) => {
+					if (record.fail) throw new Error("boom");
+					return record.id;
+				}),
+			);
+		const response = await lambda(
+			streamEvent(
+				"aws:kinesis",
+				{ kinesis: { sequenceNumber: "1" }, id: 1 },
+				{ kinesis: { sequenceNumber: "2" }, id: 2, fail: true },
+				{ kinesis: { sequenceNumber: "3" }, id: 3 },
+			),
+			defaultContext,
+		);
+		deepStrictEqual(response, {
+			batchItemFailures: [{ itemIdentifier: "2" }, { itemIdentifier: "3" }],
+		});
+	});
+
 	// Records that @middy/event-batch-parser failed to parse carry their error
 	// under this key.
 	const parseErrorKey = Symbol.for("@middy/event-batch-parser/error");
@@ -285,22 +354,21 @@ describe("@middy/event-batch-handler", () => {
 		constructor() {
 			this.getRemainingTimeInMillis = () => 1000;
 			this.stepCalls = [];
+			this.childContextCalls = [];
 		}
 		async step(id, fn) {
 			this.stepCalls.push(id);
-			// Mirror the SDK: each step's callback receives a per-step child
-			// context. We model it as a distinct object that still exposes
-			// `step`/`map`-shaped methods so the user can nest sub-steps.
-			const stepCtx = Object.create(this);
-			stepCtx.parentStepId = id;
-			return fn(stepCtx);
+			return fn({ logger: console, attempt: 1 });
 		}
-		async runInChildContext(_id, fn) {
-			return fn(Object.create(this));
+		async runInChildContext(id, fn) {
+			this.childContextCalls.push(id);
+			const childContext = Object.create(this);
+			childContext.parentId = id;
+			return fn(childContext);
 		}
 	}
 
-	test("durable context: each record runs in its own ctx.step keyed by index", async () => {
+	test("durable context: each record runs in its own child context keyed by index", async () => {
 		const ctx = new DurableContextImpl();
 		const handler = eventBatchHandler(async (record) => record.id * 2);
 
@@ -314,16 +382,20 @@ describe("@middy/event-batch-handler", () => {
 			{ status: "fulfilled", value: 4 },
 			{ status: "fulfilled", value: 6 },
 		]);
-		deepStrictEqual(ctx.stepCalls, ["record-0", "record-1", "record-2"]);
+		deepStrictEqual(ctx.childContextCalls, [
+			"record-0",
+			"record-1",
+			"record-2",
+		]);
+		deepStrictEqual(ctx.stepCalls, []);
 	});
 
-	test("durable context: a synchronous throw from context.step is settled then propagated", async () => {
+	test("durable context: a synchronous throw from context.runInChildContext is settled then propagated", async () => {
 		const ctx = new DurableContextImpl();
-		const error = new Error("step-sync-throw");
-		// context.step itself throwing synchronously (not the record handler) must be
-		// caught and settled as a rejection (so every record's step is still
-		// attempted) rather than escaping Promise.allSettled as a raw sync throw.
-		ctx.step = () => {
+		const error = new Error("child-context-sync-throw");
+		const attempted = [];
+		ctx.runInChildContext = (id) => {
+			attempted.push(id);
 			throw error;
 		};
 		const handler = eventBatchHandler(async (record) => record.id);
@@ -335,6 +407,7 @@ describe("@middy/event-batch-handler", () => {
 			caught = e;
 		}
 		strictEqual(caught, error);
+		deepStrictEqual(attempted, ["record-0", "record-1"]);
 	});
 
 	test("durable context: per-record throws propagate (rethrown after Promise.allSettled)", async () => {
@@ -354,7 +427,7 @@ describe("@middy/event-batch-handler", () => {
 		strictEqual(caught, error);
 	});
 
-	test("durable context + FIFO SQS: stops stepping at the first failure", async () => {
+	test("durable context + FIFO SQS: stops running records at the first failure", async () => {
 		const ctx = new DurableContextImpl();
 		const error = new Error("nope");
 		const handler = eventBatchHandler(async (record) => {
@@ -372,7 +445,30 @@ describe("@middy/event-batch-handler", () => {
 			caught = e;
 		}
 		strictEqual(caught, error);
-		deepStrictEqual(ctx.stepCalls, ["record-0", "record-1"]);
+		deepStrictEqual(ctx.childContextCalls, ["record-0", "record-1"]);
+	});
+
+	test("durable context + aws:dynamodb: stops running records at the first failure", async () => {
+		const ctx = new DurableContextImpl();
+		const error = new Error("nope");
+		const handler = eventBatchHandler(async (record) => {
+			if (record.fail) throw error;
+			return record.id;
+		});
+
+		await rejects(
+			handler(
+				streamEvent(
+					"aws:dynamodb",
+					{ id: 1 },
+					{ id: 2, fail: true },
+					{ id: 3 },
+				),
+				ctx,
+			),
+			error,
+		);
+		deepStrictEqual(ctx.childContextCalls, ["record-0", "record-1"]);
 	});
 
 	test("durable context + FIFO SQS: all records succeed in order", async () => {
@@ -385,10 +481,7 @@ describe("@middy/event-batch-handler", () => {
 		]);
 	});
 
-	// A parse error never ran a step, so durable has no retry for it and a
-	// replay fails it the same way: it is reported per record instead of
-	// failing the invocation (which would redeliver the batch forever).
-	test("durable context: a record carrying a parse error is not stepped and is returned as a rejection", async () => {
+	test("durable context: a record carrying a parse error is not run and is returned as a rejection", async () => {
 		const ctx = new DurableContextImpl();
 		const error = new Error("unparseable");
 		const handler = eventBatchHandler(async (record) => record.id);
@@ -400,10 +493,10 @@ describe("@middy/event-batch-handler", () => {
 			{ status: "fulfilled", value: 1 },
 			{ status: "rejected", reason: error },
 		]);
-		deepStrictEqual(ctx.stepCalls, ["record-0"]);
+		deepStrictEqual(ctx.childContextCalls, ["record-0"]);
 	});
 
-	test("durable context: a step failure still propagates when another record has a parse error", async () => {
+	test("durable context: a record failure still propagates when another record has a parse error", async () => {
 		const ctx = new DurableContextImpl();
 		const stepError = new Error("step-exhausted");
 		const handler = eventBatchHandler(async (record) => {
@@ -422,7 +515,7 @@ describe("@middy/event-batch-handler", () => {
 		strictEqual(caught, stepError);
 	});
 
-	test("durable context + FIFO SQS: a parse error stops stepping and the rest are returned unprocessed", async () => {
+	test("durable context + FIFO SQS: a parse error stops the batch and the rest are returned unprocessed", async () => {
 		const ctx = new DurableContextImpl();
 		const error = new Error("unparseable");
 		const handler = eventBatchHandler(async (record) => record.id);
@@ -439,7 +532,7 @@ describe("@middy/event-batch-handler", () => {
 			result[2].reason.message,
 			"Unprocessed: an earlier FIFO record failed",
 		);
-		deepStrictEqual(ctx.stepCalls, ["record-0"]);
+		deepStrictEqual(ctx.childContextCalls, ["record-0"]);
 	});
 
 	test("durable context: end-to-end, a parse error is reported in batchItemFailures", async () => {
@@ -459,7 +552,7 @@ describe("@middy/event-batch-handler", () => {
 		});
 	});
 
-	test("durable context: passes the per-step child context (not the parent) to record handler", async () => {
+	test("durable context: the record handler receives the child durable context of its record", async () => {
 		const ctx = new DurableContextImpl();
 		const received = [];
 		const handler = eventBatchHandler(async (record, c) => {
@@ -469,38 +562,35 @@ describe("@middy/event-batch-handler", () => {
 
 		await handler(sqsEvent({ id: 1 }, { id: 2 }), ctx);
 		strictEqual(received.length, 2);
-		// Each record handler invocation receives a distinct child context,
-		// scoped to the per-record step, not the outer durable context.
 		strictEqual(received[0] !== ctx, true);
-		strictEqual(received[1] !== ctx, true);
 		strictEqual(received[0] !== received[1], true);
-		strictEqual(received[0].parentStepId, "record-0");
-		strictEqual(received[1].parentStepId, "record-1");
+		strictEqual(received[0].parentId, "record-0");
+		strictEqual(received[1].parentId, "record-1");
+		strictEqual(typeof received[0].step, "function");
 	});
 
-	test("durable context: nested ctx.step calls inside recordHandler scope under the parent step", async () => {
+	test("durable context: the record handler can run nested steps on its child context", async () => {
 		const ctx = new DurableContextImpl();
 		const handler = eventBatchHandler(async (record, c) => {
-			// Nest a sub-step. The mock doesn't track call order beyond stepCalls,
-			// so we just confirm it runs and returns its value.
-			return c.step(`enrich-${record.id}`, async () => record.id * 10);
+			const enriched = await c.step(
+				`enrich-${record.id}`,
+				async () => record.id * 10,
+			);
+			return c.step(`write-${record.id}`, async () => enriched + 1);
 		});
 
 		const result = await handler(sqsEvent({ id: 1 }, { id: 2 }), ctx);
 
 		deepStrictEqual(result, [
-			{ status: "fulfilled", value: 10 },
-			{ status: "fulfilled", value: 20 },
+			{ status: "fulfilled", value: 11 },
+			{ status: "fulfilled", value: 21 },
 		]);
-		// Order interleaves because steps run concurrently, what matters is that
-		// every per-record step *and* its nested sub-step appear, demonstrating
-		// the nested step ran under a context whose `step` recorded onto the same
-		// durable execution.
+		deepStrictEqual(ctx.childContextCalls, ["record-0", "record-1"]);
 		deepStrictEqual([...ctx.stepCalls].sort(), [
 			"enrich-1",
 			"enrich-2",
-			"record-0",
-			"record-1",
+			"write-1",
+			"write-2",
 		]);
 	});
 
@@ -621,7 +711,7 @@ describe("@middy/event-batch-handler", () => {
 		);
 	});
 
-	test("concurrency: caps durable steps in flight", async () => {
+	test("concurrency: caps durable child contexts in flight", async () => {
 		const state = trackInFlight();
 		const ctx = new DurableContextImpl();
 		const handler = eventBatchHandler((record) => state.run(() => record.id), {
@@ -630,10 +720,59 @@ describe("@middy/event-batch-handler", () => {
 
 		const result = await handler(sqsEvent({ id: 1 }, { id: 2 }), ctx);
 		strictEqual(state.peak, 1);
-		deepStrictEqual(ctx.stepCalls, ["record-0", "record-1"]);
+		deepStrictEqual(ctx.childContextCalls, ["record-0", "record-1"]);
 		deepStrictEqual(
 			result.map((r) => r.value),
 			[1, 2],
+		);
+	});
+
+	for (const eventSource of streamSources) {
+		test(`concurrency: when set, an ${eventSource} batch runs as a pool and a failure does not stop it`, async () => {
+			const state = trackInFlight();
+			const error = new Error("boom");
+			const handler = eventBatchHandler(
+				(record) =>
+					state.run(() => {
+						if (record.fail) throw error;
+						return record.id;
+					}),
+				{ concurrency: 2 },
+			);
+
+			const result = await handler(
+				streamEvent(eventSource, { id: 1, fail: true }, { id: 2 }, { id: 3 }),
+				defaultContext,
+			);
+			strictEqual(state.peak, 2);
+			deepStrictEqual(result, [
+				{ status: "rejected", reason: error },
+				{ status: "fulfilled", value: 2 },
+				{ status: "fulfilled", value: 3 },
+			]);
+		});
+	}
+
+	test("concurrency: SQS FIFO stays ordered and stops at the first failure when it is set", async () => {
+		const state = trackInFlight();
+		const error = new Error("boom");
+		const handler = eventBatchHandler(
+			(record) =>
+				state.run(() => {
+					if (record.fail) throw error;
+					return record.id;
+				}),
+			{ concurrency: 2 },
+		);
+
+		const result = await handler(
+			fifoEvent({ id: 1 }, { id: 2, fail: true }, { id: 3 }),
+			defaultContext,
+		);
+		strictEqual(state.peak, 1);
+		deepStrictEqual(
+			result.map((r) => r.status),
+			["fulfilled", "rejected", "rejected"],
 		);
 	});
 
@@ -646,6 +785,14 @@ describe("@middy/event-batch-handler", () => {
 			throws(() => eventBatchHandler(() => {}, opts));
 		}
 		eventBatchHandlerValidateOptions({ concurrency: 1 });
+	});
+
+	test("concurrency: capped at the largest event source mapping batch size", () => {
+		eventBatchHandlerValidateOptions({ concurrency: 10000 });
+		throws(() => eventBatchHandlerValidateOptions({ concurrency: 10001 }), {
+			name: "TypeError",
+			message: "Option 'concurrency' must be <= 10000",
+		});
 	});
 
 	test("concurrency: a batch equal to the limit takes the allSettled path", async (t) => {
@@ -695,11 +842,11 @@ describe("@middy/event-batch-handler", () => {
 			{ eventSource: "aws:sqs", Records: [null] },
 			ctx,
 		);
-		deepStrictEqual(ctx.stepCalls, ["record-0"]);
+		deepStrictEqual(ctx.childContextCalls, ["record-0"]);
 		deepStrictEqual(result, [{ status: "fulfilled", value: null }]);
 	});
 
-	test("durable: a failed step on a null record fails the invocation", async () => {
+	test("durable: a failed null record fails the invocation", async () => {
 		const ctx = new DurableContextImpl();
 		const error = new Error("boom");
 		const handler = eventBatchHandler(() => {

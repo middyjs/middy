@@ -6,21 +6,21 @@ It addresses [OWASP SPVS](SPVS-COMPLIANCE.md) core controls V5.5.1, V5.5.2, and 
 
 ## Contacts
 
-| Role | Reach |
-| --- | --- |
-| Lead maintainer (24h SLA) | `willfarrell@proton.me` |
-| Owners team | [@middyjs/owners](https://github.com/orgs/middyjs/teams/owners) |
-| npm package security | `security@npmjs.com` (npm Inc.) |
-| GitHub security | `https://support.github.com` |
+| Role                      | Reach                                                           |
+| ------------------------- | --------------------------------------------------------------- |
+| Lead maintainer (24h SLA) | `willfarrell@proton.me`                                         |
+| Owners team               | [@middyjs/owners](https://github.com/orgs/middyjs/teams/owners) |
+| npm package security      | `security@npmjs.com` (npm Inc.)                                 |
+| GitHub security           | `https://support.github.com`                                    |
 
 ## Severity classification
 
-| Severity | Definition | Example |
-| --- | --- | --- |
-| SEV-1 | Active compromise with confirmed unauthorised publish or push to `main` | A `@middy/*` package version has been published from a non-maintainer identity |
-| SEV-2 | Credential or maintainer-account compromise without confirmed downstream impact | npm OIDC token leaked in a workflow log; maintainer account session token exposed; a malicious version staged via `npm stage publish` but not yet approved (nothing live) |
-| SEV-3 | High-confidence near-miss or dependency compromise in transit | A direct dependency has a confirmed registry signature mismatch (`npm audit signatures` failure on `develop`) |
-| SEV-4 | Anomalous pipeline behaviour without confirmed compromise | Unexpected egress from a CI run flagged by `step-security/harden-runner` |
+| Severity | Definition                                                                      | Example                                                                                                                                                                   |
+| -------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SEV-1    | Active compromise with confirmed unauthorised publish or push to `main`         | A `@middy/*` package version has been published from a non-maintainer identity                                                                                            |
+| SEV-2    | Credential or maintainer-account compromise without confirmed downstream impact | npm OIDC token leaked in a workflow log; maintainer account session token exposed; a malicious version staged via `npm stage publish` but not yet approved (nothing live) |
+| SEV-3    | High-confidence near-miss or dependency compromise in transit                   | A direct dependency has a confirmed registry signature mismatch (`npm audit signatures` failure on `develop`)                                                             |
+| SEV-4    | Anomalous pipeline behaviour without confirmed compromise                       | Unexpected egress from a CI run flagged by `step-security/harden-runner`                                                                                                  |
 
 A SEV-1 or SEV-2 triggers this runbook end to end. SEV-3 and SEV-4 follow Triage and Investigation only unless they escalate.
 
@@ -102,6 +102,6 @@ A tabletop exercise is run annually (see [docs/GOVERNANCE.md](GOVERNANCE.md) rev
 
 ## Tabletop / Real Incident log
 
-| Date | Type | Path | Outcome | Follow-up |
-| --- | --- | --- | --- | --- |
-| 2026-08-21 | Tabletop | B | 7 runbook gaps found and folded into this document the same day: evidence preservation, npm-account containment, publisher identification via registry metadata, public-detection comms, unrealistic unpublish condition, dist-tag repointing, off-pipeline investigation branch. | DONE 2026-08-21: release.yml publishes via `npm stage publish`; registry-side trusted publisher set to stage-only with token publish disallowed for `@middy` packages; maintainer approves with the version-filtered `npm run release:approve` (2FA). Detection: stage queue tripwire (path B step 0) + npm publish notification emails |
+| Date       | Type     | Path | Outcome                                                                                                                                                                                                                                                                           | Follow-up                                                                                                                                                                                                                                                                                                                               |
+| ---------- | -------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-21 | Tabletop | B    | 7 runbook gaps found and folded into this document the same day: evidence preservation, npm-account containment, publisher identification via registry metadata, public-detection comms, unrealistic unpublish condition, dist-tag repointing, off-pipeline investigation branch. | DONE 2026-08-21: release.yml publishes via `npm stage publish`; registry-side trusted publisher set to stage-only with token publish disallowed for `@middy` packages; maintainer approves with the version-filtered `npm run release:approve` (2FA). Detection: stage queue tripwire (path B step 0) + npm publish notification emails |

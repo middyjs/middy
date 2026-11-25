@@ -1,4 +1,5 @@
 ---
+
 title: Internal Storage
 description: "Use Middy internal storage to share async data between middlewares securely."
 position: 4
@@ -16,7 +17,7 @@ external APIs.
 publish it to `context.middyContext`, the namespace Middy seeds on every context:
 
 ```javascript
-context.middyContext[contextKey] = value
+context.middyContext[contextKey] = value;
 ```
 
 Never assign to the context root. Keys there come from user configuration, and a
@@ -48,56 +49,56 @@ Here is a middleware boilerplate using this pattern:
 
 ```javascript
 import {
-  canPrefetch,
-  contextNamespace,
-  getInternal,
-  processCache
-} from '@middy/util'
+	canPrefetch,
+	contextNamespace,
+	getInternal,
+	processCache,
+} from "@middy/util";
 
-const name = 'custom'
+const name = "custom";
 
 const defaults = {
-  fetchData: {}, // { internalKey: params }
-  disablePrefetch: false,
-  cacheKey: name,
-  cacheExpiry: -1,
-  setToContext: false,
-  contextKey: name // values land on context.middyContext[contextKey]
-}
+	fetchData: {}, // { internalKey: params }
+	disablePrefetch: false,
+	cacheKey: name,
+	cacheExpiry: -1,
+	setToContext: false,
+	contextKey: name, // values land on context.middyContext[contextKey]
+};
 
 const customMiddleware = (opts = {}) => {
-  const options = { ...defaults, ...opts }
+	const options = { ...defaults, ...opts };
 
-  const fetchRequest = () => {
-    const values = {}
-    // Start your custom fetch
-    for (const internalKey of Object.keys(options.fetchData)) {
-      values[internalKey] = fetch('...', options.fetchData[internalKey]).then(
-        (res) => res.text()
-      )
-    }
-    // End your custom fetch
-    return values
-  }
+	const fetchRequest = () => {
+		const values = {};
+		// Start your custom fetch
+		for (const internalKey of Object.keys(options.fetchData)) {
+			values[internalKey] = fetch("...", options.fetchData[internalKey]).then(
+				(res) => res.text(),
+			);
+		}
+		// End your custom fetch
+		return values;
+	};
 
-  if (canPrefetch(options)) {
-    processCache(options, fetchRequest)
-  }
+	if (canPrefetch(options)) {
+		processCache(options, fetchRequest);
+	}
 
-  const customMiddlewareBefore = async (request) => {
-    const { value } = processCache(options, fetchRequest, request)
+	const customMiddlewareBefore = async (request) => {
+		const { value } = processCache(options, fetchRequest, request);
 
-    Object.assign(request.internal, value)
-    if (options.setToContext) {
-      const data = await getInternal(Object.keys(options.fetchData), request)
-      Object.assign(contextNamespace(request, options.contextKey), data)
-    }
-  }
+		Object.assign(request.internal, value);
+		if (options.setToContext) {
+			const data = await getInternal(Object.keys(options.fetchData), request);
+			Object.assign(contextNamespace(request, options.contextKey), data);
+		}
+	};
 
-  return {
-    before: customMiddlewareBefore
-  }
-}
+	return {
+		before: customMiddlewareBefore,
+	};
+};
 
-export default customMiddleware
+export default customMiddleware;
 ```

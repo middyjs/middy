@@ -1,7 +1,8 @@
 import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
 import { describe, test } from "node:test";
+import timers from "node:timers/promises";
 
-import middy from "../core/index.js";
+import middy from "@middy/core";
 
 import cloudformationResponse, {
 	cloudformationResponseValidateOptions,
@@ -264,15 +265,12 @@ describe("@middy/cloudformation-response", () => {
 	});
 
 	test("It should fall back to String(request.error) when error has no message", async (t) => {
-		const middleware = cloudformationResponse();
-		const request = {
-			event: defaultEvent,
-			context: defaultContext,
-			error: null,
-			response: undefined,
-		};
-		await middleware.onError(request);
-		deepStrictEqual(request.response, {
+		const handler = middy(() => {
+			throw null;
+		}).use(cloudformationResponse());
+
+		const response = await handler(defaultEvent, defaultContext);
+		deepStrictEqual(response, {
 			Status: "FAILED",
 			Reason: "null",
 			RequestId: "RequestId",
@@ -540,43 +538,346 @@ describe("@middy/cloudformation-response", () => {
 		strictEqual(calls.length, 1);
 	});
 
-	test("It should throw a package error when the ResponseURL rejects the PUT", async (t) => {
-		const calls = fetchSpy(t, 403);
-		const handler = middy(() => ({})).use(cloudformationResponse());
+	const fetchSequence = (t, outcomes) => {
+		const calls = [];
+		const pending = [...outcomes];
+		t.mock.method(globalThis, "fetch", async (url, init) => {
+			calls.push({ url, init });
+			const outcome = pending.shift() ?? 200;
+			if (outcome instanceof Error) throw outcome;
+			if (outcome instanceof Response) return outcome;
+			return new Response(null, { status: outcome });
+		});
+		return calls;
+	};
 
-		await rejects(
-			() => handler(eventWithUrl, defaultContext),
-			(e) => {
-				// `after` fails, `onError` retries once with a FAILED body, which
-				// fails too; core surfaces both.
-				const [first, second] = e.errors;
-				strictEqual(
-					first.message,
-					"@middy/cloudformation-response: CloudFormation rejected the response (403)",
-				);
-				strictEqual(first.cause.package, "@middy/cloudformation-response");
-				strictEqual(first.cause.data.status, 403);
-				strictEqual(second.cause.package, "@middy/cloudformation-response");
-				return true;
-			},
+	const s3Error = (status, code) =>
+		new Response(
+			`<?xml version="1.0" encoding="UTF-8"?>\n<Error><Code>${code}</Code><Message>Reduce your request rate.</Message><RequestId>4442587FB7D0A2F9</RequestId></Error>`,
+			{ status, headers: { "content-type": "application/xml" } },
 		);
+
+	const backoffSpy = (t, random = 1) => {
+		const delays = [];
+		t.mock.timers.enable({ apis: ["Date"], now: 0 });
+		t.mock.method(Math, "random", () => random);
+		t.mock.method(timers, "setTimeout", async (ms) => {
+			delays.push(ms);
+			t.mock.timers.tick(ms);
+		});
+		return delays;
+	};
+
+	test("It should send the same SUCCESS body again when the PUT is answered with a 503", async (t) => {
+		backoffSpy(t);
+		const calls = fetchSequence(t, [503]);
+		const handler = middy(() => ({
+			PhysicalResourceId: "real-resource-id-123",
+			Data: { Arn: "arn:aws:example" },
+		})).use(cloudformationResponse());
+
+		const response = await handler(eventWithUrl, defaultContext);
+
+		strictEqual(response.Status, "SUCCESS");
+		strictEqual(response.PhysicalResourceId, "real-resource-id-123");
 		strictEqual(calls.length, 2);
-		strictEqual(JSON.parse(calls[1].init.body).Status, "FAILED");
+		strictEqual(calls[1].init.body, calls[0].init.body);
+		strictEqual(JSON.parse(calls[1].init.body).Status, "SUCCESS");
 	});
 
-	test("It should propagate a network failure of the PUT", async (t) => {
-		t.mock.method(globalThis, "fetch", async () => {
-			throw new TypeError("fetch failed");
+	test("It should wait between attempts with a jittered delay that doubles", async (t) => {
+		const delays = backoffSpy(t, 0.5);
+		const calls = fetchSequence(t, [503, 503, 503]);
+		const handler = middy(() => ({})).use(cloudformationResponse());
+
+		const response = await handler(eventWithUrl, {
+			...defaultContext,
+			getRemainingTimeInMillis: () => 10_000,
 		});
+
+		strictEqual(response.Status, "SUCCESS");
+		strictEqual(calls.length, 4);
+		deepStrictEqual(delays, [25, 50, 100]);
+		strictEqual(new Set(calls.map(({ init }) => init.signal)).size, 1);
+	});
+
+	test("It should cap the wait between attempts at 20 s", async (t) => {
+		const delays = backoffSpy(t);
+		const calls = fetchSequence(t, Array(10).fill(503));
+		const handler = middy(() => ({})).use(cloudformationResponse());
+
+		const response = await handler(eventWithUrl, {
+			...defaultContext,
+			getRemainingTimeInMillis: () => 900_000,
+		});
+
+		strictEqual(response.Status, "SUCCESS");
+		strictEqual(calls.length, 11);
+		deepStrictEqual(
+			delays,
+			[50, 100, 200, 400, 800, 1600, 3200, 6400, 12_800, 20_000],
+		);
+	});
+
+	test("It should stop sending a body again once the next wait would reach the deadline", async (t) => {
+		const delays = backoffSpy(t);
+		const calls = fetchSequence(t, Array(20).fill(503));
 		const handler = middy(() => ({})).use(cloudformationResponse());
 
 		await rejects(
-			() => handler(eventWithUrl, defaultContext),
+			() =>
+				handler(eventWithUrl, {
+					...defaultContext,
+					getRemainingTimeInMillis: () => 2050 - Date.now(),
+				}),
 			(e) => {
-				strictEqual(e.errors[0].message, "fetch failed");
+				for (const error of e.errors) {
+					strictEqual(
+						error.message,
+						"@middy/cloudformation-response: CloudFormation rejected the response (503)",
+					);
+					strictEqual(error.cause.data.status, 503);
+				}
 				return true;
 			},
 		);
+		deepStrictEqual(delays, [50, 100, 200, 400, 50, 100, 200, 400]);
+		deepStrictEqual(
+			calls.map(({ init }) => JSON.parse(init.body).Status),
+			[...Array(5).fill("SUCCESS"), ...Array(5).fill("FAILED")],
+		);
+	});
+
+	test("It should send the body again after a 500, 502, 503 or 504 answer", async (t) => {
+		const delays = backoffSpy(t);
+		for (const status of [500, 502, 503, 504]) {
+			const calls = fetchSequence(t, [status]);
+			const handler = middy(() => ({})).use(cloudformationResponse());
+
+			const response = await handler(eventWithUrl, defaultContext);
+
+			strictEqual(response.Status, "SUCCESS", `${status}`);
+			strictEqual(calls.length, 2, `${status}`);
+			strictEqual(JSON.parse(calls[1].init.body).Status, "SUCCESS");
+		}
+		deepStrictEqual(delays, [50, 50, 50, 50]);
+	});
+
+	test("It should not send the same body again after a 429 or another 5xx answer", async (t) => {
+		const delays = backoffSpy(t);
+		for (const status of [429, 501, 505, 599]) {
+			const calls = fetchSequence(t, Array(20).fill(status));
+			const handler = middy(() => ({})).use(cloudformationResponse());
+
+			await rejects(
+				() => handler(eventWithUrl, defaultContext),
+				(e) => {
+					strictEqual(
+						e.errors[0].message,
+						`@middy/cloudformation-response: CloudFormation rejected the response (${status})`,
+					);
+					return true;
+				},
+			);
+			deepStrictEqual(
+				calls.map(({ init }) => JSON.parse(init.body).Status),
+				["SUCCESS", "FAILED"],
+				`${status}`,
+			);
+		}
+		deepStrictEqual(delays, []);
+	});
+
+	test("It should back off from a 1 s base after an S3 SlowDown answer", async (t) => {
+		const delays = backoffSpy(t);
+		const calls = fetchSequence(
+			t,
+			Array.from({ length: 7 }, () => s3Error(503, "SlowDown")),
+		);
+		const handler = middy(() => ({})).use(cloudformationResponse());
+
+		const response = await handler(eventWithUrl, {
+			...defaultContext,
+			getRemainingTimeInMillis: () => 900_000,
+		});
+
+		strictEqual(response.Status, "SUCCESS");
+		strictEqual(calls.length, 8);
+		deepStrictEqual(delays, [1000, 2000, 4000, 8000, 16_000, 20_000, 20_000]);
+	});
+
+	test("It should pick the base delay from the S3 error code before the status", async (t) => {
+		const delays = backoffSpy(t);
+		const calls = fetchSequence(t, [
+			s3Error(503, "SlowDown"),
+			s3Error(503, "ServiceUnavailable"),
+		]);
+		const handler = middy(() => ({})).use(cloudformationResponse());
+
+		const response = await handler(eventWithUrl, {
+			...defaultContext,
+			getRemainingTimeInMillis: () => 900_000,
+		});
+
+		strictEqual(response.Status, "SUCCESS");
+		strictEqual(calls.length, 3);
+		deepStrictEqual(delays, [1000, 100]);
+	});
+
+	test("It should send the body again after an S3 RequestTimeout answer", async (t) => {
+		const delays = backoffSpy(t);
+		const calls = fetchSequence(t, [s3Error(400, "RequestTimeout")]);
+		const handler = middy(() => ({})).use(cloudformationResponse());
+
+		const response = await handler(eventWithUrl, defaultContext);
+
+		strictEqual(response.Status, "SUCCESS");
+		strictEqual(calls.length, 2);
+		deepStrictEqual(delays, [50]);
+	});
+
+	test("It should not send the same body again after an S3 error code that is not retried", async (t) => {
+		const delays = backoffSpy(t);
+		const calls = fetchSequence(t, [
+			s3Error(403, "SignatureDoesNotMatch"),
+			s3Error(403, "SignatureDoesNotMatch"),
+		]);
+		const handler = middy(() => ({})).use(cloudformationResponse());
+
+		await rejects(() => handler(eventWithUrl, defaultContext));
+
+		strictEqual(calls.length, 2);
+		deepStrictEqual(delays, []);
+	});
+
+	test("It should send the body again when reading the error answer fails", async (t) => {
+		const delays = backoffSpy(t);
+		const failure = new TypeError("terminated");
+		const calls = fetchSequence(t, [
+			new Response(
+				new ReadableStream({
+					start(controller) {
+						controller.error(failure);
+					},
+				}),
+				{ status: 403 },
+			),
+		]);
+		const handler = middy(() => ({})).use(cloudformationResponse());
+
+		const response = await handler(eventWithUrl, defaultContext);
+
+		strictEqual(response.Status, "SUCCESS");
+		strictEqual(calls.length, 2);
+		deepStrictEqual(delays, [50]);
+	});
+
+	test("It should send the body again after a network failure", async (t) => {
+		const delays = backoffSpy(t);
+		const calls = fetchSequence(t, [new TypeError("fetch failed")]);
+		const handler = middy(() => ({
+			PhysicalResourceId: "real-resource-id-123",
+		})).use(cloudformationResponse());
+
+		const response = await handler(eventWithUrl, defaultContext);
+
+		strictEqual(response.Status, "SUCCESS");
+		strictEqual(response.PhysicalResourceId, "real-resource-id-123");
+		strictEqual(calls.length, 2);
+		strictEqual(calls[1].init.body, calls[0].init.body);
+		deepStrictEqual(delays, [50]);
+	});
+
+	test("It should propagate a network failure of the PUT once the deadline rules out another attempt", async (t) => {
+		const delays = backoffSpy(t);
+		const calls = fetchSequence(
+			t,
+			Array.from({ length: 20 }, () => new TypeError("fetch failed")),
+		);
+		const handler = middy(() => ({})).use(cloudformationResponse());
+
+		await rejects(
+			() =>
+				handler(eventWithUrl, {
+					...defaultContext,
+					getRemainingTimeInMillis: () => 2000 - Date.now(),
+				}),
+			(e) => {
+				deepStrictEqual(
+					e.errors.map((error) => error.message),
+					["fetch failed", "fetch failed"],
+				);
+				return true;
+			},
+		);
+		deepStrictEqual(delays, [50, 100, 200, 400, 50, 100, 200, 400]);
+		strictEqual(calls.length, 10);
+	});
+
+	test("It should not send the same body again when the ResponseURL answers 4xx", async (t) => {
+		const delays = backoffSpy(t);
+		for (const status of [400, 403, 404, 499]) {
+			const calls = fetchSequence(t, Array(20).fill(status));
+			const handler = middy(() => ({})).use(cloudformationResponse());
+
+			await rejects(
+				() => handler(eventWithUrl, defaultContext),
+				(e) => {
+					const [first, second] = e.errors;
+					strictEqual(
+						first.message,
+						`@middy/cloudformation-response: CloudFormation rejected the response (${status})`,
+					);
+					deepStrictEqual(first.cause, {
+						package: "@middy/cloudformation-response",
+						data: { status },
+					});
+					strictEqual(second.cause.package, "@middy/cloudformation-response");
+					return true;
+				},
+			);
+			deepStrictEqual(
+				calls.map(({ init }) => JSON.parse(init.body).Status),
+				["SUCCESS", "FAILED"],
+				`${status}`,
+			);
+		}
+		deepStrictEqual(delays, []);
+	});
+
+	test("It should keep the handler's PhysicalResourceId in the FAILED body that follows a failed delivery", async (t) => {
+		backoffSpy(t);
+		const calls = fetchSequence(t, [403]);
+		const handler = middy(() => ({
+			PhysicalResourceId: "handler-id",
+			Data: { Arn: "arn:aws:example" },
+		})).use(cloudformationResponse());
+
+		const response = await handler(
+			{
+				...eventWithUrl,
+				RequestType: "Update",
+				PhysicalResourceId: "event-id",
+			},
+			defaultContext,
+		);
+
+		const expected = {
+			Status: "FAILED",
+			Reason:
+				"@middy/cloudformation-response: CloudFormation rejected the response (403)",
+			RequestId: "RequestId",
+			LogicalResourceId: "LogicalResourceId",
+			StackId: "StackId",
+			PhysicalResourceId: "handler-id",
+		};
+		deepStrictEqual(response, expected);
+		strictEqual(calls.length, 2);
+		strictEqual(
+			JSON.parse(calls[0].init.body).PhysicalResourceId,
+			"handler-id",
+		);
+		deepStrictEqual(JSON.parse(calls[1].init.body), expected);
 	});
 
 	// ---------- Reason, PhysicalResourceId, ResponseURL and the PUT timeout ----------

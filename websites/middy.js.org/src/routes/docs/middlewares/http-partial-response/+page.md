@@ -1,4 +1,5 @@
 ---
+
 title: http-partial-response
 description: "Filter JSON response fields based on query string parameters for partial responses."
 ---
@@ -36,38 +37,40 @@ VPC Lattice V2 delivers every query string value as an array, one entry per occu
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import httpPartialResponse from '@middy/http-partial-response'
+import middy from "@middy/core";
+import httpPartialResponse from "@middy/http-partial-response";
 
 const lambdaHandler = (event, context) => {
-  const response = {
-    statusCode: 200,
-    body: {
-      firstname: 'John',
-      lastname: 'Doe',
-      gender: 'male',
-      age: 30,
-      address: {
-        street: 'Avenue des Champs-Élysées',
-        city: 'Paris'
-      }
-    }
-  }
+	const response = {
+		statusCode: 200,
+		body: {
+			firstname: "John",
+			lastname: "Doe",
+			gender: "male",
+			age: 30,
+			address: {
+				street: "Avenue des Champs-Élysées",
+				city: "Paris",
+			},
+		},
+	};
 
-  return response
-}
+	return response;
+};
 
-export const handler = middy().use(httpPartialResponse()).handler(lambdaHandler)
+export const handler = middy()
+	.use(httpPartialResponse())
+	.handler(lambdaHandler);
 
 const event = {
-  queryStringParameters: {
-    fields: 'firstname,lastname'
-  }
-}
+	queryStringParameters: {
+		fields: "firstname,lastname",
+	},
+};
 
-const response = await handler(event, {})
+const response = await handler(event, {});
 deepStrictEqual(response.body, {
-  firstname: 'John',
-  lastname: 'Doe'
-})
+	firstname: "John",
+	lastname: "Doe",
+});
 ```

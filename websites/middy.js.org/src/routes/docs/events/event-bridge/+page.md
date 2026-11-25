@@ -1,4 +1,5 @@
 ---
+
 title: EventBridge
 description: "Process Amazon EventBridge events on AWS Lambda with Middy: rule targets, detail-typed payloads, schema validation."
 ---
@@ -33,41 +34,41 @@ A single event object (not a batch). Key fields: `source` (e.g. `aws.s3`, `com.m
 
 ## Recommended middlewares
 
-| Middleware | Why |
-| --- | --- |
-| [`@middy/validator`](/docs/middlewares/validator) | Validate the `detail` payload against your contract |
-| [`@middy/error-logger`](/docs/middlewares/error-logger) | Async invocation - logging is your only feedback |
+| Middleware                                              | Why                                                 |
+| ------------------------------------------------------- | --------------------------------------------------- |
+| [`@middy/validator`](/docs/middlewares/validator)       | Validate the `detail` payload against your contract |
+| [`@middy/error-logger`](/docs/middlewares/error-logger) | Async invocation - logging is your only feedback    |
 
 ## Example
 
 ```javascript
-import middy from '@middy/core'
-import validator from '@middy/validator'
-import errorLogger from '@middy/error-logger'
-import { transpileSchema } from '@middy/validator/transpile'
+import middy from "@middy/core";
+import validator from "@middy/validator";
+import errorLogger from "@middy/error-logger";
+import { transpileSchema } from "@middy/validator/transpile";
 
 const schema = {
-  type: 'object',
-  properties: {
-    'detail-type': { type: 'string', const: 'Order Placed' },
-    detail: {
-      type: 'object',
-      properties: {
-        orderId: { type: 'string' },
-        amount: { type: 'number' }
-      },
-      required: ['orderId', 'amount']
-    }
-  }
-}
+	type: "object",
+	properties: {
+		"detail-type": { type: "string", const: "Order Placed" },
+		detail: {
+			type: "object",
+			properties: {
+				orderId: { type: "string" },
+				amount: { type: "number" },
+			},
+			required: ["orderId", "amount"],
+		},
+	},
+};
 
 export const handler = middy()
-  .use(errorLogger())
-  .use(validator({ eventSchema: transpileSchema(schema) }))
-  .handler(async (event, context, { signal }) => {
-    const { orderId, amount } = event.detail
-    // ...
-  })
+	.use(errorLogger())
+	.use(validator({ eventSchema: transpileSchema(schema) }))
+	.handler(async (event, context, { signal }) => {
+		const { orderId, amount } = event.detail;
+		// ...
+	});
 ```
 
 ## Scheduled invocations (cron / rate)

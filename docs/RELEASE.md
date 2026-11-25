@@ -32,7 +32,7 @@ At a given point in time, if you want to draft a new release, you need to follow
 ### 1. Prepare release
 
 - Work lands on `develop` through pull requests; a release is the merge of `develop` into `main`. Nothing is committed to `main` directly, and the `main` ruleset requires two approving reviews, CODEOWNERS review and every status check in [.github/rulesets/main.json](../.github/rulesets/main.json).
-- Bump the gitleaks CLI in [test-sast.yml](../.github/workflows/test-sast.yml) if a newer [release](https://github.com/gitleaks/gitleaks/releases) exists: update `GITLEAKS_VERSION` and `GITLEAKS_SHA256` together (from `gitleaks_<version>_checksums.txt`). Dependabot cannot track it.
+- Bump the scanner versions Dependabot cannot track (see [Pinned scanner versions](PIPELINE.md#hardening-conventions)): the actionlint `version:` input and the TruffleHog, gitleaks, and semgrep image digests in [test-sast.yml](../.github/workflows/test-sast.yml), the exact Node.js versions (`NODE_VERSION` in each workflow and the matrix in [test-unit.yml](../.github/workflows/test-unit.yml)), and the k6 version in [test-load.yml](../.github/workflows/test-load.yml).
 - Do the version bump on `develop`, or on a `release/X.Y.Z` branch off `develop` when it needs several commits or a review before it lands there.
 - `develop` moves to the next version as soon as a release is cut (a pre-release of the next major, such as `8.0.0-alpha.N`).
 

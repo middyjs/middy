@@ -1,4 +1,4 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { describe, test } from "node:test";
 
 // Note: `./index.js` is loaded via dynamic import inside each test so the
@@ -337,6 +337,99 @@ describe("@middy/cloudwatch-metrics", () => {
 		} catch (e) {
 			ok(e instanceof TypeError);
 		}
+	});
+
+	const rejectsOptions = (validate, options, message) => {
+		throws(() => validate(options), {
+			name: "TypeError",
+			message,
+			cause: { package: "@middy/cloudwatch-metrics" },
+		});
+	};
+
+	test("cloudwatchMetricsValidateOptions accepts EMF namespaces, dimension keys and values at their limits", async () => {
+		const { cloudwatchMetricsValidateOptions } = await import("./index.js");
+		const thirty = Object.fromEntries(
+			Array.from({ length: 30 }, (_, i) => [`d${i}`, "v"]),
+		);
+		for (const options of [
+			{ namespace: "n".repeat(255) },
+			{ namespace: " My App/1.0 " },
+			{ namespace: "myAppliction", dimensions: [{ Action: "Buy" }] },
+			{ dimensions: [] },
+			{ dimensions: thirty },
+			{ dimensions: [thirty, { Action: "Buy" }] },
+			{ dimensions: { ["k".repeat(250)]: "v".repeat(1024) } },
+			{ dimensions: { " :key": " value " } },
+			{ dimensions: { "  key": "v" } },
+			{
+				dimensions: Array.from({ length: 1024 }, (_, i) => ({ d: `v${i}` })),
+			},
+		]) {
+			deepStrictEqual(cloudwatchMetricsValidateOptions(options), options);
+		}
+	});
+
+	test("cloudwatchMetricsValidateOptions rejects what EMF would not publish", async () => {
+		const { cloudwatchMetricsValidateOptions } = await import("./index.js");
+		const validate = cloudwatchMetricsValidateOptions;
+		for (const [namespace, message] of [
+			["n".repeat(256), "Option 'namespace' must have length <= 255"],
+			[
+				"",
+				"Option 'namespace' must match pattern /^ *[\\x21-\\x7E][\\x20-\\x7E]*$/u",
+			],
+			[
+				"   ",
+				"Option 'namespace' must match pattern /^ *[\\x21-\\x7E][\\x20-\\x7E]*$/u",
+			],
+			[
+				"My\tApp",
+				"Option 'namespace' must match pattern /^ *[\\x21-\\x7E][\\x20-\\x7E]*$/u",
+			],
+			[
+				"名前",
+				"Option 'namespace' must match pattern /^ *[\\x21-\\x7E][\\x20-\\x7E]*$/u",
+			],
+		]) {
+			rejectsOptions(validate, { namespace }, message);
+		}
+		const oneOf = "Option 'dimensions' must match exactly one schema in oneOf";
+		for (const dimensions of [
+			{ ":key": "v" },
+			{ "": "v" },
+			{ "   ": "v" },
+			{ "key\n": "v" },
+			{ ["k".repeat(251)]: "v" },
+			{ key: "" },
+			{ key: "   " },
+			{ key: "v".repeat(1025) },
+			{ key: "a\nb" },
+			Object.fromEntries(Array.from({ length: 31 }, (_, i) => [`d${i}`, "v"])),
+			[{ a: "1" }, { a: "1" }],
+			Array.from({ length: 1025 }, (_, i) => ({ d: `v${i}` })),
+			"Action",
+		]) {
+			rejectsOptions(validate, { dimensions }, oneOf);
+		}
+	});
+
+	test("cloudwatchMetricsValidateOptions bounds contextKey", async () => {
+		const { cloudwatchMetricsValidateOptions } = await import("./index.js");
+		deepStrictEqual(
+			cloudwatchMetricsValidateOptions({ contextKey: "k".repeat(1024) }),
+			{ contextKey: "k".repeat(1024) },
+		);
+		rejectsOptions(
+			cloudwatchMetricsValidateOptions,
+			{ contextKey: "k".repeat(1025) },
+			"Option 'contextKey' must have length <= 1024",
+		);
+		rejectsOptions(
+			cloudwatchMetricsValidateOptions,
+			{ contextKey: "a b" },
+			"Option 'contextKey' must match pattern /^[\\x21-\\x7E]+$/u",
+		);
 	});
 
 	test("cloudwatchMetricsValidateOptions validates contextKey as a string", async (t) => {

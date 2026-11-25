@@ -5,7 +5,7 @@ on:
   workflow_dispatch: {}
 
 env:
-  NODE_VERSION: 24.x
+  NODE_VERSION: 24.22.3
 
 permissions: {}
 concurrency:
@@ -18,11 +18,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      id-token: write       # mint the OIDC token tardisec verifies
-      contents: write       # push the sync branch
-      pull-requests: write  # open the PR
+      id-token: write # mint the OIDC token tardisec verifies
+      contents: write # push the sync branch
+      pull-requests: write # open the PR
     steps:
-      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: block
           disable-sudo: true
@@ -46,17 +46,18 @@ jobs:
       #   nodejs.org:443
       #   objects.githubusercontent.com:443
       #   release-assets.githubusercontent.com:443
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
       # allowed-endpoints: >
       #   registry.npmjs.org:443
-      - run: npm ci --ignore-scripts # biome, from the integrity-checked lockfile
+      - run: npm ci --ignore-scripts
       # allowed-endpoints: >
       #   api.github.com:443
       #   api.tardisec.com:443
       #   github.com:443
-      - uses: tardisec/integration-github-action@79a37c4a612483144768e0eb020b2b7236268862 # main, no tagged releases upstream
+      - uses: tardisec/integration-github-action@bfc4abe006028c3312a00d26383c72ba1ccd4ae3 # main, no tagged releases upstream
         with:
           base: develop
           domain: middy.js.org

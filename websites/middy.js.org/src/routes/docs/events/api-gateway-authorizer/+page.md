@@ -1,4 +1,5 @@
 ---
+
 title: API Gateway Authorizer
 description: "Use Middy with API Gateway Lambda authorizer events for custom authentication."
 ---
@@ -35,8 +36,8 @@ flowchart LR
 ## Example
 
 ```javascript
-import middy from '@middy/core'
+import middy from "@middy/core";
 export const handler = middy().handler((event, context, { signal }) => {
-  // ...
-})
+	// ...
+});
 ```

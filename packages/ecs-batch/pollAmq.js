@@ -1,27 +1,231 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-// The module object rather than a named import so a test's mock timers can
-// intercept setTimeout; a named import binds the real function at load time.
-import timers from "node:timers/promises";
-import { validateOptions } from "@middy/util";
+import { buffer } from "node:stream/consumers";
+import { reservedPropertyNames, validateOptions } from "@middy/util";
 import stompit from "stompit";
+import { mqBatcher } from "./pollHelpers.js";
 
 const pkg = "@middy/ecs-batch/pollAmq";
 
-const optionSchema = {
+// "When delay is larger than 2147483647 or less than 1 or NaN, the delay will be set to 1."
+// https://nodejs.org/api/timers.html#settimeoutcallback-delay-args
+const int32 = { type: "integer", minimum: 0, maximum: 2_147_483_647 };
+const portNumber = { type: "integer", minimum: 0, maximum: 65535 };
+const hostName = { type: "string", maxLength: 1024, pattern: /^[\w.:%-]+$/u };
+const visibleAscii = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\x21-\x7E]+$/u,
+	not: { type: "string", enum: reservedPropertyNames },
+};
+// "Commas or spaces are also acceptable separators but colons are normally used."
+// https://docs.openssl.org/master/man1/openssl-ciphers/
+const opensslText = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\x20-\x7E]+$/u,
+};
+const credential = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\p{L}\p{N}\p{P}\p{S} ]*$/u,
+};
+const pem = {
+	type: "string",
+	maxLength: 1_048_576,
+	pattern: /^[\x20-\x7E\t\n\r]*$/u,
+};
+const bytes = { $ref: "#/$defs/Uint8Array" };
+const pemOrBytes = { oneOf: [pem, bytes] };
+const listOf = (items) => ({
+	type: "array",
+	items,
+	maxItems: 1024,
+	uniqueItems: true,
+	unevaluatedItems: false,
+});
+const pemBundle = { oneOf: [pem, bytes, listOf(pemOrBytes)] };
+const withPassphrase = (name) => ({
+	type: "object",
+	properties: { [name]: pemOrBytes, passphrase: credential },
+	required: [name],
+	additionalProperties: false,
+	unevaluatedProperties: false,
+});
+const fn = { $ref: "#/$defs/Function" };
+const instance = { $ref: "#/$defs/Object" };
+const flag = { type: "boolean" };
+const tlsVersion = {
+	type: "string",
+	enum: ["TLSv1.3", "TLSv1.2", "TLSv1.1", "TLSv1"],
+};
+
+// stompit.connect options, which it also hands to net.connect or tls.connect:
+// node_modules/stompit/docs/sources/api/connect.md
+// node_modules/@types/node/net.d.ts (TcpNetConnectOpts, IpcNetConnectOpts)
+// node_modules/@types/node/tls.d.ts (ConnectionOptions)
+const connectOptionsSchema = {
 	type: "object",
 	properties: {
-		connectOptions: { type: "object", additionalProperties: true },
-		destination: { type: "string" },
+		host: hostName,
+		port: portNumber,
+		timeout: int32,
+		connectHeaders: {
+			type: "object",
+			propertyNames: visibleAscii,
+			maxProperties: 1024,
+			required: [],
+			additionalProperties: {
+				type: ["string", "number", "boolean"],
+				maxLength: 1024,
+				pattern: /^[\p{L}\p{N}\p{P}\p{S} ]*$/u,
+				minimum: -Number.MAX_SAFE_INTEGER,
+				maximum: Number.MAX_SAFE_INTEGER,
+			},
+			unevaluatedProperties: false,
+		},
+		// "Typical values are 107 bytes on Linux and 103 bytes on macOS."
+		// https://nodejs.org/api/net.html#identifying-paths-for-ipc-connections
+		path: { type: "string", maxLength: 107, pattern: /^[\x20-\x7E]+$/u },
+		ssl: flag,
+		connect: fn,
+		heartbeatDelayMargin: int32,
+		heartbeatOutputMargin: int32,
+		localAddress: hostName,
+		localPort: portNumber,
+		hints: int32,
+		// "Version of IP stack. Must be 4, 6, or 0."
+		// https://nodejs.org/api/net.html#socketconnectoptions-connectlistener
+		family: { type: "integer", enum: [0, 4, 6] },
+		lookup: fn,
+		autoSelectFamily: flag,
+		autoSelectFamilyAttemptTimeout: int32,
+		fd: int32,
+		allowHalfOpen: flag,
+		onread: {
+			type: "object",
+			properties: { buffer: { oneOf: [bytes, fn] }, callback: fn },
+			required: ["buffer", "callback"],
+			additionalProperties: false,
+			unevaluatedProperties: false,
+		},
+		readable: flag,
+		writable: flag,
+		signal: { $ref: "#/$defs/AbortSignal" },
+		noDelay: flag,
+		keepAlive: flag,
+		keepAliveInitialDelay: int32,
+		blockList: instance,
+		typeOfService: { type: "integer", minimum: 0, maximum: 255 },
+		handle: instance,
+		socket: instance,
+		checkServerIdentity: fn,
+		servername: hostName,
+		session: bytes,
+		minDHSize: int32,
+		pskCallback: fn,
+		secureContext: instance,
+		enableTrace: flag,
+		requestCert: flag,
+		// "opaque ProtocolName<1..2^8-1>;"
+		// https://www.rfc-editor.org/rfc/rfc7301#section-3.1
+		ALPNProtocols: {
+			oneOf: [
+				listOf({ type: "string", maxLength: 255, pattern: /^[\x21-\x7E]+$/u }),
+				bytes,
+				{ $ref: "#/$defs/DataView" },
+			],
+		},
+		SNICallback: fn,
+		rejectUnauthorized: flag,
+		requestOCSP: flag,
+		ALPNCallback: fn,
+		allowPartialTrustChain: flag,
+		ca: pemBundle,
+		cert: pemBundle,
+		certificateCompression: listOf({
+			type: "string",
+			enum: ["zlib", "brotli", "zstd"],
+		}),
+		sigalgs: opensslText,
+		ciphers: opensslText,
+		clientCertEngine: opensslText,
+		crl: pemBundle,
+		dhparam: pemOrBytes,
+		ecdhCurve: opensslText,
+		honorCipherOrder: flag,
+		key: {
+			oneOf: [
+				pem,
+				bytes,
+				listOf({ oneOf: [pem, bytes, withPassphrase("pem")] }),
+			],
+		},
+		privateKeyEngine: opensslText,
+		privateKeyIdentifier: opensslText,
+		maxVersion: tlsVersion,
+		minVersion: tlsVersion,
+		passphrase: credential,
+		pfx: {
+			oneOf: [
+				pem,
+				bytes,
+				listOf({ oneOf: [pem, bytes, withPassphrase("buf")] }),
+			],
+		},
+		secureOptions: {
+			type: "integer",
+			minimum: 0,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
+		secureProtocol: opensslText,
+		sessionIdContext: opensslText,
+		ticketKeys: bytes,
+		sessionTimeout: int32,
+	},
+	required: [],
+	additionalProperties: false,
+	unevaluatedProperties: false,
+};
+
+const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:ecs-batch:pollAmq:options",
+	$defs: {
+		AbortSignal: false,
+		DataView: false,
+		Function: false,
+		Object: false,
+		Uint8Array: false,
+	},
+	type: "object",
+	properties: {
+		connectOptions: connectOptionsSchema,
+		destination: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\p{L}\p{N}\p{P}\p{S} ]+$/u,
+		},
 		ackMode: { type: "string", enum: ["client", "client-individual"] },
-		batchSize: { type: "integer", minimum: 1 },
-		batchWindowMs: { type: "integer", minimum: 0 },
-		client: { type: "object", additionalProperties: true },
-		connect: { instanceof: "Function" },
-		eventSourceArn: { type: "string" },
+		// BatchSize and MaximumBatchingWindowInSeconds "from 0 seconds to 300 seconds":
+		// https://docs.aws.amazon.com/lambda/latest/api/API_CreateEventSourceMapping.html
+		batchSize: { type: "integer", minimum: 1, maximum: 10000 },
+		batchWindowMs: { type: "integer", minimum: 0, maximum: 300_000 },
+		client: { $ref: "#/$defs/Object" },
+		connect: { $ref: "#/$defs/Function" },
+		// EventSourceArn "arn:(aws[a-zA-Z0-9-]*):([a-zA-Z0-9\-])+:([a-z]{2}(-gov)?-[a-z]+-\d{1})?:(\d{12})?:(.*)":
+		// https://docs.aws.amazon.com/lambda/latest/api/API_CreateEventSourceMapping.html
+		eventSourceArn: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^arn:aws[\w-]*:[\w-]+:[\w-]*:(?:\d{12})?:[\x21-\x7E]+$/u,
+		},
+		maxRetryAttempts: { type: "integer", minimum: -1, maximum: 10000 },
+		retryDelayMs: int32,
 	},
 	required: ["connectOptions", "destination"],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const pollAmqValidateOptions = (options) =>
@@ -32,14 +236,6 @@ const defaultConnect = (connectOptions) =>
 		stompit.connect(connectOptions, (err, client) => {
 			if (err) reject(err);
 			else resolve(client);
-		});
-	});
-
-const readBody = (message) =>
-	new Promise((resolve, reject) => {
-		message.readString("utf-8", (err, body) => {
-			if (err) reject(err);
-			else resolve(body);
 		});
 	});
 
@@ -107,138 +303,84 @@ const buildAmqRecord = (headers, body, subscribedDestination) => ({
 			"",
 		),
 	},
-	data: Buffer.from(body).toString("base64"),
+	data: body.toString("base64"),
 	timestamp: Number(headers.timestamp ?? Date.now()),
 	properties: toProperties(headers),
 });
 
-// A batchItemFailures entry whose itemIdentifier is null, empty or names no
-// record in the batch invalidates the whole response: Lambda then retries
-// every record. `ids` is the failed set to act on (every record when the
-// response is invalid) and `error` the reason to raise through onError.
-// https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html
-// https://docs.aws.amazon.com/lambda/latest/dg/kafka-retry-configurations.html
-const batchFailures = (response, knownIds) => {
-	const ids = new Set();
-	for (const entry of response?.batchItemFailures ?? []) {
-		const itemIdentifier = entry?.itemIdentifier;
-		if (!knownIds.has(itemIdentifier)) {
-			return {
-				ids: knownIds,
-				error: new Error("Invalid batchItemFailures entry", {
-					cause: { package: pkg, data: { itemIdentifier } },
-				}),
-			};
-		}
-		ids.add(itemIdentifier);
-	}
-	return { ids };
-};
+const noop = () => {};
 
 export const pollAmq = (opts) => {
 	pollAmqValidateOptions(opts);
 	const ackMode = opts.ackMode ?? "client-individual";
-	const batchSize = opts.batchSize ?? 10;
-	const batchWindowMs = opts.batchWindowMs ?? 1000;
 	const connect = opts.connect ?? defaultConnect;
-
+	const batcher = mqBatcher(opts);
 	let client;
-	const pendingMessages = [];
-	const inflight = new WeakMap();
-	let resolveNext;
-	let failure;
-
-	const wakeReader = () => {
-		resolveNext?.();
-		resolveNext = undefined;
-	};
-
-	// A client that can no longer deliver would leave the loop parked forever.
-	// Fail the poll instead: the worker reports it through onError, exits 1 and
-	// the primary re-forks it.
-	const fail = (err) => {
-		failure = err;
-		wakeReader();
-	};
 
 	return {
 		source: "aws:amq",
-		async *poll(signal) {
+		async *poll(signal, report = noop) {
 			client = opts.client ?? (await connect(opts.connectOptions));
 			// stompit drops its connect-time "error" listener once connected, and
 			// a dropped socket emits "error" on the client: unheard, it would be an
 			// uncaught exception instead of reaching onError.
-			client.on("error", fail);
+			client.on("error", batcher.failPoll);
 			// On abort only wake the reader: the batch in flight still has to be
 			// acknowledged on this connection. Disconnecting, once the poll ends,
 			// leaves whatever is unacknowledged to the broker to redeliver.
-			signal.addEventListener("abort", wakeReader);
+			signal.addEventListener("abort", batcher.wakeReader);
 
 			client.subscribe(
 				{ destination: opts.destination, ack: ackMode },
 				(err, message) => {
 					if (err) {
-						fail(err);
+						batcher.failPoll(err);
 						return;
 					}
-					readBody(message).then(
-						(body) => {
-							pendingMessages.push({
-								message,
-								record: buildAmqRecord(message.headers, body, opts.destination),
-							});
-							wakeReader();
-						},
-						() => {
-							client.nack(message);
-						},
-					);
+					buffer(message).then((body) => {
+						batcher.deliver({
+							message,
+							record: buildAmqRecord(message.headers, body, opts.destination),
+						});
+					}, batcher.failPoll);
 				},
 			);
 
 			try {
-				while (!signal.aborted) {
-					if (failure) throw failure;
-					if (pendingMessages.length === 0) {
-						await new Promise((r) => {
-							resolveNext = r;
-						});
-						continue;
-					}
-					const deadline = Date.now() + batchWindowMs;
-					while (
-						pendingMessages.length < batchSize &&
-						Date.now() < deadline &&
-						!signal.aborted
-					) {
-						await timers.setTimeout(Math.min(50, deadline - Date.now()));
-					}
-					if (signal.aborted) return;
-					const taken = pendingMessages.splice(0, batchSize);
-					const event = {
+				// A failed batch is held and retried here rather than NACKed:
+				// ActiveMQ answers a STOMP NACK with a poison ack, which sends the
+				// message to the dead-letter queue (and drops a non-persistent one)
+				// instead of redelivering it. On shutdown or a failure,
+				// disconnecting leaves the unacknowledged messages to the broker to
+				// redeliver.
+				// https://github.com/apache/activemq/blob/main/activemq-stomp/src/main/java/org/apache/activemq/transport/stomp/StompSubscription.java
+				// https://activemq.apache.org/components/classic/documentation/message-redelivery-and-dlq-handling
+				// https://stomp.github.io/stomp-specification-1.2.html#SUBSCRIBE_ack_Header
+				yield* batcher.batches(signal, {
+					toEvent: (batch) => ({
 						eventSource: "aws:amq",
 						eventSourceArn: opts.eventSourceArn,
-						messages: taken.map((t) => t.record),
-					};
-					inflight.set(event, taken);
-					yield event;
-					// The runner resumes here after acknowledging the batch, or after
-					// the handler threw. A batch still in flight was never
-					// acknowledged: NACK every message so the broker redelivers it
-					// instead of holding it against the subscription. On shutdown or
-					// a failure, disconnecting leaves the unacknowledged messages to
-					// the broker to redeliver instead.
-					// https://stomp.github.io/stomp-specification-1.2.html#NACK
-					if (signal.aborted) return;
-					if (failure) throw failure;
-					const unsettled = inflight.get(event);
-					if (unsettled) {
-						inflight.delete(event);
-						for (const t of unsettled) client.nack(t.message);
-					}
-				}
+						messages: batch.map((delivery) => delivery.record),
+					}),
+					discard: (batch, event) => {
+						report(
+							new Error("Retry attempts exhausted", {
+								cause: {
+									package: pkg,
+									data: {
+										messageIDs: batch.map(
+											(delivery) => delivery.record.messageID,
+										),
+									},
+								},
+							}),
+							event,
+						);
+						for (const delivery of batch) client.nack(delivery.message);
+					},
+				});
 			} finally {
-				signal.removeEventListener("abort", wakeReader);
+				signal.removeEventListener("abort", batcher.wakeReader);
 				try {
 					client.disconnect();
 				} catch {
@@ -246,25 +388,10 @@ export const pollAmq = (opts) => {
 				}
 			}
 		},
-		async acknowledge(event, response) {
-			const taken = inflight.get(event) ?? [];
-			inflight.delete(event);
-			// An unknown or already settled batch has nothing left to validate.
-			if (taken.length === 0) return;
-			const failed = batchFailures(
-				response,
-				new Set(taken.map((t) => t.record.messageID)),
-			);
-			for (const t of taken) {
-				if (failed.ids.has(t.record.messageID)) {
-					client.nack(t.message);
-				} else {
-					client.ack(t.message);
-				}
+		async acknowledge(event) {
+			for (const delivery of batcher.acknowledge(event)) {
+				client.ack(delivery.message);
 			}
-			// An invalid response nacks every message (the whole batch is
-			// retried, as from Lambda) and then raises the reason.
-			if (failed.error) throw failed.error;
 		},
 	};
 };

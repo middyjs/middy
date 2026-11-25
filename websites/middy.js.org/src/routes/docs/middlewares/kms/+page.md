@@ -1,4 +1,5 @@
 ---
+
 title: kms
 description: "Fetch and cache AWS KMS asymmetric public keys for signature verification (JWT, PASETO, etc.)."
 status: alpha
@@ -42,88 +43,88 @@ NOTES:
 ### Verifying JWTs signed by a KMS key
 
 ```javascript
-import middy from '@middy/core'
-import kms from '@middy/kms'
-import httpJwt from '@middy/http-jwt'
-import httpErrorHandler from '@middy/http-error-handler'
+import middy from "@middy/core";
+import kms from "@middy/kms";
+import httpJwt from "@middy/http-jwt";
+import httpErrorHandler from "@middy/http-error-handler";
 
 const lambdaHandler = (event, context) => {
-  // `jwt` is @middy/http-jwt's payloadKey under context.middyContext
-  const { sub } = context.middyContext.jwt
-  return { statusCode: 200, body: JSON.stringify({ sub }) }
-}
+	// `jwt` is @middy/http-jwt's payloadKey under context.middyContext
+	const { sub } = context.middyContext.jwt;
+	return { statusCode: 200, body: JSON.stringify({ sub }) };
+};
 
 export const handler = middy()
-  .use(
-    kms({
-      fetchData: {
-        jwtKey: 'alias/jwt-signing-key',
-      },
-    }),
-  )
-  .use(
-    httpJwt({
-      internalKey: 'jwtKey',
-      algorithm: 'RS256', // sign with typ: 'at+jwt', the default expected typ
-      issuer: 'https://auth.example.com',
-      audience: 'api.example.com',
-      setToContext: true,
-    }),
-  )
-  .use(httpErrorHandler())
-  .handler(lambdaHandler)
+	.use(
+		kms({
+			fetchData: {
+				jwtKey: "alias/jwt-signing-key",
+			},
+		}),
+	)
+	.use(
+		httpJwt({
+			internalKey: "jwtKey",
+			algorithm: "RS256", // sign with typ: 'at+jwt', the default expected typ
+			issuer: "https://auth.example.com",
+			audience: "api.example.com",
+			setToContext: true,
+		}),
+	)
+	.use(httpErrorHandler())
+	.handler(lambdaHandler);
 ```
 
 ### Verifying PASETO v4.public tokens
 
 ```javascript
-import middy from '@middy/core'
-import kms from '@middy/kms'
-import httpPaseto from '@middy/http-paseto'
+import middy from "@middy/core";
+import kms from "@middy/kms";
+import httpPaseto from "@middy/http-paseto";
 
 export const handler = middy()
-  .use(
-    kms({
-      fetchData: {
-        pasetoKey: 'alias/paseto-signing-key',
-      },
-    }),
-  )
-  .use(
-    httpPaseto({
-      internalKey: 'pasetoKey',
-    }),
-  )
-  .handler(async () => ({ statusCode: 200, body: '{}' }))
+	.use(
+		kms({
+			fetchData: {
+				pasetoKey: "alias/paseto-signing-key",
+			},
+		}),
+	)
+	.use(
+		httpPaseto({
+			internalKey: "pasetoKey",
+		}),
+	)
+	.handler(async () => ({ statusCode: 200, body: "{}" }));
 ```
 
 ### Reading the public key directly
 
 ```javascript
-import middy from '@middy/core'
-import kms from '@middy/kms'
-import { createPublicKey } from 'node:crypto'
+import middy from "@middy/core";
+import kms from "@middy/kms";
+import { createPublicKey } from "node:crypto";
 
 const lambdaHandler = async (event, context) => {
-  const { signingKey } = context.middyContext.kms
-  // signingKey is { publicKey: Uint8Array, keySpec: 'RSA_2048' | ... }
-  const key = createPublicKey({
-    key: Buffer.from(signingKey.publicKey),
-    format: 'der',
-    type: 'spki',
-  })
-  // ... verify a signature with `key`
-  return { statusCode: 200, body: '{}' }
-}
+	const { signingKey } = context.middyContext.kms;
+	// signingKey is { publicKey: Uint8Array, keySpec: 'RSA_2048' | ... }
+	const key = createPublicKey({
+		key: Buffer.from(signingKey.publicKey),
+		format: "der",
+		type: "spki",
+	});
+	// ... verify a signature with `key`
+	return { statusCode: 200, body: "{}" };
+};
 
 export const handler = middy()
-  .use(
-    kms({
-      fetchData: { signingKey: 'alias/my-app' },
-      setToContext: true,
-    }),
-  )
-  .handler(lambdaHandler)
+	.use(
+		kms({
+			fetchData: { signingKey: "alias/my-app" },
+			setToContext: true,
+		}),
+	)
+	.handler(lambdaHandler);
 ```
 
 ## Bundling

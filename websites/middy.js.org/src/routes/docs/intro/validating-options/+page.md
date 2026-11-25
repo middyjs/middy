@@ -1,4 +1,5 @@
 ---
+
 title: Validating options
 description: "Catch typos and type mismatches in middleware and router options using the per-package option validators exported alongside each middleware."
 position: 6
@@ -11,27 +12,27 @@ Every Middy middleware, router, and `@middy/core` exports a named option validat
 Each package exports a validator named `<middlewareName>ValidateOptions`. Pass it the same options object you intend to hand to the middleware factory.
 
 ```js
-import middy from '@middy/core'
-import ssm, { ssmValidateOptions } from '@middy/ssm'
+import middy from "@middy/core";
+import ssm, { ssmValidateOptions } from "@middy/ssm";
 
 const options = {
-  fetchData: { CONFIG: '/my/param' },
-  cacheExpiry: 60_000,
-}
+	fetchData: { CONFIG: "/my/param" },
+	cacheExpiry: 60_000,
+};
 
-ssmValidateOptions(options)
+ssmValidateOptions(options);
 
-export const handler = middy().use(ssm(options))
+export const handler = middy().use(ssm(options));
 ```
 
 If `options` contains an unknown key (typo) or a value of the wrong type, `ssmValidateOptions` throws a `TypeError` whose `cause.package` is the middleware name:
 
 ```js
 try {
-  ssmValidateOptions({ cachExpiry: 60 })   // typo
+	ssmValidateOptions({ cachExpiry: 60 }); // typo
 } catch (e) {
-  // TypeError: Unknown option 'cachExpiry'
-  // e.cause.package === '@middy/ssm'
+	// TypeError: Unknown option 'cachExpiry'
+	// e.cause.package === '@middy/ssm'
 }
 ```
 
@@ -57,24 +58,26 @@ Call the validator once, wherever misconfiguration is cheapest to surface:
 Routers (`@middy/http-router`, `@middy/cloudformation-router`, `@middy/ws-router`) export validators that accept the object form (`{ routes, notFoundResponse }`). Call them the same way:
 
 ```js
-import { httpRouterValidateOptions } from '@middy/http-router'
+import { httpRouterValidateOptions } from "@middy/http-router";
 
-httpRouterValidateOptions({ routes, notFoundResponse })
+httpRouterValidateOptions({ routes, notFoundResponse });
 ```
 
 `@middy/core` exports `middyValidateOptions` for validating the `pluginConfig` argument passed to `middy(handler, pluginConfig)`:
 
 ```js
-import middy, { middyValidateOptions } from '@middy/core'
+import middy, { middyValidateOptions } from "@middy/core";
 
 const pluginConfig = {
-  timeoutEarlyInMillis: 10,
-  beforeHandler: () => { /* ... */ },
-}
+	timeoutEarlyInMillis: 10,
+	beforeHandler: () => {
+		/* ... */
+	},
+};
 
-middyValidateOptions(pluginConfig)
+middyValidateOptions(pluginConfig);
 
-export const handler = middy(baseHandler, pluginConfig)
+export const handler = middy(baseHandler, pluginConfig);
 ```
 
 ## Writing validators for custom middlewares
@@ -83,21 +86,21 @@ If you publish your own Middy middleware, export a matching validator built on t
 
 ```js
 // my-middleware/index.js
-import { validateOptions } from '@middy/util'
+import { validateOptions } from "@middy/util";
 
 const optionSchema = {
-  type: 'object',
-  required: ['apiKey'],
-  properties: {
-    apiKey: { type: 'string' },
-    retries: { type: 'integer', minimum: 0 },
-    logger: { instanceof: 'Function' },
-  },
-  additionalProperties: false,
-}
+	type: "object",
+	required: ["apiKey"],
+	properties: {
+		apiKey: { type: "string" },
+		retries: { type: "integer", minimum: 0 },
+		logger: { instanceof: "Function" },
+	},
+	additionalProperties: false,
+};
 
 export const myMiddlewareValidateOptions = (options) =>
-  validateOptions('my-middleware', optionSchema, options)
+	validateOptions("my-middleware", optionSchema, options);
 ```
 
 Supported keywords:

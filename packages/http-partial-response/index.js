@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 import {
 	HttpError,
+	isUnwrappedHttpResponse,
 	jsonSafeParse,
 	normalizeHttpResponse,
 	validateOptions,
@@ -19,11 +20,19 @@ const maxFieldsLength = 2048;
 const maxFieldsDepth = 100;
 
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:http-partial-response:options",
 	type: "object",
 	properties: {
-		filteringKeyName: { type: "string" },
+		filteringKeyName: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\x21-\x7E]+$/u,
+		},
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const httpPartialResponseValidateOptions = (options) =>
@@ -37,6 +46,14 @@ const isJsonData = (value) => {
 	if (Array.isArray(value)) return true;
 	const proto = Object.getPrototypeOf(value);
 	return proto === Object.prototype || proto === null;
+};
+
+const withoutContentLength = (headers) => {
+	const kept = {};
+	for (const key of Object.keys(headers)) {
+		if (key.toLowerCase() !== "content-length") kept[key] = headers[key];
+	}
+	return kept;
 };
 
 const httpPartialResponseMiddleware = (opts = {}) => {
@@ -91,7 +108,9 @@ const httpPartialResponseMiddleware = (opts = {}) => {
 		const fields = resolveSelector(request.event);
 		if (fields === undefined) return;
 
-		const body = request.response?.body;
+		const { response } = request;
+		const unwrapped = isUnwrappedHttpResponse(response);
+		const body = unwrapped ? response : response.body;
 		const bodyIsString = typeof body === "string";
 
 		const parsedBody = jsonSafeParse(body);
@@ -103,11 +122,20 @@ const httpPartialResponseMiddleware = (opts = {}) => {
 		} catch {
 			throw badSelector("Selector could not be applied");
 		}
+		if (bodyIsString) filteredBody = JSON.stringify(filteredBody);
 
-		normalizeHttpResponse(request);
-		request.response.body = bodyIsString
-			? JSON.stringify(filteredBody)
-			: filteredBody;
+		if (unwrapped) {
+			request.response = filteredBody;
+			return;
+		}
+		const filtered = normalizeHttpResponse(request);
+		filtered.body = filteredBody;
+		filtered.headers = withoutContentLength(filtered.headers);
+		if (filtered.multiValueHeaders) {
+			filtered.multiValueHeaders = withoutContentLength(
+				filtered.multiValueHeaders,
+			);
+		}
 	};
 
 	return {

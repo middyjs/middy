@@ -1,4 +1,5 @@
 ---
+
 title: http-error-handler
 description: "Convert errors with statusCode and message into proper HTTP responses automatically."
 ---
@@ -30,24 +31,24 @@ npm install --save @middy/http-error-handler
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import httpErrorHandler from '@middy/http-error-handler'
-import createError from 'http-errors'
+import middy from "@middy/core";
+import httpErrorHandler from "@middy/http-error-handler";
+import createError from "http-errors";
 
 const lambdaHandler = (event, context) => {
-  throw new createError.UnprocessableEntity()
-}
-export const handler = middy().use(httpErrorHandler()).handler(lambdaHandler)
+	throw new createError.UnprocessableEntity();
+};
+export const handler = middy().use(httpErrorHandler()).handler(lambdaHandler);
 
 // when Lambda runs the handler...
-const response = await handler({}, {})
+const response = await handler({}, {});
 deepStrictEqual(response, {
-  statusCode: 422,
-  headers: {
-    'Content-Type': 'text/plain'
-  },
-  body: 'Unprocessable Entity'
-})
+	statusCode: 422,
+	headers: {
+		"Content-Type": "text/plain",
+	},
+	body: "Unprocessable Entity",
+});
 ```
 
 ## Ordering
@@ -56,10 +57,10 @@ Middy runs `onError` hooks in **reverse** registration order: the last middlewar
 
 ```javascript
 export const handler = middy()
-  .use(errorLogger()) // onError runs third: sees the shaped response (a replaced non-http error is under request.error.cause)
-  .use(httpCors()) // onError runs second: adds CORS headers to the error response
-  .use(httpErrorHandler()) // onError runs first: builds the response
-  .handler(lambdaHandler)
+	.use(errorLogger()) // onError runs third: sees the shaped response (a replaced non-http error is under request.error.cause)
+	.use(httpCors()) // onError runs second: adds CORS headers to the error response
+	.use(httpErrorHandler()) // onError runs first: builds the response
+	.handler(lambdaHandler);
 ```
 
 To log the untouched error before this middleware replaces it, use the `logger` option (it is called first), or register `errorLogger` after `httpErrorHandler` so its `onError` runs earlier.

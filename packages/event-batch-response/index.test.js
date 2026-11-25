@@ -6,14 +6,16 @@ import {
 	throws,
 } from "node:assert/strict";
 import { describe, test } from "node:test";
+import middy from "@middy/core";
 import createEvent from "@serverless/event-mocks";
-
-import middy from "../core/index.js";
 import eventBatchParser from "../event-batch-parser/index.js";
 import { parseAvro } from "../event-batch-parser/parseAvro.js";
 import { parseJson } from "../event-batch-parser/parseJson.js";
 import eventNormalizer from "../event-normalizer/index.js";
-import eventBatchResponse, { flattenBatchRecords } from "./index.js";
+import eventBatchResponse, {
+	eventBatchResponseValidateOptions,
+	flattenBatchRecords,
+} from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -33,6 +35,10 @@ const allSettledHandler = (extractFlag) => async (event) => {
 // --- SQS ----------------------------------------------------------------
 
 describe("@middy/event-batch-response", () => {
+	test.beforeEach((t) => {
+		t.mock.method(console, "error", () => {});
+	});
+
 	test("SQS: returns batchItemFailures for rejected records only", async () => {
 		const event = createEvent.default("aws:sqs", {
 			Records: [
@@ -395,6 +401,81 @@ describe("@middy/event-batch-response", () => {
 		const response = await handler(event, defaultContext);
 		deepStrictEqual(response.records, [
 			{ recordId: "r-drop", result: "Dropped", data: "" },
+		]);
+	});
+
+	test("Firehose: the explicit shape passes metadata through", async () => {
+		const event = firehoseEvent([{ recordId: "r", data: "orig" }]);
+		const metadata = { partitionKeys: { customerId: "c-42" } };
+		const handler = middy(async () =>
+			Promise.allSettled([
+				Promise.resolve({ result: "Ok", data: "transformed", metadata }),
+			]),
+		).use(eventBatchResponse());
+
+		const response = await handler(event, defaultContext);
+		deepStrictEqual(response.records, [
+			{
+				recordId: "r",
+				result: "Ok",
+				data: Buffer.from("transformed").toString("base64"),
+				metadata,
+			},
+		]);
+	});
+
+	test("Firehose (Amazon MSK source): the transformed payload is returned as kafkaRecordValue", async () => {
+		const event = firehoseEvent([
+			{
+				recordId: "r-ok",
+				kafkaRecordValue: Buffer.from("input-1").toString("base64"),
+			},
+		]);
+		const handler = middy(async () =>
+			Promise.allSettled([Promise.resolve("transformed")]),
+		).use(eventBatchResponse());
+
+		const response = await handler(event, defaultContext);
+		deepStrictEqual(response.records, [
+			{
+				recordId: "r-ok",
+				result: "Ok",
+				kafkaRecordValue: Buffer.from("transformed").toString("base64"),
+			},
+		]);
+	});
+
+	test("Firehose (Amazon MSK source): a rejected record echoes its input as kafkaRecordValue", async () => {
+		const raw = Buffer.from("input-1").toString("base64");
+		const event = firehoseEvent([{ recordId: "r-err", kafkaRecordValue: raw }]);
+		const handler = middy(async () =>
+			Promise.allSettled([Promise.reject(new Error("processing failed"))]),
+		).use(eventBatchResponse());
+
+		const response = await handler(event, defaultContext);
+		deepStrictEqual(response.records, [
+			{ recordId: "r-err", result: "ProcessingFailed", kafkaRecordValue: raw },
+		]);
+	});
+
+	test("Firehose (Amazon MSK source): handler can return the explicit { result, kafkaRecordValue } shape", async () => {
+		const event = firehoseEvent([{ recordId: "x", kafkaRecordValue: "orig" }]);
+		const handler = middy(async () =>
+			Promise.allSettled([
+				Promise.resolve({
+					result: "Ok",
+					kafkaRecordValue: Buffer.from("explicit"),
+				}),
+			]),
+		).use(eventBatchResponse());
+
+		const response = await handler(event, defaultContext);
+		deepStrictEqual(response.records, [
+			{
+				recordId: "x",
+				result: "Ok",
+				kafkaRecordValue: Buffer.from("explicit").toString("base64"),
+			},
 		]);
 	});
 
@@ -1126,6 +1207,32 @@ describe("@middy/event-batch-response", () => {
 		]);
 	});
 
+	test("Firehose (Amazon MSK source): echoes the original kafkaRecordValue kept under the raw-data symbol", async () => {
+		const raw = Buffer.from('{ "a": 1 }').toString("base64");
+		const event = firehoseEvent([{ recordId: "r", kafkaRecordValue: raw }]);
+		const handler = middy(async () =>
+			Promise.allSettled([Promise.reject(new Error("x"))]),
+		)
+			.use({
+				before: (request) => {
+					for (const record of request.event.records) {
+						Object.defineProperty(record, rawDataKey, {
+							value: { kafkaRecordValue: record.kafkaRecordValue },
+						});
+						record.kafkaRecordValue = JSON.parse(
+							Buffer.from(record.kafkaRecordValue, "base64"),
+						);
+					}
+				},
+			})
+			.use(eventBatchResponse());
+
+		const response = await handler(event, defaultContext);
+		deepStrictEqual(response.records, [
+			{ recordId: "r", result: "ProcessingFailed", kafkaRecordValue: raw },
+		]);
+	});
+
 	// Avro record { id: "a", name: "b" }: each string is a zigzag length then
 	// its bytes, so the payload is binary and cannot round-trip through JSON.
 	const avroSchema = {
@@ -1153,30 +1260,31 @@ describe("@middy/event-batch-response", () => {
 			use: () => eventNormalizer(),
 		},
 	];
-	for (const { name, raw, use } of firehoseMutators) {
-		for (const responseFirst of [false, true]) {
-			test(`Firehose: echoes the original base64 with ${name} registered ${responseFirst ? "after" : "before"} eventBatchResponse`, async () => {
-				const event = firehoseEvent([
-					{ recordId: "r-err", data: raw },
-					{ recordId: "r-pass", data: raw },
-				]);
-				const handler = middy(async (e) => {
-					// The mutator really replaced `data` before the handler ran.
-					strictEqual(typeof e.records[0].data, "object");
-					return Promise.allSettled([
-						Promise.reject(new Error("x")),
-						Promise.resolve(undefined),
+	for (const field of ["data", "kafkaRecordValue"]) {
+		for (const { name, raw, use } of firehoseMutators) {
+			for (const responseFirst of [false, true]) {
+				test(`Firehose: echoes the original base64 ${field} with ${name} registered ${responseFirst ? "after" : "before"} eventBatchResponse`, async () => {
+					const event = firehoseEvent([
+						{ recordId: "r-err", [field]: raw },
+						{ recordId: "r-pass", [field]: raw },
+					]);
+					const handler = middy(async (e) => {
+						strictEqual(typeof e.records[0][field], "object");
+						return Promise.allSettled([
+							Promise.reject(new Error("x")),
+							Promise.resolve(undefined),
+						]);
+					});
+					if (responseFirst) handler.use(eventBatchResponse()).use(use());
+					else handler.use(use()).use(eventBatchResponse());
+
+					const response = await handler(event, defaultContext);
+					deepStrictEqual(response.records, [
+						{ recordId: "r-err", result: "ProcessingFailed", [field]: raw },
+						{ recordId: "r-pass", result: "Ok", [field]: raw },
 					]);
 				});
-				if (responseFirst) handler.use(eventBatchResponse()).use(use());
-				else handler.use(use()).use(eventBatchResponse());
-
-				const response = await handler(event, defaultContext);
-				deepStrictEqual(response.records, [
-					{ recordId: "r-err", result: "ProcessingFailed", data: raw },
-					{ recordId: "r-pass", result: "Ok", data: raw },
-				]);
-			});
+			}
 		}
 	}
 
@@ -1302,5 +1410,241 @@ describe("@middy/event-batch-response", () => {
 			handler(event, defaultContext),
 			unsupportedSourceError("constructor"),
 		);
+	});
+
+	const sqsRecords = (...ids) =>
+		ids.map((messageId) => ({
+			messageId,
+			eventSource: "aws:sqs",
+			eventSourceARN: "arn:aws:sqs:us-east-1:123456789012:q",
+		}));
+
+	test("logger: by default the reason of each failed record is written with console.error", async (t) => {
+		const consoleError = console.error;
+		const reason = new Error("boom");
+		const handler = middy(async () => [
+			{ status: "fulfilled", value: 1 },
+			{ status: "rejected", reason },
+		]).use(eventBatchResponse());
+
+		const response = await handler(
+			{ Records: sqsRecords("a", "b") },
+			defaultContext,
+		);
+		deepStrictEqual(response, {
+			batchItemFailures: [{ itemIdentifier: "b" }],
+		});
+		deepStrictEqual(
+			consoleError.mock.calls.map((call) => call.arguments),
+			[[reason]],
+		);
+	});
+
+	test("logger: a custom logger is called once per failed record with (request, { reason, record })", async (t) => {
+		const logger = t.mock.fn();
+		const reason = new Error("boom");
+		const event = { Records: sqsRecords("a", "b", "c") };
+		const handler = middy(async () => [
+			{ status: "rejected", reason },
+			{ status: "fulfilled", value: 1 },
+		]).use(eventBatchResponse({ logger }));
+
+		await handler(event, defaultContext);
+		const calls = logger.mock.calls.map((call) => call.arguments);
+		strictEqual(calls.length, 2);
+		strictEqual(calls[0][0].event, event);
+		deepStrictEqual(calls[0][1], { reason, record: event.Records[0] });
+		deepStrictEqual(calls[1][1], {
+			reason: undefined,
+			record: event.Records[2],
+		});
+	});
+
+	test("logger: false turns logging off", async (t) => {
+		const consoleError = console.error;
+		const handler = middy(async () => [
+			{ status: "rejected", reason: new Error("boom") },
+		]).use(eventBatchResponse({ logger: false }));
+
+		const response = await handler(
+			{ Records: sqsRecords("a") },
+			defaultContext,
+		);
+		deepStrictEqual(response, {
+			batchItemFailures: [{ itemIdentifier: "a" }],
+		});
+		strictEqual(consoleError.mock.callCount(), 0);
+	});
+
+	test("logger: a logger that throws is reported and does not change the response", async (t) => {
+		const consoleError = console.error;
+		const loggerError = new Error("log sink unreachable");
+		const calls = [];
+		const logger = (_request, { record }) => {
+			calls.push(record.messageId);
+			throw loggerError;
+		};
+		const handler = middy(async () => [
+			{ status: "rejected", reason: new Error("boom") },
+			{ status: "fulfilled", value: 1 },
+			{ status: "rejected", reason: new Error("bang") },
+		]).use(eventBatchResponse({ logger }));
+
+		const response = await handler(
+			{ Records: sqsRecords("a", "b", "c") },
+			defaultContext,
+		);
+		deepStrictEqual(response, {
+			batchItemFailures: [{ itemIdentifier: "a" }, { itemIdentifier: "c" }],
+		});
+		deepStrictEqual(calls, ["a", "c"]);
+		deepStrictEqual(
+			consoleError.mock.calls.map((call) => call.arguments),
+			[[loggerError], [loggerError]],
+		);
+	});
+
+	test("logger: an async logger is awaited and its rejection does not change the response", async (t) => {
+		const consoleError = console.error;
+		const loggerError = new Error("log sink unreachable");
+		const shipped = [];
+		const logger = async (_request, { record }) => {
+			await new Promise((resolve) => setImmediate(resolve));
+			shipped.push(record.messageId);
+			if (record.messageId === "a") throw loggerError;
+		};
+		const handler = middy(async () => [
+			{ status: "rejected", reason: new Error("boom") },
+			{ status: "rejected", reason: new Error("bang") },
+		]).use(eventBatchResponse({ logger }));
+
+		const response = await handler(
+			{ Records: sqsRecords("a", "b") },
+			defaultContext,
+		);
+		deepStrictEqual(response, {
+			batchItemFailures: [{ itemIdentifier: "a" }, { itemIdentifier: "b" }],
+		});
+		deepStrictEqual(shipped, ["a", "b"]);
+		deepStrictEqual(
+			consoleError.mock.calls.map((call) => call.arguments),
+			[[loggerError]],
+		);
+	});
+
+	const runAfterHook = (middleware, records, settled) => {
+		const request = { event: { Records: records }, internal: {} };
+		middleware.before(request);
+		request.response = settled;
+		return { request, returned: middleware.after(request) };
+	};
+
+	test("logger: the after hook returns undefined synchronously for a synchronous logger", (t) => {
+		for (const result of [undefined, null, { chained: true }, "logged"]) {
+			const logger = t.mock.fn(() => result);
+			const { request, returned } = runAfterHook(
+				eventBatchResponse({ logger }),
+				sqsRecords("a", "b"),
+				[
+					{ status: "rejected", reason: new Error("boom") },
+					{ status: "fulfilled", value: 1 },
+				],
+			);
+
+			strictEqual(returned, undefined);
+			deepStrictEqual(request.response, {
+				batchItemFailures: [{ itemIdentifier: "a" }],
+			});
+			strictEqual(logger.mock.callCount(), 1);
+		}
+		strictEqual(console.error.mock.callCount(), 0);
+	});
+
+	test("logger: the after hook stays synchronous when no record failed or logging is off", () => {
+		const settledOk = [{ status: "fulfilled", value: 1 }];
+		const settledFailed = [{ status: "rejected", reason: new Error("boom") }];
+		const cases = [
+			{ options: { logger: async () => {} }, settled: settledOk },
+			{ options: { logger: false }, settled: settledFailed },
+		];
+		for (const { options, settled } of cases) {
+			const { returned } = runAfterHook(
+				eventBatchResponse(options),
+				sqsRecords("a"),
+				settled,
+			);
+			strictEqual(returned, undefined);
+		}
+	});
+
+	test("logger: a thenable returned by the logger is awaited and its rejection reported", async () => {
+		const thenKey = "then";
+		const loggerError = new Error("log sink unreachable");
+		const handler = middy(async () => [
+			{ status: "rejected", reason: new Error("boom") },
+		]).use(
+			eventBatchResponse({
+				logger: () => ({
+					[thenKey]: (_resolve, reject) => reject(loggerError),
+				}),
+			}),
+		);
+
+		const response = await handler(
+			{ Records: sqsRecords("a") },
+			defaultContext,
+		);
+		deepStrictEqual(response, {
+			batchItemFailures: [{ itemIdentifier: "a" }],
+		});
+		deepStrictEqual(
+			console.error.mock.calls.map((call) => call.arguments),
+			[[loggerError]],
+		);
+	});
+
+	test("logger: when the handler throws, every record is logged with that error", async (t) => {
+		const logger = t.mock.fn();
+		const error = new Error("handler crashed");
+		const event = { Records: sqsRecords("a", "b") };
+		const handler = middy(async () => {
+			throw error;
+		}).use(eventBatchResponse({ logger }));
+
+		const response = await handler(event, defaultContext);
+		deepStrictEqual(response, {
+			batchItemFailures: [{ itemIdentifier: "a" }, { itemIdentifier: "b" }],
+		});
+		deepStrictEqual(
+			logger.mock.calls.map((call) => call.arguments[1]),
+			[
+				{ reason: error, record: event.Records[0] },
+				{ reason: error, record: event.Records[1] },
+			],
+		);
+	});
+
+	test("eventBatchResponseValidateOptions accepts a logger function, false, and no options", () => {
+		const options = { logger: () => {} };
+		strictEqual(eventBatchResponseValidateOptions(options), options);
+		eventBatchResponseValidateOptions({ logger: false });
+		eventBatchResponseValidateOptions({});
+		eventBatchResponseValidateOptions();
+	});
+
+	test("eventBatchResponseValidateOptions rejects a wrong logger type and an unknown option", () => {
+		const invalid = {
+			name: "TypeError",
+			cause: { package: "@middy/event-batch-response" },
+		};
+		throws(() => eventBatchResponseValidateOptions({ logger: true }), invalid);
+		throws(
+			() => eventBatchResponseValidateOptions({ logger: "console" }),
+			invalid,
+		);
+		throws(() => eventBatchResponseValidateOptions({ loger: () => {} }), {
+			...invalid,
+			message: "Unknown option 'loger'",
+		});
 	});
 });

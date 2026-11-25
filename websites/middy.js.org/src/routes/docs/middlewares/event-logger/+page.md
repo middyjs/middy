@@ -1,4 +1,5 @@
 ---
+
 title: 'event-logger'
 description: "Log incoming Lambda events, with path-based redaction of sensitive fields."
 ---
@@ -32,55 +33,55 @@ Only plain objects and arrays are walked. A class instance is opened only when a
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import eventLogger from '@middy/event-logger'
+import middy from "@middy/core";
+import eventLogger from "@middy/event-logger";
 
 const lambdaHandler = (event, context) => {
-  // your handler logic
-}
+	// your handler logic
+};
 
-export const handler = middy().use(eventLogger()).handler(lambdaHandler)
+export const handler = middy().use(eventLogger()).handler(lambdaHandler);
 ```
 
 Redacting an authorization header and a resolved secret:
 
 ```javascript
-import middy from '@middy/core'
-import eventLogger from '@middy/event-logger'
+import middy from "@middy/core";
+import eventLogger from "@middy/event-logger";
 
 export const handler = middy()
-  .use(
-    eventLogger({
-      omitPaths: [
-        'event.headers.authorization',
-        'event.multiValueHeaders.authorization',
-        'internal.DB_PASSWORD'
-      ],
-      mask: '[redacted]'
-    })
-  )
-  .handler(lambdaHandler)
+	.use(
+		eventLogger({
+			omitPaths: [
+				"event.headers.authorization",
+				"event.multiValueHeaders.authorization",
+				"internal.DB_PASSWORD",
+			],
+			mask: "[redacted]",
+		}),
+	)
+	.handler(lambdaHandler);
 ```
 
 With a third-party logger:
 
 ```javascript
-import middy from '@middy/core'
-import eventLogger from '@middy/event-logger'
-import pino from 'pino'
+import middy from "@middy/core";
+import eventLogger from "@middy/event-logger";
+import pino from "pino";
 
-const logger = pino()
+const logger = pino();
 
 export const handler = middy()
-  .use(
-    eventLogger({
-      logger: (request) => {
-        const child = logger.child({
-          awsRequestId: request.context.awsRequestId
-        })
-        child.info(request.event)
-      }
-    })
-  )
-  .handler(lambdaHandler)
+	.use(
+		eventLogger({
+			logger: (request) => {
+				const child = logger.child({
+					awsRequestId: request.context.awsRequestId,
+				});
+				child.info(request.event);
+			},
+		}),
+	)
+	.handler(lambdaHandler);
 ```

@@ -6,6 +6,7 @@ import {
 } from "@aws-sdk/client-apigatewaymanagementapi";
 
 import {
+	awsClientOptionsSchema,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClientInit,
@@ -17,15 +18,24 @@ const name = "ws-response";
 const pkg = `@middy/${name}`;
 
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:ws-response:options",
+	$defs: { Function: false, Object: false },
 	type: "object",
 	properties: {
-		AwsClient: { instanceof: "Function" },
-		awsClientOptions: { type: "object" },
-		awsClientAssumeRole: { type: "string" },
-		awsClientCapture: { instanceof: "Function" },
+		AwsClient: { $ref: "#/$defs/Function" },
+		awsClientOptions: awsClientOptionsSchema,
+		awsClientAssumeRole: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\x21-\x7E]+$/u,
+		},
+		awsClientCapture: { $ref: "#/$defs/Function" },
 		disablePrefetch: { type: "boolean" },
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const wsResponseValidateOptions = (options) =>
@@ -106,8 +116,16 @@ const wsResponseMiddleware = (opts = {}) => {
 		const eventType = request.event.requestContext?.eventType;
 		if (eventType === "CONNECT" || eventType === "DISCONNECT") return;
 
-		const normalizedResponse = normalizeWsResponse(request);
+		const normalizedResponse = normalizeWsResponse(request.response);
 
+		// PostToConnection requires `Data`: `--data (blob) [required]`, with a
+		// maximum length as its only constraint.
+		// https://docs.aws.amazon.com/cli/latest/reference/apigatewaymanagementapi/post-to-connection.html
+		const { Data } = normalizedResponse;
+		if (Data === undefined || Data === null) return;
+
+		normalizedResponse.ConnectionId ??=
+			request.event.requestContext?.connectionId;
 		if (!normalizedResponse.ConnectionId) return;
 
 		const requestClient = await resolveClient(request);
@@ -135,11 +153,8 @@ const wsResponseMiddleware = (opts = {}) => {
 	};
 };
 
-const normalizeWsResponse = (request) => {
-	let { response } = request;
-	if (typeof response === "undefined") {
-		response = {};
-	} else if (
+const normalizeWsResponse = (response) => {
+	if (
 		typeof response?.Data === "undefined" &&
 		typeof response?.ConnectionId === "undefined"
 	) {
@@ -147,9 +162,8 @@ const normalizeWsResponse = (request) => {
 			typeof response === "string" || response instanceof Uint8Array
 				? response
 				: JSON.stringify(response);
-		response = { Data: data };
+		return { Data: data };
 	}
-	response.ConnectionId ??= request.event.requestContext?.connectionId;
 	return response;
 };
 

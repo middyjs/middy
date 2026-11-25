@@ -7,7 +7,9 @@ import {
 } from "@aws-sdk/client-appconfigdata";
 import {
 	assignSetToContext,
+	awsClientOptionsSchema,
 	buildSetToContextSpec,
+	cacheOptionSchemaProperties,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClientInit,
@@ -16,6 +18,8 @@ import {
 	jsonContentTypePattern,
 	jsonSafeParse,
 	processCache,
+	reservedPropertyNames,
+	setCacheKeyExpiry,
 	validateOptions,
 } from "@middy/util";
 
@@ -45,59 +49,65 @@ const defaults = {
 	contextKey: name,
 };
 
+const keyNameRule = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\x21-\x7E]+$/u,
+	not: { type: "string", enum: reservedPropertyNames },
+};
+// "Length Constraints: Minimum length of 1. Maximum length of 128."
+// https://docs.aws.amazon.com/appconfig/2019-10-09/APIReference/API_appconfigdata_StartConfigurationSession.html
+const identifierRule = {
+	type: "string",
+	maxLength: 128,
+	pattern: /^[\p{L}\p{M}\p{N}\p{P}\p{S} ]+$/u,
+};
+
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:appconfig:options",
+	$defs: { Function: false, Object: false },
 	type: "object",
 	properties: {
-		AwsClient: { instanceof: "Function" },
-		awsClientOptions: { type: "object" },
-		awsClientAssumeRole: { type: "string" },
-		awsClientCapture: { instanceof: "Function" },
+		AwsClient: { $ref: "#/$defs/Function" },
+		awsClientOptions: awsClientOptionsSchema,
+		awsClientAssumeRole: keyNameRule,
+		awsClientCapture: { $ref: "#/$defs/Function" },
 		fetchData: {
 			type: "object",
+			propertyNames: keyNameRule,
+			maxProperties: 1024,
+			required: [],
 			additionalProperties: {
 				type: "object",
+				properties: {
+					ApplicationIdentifier: identifierRule,
+					ConfigurationProfileIdentifier: identifierRule,
+					EnvironmentIdentifier: identifierRule,
+					// "Valid Range: Minimum value of 15. Maximum value of 86400."
+					RequiredMinimumPollIntervalInSeconds: {
+						type: "integer",
+						minimum: 15,
+						maximum: 86400,
+					},
+				},
 				required: [
 					"ApplicationIdentifier",
 					"ConfigurationProfileIdentifier",
 					"EnvironmentIdentifier",
 				],
-				properties: {
-					ApplicationIdentifier: { type: "string" },
-					ConfigurationProfileIdentifier: { type: "string" },
-					EnvironmentIdentifier: { type: "string" },
-					RequiredMinimumPollIntervalInSeconds: {
-						type: "number",
-						minimum: 15,
-						maximum: Number.MAX_SAFE_INTEGER,
-					},
-				},
-				additionalProperties: true,
+				additionalProperties: false,
+				unevaluatedProperties: false,
 			},
+			unevaluatedProperties: false,
 		},
-		disablePrefetch: { type: "boolean" },
-		cacheKey: { type: "string" },
-		cacheKeyExpiry: {
-			type: "object",
-			additionalProperties: {
-				type: "number",
-				minimum: -1,
-				maximum: Number.MAX_SAFE_INTEGER,
-			},
-		},
-		cacheExpiry: {
-			type: "number",
-			minimum: -1,
-			maximum: Number.MAX_SAFE_INTEGER,
-		},
-		cacheMaxSize: {
-			type: "integer",
-			minimum: 1,
-			maximum: Number.MAX_SAFE_INTEGER,
-		},
+		...cacheOptionSchemaProperties,
 		setToContext: { type: "boolean" },
-		contextKey: { type: "string" },
+		contextKey: keyNameRule,
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const appConfigValidateOptions = (options) =>
@@ -118,9 +128,14 @@ const appConfigMiddleware = (opts = {}) => {
 			.send(command)
 			.catch((e) => catchInvalidSignatureException(e, client, command))
 			.then((configResp) => {
+				const now = Date.now();
 				configurationTokenCache[internalKey] = {
 					token: configResp.NextPollConfigurationToken,
-					expiry: Date.now() + tokenValidityMs,
+					expiry: now + tokenValidityMs,
+					// NextPollIntervalInSeconds is "the amount of time the client
+					// should wait before polling for configuration updates again".
+					// https://docs.aws.amazon.com/appconfig/2019-10-09/APIReference/API_appconfigdata_GetLatestConfiguration.html
+					nextPollAt: now + (configResp.NextPollIntervalInSeconds ?? 0) * 1000,
 				};
 
 				if (!configResp.Configuration?.length) {
@@ -146,10 +161,8 @@ const appConfigMiddleware = (opts = {}) => {
 	const contextSpec = buildSetToContextSpec(options);
 	const fetchConfigurationRequest = (internalKey) => {
 		const cachedToken = configurationTokenCache[internalKey];
-		if (
-			typeof cachedToken === "undefined" ||
-			cachedToken.expiry <= Date.now()
-		) {
+		const now = Date.now();
+		if (typeof cachedToken === "undefined" || cachedToken.expiry <= now) {
 			const command = new StartConfigurationSessionCommand(
 				options.fetchData[internalKey],
 			);
@@ -162,6 +175,13 @@ const appConfigMiddleware = (opts = {}) => {
 						internalKey,
 					),
 				);
+		}
+		// A session started with RequiredMinimumPollIntervalInSeconds "can't call
+		// GetLatestConfiguration more frequently" than that.
+		// https://docs.aws.amazon.com/appconfig/2019-10-09/APIReference/API_appconfigdata_StartConfigurationSession.html
+		if (now < cachedToken.nextPollAt) {
+			setCacheKeyExpiry(options, cachedToken.nextPollAt);
+			return Promise.resolve(configurationCache[internalKey]);
 		}
 		return fetchLatestConfigurationRequest(cachedToken.token, internalKey);
 	};

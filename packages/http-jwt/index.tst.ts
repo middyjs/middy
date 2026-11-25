@@ -167,6 +167,16 @@ test("audience accepts null to opt out of the aud check", () => {
 	});
 });
 
+test("issuer accepts null to opt out of the iss check", () => {
+	expect<Options["issuer"]>().type.toBe<string | string[] | null | undefined>();
+	httpJwt({
+		internalKey: "signingKey",
+		algorithm: "RS256",
+		audience: null,
+		issuer: null,
+	});
+});
+
 test("internal carries the payload and token under their keys", () => {
 	middy()
 		.use(httpJwt({ internalKey: "jwks" }))

@@ -1,4 +1,5 @@
 ---
+
 title: Inline Middlewares
 description: "Use inline middlewares for quick, non-reusable logic in a single lifecycle phase."
 position: 3
@@ -14,23 +15,23 @@ logic into Middy's control flow.
 Let's see how inline middlewares work with a simple example:
 
 ```javascript
-import middy from '@middy/core'
+import middy from "@middy/core";
 
 const lambdaHandler = (event, context) => {
-  // do stuff
-}
+	// do stuff
+};
 
 export const handler = middy()
-  .before(async (request) => {
-    // do something in the before phase
-  })
-  .after(async (request) => {
-    // do something in the after phase
-  })
-  .onError(async (request) => {
-    // do something in the on error phase
-  })
-  .handler(lambdaHandler)
+	.before(async (request) => {
+		// do something in the before phase
+	})
+	.after(async (request) => {
+		// do something in the after phase
+	})
+	.onError(async (request) => {
+		// do something in the on error phase
+	})
+	.handler(lambdaHandler);
 ```
 
 As you can see above, a middy instance also exposes the `before`, `after` and `onError`

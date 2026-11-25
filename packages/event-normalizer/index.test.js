@@ -1,8 +1,15 @@
-import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	ok,
+	rejects,
+	strictEqual,
+	throws,
+} from "node:assert/strict";
+import { constants as bufferConstants } from "node:buffer";
 import { describe, test } from "node:test";
 import { gzipSync } from "node:zlib";
+import middy from "@middy/core";
 import createEvent from "@serverless/event-mocks";
-import middy from "../core/index.js";
 import eventNormalizer, { eventNormalizerValidateOptions } from "./index.js";
 
 const defaultContext = {
@@ -1013,6 +1020,22 @@ describe("@middy/event-normalizer", () => {
 		eventNormalizerValidateOptions({ maxDecompressedBytes: 5 * 1024 * 1024 });
 	});
 
+	test("eventNormalizerValidateOptions caps maxDecompressedBytes at the zlib maxOutputLength bound", () => {
+		eventNormalizerValidateOptions({
+			maxDecompressedBytes: bufferConstants.MAX_LENGTH,
+		});
+		throws(
+			() =>
+				eventNormalizerValidateOptions({
+					maxDecompressedBytes: bufferConstants.MAX_LENGTH + 1,
+				}),
+			{
+				name: "TypeError",
+				message: `Option 'maxDecompressedBytes' must be <= ${bufferConstants.MAX_LENGTH}`,
+			},
+		);
+	});
+
 	test("CloudWatch Logs: default decompressed cap of 10 MiB is applied", async () => {
 		const handler = middy((event) => event).use(eventNormalizer());
 
@@ -1358,6 +1381,28 @@ describe("@middy/event-normalizer", () => {
 
 		deepStrictEqual(response.records[0].data, { f: 1 });
 		deepStrictEqual({ ...response.records[0][rawDataKey] }, { data: original });
+	});
+
+	test("It should parse Kinesis Firehose event kafkaRecordValue (Amazon MSK source)", async (t) => {
+		const handler = middy((event) => event).use(eventNormalizer());
+
+		const raw = Buffer.from('{ "hello": "world" }').toString("base64");
+		const event = {
+			invocationId: "invoked123",
+			deliveryStreamArn:
+				"arn:aws:firehose:us-west-2:112556298976:deliverystream/my-stream",
+			region: "us-west-2",
+			records: [{ recordId: "record1", kafkaRecordValue: raw }],
+		};
+		const response = await handler(event, defaultContext);
+
+		deepStrictEqual(response.records, [
+			{ recordId: "record1", kafkaRecordValue: { hello: "world" } },
+		]);
+		deepStrictEqual(
+			{ ...response.records[0][rawDataKey] },
+			{ kafkaRecordValue: raw },
+		);
 	});
 
 	test("It should still parse a benign SQS body normally after the proto guard", async (t) => {

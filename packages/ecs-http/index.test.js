@@ -7,6 +7,7 @@ import {
 	strictEqual,
 	throws,
 } from "node:assert/strict";
+import { constants as bufferConstants } from "node:buffer";
 import nodeCluster from "node:cluster";
 import { EventEmitter } from "node:events";
 import http from "node:http";
@@ -45,6 +46,17 @@ mock.method(process, "exit", () => {
 });
 
 const noop = () => {};
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html
+const targetGroupArn =
+	"arn:aws:elasticloadbalancing:us-east-2:123456789012:targetgroup/my-target-group/6d0ecf831eec9f09";
+
+const nullProto = (o) => Object.assign(Object.create(null), o);
+
+const distinctHeaders = (headers) => {
+	const distinct = Object.create(null);
+	for (const [name, value] of Object.entries(headers)) distinct[name] = [value];
+	return distinct;
+};
 
 // Fake node:http request: a plain EventEmitter so body chunks, "end" and
 // "error" can be driven by hand without a socket.
@@ -52,11 +64,21 @@ const makeReq = ({
 	method = "GET",
 	url = "/",
 	headers = {},
+	headersDistinct = distinctHeaders(headers),
+	rawHeaders = Object.entries(headers).flat(),
 	httpVersion = "1.1",
 	socket = { remoteAddress: "127.0.0.1" },
 } = {}) => {
 	const req = new EventEmitter();
-	Object.assign(req, { method, url, headers, httpVersion, socket });
+	Object.assign(req, {
+		method,
+		url,
+		headers,
+		headersDistinct,
+		rawHeaders,
+		httpVersion,
+		socket,
+	});
 	req.destroyed = false;
 	req.destroy = () => {
 		req.destroyed = true;
@@ -64,8 +86,11 @@ const makeReq = ({
 	return req;
 };
 
-// Query maps are null-prototype objects; deepStrictEqual compares prototypes.
-const nullProto = (o) => Object.assign(Object.create(null), o);
+const closeServer = (server) =>
+	new Promise((resolve) => {
+		server.closeAllConnections?.();
+		server.close(() => resolve());
+	});
 
 const startServer = async (handler) => {
 	const server = http.createServer(handler);
@@ -74,11 +99,7 @@ const startServer = async (handler) => {
 	return {
 		server,
 		url: `http://127.0.0.1:${port}`,
-		close: () =>
-			new Promise((resolve) => {
-				server.closeAllConnections?.();
-				server.close(() => resolve());
-			}),
+		close: () => closeServer(server),
 	};
 };
 
@@ -147,11 +168,126 @@ describe("@middy/ecs-http", () => {
 		}
 	});
 
-	test("ecsHttpValidateOptions accepts arbitrary requestContext fields", () => {
+	test("ecsHttpValidateOptions accepts string requestContext fields and the ALB elb block", () => {
 		ecsHttpValidateOptions({
 			handler: noop,
-			requestContext: { elb: { targetGroupArn: "arn:tg" }, stage: "prod" },
+			requestContext: { elb: { targetGroupArn }, stage: "prod" },
 		});
+	});
+
+	// https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html
+	test("ecsHttpValidateOptions accepts a targetGroupArn in every partition", () => {
+		for (const partition of ["aws", "aws-cn", "aws-us-gov"]) {
+			ecsHttpValidateOptions({
+				handler: noop,
+				requestContext: {
+					elb: {
+						targetGroupArn: targetGroupArn.replace(
+							"arn:aws:",
+							`arn:${partition}:`,
+						),
+					},
+				},
+			});
+		}
+	});
+
+	test("ecsHttpValidateOptions bounds every option", () => {
+		const manyFields = Object.fromEntries(
+			Array.from({ length: 1024 }, (_, i) => [`k${i}`, "v"]),
+		);
+		const accepted = [
+			{},
+			{ handler: async () => {} },
+			{ port: 0 },
+			{ port: 65535 },
+			{ host: "0.0.0.0" },
+			{ host: "::" },
+			{ host: "fe80::1%eth0" },
+			{ host: "ip-10-0-0-1.ec2.internal" },
+			{ host: "example.com." },
+			{ host: "::1" },
+			{ host: "h".repeat(1024) },
+			{ requestContext: {} },
+			{ requestContext: { accountId: "111", apiId: "local" } },
+			{ requestContext: { stage: "", "custom:key/1": "ünïcødé value" } },
+			{ requestContext: { "@middy/x": "v", "key=1": "v" } },
+			{
+				requestContext: {
+					requestTimeEpoch: 1_700_000_000,
+					minimum: -Number.MAX_SAFE_INTEGER,
+					maximum: Number.MAX_SAFE_INTEGER,
+					flag: true,
+				},
+			},
+			{ requestContext: { taskArn: "v".repeat(1024) } },
+			{ requestContext: { ["k".repeat(1024)]: "v" } },
+			{ requestContext: manyFields },
+			{ requestContext: { elb: {} } },
+			{ workers: 1 },
+			{ workers: 4_194_304 },
+			{ timeout: 0 },
+			{ timeout: 2_147_483_647 },
+			{ bodyLimit: 0 },
+			{ bodyLimit: bufferConstants.MAX_STRING_LENGTH },
+			{ trustedProxies: 1024 },
+			{ gracefulShutdownMs: 0 },
+			{ gracefulShutdownMs: 2_147_483_647 },
+		];
+		for (const extra of accepted) {
+			ecsHttpValidateOptions({ handler: noop, ...extra });
+		}
+		ecsHttpValidateOptions({ loadHandler: async () => noop });
+		const rejected = [
+			{ handler: "handler" },
+			{ port: -1 },
+			{ port: 65536 },
+			{ host: "" },
+			{ host: "bad host" },
+			{ host: "[::1]" },
+			{ host: "h".repeat(1025) },
+			{ requestContext: "stage" },
+			{ requestContext: { stage: null } },
+			{ requestContext: { stage: {} } },
+			{ requestContext: { stage: ["prod"] } },
+			{ requestContext: { epoch: Number.MAX_SAFE_INTEGER + 2 } },
+			{ requestContext: { epoch: -Number.MAX_SAFE_INTEGER - 2 } },
+			{ requestContext: { stage: "a\nb" } },
+			{ requestContext: { stage: "v".repeat(1025) } },
+			{ requestContext: { "bad key": "v" } },
+			{ requestContext: { ["k".repeat(1025)]: "v" } },
+			{ requestContext: { ...manyFields, extra: "v" } },
+			{ requestContext: { elb: "elb" } },
+			{ requestContext: { elb: { targetGroupArn: "my-target-group" } } },
+			{ requestContext: { elb: { targetGroupArn: `x${targetGroupArn}` } } },
+			{ requestContext: { elb: { targetGroupArn: `${targetGroupArn} ` } } },
+			{
+				requestContext: {
+					elb: { targetGroupArn: `${targetGroupArn}${"x".repeat(1024)}` },
+				},
+			},
+			{ requestContext: { elb: { targetGroupArn, extra: "v" } } },
+			{ workers: 0 },
+			{ workers: 4_194_305 },
+			{ timeout: -1 },
+			{ timeout: 2_147_483_648 },
+			{ bodyLimit: -1 },
+			{ bodyLimit: bufferConstants.MAX_STRING_LENGTH + 1 },
+			{ trustedProxies: 1025 },
+			{ gracefulShutdownMs: -1 },
+			{ gracefulShutdownMs: 2_147_483_648 },
+		];
+		for (const extra of rejected) {
+			throws(
+				() => ecsHttpValidateOptions({ handler: noop, ...extra }),
+				TypeError,
+				JSON.stringify(extra),
+			);
+		}
+		throws(
+			() => ecsHttpValidateOptions({ loadHandler: "loadHandler" }),
+			TypeError,
+		);
 	});
 
 	test("ecsHttpValidateOptions accepts contextOverride.awsRequestId function", () => {
@@ -578,9 +714,18 @@ describe("@middy/ecs-http", () => {
 	});
 
 	test("buildEventV1 produces a v1 event with multi-value fields", () => {
-		const headers = { host: "h", "user-agent": "ua/1", "x-a": ["1", "2"] };
 		const event = buildEventV1({
-			req: makeReq({ method: "GET", url: "/x?a=1&a=2", headers }),
+			req: makeReq({
+				method: "GET",
+				url: "/x?a=1&a=2",
+				headers: { host: "h", "user-agent": "ua/1", "x-a": "1, 2" },
+				headersDistinct: nullProto({
+					host: ["h"],
+					"user-agent": ["ua/1"],
+					"x-a": ["1", "2"],
+				}),
+				rawHeaders: ["Host", "h", "User-Agent", "ua/1", "X-A", "1", "X-A", "2"],
+			}),
 			body: Buffer.alloc(0),
 			isBase64Encoded: false,
 			requestContext: { accountId: "111" },
@@ -591,7 +736,7 @@ describe("@middy/ecs-http", () => {
 			resource: "/x",
 			path: "/x",
 			httpMethod: "GET",
-			headers,
+			headers: { host: "h", "user-agent": "ua/1", "x-a": "2" },
 			multiValueHeaders: {
 				host: ["h"],
 				"user-agent": ["ua/1"],
@@ -611,6 +756,42 @@ describe("@middy/ecs-http", () => {
 			},
 			body: null,
 			isBase64Encoded: false,
+		});
+	});
+
+	test("event builders read req.headersDistinct only when a header line repeats", () => {
+		for (const buildEvent of [buildEventV1, buildEventV2, buildEventAlb]) {
+			const headers = { host: "h", accept: "text/html" };
+			const req = makeReq({ headers });
+			Object.defineProperty(req, "headersDistinct", {
+				get() {
+					throw new Error("req.headersDistinct was read");
+				},
+			});
+			const event = buildEvent({
+				req,
+				body: Buffer.alloc(0),
+				isBase64Encoded: false,
+				requestContext: {},
+				sourceIp: "",
+				requestId: "r",
+			});
+			strictEqual(event.headers, headers);
+		}
+	});
+
+	test("buildEventV1 lists each single header value in multiValueHeaders", () => {
+		const event = buildEventV1({
+			req: makeReq({ headers: { host: "h", accept: "text/html" } }),
+			body: Buffer.alloc(0),
+			isBase64Encoded: false,
+			requestContext: {},
+			sourceIp: "",
+			requestId: "r",
+		});
+		deepStrictEqual(event.multiValueHeaders, {
+			host: ["h"],
+			accept: ["text/html"],
 		});
 	});
 
@@ -849,23 +1030,83 @@ describe("@middy/ecs-http", () => {
 		deepStrictEqual(res._calls.endArgs, ["héllo", undefined]);
 	});
 
-	test("writeResponse keeps a handler-set content-length or transfer-encoding", () => {
-		for (const header of ["Content-Length", "transfer-encoding"]) {
+	test("writeResponse replaces a handler-set content-length with the body's byte length", () => {
+		for (const header of ["Content-Length", "content-length"]) {
 			const res = fakeRes();
-			writeResponse(res, { headers: { [header]: "x" }, body: "ok" });
-			deepStrictEqual(res._calls.writeHead.headers, { [header]: "x" });
+			const headers = { [header]: "5", "x-a": "1" };
+			writeResponse(res, { headers, body: "hello world" });
+			deepStrictEqual(res._calls.writeHead.headers, {
+				"x-a": "1",
+				"content-length": 11,
+			});
+			deepStrictEqual(headers, { [header]: "5", "x-a": "1" });
 		}
 	});
 
-	test("writeResponse sets content-length next to headers that only contain a framing header name", () => {
+	test("writeResponse drops handler-set hop-by-hop headers from a buffered response", () => {
+		for (const header of [
+			"Connection",
+			"connection",
+			"Transfer-Encoding",
+			"transfer-encoding",
+		]) {
+			const res = fakeRes();
+			writeResponse(res, {
+				headers: { [header]: "chunked", "x-a": "1" },
+				body: "ok",
+			});
+			deepStrictEqual(
+				res._calls.writeHead.headers,
+				{ "x-a": "1", "content-length": 2 },
+				header,
+			);
+		}
+	});
+
+	test("writeResponse drops handler-set framing headers from a response without a body", () => {
 		const res = fakeRes();
 		writeResponse(res, {
-			headers: { "x-content-length": "1", "transfer-encoding-hint": "x" },
-			body: "ok",
+			statusCode: 200,
+			headers: { "Content-Length": "5", Connection: "close", "x-a": "1" },
+			multiValueHeaders: { "Transfer-Encoding": ["chunked"] },
+		});
+		deepStrictEqual(res._calls.writeHead, {
+			code: 200,
+			headers: { "x-a": "1" },
+		});
+		deepStrictEqual(res._calls.endArgs, []);
+	});
+
+	test("writeResponse drops framing headers given as multiValueHeaders", () => {
+		const res = fakeRes();
+		writeResponse(res, {
+			statusCode: 200,
+			multiValueHeaders: {
+				"Content-Length": ["5"],
+				Connection: ["close"],
+				"x-a": ["1"],
+			},
+			body: "hello world",
 		});
 		deepStrictEqual(res._calls.writeHead.headers, {
+			"x-a": ["1"],
+			"content-length": 11,
+		});
+	});
+
+	test("writeResponse keeps headers that only contain a framing header name", () => {
+		const res = fakeRes();
+		const headers = {
 			"x-content-length": "1",
+			"content-length-hint": "1",
+			"x-transfer-encoding": "x",
 			"transfer-encoding-hint": "x",
+			"x-connection": "x",
+			"connection-hint": "x",
+		};
+		writeResponse(res, { headers, body: "ok" });
+		deepStrictEqual(res._calls.writeHead.headers, {
+			...headers,
 			"content-length": 2,
 		});
 	});
@@ -935,17 +1176,32 @@ describe("@middy/ecs-http", () => {
 			}),
 		);
 
-	test("integration: contextOverride.awsRequestId overrides resolved requestId", async () => {
+	const endOfLastHead = /\r\n\r\n$/;
+	const rawExchange = (url, requests) =>
+		new Promise((resolve, reject) => {
+			const socket = net.connect(new URL(url).port, "127.0.0.1");
+			const chunks = [];
+			socket.on("data", (chunk) => chunks.push(chunk));
+			socket.once("error", reject);
+			socket.once("close", () =>
+				resolve(Buffer.concat(chunks).toString("latin1")),
+			);
+			socket.write(
+				requests.replace(endOfLastHead, "\r\nConnection: close\r\n\r\n"),
+			);
+		});
+
+	test("integration: contextOverride.awsRequestId overrides resolved requestId", async (t) => {
 		let calls = 0;
 		const { url, close } = await startWith({
 			contextOverride: {
 				awsRequestId: () => `custom-${++calls}`,
 			},
 		});
+		t.after(close);
 		const res = await fetch(`${url}/`);
 		const body = await res.json();
 		strictEqual(body.requestContext.requestId, "custom-1");
-		await close();
 	});
 
 	test("integration: sourceIp is the last X-Forwarded-For hop by default", async () => {
@@ -1024,6 +1280,24 @@ describe("@middy/ecs-http", () => {
 		}
 	});
 
+	test("integration: a streamed body keeps the content-length its handler set", async () => {
+		const { url, close } = await startWith({
+			handler: async () => ({
+				statusCode: 200,
+				headers: { "Content-Length": "5" },
+				body: Readable.from(["hel", "lo"]),
+			}),
+		});
+		try {
+			const res = await fetch(`${url}/`);
+			strictEqual(res.headers.get("content-length"), "5");
+			strictEqual(res.headers.get("transfer-encoding"), null);
+			strictEqual(await res.text(), "hello");
+		} finally {
+			await close();
+		}
+	});
+
 	test("integration: a web ReadableStream body is streamed to the client", async () => {
 		const { url, close } = await startWith({
 			handler: async () => ({
@@ -1093,8 +1367,9 @@ describe("@middy/ecs-http", () => {
 		}
 	});
 
-	test("integration: GET v2 returns event with merged requestContext", async () => {
+	test("integration: GET v2 returns event with merged requestContext", async (t) => {
 		const { url, close } = await startWith();
+		t.after(close);
 		const res = await fetch(`${url}/path?q=1`, {
 			headers: { "x-amzn-trace-id": "Root=1-abc" },
 		});
@@ -1105,11 +1380,11 @@ describe("@middy/ecs-http", () => {
 		strictEqual(body.rawQueryString, "q=1");
 		strictEqual(body.requestContext.accountId, "111");
 		strictEqual(body.requestContext.requestId, "Root=1-abc");
-		await close();
 	});
 
-	test("integration: POST text body passes through utf-8", async () => {
+	test("integration: POST text body passes through utf-8", async (t) => {
 		const { url, close } = await startWith();
+		t.after(close);
 		const res = await fetch(`${url}/p`, {
 			method: "POST",
 			headers: { "content-type": "application/json" },
@@ -1118,11 +1393,11 @@ describe("@middy/ecs-http", () => {
 		const body = await res.json();
 		strictEqual(body.body, '{"a":1}');
 		strictEqual(body.isBase64Encoded, false);
-		await close();
 	});
 
-	test("integration: POST binary body is base64-encoded", async () => {
+	test("integration: POST binary body is base64-encoded", async (t) => {
 		const { url, close } = await startWith();
+		t.after(close);
 		const res = await fetch(`${url}/p`, {
 			method: "POST",
 			headers: { "content-type": "application/octet-stream" },
@@ -1131,22 +1406,22 @@ describe("@middy/ecs-http", () => {
 		const body = await res.json();
 		strictEqual(body.isBase64Encoded, true);
 		strictEqual(body.body, Buffer.from([0xff, 0x00, 0xff]).toString("base64"));
-		await close();
 	});
 
-	test("integration: oversize body returns 413", async () => {
+	test("integration: oversize body returns 413", async (t) => {
 		const { url, close } = await startWith({ bodyLimit: 16 });
+		t.after(close);
 		const res = await fetch(`${url}/p`, {
 			method: "POST",
 			body: "x".repeat(1024),
 		});
 		strictEqual(res.status, 413);
 		deepStrictEqual(await res.json(), { message: "Payload too large" });
-		await close();
 	});
 
-	test("integration: oversize streamed body returns 413", async () => {
+	test("integration: oversize streamed body returns 413", async (t) => {
 		const { url, close } = await startWith({ bodyLimit: 16 });
+		t.after(close);
 		const res = await fetch(`${url}/p`, {
 			method: "POST",
 			// A stream sends no content-length, only chunked transfer-encoding.
@@ -1162,10 +1437,9 @@ describe("@middy/ecs-http", () => {
 		});
 		strictEqual(res.status, 413);
 		deepStrictEqual(await res.json(), { message: "Payload too large" });
-		await close();
 	});
 
-	test("integration: handler error with statusCode is honored", async () => {
+	test("integration: handler error with statusCode is honored", async (t) => {
 		const { url, close } = await startWith({
 			handler: () => {
 				const e = new Error("nope");
@@ -1173,64 +1447,218 @@ describe("@middy/ecs-http", () => {
 				throw e;
 			},
 		});
+		t.after(close);
 		const res = await fetch(`${url}/x`);
 		strictEqual(res.status, 418);
 		const body = await res.json();
 		strictEqual(body.message, "nope");
-		await close();
 	});
 
-	test("integration: handler error without statusCode returns 500", async () => {
+	test("integration: handler error without statusCode returns 500", async (t) => {
 		const { url, close } = await startWith({
 			handler: () => {
 				throw new Error("boom");
 			},
 		});
+		t.after(close);
 		const res = await fetch(`${url}/x`);
 		strictEqual(res.status, 500);
 		const body = await res.json();
 		strictEqual(body.message, "Internal Server Error");
-		await close();
 	});
 
-	test("integration: v1 event shape", async () => {
+	test("integration: v1 event shape", async (t) => {
 		const { url, close } = await startWith({ eventVersion: "1.0" });
+		t.after(close);
 		const res = await fetch(`${url}/v1?a=1`);
 		const body = await res.json();
 		strictEqual(body.httpMethod, "GET");
 		strictEqual(body.path, "/v1");
 		deepStrictEqual(body.queryStringParameters, { a: "1" });
-		await close();
 	});
 
-	test("integration: alb event shape", async () => {
+	test("integration: v1 event lists every value of a repeated header and keeps the last in headers", async () => {
+		const { url, close } = await startWith({ eventVersion: "1.0" });
+		try {
+			// The request of the API Gateway example:
+			// https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-input-format
+			const received = await rawExchange(
+				url,
+				"GET /my/path HTTP/1.1\r\nHost: x\r\nheader1: value1\r\n" +
+					"header2: value1\r\nheader2: value2\r\n" +
+					"header3: value1,value2\r\n\r\n",
+			);
+			const event = JSON.parse(
+				received.slice(received.indexOf("\r\n\r\n") + 4),
+			);
+			deepStrictEqual(event.headers, {
+				host: "x",
+				header1: "value1",
+				header2: "value2",
+				header3: "value1,value2",
+				connection: "close",
+			});
+			deepStrictEqual(event.multiValueHeaders, {
+				host: ["x"],
+				header1: ["value1"],
+				header2: ["value1", "value2"],
+				header3: ["value1,value2"],
+				connection: ["close"],
+			});
+		} finally {
+			await close();
+		}
+	});
+
+	test("integration: alb event shape", async (t) => {
 		const { url, close } = await startWith({
 			eventVersion: "alb",
 			requestContext: { elb: { targetGroupArn: "arn:tg" } },
 		});
+		t.after(close);
 		const res = await fetch(`${url}/health?ok=1`);
 		const body = await res.json();
 		strictEqual(body.path, "/health");
 		strictEqual(body.requestContext.elb.targetGroupArn, "arn:tg");
-		await close();
 	});
 
-	test("integration: handler returns plain string", async () => {
+	test("integration: v2 event combines the values of a repeated header with commas", async () => {
+		const { url, close } = await startWith();
+		try {
+			// header1 and header2 are the payload format page's own example:
+			// https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html#http-api-develop-integrations-lambda.proxy-format-structure
+			const received = await rawExchange(
+				url,
+				"GET / HTTP/1.1\r\nHost: x\r\nheader1: value1\r\n" +
+					"header2: value1\r\nheader2: value2\r\n" +
+					"User-Agent: ua1\r\nUser-Agent: ua2\r\n\r\n",
+			);
+			const event = JSON.parse(
+				received.slice(received.indexOf("\r\n\r\n") + 4),
+			);
+			deepStrictEqual(event.headers, {
+				host: "x",
+				header1: "value1",
+				header2: "value1,value2",
+				"user-agent": "ua1,ua2",
+				connection: "close",
+			});
+		} finally {
+			await close();
+		}
+	});
+
+	test("integration: v2 event lists the cookies of every cookie header line", async () => {
+		const { url, close } = await startWith();
+		try {
+			const received = await rawExchange(
+				url,
+				"GET / HTTP/1.1\r\nHost: x\r\nCookie: a=1; b=2\r\n" +
+					"Cookie: c=3\r\n\r\n",
+			);
+			const event = JSON.parse(
+				received.slice(received.indexOf("\r\n\r\n") + 4),
+			);
+			deepStrictEqual(event.cookies, ["a=1", "b=2", "c=3"]);
+		} finally {
+			await close();
+		}
+	});
+
+	test("integration: a set-cookie request header arrives as a string, not node's array", async () => {
+		const events = {};
+		for (const eventVersion of ["1.0", "2.0", "alb"]) {
+			const { url, close } = await startWith({ eventVersion });
+			try {
+				const received = await rawExchange(
+					url,
+					"GET / HTTP/1.1\r\nHost: x\r\nSet-Cookie: z=1\r\n\r\n",
+				);
+				events[eventVersion] = JSON.parse(
+					received.slice(received.indexOf("\r\n\r\n") + 4),
+				);
+			} finally {
+				await close();
+			}
+		}
+		strictEqual(events["1.0"].headers["set-cookie"], "z=1");
+		deepStrictEqual(events["1.0"].multiValueHeaders["set-cookie"], ["z=1"]);
+		strictEqual(events["2.0"].headers["set-cookie"], "z=1");
+		strictEqual(events.alb.headers["set-cookie"], "z=1");
+	});
+
+	test("integration: alb event keeps the last value of a repeated header", async () => {
+		const { url, close } = await startWith({ eventVersion: "alb" });
+		try {
+			// The two cookie lines of the load balancer's own example:
+			// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers-request
+			const received = await rawExchange(
+				url,
+				"GET / HTTP/1.1\r\nHost: x\r\nCookie: name1=value1\r\n" +
+					"Cookie: name2=value2\r\nAccept: text/html\r\n" +
+					"Accept: application/json\r\n\r\n",
+			);
+			const event = JSON.parse(
+				received.slice(received.indexOf("\r\n\r\n") + 4),
+			);
+			deepStrictEqual(event.headers, {
+				host: "x",
+				cookie: "name2=value2",
+				accept: "application/json",
+				connection: "close",
+			});
+		} finally {
+			await close();
+		}
+	});
+
+	test("integration: handler returns plain string", async (t) => {
 		const { url, close } = await startWith({
 			handler: () => "hello",
 		});
+		t.after(close);
 		const res = await fetch(`${url}/`);
 		strictEqual(await res.text(), "hello");
-		await close();
 	});
 
-	test("integration: handler returns plain object", async () => {
+	test("integration: handler returns plain object", async (t) => {
 		const { url, close } = await startWith({
 			handler: () => ({ ok: true }),
 		});
+		t.after(close);
 		const res = await fetch(`${url}/`);
 		deepStrictEqual(await res.json(), { ok: true });
-		await close();
+	});
+
+	test("integration: a handler-set content-length cannot desynchronise a keep-alive connection", async () => {
+		const { url, close } = await startWith({
+			handler: (event) =>
+				event.rawPath === "/first"
+					? {
+							statusCode: 200,
+							headers: { "Content-Length": "5" },
+							body: "hello world",
+						}
+					: { statusCode: 200, body: "second" },
+		});
+		try {
+			const received = await rawExchange(
+				url,
+				"GET /first HTTP/1.1\r\nHost: x\r\n\r\n" +
+					"GET /second HTTP/1.1\r\nHost: x\r\n\r\n",
+			);
+			deepStrictEqual(
+				Array.from(
+					received.matchAll(/^content-length: (\d+)$/gim),
+					(match) => match[1],
+				),
+				["11", "6"],
+				received,
+			);
+			ok(received.endsWith("\r\n\r\nsecond"), received);
+		} finally {
+			await close();
+		}
 	});
 
 	// --- ECS env / metadata ----------------------------------------------------
@@ -1313,7 +1741,7 @@ describe("@middy/ecs-http", () => {
 
 	// --- runWorker / runPrimary / ecsHttpRunner -----------------------------------
 
-	test("runWorker starts http server, handles requests, and drains on SIGTERM", async () => {
+	test("runWorker starts http server, handles requests, and drains on SIGTERM", async (t) => {
 		const listenerCount = process.listenerCount("SIGTERM");
 		const { server, onSigterm } = await runWorker({
 			handler: async () => ({ statusCode: 200, body: "ok" }),
@@ -1323,13 +1751,15 @@ describe("@middy/ecs-http", () => {
 			timeout: 1000,
 			bodyLimit: 1024,
 		});
+		t.after(() => {
+			process.removeListener("SIGTERM", onSigterm);
+			return closeServer(server);
+		});
 		const { port } = server.address();
 		const res = await fetch(`http://127.0.0.1:${port}/`);
 		strictEqual(await res.text(), "ok");
 		process.removeListener("SIGTERM", onSigterm);
 		strictEqual(process.listenerCount("SIGTERM"), listenerCount);
-		server.closeAllConnections?.();
-		await new Promise((r) => server.close(r));
 	});
 
 	test("runWorker threads trustedProxies through to the request handler", async () => {
@@ -1361,10 +1791,15 @@ describe("@middy/ecs-http", () => {
 		}
 	});
 
-	test("runWorker composes invokedFunctionArn from MIDDY_ECS_* env", async () => {
+	test("runWorker composes invokedFunctionArn from MIDDY_ECS_* env", async (t) => {
 		process.env.MIDDY_ECS_ACCOUNTID = "999";
 		process.env.MIDDY_ECS_REGION = "us-west-2";
 		process.env.MIDDY_ECS_FAMILY = "svc-name";
+		t.after(() => {
+			delete process.env.MIDDY_ECS_ACCOUNTID;
+			delete process.env.MIDDY_ECS_REGION;
+			delete process.env.MIDDY_ECS_FAMILY;
+		});
 		let captured;
 		const { server, onSigterm } = await runWorker({
 			handler: async (event, context) => {
@@ -1377,18 +1812,16 @@ describe("@middy/ecs-http", () => {
 			timeout: 1000,
 			bodyLimit: 1024,
 		});
+		t.after(() => {
+			process.removeListener("SIGTERM", onSigterm);
+			return closeServer(server);
+		});
 		const { port } = server.address();
 		await fetch(`http://127.0.0.1:${port}/`);
 		strictEqual(
 			captured.invokedFunctionArn,
 			"arn:aws:ecs:us-west-2:999:service/svc-name",
 		);
-		delete process.env.MIDDY_ECS_ACCOUNTID;
-		delete process.env.MIDDY_ECS_REGION;
-		delete process.env.MIDDY_ECS_FAMILY;
-		process.removeListener("SIGTERM", onSigterm);
-		server.closeAllConnections?.();
-		await new Promise((r) => server.close(r));
 	});
 
 	test("runPrimary forks workers and registers SIGTERM forwarder", async () => {
@@ -1667,7 +2100,7 @@ describe("@middy/ecs-http", () => {
 		process.removeListener("SIGTERM", onSigterm);
 	});
 
-	test("ecsHttpRunner dispatches to runWorker when not primary", async () => {
+	test("ecsHttpRunner dispatches to runWorker when not primary", async (t) => {
 		const fakeCluster = { isPrimary: false };
 		const { server, onSigterm } = await ecsHttpRunner(
 			{
@@ -1677,10 +2110,11 @@ describe("@middy/ecs-http", () => {
 			},
 			{ cluster: fakeCluster },
 		);
+		t.after(() => {
+			process.removeListener("SIGTERM", onSigterm);
+			return closeServer(server);
+		});
 		ok(server.listening);
-		process.removeListener("SIGTERM", onSigterm);
-		server.closeAllConnections?.();
-		await new Promise((r) => server.close(r));
 	});
 
 	test("ecsHttpRunner validates options with default cluster impl when no deps", async () => {
@@ -1743,8 +2177,9 @@ describe("@middy/ecs-http", () => {
 		strictEqual(event.requestContext.http.protocol, "HTTP/9.9");
 	});
 
-	test("integration: text/* content-type passes through as utf-8", async () => {
+	test("integration: text/* content-type passes through as utf-8", async (t) => {
 		const { url, close } = await startWith();
+		t.after(close);
 		const res = await fetch(`${url}/p`, {
 			method: "POST",
 			headers: { "content-type": "text/plain" },
@@ -1753,11 +2188,11 @@ describe("@middy/ecs-http", () => {
 		const body = await res.json();
 		strictEqual(body.body, "hello");
 		strictEqual(body.isBase64Encoded, false);
-		await close();
 	});
 
-	test("integration: application/json with charset suffix passes through as utf-8", async () => {
+	test("integration: application/json with charset suffix passes through as utf-8", async (t) => {
 		const { url, close } = await startWith();
+		t.after(close);
 		const res = await fetch(`${url}/p`, {
 			method: "POST",
 			headers: { "content-type": "application/json; charset=utf-8" },
@@ -1766,11 +2201,11 @@ describe("@middy/ecs-http", () => {
 		const body = await res.json();
 		strictEqual(body.body, '{"a":1}');
 		strictEqual(body.isBase64Encoded, false);
-		await close();
 	});
 
-	test("integration: application/xml content-type passes through as utf-8 (regex fallback)", async () => {
+	test("integration: application/xml content-type passes through as utf-8 (regex fallback)", async (t) => {
 		const { url, close } = await startWith();
+		t.after(close);
 		const res = await fetch(`${url}/p`, {
 			method: "POST",
 			headers: { "content-type": "application/xml" },
@@ -1779,7 +2214,6 @@ describe("@middy/ecs-http", () => {
 		const body = await res.json();
 		strictEqual(body.body, "<x/>");
 		strictEqual(body.isBase64Encoded, false);
-		await close();
 	});
 
 	test("buildEventV2 passes URL through (node:http pre-validates the request line)", () => {
@@ -1807,20 +2241,20 @@ describe("@middy/ecs-http", () => {
 		strictEqual(event.body, "plain");
 	});
 
-	test("integration: writeError defaults missing message to empty string", async () => {
+	test("integration: writeError defaults missing message to empty string", async (t) => {
 		const { url, close } = await startWith({
 			handler: () => {
 				throw { statusCode: 400 };
 			},
 		});
+		t.after(close);
 		const res = await fetch(`${url}/x`);
 		strictEqual(res.status, 400);
 		const body = await res.json();
 		strictEqual(body.message, "");
-		await close();
 	});
 
-	test("integration: body without content-type header treated as text", async () => {
+	test("integration: body without content-type header treated as text", async (t) => {
 		const server = http.createServer(
 			createRequestHandler({
 				handler: async (event) => ({
@@ -1835,6 +2269,7 @@ describe("@middy/ecs-http", () => {
 			}),
 		);
 		await new Promise((r) => server.listen(0, "127.0.0.1", r));
+		t.after(() => closeServer(server));
 		const { port } = server.address();
 		// Raw HTTP request with no Content-Type header
 		const sock = await new Promise((resolve) => {
@@ -1853,8 +2288,6 @@ describe("@middy/ecs-http", () => {
 		});
 		const parsed = JSON.parse(sock.data);
 		strictEqual(parsed.isBase64Encoded, false);
-		server.closeAllConnections?.();
-		await new Promise((r) => server.close(r));
 	});
 
 	test("runWorker uses injected http impl", async () => {
@@ -1945,8 +2378,11 @@ describe("@middy/ecs-http", () => {
 		strictEqual(meta.revision, undefined);
 	});
 
-	test("composeInvokedFunctionArn covered via runWorker with partial env", async () => {
+	test("composeInvokedFunctionArn covered via runWorker with partial env", async (t) => {
 		process.env.MIDDY_ECS_ACCOUNTID = "1";
+		t.after(() => {
+			delete process.env.MIDDY_ECS_ACCOUNTID;
+		});
 		let captured;
 		const { server, onSigterm } = await runWorker(
 			{
@@ -1962,29 +2398,29 @@ describe("@middy/ecs-http", () => {
 			},
 			{ exit: noop },
 		);
+		t.after(() => {
+			process.removeListener("SIGTERM", onSigterm);
+			return closeServer(server);
+		});
 		const { port } = server.address();
 		await fetch(`http://127.0.0.1:${port}/`);
 		strictEqual(captured.invokedFunctionArn, undefined);
-		delete process.env.MIDDY_ECS_ACCOUNTID;
-		process.removeListener("SIGTERM", onSigterm);
-		server.closeAllConnections?.();
-		await new Promise((r) => server.close(r));
 	});
 
-	test("integration: missing user-agent and cookie still works", async () => {
+	test("integration: missing user-agent and cookie still works", async (t) => {
 		const { url, close } = await startWith();
+		t.after(close);
 		const res = await fetch(`${url}/path`, {
 			headers: { "user-agent": "" },
 		});
 		strictEqual(res.status, 200);
-		await close();
 	});
 
-	test("integration: v1 with empty body still parses", async () => {
+	test("integration: v1 with empty body still parses", async (t) => {
 		const { url, close } = await startWith({ eventVersion: "1.0" });
+		t.after(close);
 		const res = await fetch(`${url}/v1`, { method: "POST" });
 		strictEqual(res.status, 200);
-		await close();
 	});
 
 	test("drainAndExit closes server and calls exit(0)", async () => {
@@ -2003,6 +2439,24 @@ describe("@middy/ecs-http", () => {
 	// ECS sends SIGKILL stopTimeout (default 30s) after SIGTERM. A connection
 	// that is still open at the deadline is cut so the worker exits first.
 	// https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#container_definition_timeout
+	test("drainAndExit disarms the deadline once the server has closed", async (t) => {
+		t.mock.timers.enable({ apis: ["setTimeout"] });
+		const exits = [];
+		let closeAllCalls = 0;
+		const fakeServer = {
+			close(cb) {
+				cb();
+			},
+			closeAllConnections() {
+				closeAllCalls++;
+			},
+		};
+		await drainAndExit(fakeServer, (code) => exits.push(code), 1000);
+		t.mock.timers.tick(1000);
+		strictEqual(closeAllCalls, 0);
+		deepStrictEqual(exits, [0]);
+	});
+
 	test("drainAndExit cuts the remaining connections and exits 1 at the deadline", async (t) => {
 		t.mock.timers.enable({ apis: ["setTimeout"] });
 		const exits = [];
@@ -2023,7 +2477,7 @@ describe("@middy/ecs-http", () => {
 		deepStrictEqual(exits, [1]);
 	});
 
-	test("runWorker onSigterm drains and exits via injected exit", async () => {
+	test("runWorker onSigterm drains and exits via injected exit", async (t) => {
 		let exited;
 		const { server, onSigterm } = await runWorker(
 			{
@@ -2040,6 +2494,7 @@ describe("@middy/ecs-http", () => {
 				},
 			},
 		);
+		t.after(() => closeServer(server));
 		process.removeListener("SIGTERM", onSigterm);
 		await onSigterm();
 		strictEqual(exited, 0);
@@ -2461,14 +2916,42 @@ describe("@middy/ecs-http", () => {
 		deepStrictEqual(calls.endArgs, ['{"message":""}']);
 	});
 
-	test("request handler: only a numeric statusCode >= 400 is honored, else 500", async () => {
-		for (const thrown of [
-			{ statusCode: "418", message: "string code" },
-			{ statusCode: 302, message: "redirect" },
-			{ statusCode: 399, message: "below 400" },
-			null,
+	test("request handler: only an integer statusCode from 400 to 599 is honored, else 500", async () => {
+		for (const statusCode of [
+			"418",
+			302,
+			399,
+			400.5,
+			600,
+			1006,
+			Number.POSITIVE_INFINITY,
+			Number.NaN,
 			undefined,
 		]) {
+			const requestHandler = createRequestHandler({
+				handler: () => {
+					throw { statusCode, message: "not a client or server error" };
+				},
+				eventVersion: "2.0",
+				requestContext: {},
+				timeout: 1000,
+				bodyLimit: 1024,
+			});
+			const calls = await dispatch(requestHandler, makeReq());
+			deepStrictEqual(
+				calls.writeHead,
+				{
+					code: 500,
+					headers: { "content-type": "application/json", "content-length": 35 },
+				},
+				String(statusCode),
+			);
+			deepStrictEqual(calls.endArgs, ['{"message":"Internal Server Error"}']);
+		}
+	});
+
+	test("request handler: a thrown value that is not an object yields 500", async () => {
+		for (const thrown of [null, undefined, "boom", 404]) {
 			const requestHandler = createRequestHandler({
 				handler: () => {
 					throw thrown;
@@ -2485,9 +2968,64 @@ describe("@middy/ecs-http", () => {
 					code: 500,
 					headers: { "content-type": "application/json", "content-length": 35 },
 				},
-				JSON.stringify(thrown),
+				String(thrown),
 			);
 			deepStrictEqual(calls.endArgs, ['{"message":"Internal Server Error"}']);
+		}
+	});
+
+	test("request handler: statusCode 400 and 599 are the honored bounds", async () => {
+		for (const [statusCode, body] of [
+			[400, '{"message":"edge"}'],
+			[599, '{"message":"Internal Server Error"}'],
+		]) {
+			const requestHandler = createRequestHandler({
+				handler: () => {
+					throw { statusCode, message: "edge" };
+				},
+				eventVersion: "2.0",
+				requestContext: {},
+				timeout: 1000,
+				bodyLimit: 1024,
+			});
+			const calls = await dispatch(requestHandler, makeReq());
+			strictEqual(calls.writeHead.code, statusCode);
+			deepStrictEqual(calls.endArgs, [body]);
+		}
+	});
+
+	test("request handler: an error response that cannot be written destroys the socket instead of rejecting", async () => {
+		const requestHandler = createRequestHandler({
+			handler: () => {
+				throw { statusCode: 400, message: 10n };
+			},
+			eventVersion: "2.0",
+			requestContext: {},
+			timeout: 1000,
+			bodyLimit: 1024,
+		});
+		const calls = await dispatch(requestHandler, makeReq());
+		strictEqual(calls.writeHead, null);
+		strictEqual(calls.ended, false);
+		strictEqual(calls.destroyed, true);
+	});
+
+	test("integration: an error response that cannot be written drops the connection and the server keeps serving", async () => {
+		const { url, close } = await startWith({
+			handler: (event) => {
+				if (event.rawPath === "/ok") return "ok";
+				throw { statusCode: 400, message: 10n };
+			},
+		});
+		try {
+			await rejects(
+				fetch(`${url}/unwritable`, { signal: AbortSignal.timeout(2000) }),
+				{ name: "TypeError", message: "fetch failed" },
+			);
+			const res = await fetch(`${url}/ok`);
+			strictEqual(await res.text(), "ok");
+		} finally {
+			await close();
 		}
 	});
 

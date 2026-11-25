@@ -3,10 +3,12 @@
 import {
 	assignSetToContext,
 	buildSetToContextSpec,
+	cacheOptionSchemaProperties,
 	canPrefetch,
 	evictCacheOnFailure,
 	jsonContentTypePattern,
 	processCache,
+	reservedPropertyNames,
 	validateOptions,
 } from "@middy/util";
 
@@ -18,57 +20,81 @@ const defaults = {
 	disablePrefetch: false,
 	cacheKey: pkg,
 	cacheKeyExpiry: {},
-	cacheExpiry: -1,
+	// The extension is the cache: it "maintains a local cache of the
+	// configuration data" and "periodically checks for updates to your
+	// configuration data in the background". It is asked on every invocation
+	// so the function sees a newly deployed configuration, instead of keeping
+	// the first one for good.
+	// https://docs.aws.amazon.com/appconfig/latest/userguide/appconfig-integration-lambda-extensions-how-it-works.html
+	cacheExpiry: 0,
 	setToContext: false,
 	contextKey: name,
 };
 
+const keyNameRule = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\x21-\x7E]+$/u,
+	not: { type: "string", enum: reservedPropertyNames },
+};
+// The extension starts a configuration session with these identifiers:
+// "Length Constraints: Minimum length of 1. Maximum length of 128."
+// https://docs.aws.amazon.com/appconfig/2019-10-09/APIReference/API_appconfigdata_StartConfigurationSession.html
+const identifierRule = {
+	type: "string",
+	maxLength: 128,
+	pattern: /^[\p{L}\p{M}\p{N}\p{P}\p{S} ]+$/u,
+};
+// Flag keys match "^[a-z][a-zA-Z\\d_-]{0,63}$":
+// https://docs.aws.amazon.com/appconfig/latest/userguide/appconfig-type-reference-feature-flags.html
+const flagKeyRule = {
+	type: "string",
+	maxLength: 64,
+	pattern: /^[a-z][a-zA-Z\d_-]{0,63}$/u,
+};
+
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:appconfig-extension:options",
 	type: "object",
 	properties: {
 		fetchData: {
 			type: "object",
+			propertyNames: keyNameRule,
+			maxProperties: 1024,
+			required: [],
 			additionalProperties: {
 				type: "object",
 				properties: {
-					application: { type: "string" },
-					environment: { type: "string" },
-					configuration: { type: "string" },
+					application: identifierRule,
+					environment: identifierRule,
+					configuration: identifierRule,
 					flag: {
 						oneOf: [
-							{ type: "string" },
-							{ type: "array", items: { type: "string" } },
+							flagKeyRule,
+							{
+								type: "array",
+								items: flagKeyRule,
+								maxItems: 1024,
+								uniqueItems: true,
+								unevaluatedItems: false,
+							},
 						],
 					},
 				},
 				required: ["application", "environment", "configuration"],
 				additionalProperties: false,
+				unevaluatedProperties: false,
 			},
+			unevaluatedProperties: false,
 		},
-		disablePrefetch: { type: "boolean" },
-		cacheKey: { type: "string" },
-		cacheKeyExpiry: {
-			type: "object",
-			additionalProperties: {
-				type: "number",
-				minimum: -1,
-				maximum: Number.MAX_SAFE_INTEGER,
-			},
-		},
-		cacheExpiry: {
-			type: "number",
-			minimum: -1,
-			maximum: Number.MAX_SAFE_INTEGER,
-		},
-		cacheMaxSize: {
-			type: "integer",
-			minimum: 1,
-			maximum: Number.MAX_SAFE_INTEGER,
-		},
+		...cacheOptionSchemaProperties,
 		setToContext: { type: "boolean" },
-		contextKey: { type: "string" },
+		contextKey: keyNameRule,
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const appConfigExtensionValidateOptions = (options) =>

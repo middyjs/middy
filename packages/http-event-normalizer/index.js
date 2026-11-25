@@ -11,9 +11,13 @@ const pkg = `@middy/${name}`;
 
 // Stryker disable next-line ObjectLiteral: with no properties, this JSON schema and an empty flat schema reject exactly the same inputs with the same messages.
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:http-event-normalizer:options",
 	type: "object",
 	properties: {},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const httpEventNormalizerValidateOptions = (options) =>

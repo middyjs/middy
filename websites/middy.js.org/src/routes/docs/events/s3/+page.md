@@ -1,4 +1,5 @@
 ---
+
 title: S3
 description: "Process Amazon S3 event notifications on AWS Lambda with Middy: per-record handling, normalized envelopes, object retrieval."
 ---
@@ -44,34 +45,34 @@ When S3 fans out via SNS or SQS, the original S3 record is nested inside the SNS
 ## Direct S3 trigger
 
 ```javascript
-import middy from '@middy/core'
+import middy from "@middy/core";
 
 const lambdaHandler = async (event, context, { signal }) => {
-  for (const record of event.Records) {
-    const bucket = record.s3.bucket.name
-    const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '))
-    // ... process
-  }
-}
+	for (const record of event.Records) {
+		const bucket = record.s3.bucket.name;
+		const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, " "));
+		// ... process
+	}
+};
 
-export const handler = middy().handler(lambdaHandler)
+export const handler = middy().handler(lambdaHandler);
 ```
 
 ## Via SNS or SQS (recommended for fan-out / retry)
 
 ```javascript
-import middy from '@middy/core'
-import eventNormalizer from '@middy/event-normalizer'
+import middy from "@middy/core";
+import eventNormalizer from "@middy/event-normalizer";
 
 export const handler = middy()
-  .use(eventNormalizer()) // walks S3 -> SNS -> SQS -> Lambda envelopes
-  .handler(async (event, context, { signal }) => {
-    for (const record of event.Records) {
-      const bucket = record.s3.bucket.name
-      const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '))
-      // ...
-    }
-  })
+	.use(eventNormalizer()) // walks S3 -> SNS -> SQS -> Lambda envelopes
+	.handler(async (event, context, { signal }) => {
+		for (const record of event.Records) {
+			const bucket = record.s3.bucket.name;
+			const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, " "));
+			// ...
+		}
+	});
 ```
 
 ## With S3 Object Lambda (transform on read)

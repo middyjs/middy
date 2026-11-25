@@ -1,4 +1,5 @@
 ---
+
 title: Sponsoring
 description: "Support Middy development by becoming a sponsor through GitHub Sponsors."
 ---

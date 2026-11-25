@@ -1,4 +1,5 @@
 ---
+
 title: CloudFormation
 description: "Use Middy with CloudFormation Custom Resource Lambda events."
 ---
@@ -32,9 +33,11 @@ flowchart LR
 Every hop through SNS, SQS, EventBridge, or EventBridge Pipes wraps the event Lambda receives in that service's envelope. [`@middy/event-normalizer`](/docs/middlewares/event-normalizer) unwraps the SNS and SQS envelopes.
 
 ## AWS Documentation
+
 - [Using AWS Lambda with AWS CloudFormation](https://docs.aws.amazon.com/lambda/latest/dg/services-cloudformation.html)
 
 ## Example
+
 ```javascript
 import middy from '@middy/core'
 import cloudformationRouterHandler from '@middy/cloudformation-router'

@@ -1,4 +1,5 @@
 ---
+
 title: http-event-normalizer
 description: "Normalize API Gateway and ALB events to ensure query string and path parameters are always objects."
 ---
@@ -31,14 +32,14 @@ npm install --save @middy/http-event-normalizer
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import httpEventNormalizer from '@middy/http-event-normalizer'
+import middy from "@middy/core";
+import httpEventNormalizer from "@middy/http-event-normalizer";
 
 const lambdaHander = (event, context) => {
-  console.log(`Hello user ${event.pathParameters.userId}`)
-  // might produce `Hello user undefined`, but not an error
+	console.log(`Hello user ${event.pathParameters.userId}`);
+	// might produce `Hello user undefined`, but not an error
 
-  return {}
-}
-export const handler = middy().use(httpEventNormalizer()).handler(lambdaHander)
+	return {};
+};
+export const handler = middy().use(httpEventNormalizer()).handler(lambdaHander);
 ```

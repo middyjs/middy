@@ -48,6 +48,12 @@ test("use with all options", () => {
 	>();
 });
 
+test("audience and issuer accept null to opt out of the check", () => {
+	expect<Options["audience"]>().type.toBe<string | null | undefined>();
+	expect<Options["issuer"]>().type.toBe<string | null | undefined>();
+	httpPaseto({ internalKey: "signingKey", audience: null, issuer: null });
+});
+
 test("allow specifying the event type", () => {
 	const apiGatewayV1Middleware = httpPaseto<Options, APIGatewayEvent>();
 	expect(apiGatewayV1Middleware).type.toBe<

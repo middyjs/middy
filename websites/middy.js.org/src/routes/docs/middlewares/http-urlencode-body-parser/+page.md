@@ -1,4 +1,5 @@
 ---
+
 title: http-urlencode-body-parser
 description: "Parse URL-encoded HTTP request bodies from form submissions in Lambda."
 ---
@@ -31,30 +32,30 @@ npm install --save @middy/http-urlencode-body-parser
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import httpHeaderNormalizer from '@middy/http-header-normalizer'
-import httpUrlEncodeBodyParser from '@middy/http-urlencode-body-parser'
+import middy from "@middy/core";
+import httpHeaderNormalizer from "@middy/http-header-normalizer";
+import httpUrlEncodeBodyParser from "@middy/http-urlencode-body-parser";
 
 const lambdaHandler = (event, context) => {
-  return event.body // propagates the body as response
-}
+	return event.body; // propagates the body as response
+};
 
 export const handler = middy()
-  .use(httpHeaderNormalizer())
-  .use(httpUrlEncodeBodyParser())
-  .handler(lambdaHandler)
+	.use(httpHeaderNormalizer())
+	.use(httpUrlEncodeBodyParser())
+	.handler(lambdaHandler);
 
 // When Lambda runs the handler with a sample event...
 const event = {
-  headers: {
-    'Content-Type': 'application/x-www-form-urlencoded'
-  },
-  body: 'frappucino=muffin&goat%5B%5D=scone&pond=moose'
-}
+	headers: {
+		"Content-Type": "application/x-www-form-urlencoded",
+	},
+	body: "frappucino=muffin&goat%5B%5D=scone&pond=moose",
+};
 
-const response = await handler(event, {})
+const response = await handler(event, {});
 // the parsed body is a null-prototype object, so compare its fields
-strictEqual(response.frappucino, 'muffin')
-strictEqual(response['goat[]'], 'scone')
-strictEqual(response.pond, 'moose')
+strictEqual(response.frappucino, "muffin");
+strictEqual(response["goat[]"], "scone");
+strictEqual(response.pond, "moose");
 ```

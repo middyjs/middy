@@ -745,79 +745,397 @@ describe("@middy/sts", () => {
 		rejects({ setToContext: "true" }, "setToContext");
 	});
 
+	const roleArn = "arn:aws:iam::123456789012:role/demo";
+	const role = (entry) => ({
+		fetchData: { role: { RoleArn: roleArn, ...entry } },
+	});
+
 	test("stsValidateOptions validates fetchData is an object of role entries", () => {
-		accepts({ fetchData: { role: { RoleArn: ".../role" } } });
+		accepts({ fetchData: { role: { RoleArn: roleArn } } });
 		rejects({ fetchData: "role" }, "fetchData");
 		rejects({ fetchData: { role: "string" } }, "fetchData.role");
 	});
 
 	test("stsValidateOptions requires RoleArn on each fetchData entry", () => {
-		accepts({ fetchData: { role: { RoleArn: ".../role" } } });
 		rejects({ fetchData: { role: {} } }, "RoleArn");
 	});
 
-	test("stsValidateOptions validates fetchData entry property types", () => {
+	test("stsValidateOptions bounds the fetchData internal keys", () => {
+		accepts({ fetchData: { "@middy/db.password!": { RoleArn: roleArn } } });
 		accepts({
-			fetchData: {
-				role: {
-					RoleArn: ".../role",
-					RoleSessionName: "session",
-					DurationSeconds: 3600,
-					ExternalId: "ext",
-					Policy: "policy",
-					SerialNumber: "serial",
-					TokenCode: "token",
-					TransitiveTagKeys: ["a", "b"],
-				},
-			},
+			fetchData: Object.fromEntries(
+				Array.from({ length: 1024 }, (_, i) => [`k${i}`, { RoleArn: roleArn }]),
+			),
 		});
-		rejects({ fetchData: { role: { RoleArn: 1 } } }, "fetchData.role.RoleArn");
 		rejects(
-			{ fetchData: { role: { RoleArn: ".../role", RoleSessionName: 1 } } },
+			{
+				fetchData: Object.fromEntries(
+					Array.from({ length: 1025 }, (_, i) => [
+						`k${i}`,
+						{ RoleArn: roleArn },
+					]),
+				),
+			},
+			"fetchData",
+		);
+		rejects({ fetchData: { "a b": { RoleArn: roleArn } } }, "a b");
+		accepts({ fetchData: { ["k".repeat(1024)]: { RoleArn: roleArn } } });
+		rejects({ fetchData: { ["k".repeat(1025)]: { RoleArn: roleArn } } }, "kkk");
+	});
+
+	test("stsValidateOptions accepts every AssumeRole request parameter", () => {
+		// https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html
+		accepts(
+			role({
+				RoleSessionName: "testAR",
+				PolicyArns: [
+					{ arn: "arn:aws:iam::123456789012:policy/demopolicy1" },
+					{ arn: "arn:aws:iam::aws:policy/ReadOnlyAccess" },
+					{},
+				],
+				Policy: '{\n\t"Version": "2012-10-17",\r\n\t"Statement": []\n}',
+				DurationSeconds: 3600,
+				Tags: [
+					{ Key: "Project", Value: "Pegasus" },
+					{ Key: "Cost Center", Value: "" },
+				],
+				TransitiveTagKeys: ["Project", "Cost Center"],
+				ExternalId: "123ABC",
+				SerialNumber: "arn:aws:iam::123456789012:mfa/user",
+				TokenCode: "123456",
+				SourceIdentity: "Alice",
+				ProvidedContexts: [
+					{
+						ProviderArn: "arn:aws:iam::aws:contextProvider/IdentityCenter",
+						ContextAssertion: "trusted-context-assertion",
+					},
+					{},
+				],
+				MinimumSessionTokenSize: 0,
+			}),
+		);
+	});
+
+	test("stsValidateOptions rejects keys AssumeRole does not take", () => {
+		rejects(role({ RoleARN: roleArn }), "fetchData.role.RoleARN");
+		rejects(
+			role({ PolicyArns: [{ arn: roleArn, Arn: roleArn }] }),
+			"fetchData.role.PolicyArns[0].Arn",
+		);
+		rejects(
+			role({ Tags: [{ Key: "k", Value: "v", Extra: "x" }] }),
+			"fetchData.role.Tags[0].Extra",
+		);
+		rejects(
+			role({ ProvidedContexts: [{ Extra: "x" }] }),
+			"fetchData.role.ProvidedContexts[0].Extra",
+		);
+	});
+
+	test("stsValidateOptions applies the AssumeRole limits to RoleArn", () => {
+		rejects({ fetchData: { role: { RoleArn: 1 } } }, "fetchData.role.RoleArn");
+		rejects(role({ RoleArn: ".../role" }), "fetchData.role.RoleArn");
+		rejects(
+			role({ RoleArn: "iam::123456789012:role/demo" }),
+			"fetchData.role.RoleArn",
+		);
+		rejects(role({ RoleArn: "arn:aws:iam::1:r/" }), "fetchData.role.RoleArn");
+		rejects(role({ RoleArn: `x${roleArn}` }), "fetchData.role.RoleArn");
+		rejects(role({ RoleArn: `${roleArn} x` }), "fetchData.role.RoleArn");
+		accepts(role({ RoleArn: "arn:aws:iam::1:role/r" }));
+		accepts(role({ RoleArn: "arn:aws-cn:iam::123456789012:role/demo" }));
+		// ARN syntax: arn:partition:service:region:account-id:resource
+		accepts(role({ RoleArn: "arn:aws:iam:us-east-1:123456789012:role/demo" }));
+		accepts(role({ RoleArn: `arn:aws:iam::1:role/${"r".repeat(2028)}` }));
+		rejects(
+			role({ RoleArn: `arn:aws:iam::1:role/${"r".repeat(2029)}` }),
+			"fetchData.role.RoleArn",
+		);
+	});
+
+	test("stsValidateOptions applies the AssumeRole limits to RoleSessionName", () => {
+		rejects(role({ RoleSessionName: 1 }), "fetchData.role.RoleSessionName");
+		rejects(role({ RoleSessionName: "" }), "fetchData.role.RoleSessionName");
+		rejects(role({ RoleSessionName: "a" }), "fetchData.role.RoleSessionName");
+		accepts(role({ RoleSessionName: "a_+=,.@-" }));
+		accepts(role({ RoleSessionName: "s".repeat(64) }));
+		rejects(
+			role({ RoleSessionName: "s".repeat(65) }),
 			"fetchData.role.RoleSessionName",
 		);
+		rejects(role({ RoleSessionName: "a b" }), "fetchData.role.RoleSessionName");
+	});
+
+	test("stsValidateOptions applies the AssumeRole limits to PolicyArns", () => {
+		rejects(role({ PolicyArns: "arn" }), "fetchData.role.PolicyArns");
+		rejects(role({ PolicyArns: ["arn"] }), "fetchData.role.PolicyArns[0]");
+		const arns = Array.from({ length: 11 }, (_, i) => ({
+			arn: `arn:aws:iam::123456789012:policy/p${i}`,
+		}));
+		accepts(role({ PolicyArns: arns.slice(0, 10) }));
+		rejects(role({ PolicyArns: arns }), "fetchData.role.PolicyArns");
 		rejects(
-			{ fetchData: { role: { RoleArn: ".../role", DurationSeconds: "3600" } } },
+			role({ PolicyArns: [arns[0], arns[0]] }),
+			"fetchData.role.PolicyArns[1]",
+		);
+		rejects(
+			role({ PolicyArns: [{ arn: "iam::123456789012:policy/p" }] }),
+			"fetchData.role.PolicyArns[0].arn",
+		);
+		rejects(
+			role({ PolicyArns: [{ arn: "arn:aws:iam::1:p/" }] }),
+			"fetchData.role.PolicyArns[0].arn",
+		);
+		rejects(
+			role({
+				PolicyArns: [{ arn: `arn:aws:iam::1:policy/${"p".repeat(2027)}` }],
+			}),
+			"fetchData.role.PolicyArns[0].arn",
+		);
+	});
+
+	test("stsValidateOptions applies the AssumeRole limits to Policy", () => {
+		rejects(role({ Policy: 1 }), "fetchData.role.Policy");
+		rejects(role({ Policy: "" }), "fetchData.role.Policy");
+		accepts(role({ Policy: "ÿ".repeat(2048) }));
+		rejects(role({ Policy: "{".repeat(2049) }), "fetchData.role.Policy");
+		rejects(role({ Policy: "Ā" }), "fetchData.role.Policy");
+		rejects(role({ Policy: "Ā{}" }), "fetchData.role.Policy");
+		rejects(role({ Policy: "{}Ā" }), "fetchData.role.Policy");
+		rejects(role({ Policy: "\u0000" }), "fetchData.role.Policy");
+	});
+
+	test("stsValidateOptions applies the AssumeRole limits to DurationSeconds", () => {
+		rejects(
+			role({ DurationSeconds: "3600" }),
 			"fetchData.role.DurationSeconds",
 		);
 		rejects(
-			{ fetchData: { role: { RoleArn: ".../role", DurationSeconds: 800 } } },
+			role({ DurationSeconds: 3600.5 }),
 			"fetchData.role.DurationSeconds",
 		);
+		accepts(role({ DurationSeconds: 900 }));
+		rejects(role({ DurationSeconds: 899 }), "fetchData.role.DurationSeconds");
+		accepts(role({ DurationSeconds: 43200 }));
+		rejects(role({ DurationSeconds: 43201 }), "fetchData.role.DurationSeconds");
+	});
+
+	test("stsValidateOptions applies the AssumeRole limits to Tags", () => {
+		rejects(role({ Tags: {} }), "fetchData.role.Tags");
+		rejects(role({ Tags: ["k"] }), "fetchData.role.Tags[0]");
+		rejects(role({ Tags: [{ Key: "k" }] }), "fetchData.role.Tags[0].Value");
+		rejects(role({ Tags: [{ Value: "v" }] }), "fetchData.role.Tags[0].Key");
+		const tags = Array.from({ length: 51 }, (_, i) => ({
+			Key: `k${i}`,
+			Value: "v",
+		}));
+		accepts(role({ Tags: tags.slice(0, 50) }));
+		rejects(role({ Tags: tags }), "fetchData.role.Tags");
+		rejects(role({ Tags: [tags[0], tags[0]] }), "fetchData.role.Tags[1]");
+		accepts(role({ Tags: [{ Key: "k".repeat(128), Value: "v".repeat(256) }] }));
 		rejects(
-			{ fetchData: { role: { RoleArn: ".../role", DurationSeconds: 50000 } } },
-			"fetchData.role.DurationSeconds",
+			role({ Tags: [{ Key: "k".repeat(129), Value: "v" }] }),
+			"fetchData.role.Tags[0].Key",
 		);
 		rejects(
-			{ fetchData: { role: { RoleArn: ".../role", ExternalId: 1 } } },
-			"fetchData.role.ExternalId",
+			role({ Tags: [{ Key: "", Value: "v" }] }),
+			"fetchData.role.Tags[0].Key",
 		);
 		rejects(
-			{ fetchData: { role: { RoleArn: ".../role", Policy: 1 } } },
-			"fetchData.role.Policy",
+			role({ Tags: [{ Key: "k", Value: "v".repeat(257) }] }),
+			"fetchData.role.Tags[0].Value",
+		);
+		accepts(
+			role({ Tags: [{ Key: "Über_.:/=+-@1", Value: "Ünïcode 9 _.:/=+-@" }] }),
 		);
 		rejects(
-			{ fetchData: { role: { RoleArn: ".../role", SerialNumber: 1 } } },
-			"fetchData.role.SerialNumber",
+			role({ Tags: [{ Key: "k#", Value: "v" }] }),
+			"fetchData.role.Tags[0].Key",
 		);
 		rejects(
-			{ fetchData: { role: { RoleArn: ".../role", TokenCode: 1 } } },
-			"fetchData.role.TokenCode",
+			role({ Tags: [{ Key: "#k", Value: "v" }] }),
+			"fetchData.role.Tags[0].Key",
 		);
 		rejects(
-			{ fetchData: { role: { RoleArn: ".../role", TransitiveTagKeys: "a" } } },
+			role({ Tags: [{ Key: "k", Value: "v#" }] }),
+			"fetchData.role.Tags[0].Value",
+		);
+		rejects(
+			role({ Tags: [{ Key: 1, Value: "v" }] }),
+			"fetchData.role.Tags[0].Key",
+		);
+		rejects(
+			role({ Tags: [{ Key: "k", Value: 1 }] }),
+			"fetchData.role.Tags[0].Value",
+		);
+	});
+
+	test("stsValidateOptions applies the AssumeRole limits to TransitiveTagKeys", () => {
+		rejects(
+			role({ TransitiveTagKeys: "a" }),
 			"fetchData.role.TransitiveTagKeys",
 		);
 		rejects(
-			{ fetchData: { role: { RoleArn: ".../role", TransitiveTagKeys: [1] } } },
+			role({ TransitiveTagKeys: [1] }),
+			"fetchData.role.TransitiveTagKeys[0]",
+		);
+		const keys = Array.from({ length: 51 }, (_, i) => `k${i}`);
+		accepts(role({ TransitiveTagKeys: keys.slice(0, 50) }));
+		rejects(
+			role({ TransitiveTagKeys: keys }),
+			"fetchData.role.TransitiveTagKeys",
+		);
+		rejects(
+			role({ TransitiveTagKeys: ["a", "a"] }),
+			"fetchData.role.TransitiveTagKeys[1]",
+		);
+		accepts(role({ TransitiveTagKeys: ["k".repeat(128)] }));
+		rejects(
+			role({ TransitiveTagKeys: ["k".repeat(129)] }),
+			"fetchData.role.TransitiveTagKeys[0]",
+		);
+		rejects(
+			role({ TransitiveTagKeys: [""] }),
+			"fetchData.role.TransitiveTagKeys[0]",
+		);
+		rejects(
+			role({ TransitiveTagKeys: ["k#"] }),
 			"fetchData.role.TransitiveTagKeys[0]",
 		);
 	});
 
-	test("stsValidateOptions allows extra passthrough properties on a role entry", () => {
-		accepts({
-			fetchData: { role: { RoleArn: ".../role", Tags: [{ Key: "k" }] } },
-		});
+	test("stsValidateOptions applies the AssumeRole limits to ExternalId", () => {
+		rejects(role({ ExternalId: 1 }), "fetchData.role.ExternalId");
+		rejects(role({ ExternalId: "a" }), "fetchData.role.ExternalId");
+		accepts(role({ ExternalId: "a_+=,.@:/-" }));
+		accepts(role({ ExternalId: "e".repeat(1224) }));
+		rejects(
+			role({ ExternalId: "e".repeat(1225) }),
+			"fetchData.role.ExternalId",
+		);
+		rejects(role({ ExternalId: "a b" }), "fetchData.role.ExternalId");
+	});
+
+	test("stsValidateOptions applies the AssumeRole limits to SerialNumber", () => {
+		rejects(role({ SerialNumber: 1 }), "fetchData.role.SerialNumber");
+		rejects(role({ SerialNumber: "12345678" }), "fetchData.role.SerialNumber");
+		accepts(role({ SerialNumber: "GAHT12345678" }));
+		accepts(role({ SerialNumber: "s".repeat(256) }));
+		rejects(
+			role({ SerialNumber: "s".repeat(257) }),
+			"fetchData.role.SerialNumber",
+		);
+		rejects(
+			role({ SerialNumber: "GAHT 12345678" }),
+			"fetchData.role.SerialNumber",
+		);
+	});
+
+	test("stsValidateOptions applies the AssumeRole limits to TokenCode", () => {
+		rejects(role({ TokenCode: 123456 }), "fetchData.role.TokenCode");
+		rejects(role({ TokenCode: "token" }), "fetchData.role.TokenCode");
+		rejects(role({ TokenCode: "12345" }), "fetchData.role.TokenCode");
+		rejects(role({ TokenCode: "1234567" }), "fetchData.role.TokenCode");
+		rejects(role({ TokenCode: "12345a" }), "fetchData.role.TokenCode");
+		rejects(role({ TokenCode: "a12345" }), "fetchData.role.TokenCode");
+	});
+
+	test("stsValidateOptions applies the AssumeRole limits to SourceIdentity", () => {
+		rejects(role({ SourceIdentity: 1 }), "fetchData.role.SourceIdentity");
+		rejects(role({ SourceIdentity: "a" }), "fetchData.role.SourceIdentity");
+		accepts(role({ SourceIdentity: "s".repeat(64) }));
+		rejects(
+			role({ SourceIdentity: "s".repeat(65) }),
+			"fetchData.role.SourceIdentity",
+		);
+		rejects(
+			role({ SourceIdentity: "aws:me" }),
+			"fetchData.role.SourceIdentity",
+		);
+	});
+
+	test("stsValidateOptions applies the AssumeRole limits to ProvidedContexts", () => {
+		const context = {
+			ProviderArn: "arn:aws:iam::aws:contextProvider/IdentityCenter",
+			ContextAssertion: "trusted-context-assertion",
+		};
+		rejects(
+			role({ ProvidedContexts: context }),
+			"fetchData.role.ProvidedContexts",
+		);
+		rejects(role({ ProvidedContexts: [] }), "fetchData.role.ProvidedContexts");
+		rejects(
+			role({ ProvidedContexts: ["c"] }),
+			"fetchData.role.ProvidedContexts[0]",
+		);
+		const contexts = Array.from({ length: 6 }, (_, i) => ({
+			...context,
+			ContextAssertion: `assertion${i}`,
+		}));
+		accepts(role({ ProvidedContexts: contexts.slice(0, 5) }));
+		rejects(
+			role({ ProvidedContexts: contexts }),
+			"fetchData.role.ProvidedContexts",
+		);
+		rejects(
+			role({ ProvidedContexts: [context, context] }),
+			"fetchData.role.ProvidedContexts[1]",
+		);
+		rejects(
+			role({
+				ProvidedContexts: [
+					{ ProviderArn: "iam::aws:contextProvider/IdentityCenter" },
+				],
+			}),
+			"fetchData.role.ProvidedContexts[0].ProviderArn",
+		);
+		rejects(
+			role({ ProvidedContexts: [{ ProviderArn: "arn:aws:iam::aws:c/" }] }),
+			"fetchData.role.ProvidedContexts[0].ProviderArn",
+		);
+		rejects(
+			role({
+				ProvidedContexts: [
+					{ ProviderArn: `arn:aws:iam::aws:c/${"c".repeat(2030)}` },
+				],
+			}),
+			"fetchData.role.ProvidedContexts[0].ProviderArn",
+		);
+		accepts(
+			role({ ProvidedContexts: [{ ContextAssertion: "a".repeat(2048) }] }),
+		);
+		rejects(
+			role({ ProvidedContexts: [{ ContextAssertion: "a".repeat(2049) }] }),
+			"fetchData.role.ProvidedContexts[0].ContextAssertion",
+		);
+		rejects(
+			role({ ProvidedContexts: [{ ContextAssertion: "abc" }] }),
+			"fetchData.role.ProvidedContexts[0].ContextAssertion",
+		);
+		rejects(
+			role({ ProvidedContexts: [{ ContextAssertion: "abc d" }] }),
+			"fetchData.role.ProvidedContexts[0].ContextAssertion",
+		);
+	});
+
+	test("stsValidateOptions applies the AssumeRole limits to MinimumSessionTokenSize", () => {
+		rejects(
+			role({ MinimumSessionTokenSize: "0" }),
+			"fetchData.role.MinimumSessionTokenSize",
+		);
+		rejects(
+			role({ MinimumSessionTokenSize: -1 }),
+			"fetchData.role.MinimumSessionTokenSize",
+		);
+		accepts(role({ MinimumSessionTokenSize: 4096 }));
+		rejects(
+			role({ MinimumSessionTokenSize: 4097 }),
+			"fetchData.role.MinimumSessionTokenSize",
+		);
+		rejects(
+			role({ MinimumSessionTokenSize: 1.5 }),
+			"fetchData.role.MinimumSessionTokenSize",
+		);
 	});
 
 	test("It should throw a clear, package-tagged error for non-cloneable fetchData", () => {
@@ -1098,5 +1416,76 @@ describe("@middy/sts", () => {
 
 		await handler(defaultEvent, defaultContext);
 		ok(sends > afterFirst);
+	});
+
+	const expectSharedOptionError = (options, messagePart) => {
+		let error;
+		try {
+			stsValidateOptions(options);
+		} catch (e) {
+			error = e;
+		}
+		ok(error instanceof TypeError, `expected a TypeError for ${messagePart}`);
+		strictEqual(error.cause.package, "@middy/sts");
+		ok(error.message.includes(messagePart), error.message);
+	};
+
+	test("stsValidateOptions validates awsClientOptions keys against the AWS SDK client config", () => {
+		stsValidateOptions({
+			awsClientOptions: {
+				region: "us-east-1",
+				endpoint: "https://example.com",
+				credentials: async () => ({
+					accessKeyId: "AKID",
+					secretAccessKey: "secret",
+				}),
+			},
+		});
+		expectSharedOptionError(
+			{ awsClientOptions: { regoin: "us-east-1" } },
+			"awsClientOptions.regoin",
+		);
+	});
+
+	test("stsValidateOptions accepts the STS client's useGlobalEndpoint config key", () => {
+		stsValidateOptions({ awsClientOptions: { useGlobalEndpoint: true } });
+		stsValidateOptions({
+			awsClientOptions: { useGlobalEndpoint: async () => false },
+		});
+		expectSharedOptionError(
+			{ awsClientOptions: { useGlobalEndpoint: "true" } },
+			"awsClientOptions.useGlobalEndpoint",
+		);
+	});
+
+	test("stsValidateOptions validates awsClientAssumeRole as an internal key name", () => {
+		stsValidateOptions({ awsClientAssumeRole: "@middy/sts.role-arn:a/b_1!" });
+		stsValidateOptions({ awsClientAssumeRole: "k".repeat(1024) });
+		expectSharedOptionError(
+			{ awsClientAssumeRole: "k".repeat(1025) },
+			"awsClientAssumeRole",
+		);
+		expectSharedOptionError({ awsClientAssumeRole: "" }, "awsClientAssumeRole");
+		expectSharedOptionError(
+			{ awsClientAssumeRole: "a b" },
+			"awsClientAssumeRole",
+		);
+	});
+
+	test("stsValidateOptions validates contextKey as a key name", () => {
+		stsValidateOptions({ contextKey: "@middy/ctx.name-a:b/c_1!" });
+		stsValidateOptions({ contextKey: "k".repeat(1024) });
+		expectSharedOptionError({ contextKey: "k".repeat(1025) }, "contextKey");
+		expectSharedOptionError({ contextKey: "" }, "contextKey");
+		expectSharedOptionError({ contextKey: "a b" }, "contextKey");
+	});
+
+	test("stsValidateOptions validates the cache options with the shared rules", () => {
+		stsValidateOptions({
+			cacheKey: "@middy/sts",
+			cacheKeyExpiry: { "@middy/sts": 1000 },
+		});
+		expectSharedOptionError({ cacheKey: "a b" }, "cacheKey");
+		expectSharedOptionError({ cacheKeyExpiry: { "a b": 1000 } }, "a b");
 	});
 });

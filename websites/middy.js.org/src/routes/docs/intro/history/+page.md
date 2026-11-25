@@ -1,4 +1,5 @@
 ---
+
 title: History
 description: "A brief history of the Middy project from its origins in 2016 to the latest releases."
 ---
@@ -19,5 +20,7 @@ description: "A brief history of the Middy project from its origins in 2016 to t
 - 2023-08-22: [JSAwardsIE 2023 Most valued JavaScript open source project](https://www.linkedin.com/posts/jsdayie_javascript-nodejs-activity-7099445347520757760-hsUQ)
 - 2023-11-15: v5.0.0 Released
 - 2024-11-23: v6.0.0 Released
+- 2026-01-04: v7.0.0 Released
+- 2026-11-23: v8.0.0 Released
 
 **Fun Fact**: The adding of the emoji-icon was the [2nd commit](https://github.com/middyjs/middy/commit/a0acf430bb72f6f6f604e38cfd8a571912b6b4d7) to the project.

@@ -1,4 +1,5 @@
 ---
+
 title: ecs-task
 description: "Run a Middy handler as a single-shot ECS/Fargate task, triggered by Step Functions, EventBridge Scheduler, EventBridge rules, or direct RunTask calls."
 ---
@@ -62,16 +63,15 @@ The ECS task metadata endpoint (`$ECS_CONTAINER_METADATA_URI_V4`) is fetched onc
 ### Step Functions `.sync` (fire-and-forget, exit code is the result)
 
 ```javascript
-import middy from '@middy/core'
-import { ecsTaskRunner } from '@middy/ecs-task'
+import middy from "@middy/core";
+import { ecsTaskRunner } from "@middy/ecs-task";
 
-const handler = middy()
-  .handler(async (event) => {
-    // event is whatever Step Functions passed via containerOverrides
-    await doWork(event)
-  })
+const handler = middy().handler(async (event) => {
+	// event is whatever Step Functions passed via containerOverrides
+	await doWork(event);
+});
 
-await ecsTaskRunner({ handler })
+await ecsTaskRunner({ handler });
 ```
 
 Configure your Step Functions task state to map input into `containerOverrides[].environment[].MIDDY_ECS_TASK_EVENT`, `States.JsonToString($)` is a common idiom.
@@ -79,34 +79,43 @@ Configure your Step Functions task state to map input into `containerOverrides[]
 ### Step Functions `.waitForTaskToken` (return a result payload)
 
 ```javascript
-import middy from '@middy/core'
-import { ecsTaskRunner } from '@middy/ecs-task'
-import { SFNClient, SendTaskSuccessCommand, SendTaskFailureCommand } from '@aws-sdk/client-sfn'
+import middy from "@middy/core";
+import { ecsTaskRunner } from "@middy/ecs-task";
+import {
+	SFNClient,
+	SendTaskSuccessCommand,
+	SendTaskFailureCommand,
+} from "@aws-sdk/client-sfn";
 
-const sfn = new SFNClient()
-const taskToken = process.env.MIDDY_ECS_TASK_TOKEN
+const sfn = new SFNClient();
+const taskToken = process.env.MIDDY_ECS_TASK_TOKEN;
 
-const handler = middy()
-  .handler(async (event) => ({ summary: await summarise(event) }))
+const handler = middy().handler(async (event) => ({
+	summary: await summarise(event),
+}));
 
 await ecsTaskRunner({
-  handler,
-  onSuccess: async (result) => {
-    if (!taskToken) return
-    await sfn.send(new SendTaskSuccessCommand({
-      taskToken,
-      output: JSON.stringify(result),
-    }))
-  },
-  onFailure: async (error) => {
-    if (!taskToken) return
-    await sfn.send(new SendTaskFailureCommand({
-      taskToken,
-      error: error.name ?? 'Error',
-      cause: error.message ?? String(error),
-    }))
-  },
-})
+	handler,
+	onSuccess: async (result) => {
+		if (!taskToken) return;
+		await sfn.send(
+			new SendTaskSuccessCommand({
+				taskToken,
+				output: JSON.stringify(result),
+			}),
+		);
+	},
+	onFailure: async (error) => {
+		if (!taskToken) return;
+		await sfn.send(
+			new SendTaskFailureCommand({
+				taskToken,
+				error: error.name ?? "Error",
+				cause: error.message ?? String(error),
+			}),
+		);
+	},
+});
 ```
 
 Pass the task token from the state machine into a `containerOverrides[].environment[].MIDDY_ECS_TASK_TOKEN` entry alongside the payload env var.
@@ -114,22 +123,21 @@ Pass the task token from the state machine into a `containerOverrides[].environm
 ### Large payloads via S3 pointer
 
 ```javascript
-import middy from '@middy/core'
-import { ecsTaskRunner } from '@middy/ecs-task'
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
+import middy from "@middy/core";
+import { ecsTaskRunner } from "@middy/ecs-task";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 
-const s3 = new S3Client()
+const s3 = new S3Client();
 
-const handler = middy()
-  .handler(async (event) => {
-    if (event.s3 !== undefined) {
-      const obj = await s3.send(new GetObjectCommand(event.s3))
-      event = JSON.parse(await obj.Body.transformToString())
-    }
-    return process(event)
-  })
+const handler = middy().handler(async (event) => {
+	if (event.s3 !== undefined) {
+		const obj = await s3.send(new GetObjectCommand(event.s3));
+		event = JSON.parse(await obj.Body.transformToString());
+	}
+	return process(event);
+});
 
-await ecsTaskRunner({ handler })
+await ecsTaskRunner({ handler });
 ```
 
 ## SIGTERM &amp; Fargate Spot

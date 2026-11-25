@@ -3,6 +3,7 @@
 import { setTimeout } from "node:timers";
 import { isExecutionModeDurable, validateOptions } from "@middy/util";
 import { executionModeStandard } from "./executionModeStandard.js";
+import { timeoutEarlyTimers } from "./timeoutEarlyTimers.js";
 
 const name = "core";
 const pkg = `@middy/${name}`;
@@ -15,6 +16,19 @@ const pkg = `@middy/${name}`;
 // the stack settles, so a reused context starts fresh on the next invocation.
 // A symbol on the context costs ~nothing; a WeakSet added ~80ns/invocation.
 const inFlight = Symbol("middy.inFlight");
+
+// The durable context is a class instance whose methods keep state on `this`
+// (the counter that numbers each checkpointed step). Called on a context
+// derived from it they would count on the copy, and every nested handler
+// would number its steps from the same start.
+const durableDerivedContextHandler = {
+	get(derived, key) {
+		const value = derived[key];
+		return typeof value === "function"
+			? value.bind(Object.getPrototypeOf(derived))
+			: value;
+	},
+};
 
 const noop = () => {};
 const defaultPluginConfig = {
@@ -34,43 +48,49 @@ const defaultPluginConfig = {
 // (e.g. `timeoutEarlyMillis` instead of `timeoutEarlyInMillis`).
 // Properties listed in hook execution order.
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:core:options",
+	$defs: { Function: false, Object: false },
 	type: "object",
 	properties: {
-		// Pre-computed request state seeded into `request.internal`.
-		internal: { type: "object", additionalProperties: true },
+		internal: { $ref: "#/$defs/Object" },
 		// Lifecycle hooks (see docs/intro/hooks).
-		beforePrefetch: { instanceof: "Function" },
-		requestStart: { instanceof: "Function" },
-		beforeMiddleware: { instanceof: "Function" },
-		afterMiddleware: { instanceof: "Function" },
-		beforeHandler: { instanceof: "Function" },
-		afterHandler: { instanceof: "Function" },
-		requestEnd: { instanceof: "Function" },
+		beforePrefetch: { $ref: "#/$defs/Function" },
+		requestStart: { $ref: "#/$defs/Function" },
+		beforeMiddleware: { $ref: "#/$defs/Function" },
+		afterMiddleware: { $ref: "#/$defs/Function" },
+		beforeHandler: { $ref: "#/$defs/Function" },
+		afterHandler: { $ref: "#/$defs/Function" },
+		requestEnd: { $ref: "#/$defs/Function" },
 		// Early-timeout configuration. `timeoutEarlyInMillis` reserves N ms
 		// before Lambda timeout for `timeoutEarlyResponse` to run.
-		timeoutEarlyInMillis: { type: "integer", minimum: 0 },
-		timeoutEarlyResponse: { instanceof: "Function" },
+		// "When delay is larger than 2147483647 ... the delay will be set to 1."
+		// https://nodejs.org/api/timers.html#settimeoutcallback-delay-args
+		timeoutEarlyInMillis: { type: "integer", minimum: 0, maximum: 2147483647 },
+		timeoutEarlyResponse: { $ref: "#/$defs/Function" },
 		// Execution mode (standard, durable-context, streamify-response, or custom).
-		executionMode: { instanceof: "Function" },
+		executionMode: { $ref: "#/$defs/Function" },
 	},
 	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const middyValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
-export const middy = (setupLambdaHandler, pluginConfig) => {
+export const middy = (handlerOrPluginConfig, pluginConfig) => {
 	let lambdaHandler;
 	let plugin;
 	// Allow base handler to be set using .handler()
-	if (typeof setupLambdaHandler === "function") {
-		lambdaHandler = setupLambdaHandler;
+	if (typeof handlerOrPluginConfig === "function") {
+		lambdaHandler = handlerOrPluginConfig;
 		plugin = { ...pluginConfig };
 	} else {
 		lambdaHandler = noop;
-		plugin = { ...setupLambdaHandler };
+		plugin = { ...(handlerOrPluginConfig ?? pluginConfig) };
 	}
+	const timeoutEarlyExplicit = plugin.timeoutEarlyInMillis !== undefined;
 	// Per-key rather than a defaults spread, so an explicit `undefined` still
 	// falls back to the default. `null` is kept: `timeoutEarlyInMillis: null`
 	// disables the early timeout, as it always has.
@@ -78,6 +98,7 @@ export const middy = (setupLambdaHandler, pluginConfig) => {
 		if (plugin[key] === undefined) plugin[key] = defaultPluginConfig[key];
 	}
 	plugin.timeoutEarly = plugin.timeoutEarlyInMillis > 0;
+	plugin.timeoutEarlyExplicit = timeoutEarlyExplicit;
 
 	// Pre-compute single-call plugin hooks as noop to avoid optional chaining
 	plugin.requestStart ??= noop;
@@ -93,7 +114,9 @@ export const middy = (setupLambdaHandler, pluginConfig) => {
 	const middyRequest = (event = {}, context = {}) => {
 		const parent = context.middyContext;
 		if (parent !== undefined && context[inFlight] === parent) {
-			context = Object.create(context);
+			context = isExecutionModeDurable(context)
+				? new Proxy(Object.create(context), durableDerivedContextHandler)
+				: Object.create(context);
 			context.middyContext = Object.create(parent);
 		} else {
 			context.middyContext = Object.create(null);
@@ -221,7 +244,18 @@ const runRequest = async (
 			// durable SDK's DurablePromise only run once then() is called.
 			// Middleware results stay real-Promise-only.
 			if (typeof handlerResult?.then === "function") {
-				if (timeoutEarly) {
+				// Under a durable execution the default early timeout stays off: the
+				// error it throws out of the handler marks the execution FAILED with
+				// no retry, whereas the Lambda timeout it pre-empts is retried and
+				// replayed from the last checkpoint.
+				// https://docs.aws.amazon.com/lambda/latest/dg/durable-execution-sdk-retries.html
+				const timeoutEarlyActive =
+					timeoutEarly &&
+					(plugin.timeoutEarlyExplicit || !isExecutionModeDurable(context));
+				const timeoutDelay = timeoutEarlyActive
+					? getRemainingTimeInMillis() - plugin.timeoutEarlyInMillis
+					: Number.POSITIVE_INFINITY;
+				if (Number.isFinite(timeoutDelay)) {
 					let timeoutResolve;
 					const timeoutPromise = new Promise((resolve, reject) => {
 						timeoutResolve = () => {
@@ -240,14 +274,9 @@ const runRequest = async (
 					// 1ms; non-Lambda hosts (ECS) can report remaining times that large.
 					timeoutID = setTimeout(
 						timeoutResolve,
-						Math.min(
-							2147483647,
-							Math.max(
-								0,
-								getRemainingTimeInMillis() - plugin.timeoutEarlyInMillis,
-							),
-						),
+						Math.min(2147483647, Math.max(0, timeoutDelay)),
 					);
+					context.lambdaContext?.[timeoutEarlyTimers]?.add(timeoutID);
 					request.response = await Promise.race([
 						handlerResult,
 						timeoutPromise,

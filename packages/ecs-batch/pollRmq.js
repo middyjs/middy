@@ -1,29 +1,59 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-// The module object rather than a named import so a test's mock timers can
-// intercept setTimeout; a named import binds the real function at load time.
-import timers from "node:timers/promises";
 import { validateOptions } from "@middy/util";
 import amqplib from "amqplib";
+import { mqBatcher } from "./pollHelpers.js";
 
 const pkg = "@middy/ecs-batch/pollRmq";
 
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:ecs-batch:pollRmq:options",
+	$defs: { Function: false, Object: false },
 	type: "object",
 	properties: {
-		url: { type: "string" },
-		queue: { type: "string" },
-		vhost: { type: "string" },
-		prefetch: { type: "integer", minimum: 1 },
-		batchSize: { type: "integer", minimum: 1 },
-		batchWindowMs: { type: "integer", minimum: 0 },
-		connection: { type: "object", additionalProperties: true },
-		channel: { type: "object", additionalProperties: true },
-		connect: { instanceof: "Function" },
-		eventSourceArn: { type: "string" },
+		url: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^amqps?:\/\/[\x21-\x7E]+$/u,
+		},
+		// "Queue names may be up to 255 bytes of UTF-8 characters."
+		// https://www.rabbitmq.com/docs/queues#names
+		queue: {
+			type: "string",
+			maxLength: 255,
+			pattern: /^[\p{L}\p{N}\p{P}\p{S} ]+$/u,
+		},
+		vhost: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\p{L}\p{N}\p{P}\p{S} ]+$/u,
+		},
+		// amqplib writes prefetchCount with writeUInt16BE:
+		// node_modules/amqplib/lib/defs.js
+		prefetch: { type: "integer", minimum: 1, maximum: 65535 },
+		// BatchSize and MaximumBatchingWindowInSeconds "from 0 seconds to 300 seconds":
+		// https://docs.aws.amazon.com/lambda/latest/api/API_CreateEventSourceMapping.html
+		batchSize: { type: "integer", minimum: 1, maximum: 10000 },
+		batchWindowMs: { type: "integer", minimum: 0, maximum: 300_000 },
+		connection: { $ref: "#/$defs/Object" },
+		channel: { $ref: "#/$defs/Object" },
+		connect: { $ref: "#/$defs/Function" },
+		// EventSourceArn "arn:(aws[a-zA-Z0-9-]*):([a-zA-Z0-9\-])+:([a-z]{2}(-gov)?-[a-z]+-\d{1})?:(\d{12})?:(.*)":
+		// https://docs.aws.amazon.com/lambda/latest/api/API_CreateEventSourceMapping.html
+		eventSourceArn: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^arn:aws[\w-]*:[\w-]+:[\w-]*:(?:\d{12})?:[\x21-\x7E]+$/u,
+		},
+		maxRetryAttempts: { type: "integer", minimum: -1, maximum: 10000 },
+		// "When delay is larger than 2147483647 or less than 1 or NaN, the delay will be set to 1."
+		// https://nodejs.org/api/timers.html#settimeoutcallback-delay-args
+		retryDelayMs: { type: "integer", minimum: 0, maximum: 2_147_483_647 },
 	},
 	required: ["queue"],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const pollRmqValidateOptions = (options) =>
@@ -85,62 +115,21 @@ const buildRmqRecord = (msg) => ({
 	data: msg.content.toString("base64"),
 });
 
-const identifierFor = (msg) => String(msg.fields.deliveryTag);
-
-// A batchItemFailures entry whose itemIdentifier is null, empty or names no
-// record in the batch invalidates the whole response: Lambda then retries
-// every record. `ids` is the failed set to act on (every record when the
-// response is invalid) and `error` the reason to raise through onError.
-// https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html
-// https://docs.aws.amazon.com/lambda/latest/dg/kafka-retry-configurations.html
-const batchFailures = (response, knownIds) => {
-	const ids = new Set();
-	for (const entry of response?.batchItemFailures ?? []) {
-		const itemIdentifier = entry?.itemIdentifier;
-		if (!knownIds.has(itemIdentifier)) {
-			return {
-				ids: knownIds,
-				error: new Error("Invalid batchItemFailures entry", {
-					cause: { package: pkg, data: { itemIdentifier } },
-				}),
-			};
-		}
-		ids.add(itemIdentifier);
-	}
-	return { ids };
-};
+const noop = () => {};
 
 export const pollRmq = (opts) => {
 	pollRmqValidateOptions(opts);
 	const queueKey = `${opts.queue}::${opts.vhost ?? "/"}`;
-	const batchSize = opts.batchSize ?? 10;
-	const batchWindowMs = opts.batchWindowMs ?? 1000;
-	const prefetch = opts.prefetch ?? batchSize * 2;
+	const batcher = mqBatcher(opts);
+	const prefetch = opts.prefetch ?? batcher.batchSize * 2;
 
 	const connect = opts.connect ?? amqplib.connect;
 	let connection = opts.connection;
 	let channel = opts.channel;
-	const pending = [];
-	const inflight = new WeakMap();
-	let resolveNext;
-	let failure;
-
-	const wakeReader = () => {
-		resolveNext?.();
-		resolveNext = undefined;
-	};
-
-	// A consumer that can no longer deliver would leave the loop parked
-	// forever. Fail the poll instead: the worker reports it through onError,
-	// exits 1 and the primary re-forks it.
-	const fail = (err) => {
-		failure = err;
-		wakeReader();
-	};
 
 	return {
 		source: "aws:rmq",
-		async *poll(signal) {
+		async *poll(signal, report = noop) {
 			if (!connection) connection = await connect(opts.url);
 			if (!channel) channel = await connection.createChannel();
 			await channel.prefetch(prefetch);
@@ -154,7 +143,7 @@ export const pollRmq = (opts) => {
 				closeError = err;
 			});
 			channel.once("close", () =>
-				fail(
+				batcher.failPoll(
 					closeError ??
 						new Error("Channel closed", {
 							cause: { package: pkg, data: { queue: opts.queue } },
@@ -169,15 +158,14 @@ export const pollRmq = (opts) => {
 					// amqplib then invokes the callback with null.
 					// https://amqp-node.github.io/amqplib/channel_api.html#channel_consume
 					if (msg === null) {
-						fail(
+						batcher.failPoll(
 							new Error("Consumer cancelled by RabbitMQ", {
 								cause: { package: pkg, data: { queue: opts.queue } },
 							}),
 						);
 						return;
 					}
-					pending.push(msg);
-					wakeReader();
+					batcher.deliver(msg);
 				},
 				{ noAck: false },
 			);
@@ -188,7 +176,7 @@ export const pollRmq = (opts) => {
 			// once the poll ends, requeues whatever is left.
 			// https://www.rabbitmq.com/docs/consumers#consumer-cancellation
 			const onAbort = async () => {
-				wakeReader();
+				batcher.wakeReader();
 				try {
 					await channel.cancel(consumerTag);
 				} catch {
@@ -198,48 +186,43 @@ export const pollRmq = (opts) => {
 			signal.addEventListener("abort", onAbort);
 
 			try {
-				while (!signal.aborted) {
-					if (failure) throw failure;
-					if (pending.length === 0) {
-						await new Promise((r) => {
-							resolveNext = r;
-						});
-						continue;
-					}
-					const deadline = Date.now() + batchWindowMs;
-					while (
-						pending.length < batchSize &&
-						Date.now() < deadline &&
-						!signal.aborted
-					) {
-						await timers.setTimeout(Math.min(50, deadline - Date.now()));
-					}
-					if (signal.aborted) return;
-					const taken = pending.splice(0, batchSize);
-					const event = {
+				// A failed batch is held and retried here rather than requeued: a
+				// requeue would have RabbitMQ redeliver it at once. On shutdown,
+				// closing the channel when the poll ends requeues unacknowledged
+				// deliveries, as it does when the poll fails.
+				// https://www.rabbitmq.com/docs/confirms
+				// A batch held past RabbitMQ's delivery acknowledgement timeout (30
+				// minutes by default, quorum queues only from RabbitMQ 4.3) is returned
+				// to the queue and its consumer is cancelled or its channel closed,
+				// which fails the poll.
+				// https://www.rabbitmq.com/docs/consumers#acknowledgement-timeout
+				yield* batcher.batches(signal, {
+					toEvent: (batch) => ({
 						eventSource: "aws:rmq",
 						eventSourceArn: opts.eventSourceArn,
 						rmqMessagesByQueue: {
-							[queueKey]: taken.map(buildRmqRecord),
+							[queueKey]: batch.map(buildRmqRecord),
 						},
-					};
-					inflight.set(event, taken);
-					yield event;
-					// The runner resumes here after acknowledging the batch, or after the
-					// handler threw. A batch still in flight was never acknowledged:
-					// requeue every delivery so it redelivers instead of holding the
-					// prefetch window until the consumer stalls. On shutdown, closing the
-					// channel when the poll ends requeues unacknowledged deliveries
-					// instead, as it does when the poll fails.
-					// https://www.rabbitmq.com/docs/confirms
-					if (signal.aborted) return;
-					if (failure) throw failure;
-					const unsettled = inflight.get(event);
-					if (unsettled) {
-						inflight.delete(event);
-						for (const msg of unsettled) channel.nack(msg, false, true);
-					}
-				}
+					}),
+					discard: (batch, event) => {
+						report(
+							new Error("Retry attempts exhausted", {
+								cause: {
+									package: pkg,
+									data: {
+										queue: opts.queue,
+										deliveryTags: batch.map((msg) => msg.fields.deliveryTag),
+									},
+								},
+							}),
+							event,
+						);
+						// RabbitMQ dead-letters a delivery rejected without a requeue when
+						// the queue has a dead-letter exchange, and drops it otherwise.
+						// https://www.rabbitmq.com/docs/dlx
+						for (const msg of batch) channel.nack(msg, false, false);
+					},
+				});
 			} finally {
 				signal.removeEventListener("abort", onAbort);
 				// best-effort: either may already be closed
@@ -247,22 +230,8 @@ export const pollRmq = (opts) => {
 				await connection.close().catch(() => {});
 			}
 		},
-		async acknowledge(event, response) {
-			const taken = inflight.get(event) ?? [];
-			inflight.delete(event);
-			// An unknown or already settled batch has nothing left to validate.
-			if (taken.length === 0) return;
-			const failed = batchFailures(response, new Set(taken.map(identifierFor)));
-			for (const msg of taken) {
-				if (failed.ids.has(identifierFor(msg))) {
-					channel.nack(msg, false, true);
-				} else {
-					channel.ack(msg);
-				}
-			}
-			// An invalid response requeues every delivery (the whole batch is
-			// retried, as from Lambda) and then raises the reason.
-			if (failed.error) throw failed.error;
+		async acknowledge(event) {
+			for (const msg of batcher.acknowledge(event)) channel.ack(msg);
 		},
 	};
 };

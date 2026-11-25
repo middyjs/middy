@@ -1,13 +1,15 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { describe, test } from "node:test";
-import middy from "../core/index.js";
-import { HttpError } from "../util/index.js";
+import middy from "@middy/core";
+import { HttpError } from "@middy/util";
 import httpErrorHandler, { httpErrorHandlerValidateOptions } from "./index.js";
 
 const defaultEvent = {};
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
+
+const thenKey = "then";
 
 describe("@middy/http-error-handler", () => {
 	test("It should create a response for HTTP errors (string)", async (t) => {
@@ -99,6 +101,166 @@ describe("@middy/http-error-handler", () => {
 		strictEqual(logger.mock.calls[0].arguments[0].error, expectedError);
 	});
 
+	test("It should report a logger that rejects instead of leaving an unhandled rejection", async (t) => {
+		const reported = t.mock.method(console, "error", () => {});
+		const failure = new Error("log sink is down");
+		const unhandled = [];
+		const onUnhandledRejection = (reason) => {
+			unhandled.push(reason);
+		};
+		process.on("unhandledRejection", onUnhandledRejection);
+		t.after(() => process.off("unhandledRejection", onUnhandledRejection));
+
+		const handler = middy(() => {
+			throw new HttpError(422);
+		}).use(
+			httpErrorHandler({
+				logger: async () => {
+					throw failure;
+				},
+			}),
+		);
+
+		const response = await handler(defaultEvent, defaultContext);
+		await new Promise((resolve) => setImmediate(resolve));
+
+		deepStrictEqual(unhandled, []);
+		strictEqual(reported.mock.calls.length, 1);
+		strictEqual(reported.mock.calls[0].arguments[0], failure);
+		deepStrictEqual(response, {
+			statusCode: 422,
+			body: "Unprocessable Entity",
+			headers: {
+				"Content-Type": "text/plain",
+			},
+		});
+	});
+
+	test("It should report a logger that throws and still return the response", async (t) => {
+		const reported = t.mock.method(console, "error", () => {});
+		const failure = new Error("log sink is down");
+
+		const handler = middy(() => {
+			throw new HttpError(422);
+		}).use(
+			httpErrorHandler({
+				logger: () => {
+					throw failure;
+				},
+			}),
+		);
+
+		const response = await handler(defaultEvent, defaultContext);
+
+		strictEqual(reported.mock.calls.length, 1);
+		strictEqual(reported.mock.calls[0].arguments[0], failure);
+		strictEqual(response.statusCode, 422);
+	});
+
+	test("It should report a thenable from the logger that rejects", async (t) => {
+		const reported = t.mock.method(console, "error", () => {});
+		const failure = new Error("log sink is down");
+
+		const handler = middy(() => {
+			throw new HttpError(422);
+		}).use(
+			httpErrorHandler({
+				logger: () => ({
+					[thenKey]: (_resolve, reject) => reject(failure),
+				}),
+			}),
+		);
+
+		const response = await handler(defaultEvent, defaultContext);
+
+		strictEqual(reported.mock.calls.length, 1);
+		strictEqual(reported.mock.calls[0].arguments[0], failure);
+		strictEqual(response.statusCode, 422);
+	});
+
+	test("It should wait for an asynchronous logger before replacing the error", async (t) => {
+		const original = new Error("A leaky internal detail");
+		let logged;
+
+		const handler = middy(() => {
+			throw original;
+		}).use(
+			httpErrorHandler({
+				logger: async (request) => {
+					await new Promise((resolve) => setImmediate(resolve));
+					logged = request.error;
+				},
+			}),
+		);
+
+		const response = await handler(defaultEvent, defaultContext);
+
+		strictEqual(logged, original);
+		deepStrictEqual(response, {
+			statusCode: 500,
+			headers: {},
+		});
+	});
+
+	test("It should not use the logger's return value as the response", async (t) => {
+		for (const result of ["logged", Promise.resolve("logged")]) {
+			const handler = middy(() => {
+				throw new HttpError(422);
+			}).use(httpErrorHandler({ logger: () => result }));
+
+			const response = await handler(defaultEvent, defaultContext);
+
+			deepStrictEqual(response, {
+				statusCode: 422,
+				body: "Unprocessable Entity",
+				headers: {
+					"Content-Type": "text/plain",
+				},
+			});
+		}
+	});
+
+	test("It should report nothing when the logger succeeds or is disabled", async (t) => {
+		const reported = t.mock.method(console, "error", () => {});
+
+		for (const logger of [() => {}, false]) {
+			const handler = middy(() => {
+				throw new HttpError(422);
+			}).use(httpErrorHandler({ logger }));
+
+			const response = await handler(defaultEvent, defaultContext);
+
+			strictEqual(response.statusCode, 422);
+		}
+
+		strictEqual(reported.mock.calls.length, 0);
+	});
+
+	test("It should build the response synchronously when the logger returns no thenable", (t) => {
+		const reported = t.mock.method(console, "error", () => {});
+
+		for (const logger of [
+			false,
+			() => {},
+			() => null,
+			() => "logged",
+			() => ({ level: "error" }),
+		]) {
+			const { onError } = httpErrorHandler({ logger });
+			const request = {
+				event: defaultEvent,
+				context: defaultContext,
+				error: new HttpError(422),
+				response: undefined,
+			};
+
+			strictEqual(onError(request), undefined);
+			strictEqual(request.response.statusCode, 422);
+		}
+
+		strictEqual(reported.mock.calls.length, 0);
+	});
+
 	test("It should be possible to pass in headers with error", async (t) => {
 		const handler = middy(() => {
 			const error = new HttpError(422);
@@ -122,10 +284,29 @@ describe("@middy/http-error-handler", () => {
 		});
 	});
 
-	test("It should create a response for HTTP errors created with a generic error", async (t) => {
+	test("It should not expose an error that carries a statusCode without expose", async (t) => {
 		const handler = middy(() => {
-			const err = new Error("A server error");
+			const err = new Error("upstream detail");
 			err.statusCode = 412;
+			err.headers = { "Set-Cookie": "upstream=1" };
+			throw err;
+		});
+
+		handler.use(httpErrorHandler({ logger: false }));
+
+		const response = await handler(defaultEvent, defaultContext);
+
+		deepStrictEqual(response, {
+			statusCode: 500,
+			headers: {},
+		});
+	});
+
+	test("It should create a response for a generic error that sets expose", async (t) => {
+		const handler = middy(() => {
+			const err = new Error("A client error");
+			err.statusCode = 412;
+			err.expose = true;
 			throw err;
 		});
 
@@ -135,11 +316,149 @@ describe("@middy/http-error-handler", () => {
 
 		deepStrictEqual(response, {
 			statusCode: 412,
-			body: "A server error",
+			body: "A client error",
 			headers: {
 				"Content-Type": "text/plain",
 			},
 		});
+	});
+
+	test("It should not expose an error whose expose is truthy but not true", async (t) => {
+		const handler = middy(() => {
+			const err = new Error("A client error");
+			err.statusCode = 412;
+			err.expose = "true";
+			throw err;
+		});
+
+		handler.use(httpErrorHandler({ logger: false }));
+
+		const response = await handler(defaultEvent, defaultContext);
+
+		deepStrictEqual(response, {
+			statusCode: 500,
+			headers: {},
+		});
+	});
+
+	test("It should not expose an error whose statusCode is below 400", async (t) => {
+		const handler = middy(() => {
+			const err = new Error("Not an error status");
+			err.statusCode = 399;
+			err.expose = true;
+			throw err;
+		});
+
+		handler.use(httpErrorHandler({ logger: false }));
+
+		const response = await handler(defaultEvent, defaultContext);
+
+		deepStrictEqual(response, {
+			statusCode: 500,
+			headers: {},
+		});
+	});
+
+	test("It should not expose an error whose statusCode is above 599", async (t) => {
+		const handler = middy(() => {
+			const err = new Error("Not an error status");
+			err.statusCode = 600;
+			err.expose = true;
+			throw err;
+		});
+
+		handler.use(httpErrorHandler({ logger: false }));
+
+		const response = await handler(defaultEvent, defaultContext);
+
+		deepStrictEqual(response, {
+			statusCode: 500,
+			headers: {},
+		});
+	});
+
+	test("It should not expose an error whose statusCode is a numeric string", async (t) => {
+		const handler = middy(() => {
+			const err = new Error("Not a status");
+			err.statusCode = "404";
+			err.expose = true;
+			throw err;
+		});
+
+		handler.use(httpErrorHandler({ logger: false }));
+
+		const response = await handler(defaultEvent, defaultContext);
+
+		deepStrictEqual(response, {
+			statusCode: 500,
+			headers: {},
+		});
+	});
+
+	test("It should not expose an error whose statusCode is not an integer", async (t) => {
+		const handler = middy(() => {
+			const err = new Error("Not a status");
+			err.statusCode = 404.5;
+			err.expose = true;
+			throw err;
+		});
+
+		handler.use(httpErrorHandler({ logger: false }));
+
+		const response = await handler(defaultEvent, defaultContext);
+
+		deepStrictEqual(response, {
+			statusCode: 500,
+			headers: {},
+		});
+	});
+
+	test("It should expose an error at either end of the 400 to 599 range", async (t) => {
+		for (const statusCode of [400, 599]) {
+			const handler = middy(() => {
+				const err = new Error("An http error");
+				err.statusCode = statusCode;
+				err.expose = true;
+				throw err;
+			});
+
+			handler.use(httpErrorHandler({ logger: false }));
+
+			const response = await handler(defaultEvent, defaultContext);
+
+			deepStrictEqual(response, {
+				statusCode,
+				body: "An http error",
+				headers: {
+					"Content-Type": "text/plain",
+				},
+			});
+		}
+	});
+
+	test("It should not modify the thrown error", async (t) => {
+		const expectedError = Object.freeze(
+			Object.assign(new Error("A frozen error"), { statusCode: 404 }),
+		);
+		let captured;
+		const handler = middy(() => {
+			throw expectedError;
+		})
+			.use({
+				onError: (request) => {
+					captured = request.error;
+				},
+			})
+			.use(httpErrorHandler({ logger: false }));
+
+		const response = await handler(defaultEvent, defaultContext);
+
+		deepStrictEqual(response, {
+			statusCode: 500,
+			headers: {},
+		});
+		strictEqual(captured.cause, expectedError);
+		deepStrictEqual(Object.keys(expectedError), ["statusCode"]);
 	});
 
 	test("It should expose of error to user", async (t) => {
@@ -368,7 +687,7 @@ describe("@middy/http-error-handler", () => {
 		});
 	});
 
-	test("It should not expose a generic 500 error (statusCode === 500 boundary)", async (t) => {
+	test("It should not expose a generic error with statusCode 500 and no expose", async (t) => {
 		const handler = middy(() => {
 			const err = new Error("A server error");
 			err.statusCode = 500;
@@ -466,6 +785,52 @@ describe("@middy/http-error-handler", () => {
 		}
 	});
 
+	test("httpErrorHandlerValidateOptions accepts a multi-line or Unicode fallbackMessage", () => {
+		httpErrorHandlerValidateOptions({
+			fallbackMessage: '{\n\t"message": "Erreur: réessayez"\r\n}',
+		});
+		httpErrorHandlerValidateOptions({ fallbackMessage: "" });
+	});
+
+	test("httpErrorHandlerValidateOptions rejects a fallbackMessage with a control character", () => {
+		throws(
+			() => httpErrorHandlerValidateOptions({ fallbackMessage: "a\u0000b" }),
+			{ name: "TypeError" },
+		);
+	});
+
+	test("httpErrorHandlerValidateOptions rejects a fallbackMessage or mask longer than 1024 characters", () => {
+		httpErrorHandlerValidateOptions({
+			fallbackMessage: "a".repeat(1024),
+			mask: "*".repeat(1024),
+		});
+		throws(
+			() =>
+				httpErrorHandlerValidateOptions({ fallbackMessage: "a".repeat(1025) }),
+			{ message: "Option 'fallbackMessage' must have length <= 1024" },
+		);
+		throws(() => httpErrorHandlerValidateOptions({ mask: "*".repeat(1025) }), {
+			message: "Option 'mask' must have length <= 1024",
+		});
+	});
+
+	test("httpErrorHandlerValidateOptions rejects a mask with a control character", () => {
+		throws(() => httpErrorHandlerValidateOptions({ mask: "\n" }), {
+			name: "TypeError",
+		});
+		httpErrorHandlerValidateOptions({ mask: "***omitted***" });
+		httpErrorHandlerValidateOptions({ mask: "" });
+	});
+
+	test("httpErrorHandlerValidateOptions accepts a logger function or false only", () => {
+		httpErrorHandlerValidateOptions({ logger: async () => {} });
+		for (const logger of [true, "console", {}]) {
+			throws(() => httpErrorHandlerValidateOptions({ logger }), {
+				message: "Option 'logger' must match exactly one schema in oneOf",
+			});
+		}
+	});
+
 	test("It should redact omitPaths from the error before logging", async (t) => {
 		let captured = null;
 
@@ -539,6 +904,89 @@ describe("@middy/http-error-handler", () => {
 		} catch (e) {
 			ok(e.message.includes("omitPaths"));
 		}
+	});
+
+	test("httpErrorHandlerValidateOptions accepts an omitPaths entry given as an array of segments", () => {
+		const options = {
+			omitPaths: ["error.cause", ["event", "headers", "x.api.key"]],
+		};
+		strictEqual(httpErrorHandlerValidateOptions(options), options);
+	});
+
+	test("httpErrorHandlerValidateOptions rejects an omitPaths entry that is neither a string nor an array of strings", () => {
+		for (const omitPaths of [[1], [["event", 1]], [{ path: "event" }]]) {
+			try {
+				httpErrorHandlerValidateOptions({ omitPaths });
+				ok(false, "expected throw");
+			} catch (e) {
+				ok(e instanceof TypeError);
+				ok(e.message.includes("omitPaths[0]"));
+			}
+		}
+	});
+
+	test("httpErrorHandlerValidateOptions rejects an omitPaths entry the middleware would reject", () => {
+		for (const omitPaths of [
+			["event.Records[].body"],
+			["event.Records.0.body"],
+			[["event", "__proto__"]],
+		]) {
+			let thrown;
+			try {
+				httpErrorHandlerValidateOptions({ omitPaths });
+			} catch (e) {
+				thrown = e;
+			}
+			ok(thrown instanceof TypeError);
+			ok(thrown.message.startsWith("Invalid path "));
+			strictEqual(thrown.cause.package, "@middy/util");
+
+			let thrownByFactory;
+			try {
+				httpErrorHandler({ omitPaths });
+			} catch (e) {
+				thrownByFactory = e;
+			}
+			strictEqual(thrownByFactory.message, thrown.message);
+		}
+	});
+
+	test("httpErrorHandlerValidateOptions rejects an omitPaths entry that is an empty array", () => {
+		let thrown;
+		try {
+			httpErrorHandlerValidateOptions({ omitPaths: [[]] });
+		} catch (e) {
+			thrown = e;
+		}
+		ok(thrown instanceof TypeError);
+		ok(thrown.message.includes("omitPaths[0]"));
+		strictEqual(thrown.cause.package, "@middy/http-error-handler");
+	});
+
+	test("It should redact a key containing a dot through an array omitPaths entry", async (t) => {
+		let captured = null;
+
+		const handler = middy(() => {
+			throw new HttpError(422);
+		}).use(
+			httpErrorHandler({
+				logger: (request) => {
+					captured = request;
+				},
+				omitPaths: [["event", "headers", "x.api.key"]],
+				mask: "[redacted]",
+			}),
+		);
+
+		await handler(
+			{ headers: { "x.api.key": "secret", accept: "*/*" } },
+			defaultContext,
+		);
+
+		deepStrictEqual(captured.event.headers, {
+			"x.api.key": "[redacted]",
+			accept: "*/*",
+		});
 	});
 
 	// `message` and `cause` are non-enumerable on an Error, so a downstream logger

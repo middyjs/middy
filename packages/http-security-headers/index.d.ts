@@ -13,6 +13,11 @@ export interface Options {
 	strictTransportSecurity?: {
 		maxAge?: number;
 		includeSubDomains?: boolean;
+		/**
+		 * Asks for inclusion in the browsers' HSTS preload list, which is slow to
+		 * undo. Sent only when `maxAge` is at least one year.
+		 * @default false
+		 */
 		preload?: boolean;
 	};
 	downloadOptions?: {

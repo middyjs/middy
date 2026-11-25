@@ -12,9 +12,9 @@ import {
 	GetSecretValueCommand,
 	SecretsManagerClient,
 } from "@aws-sdk/client-secrets-manager";
+import middy from "@middy/core";
 import { clearCache, getInternal } from "@middy/util";
 import { mockClient } from "aws-sdk-client-mock";
-import middy from "../core/index.js";
 import secretsManager, { secretsManagerValidateOptions } from "./index.js";
 
 describe("@middy/secrets-manager", () => {
@@ -30,6 +30,9 @@ describe("@middy/secrets-manager", () => {
 	const defaultContext = {
 		getRemainingTimeInMillis: () => 1000,
 	};
+
+	const hourMs = 60 * 60 * 1000;
+	const dayMs = 24 * hourMs;
 
 	test("It should set secret to internal storage (token)", async (t) => {
 		mockClient(SecretsManagerClient)
@@ -250,12 +253,12 @@ describe("@middy/secrets-manager", () => {
 		t.mock.timers.setTime(1_700_000_000_000);
 		const changed = new Date(Date.now() - 50 * 1000);
 		const mockService = mockClient(SecretsManagerClient)
-			.on(DescribeSecretCommand, { SecretId: "api_key_LastRotationDate" })
+			.on(DescribeSecretCommand, { SecretId: "api_key_LastRotatedDate" })
 			.resolves({
-				LastRotationDate: changed,
+				LastRotatedDate: changed,
 				LastChangedDate: changed,
 			})
-			.on(GetSecretValueCommand, { SecretId: "api_key_LastRotationDate" })
+			.on(GetSecretValueCommand, { SecretId: "api_key_LastRotatedDate" })
 			.resolves({ SecretString: "token" });
 		const handler = middy(() => {});
 
@@ -270,7 +273,7 @@ describe("@middy/secrets-manager", () => {
 					AwsClient: SecretsManagerClient,
 					cacheExpiry: 15 * 60 * 1000,
 					fetchData: {
-						token: "api_key_LastRotationDate",
+						token: "api_key_LastRotatedDate",
 					},
 					fetchRotationDate: true,
 					disablePrefetch: true,
@@ -296,7 +299,7 @@ describe("@middy/secrets-manager", () => {
 		const mockService = mockClient(SecretsManagerClient)
 			.on(DescribeSecretCommand, { SecretId: "api_key_prefetch_fail" })
 			.rejectsOnce(new Error("describe failed"))
-			.resolves({ LastRotationDate: changed, LastChangedDate: changed })
+			.resolves({ LastRotatedDate: changed, LastChangedDate: changed })
 			.on(GetSecretValueCommand, { SecretId: "api_key_prefetch_fail" })
 			.resolves({ SecretString: "token" });
 		const handler = middy(() => {});
@@ -328,21 +331,21 @@ describe("@middy/secrets-manager", () => {
 		strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 1);
 	});
 
-	test("It should call aws-sdk if cache enabled but cached param has expired using LastRotationDate, fallback to NextRotationDate", async (t) => {
+	test("It should call aws-sdk again once the cache has expired for a secret with LastRotatedDate and NextRotationDate", async (t) => {
 		t.mock.timers.setTime(1_700_000_000_000);
 		const changed = new Date(Date.now() - 25 * 1000);
 		const nextRotation = new Date(Date.now() + 5 * 60 * 1000);
 		const mockService = mockClient(SecretsManagerClient)
 			.on(DescribeSecretCommand, {
-				SecretId: "api_key_LastRotationDate_NextRotationDate",
+				SecretId: "api_key_LastRotatedDate_NextRotationDate",
 			})
 			.resolves({
-				LastRotationDate: changed,
+				LastRotatedDate: changed,
 				LastChangedDate: changed,
 				NextRotationDate: nextRotation,
 			})
 			.on(GetSecretValueCommand, {
-				SecretId: "api_key_LastRotationDate_NextRotationDate",
+				SecretId: "api_key_LastRotatedDate_NextRotationDate",
 			})
 			.resolves({ SecretString: "token" });
 		const handler = middy(() => {});
@@ -358,7 +361,7 @@ describe("@middy/secrets-manager", () => {
 					AwsClient: SecretsManagerClient,
 					cacheExpiry: 15 * 60 * 1000,
 					fetchData: {
-						token: "api_key_LastRotationDate_NextRotationDate",
+						token: "api_key_LastRotatedDate_NextRotationDate",
 					},
 					fetchRotationDate: true,
 					disablePrefetch: true,
@@ -375,10 +378,10 @@ describe("@middy/secrets-manager", () => {
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
 	});
 
-	test("It should refresh after cacheExpiry when NextRotationDate is later", async (t) => {
+	test("It should refresh after cacheExpiry when the rotation window opens later", async (t) => {
 		t.mock.timers.setTime(1_700_000_000_000);
 		const changed = new Date(Date.now() - 50 * 1000);
-		const nextRotation = new Date(Date.now() + 50 * 60 * 1000);
+		const nextRotation = new Date(Date.now() + dayMs + 50 * 60 * 1000);
 		const mockService = mockClient(SecretsManagerClient)
 			.on(DescribeSecretCommand, { SecretId: "api_key_NoLastRotation" })
 			.resolves({
@@ -412,17 +415,15 @@ describe("@middy/secrets-manager", () => {
 		await handler(defaultEvent, defaultContext);
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
 		strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 1);
-		// The 15 min cacheExpiry is sooner than the 50 min rotation date, so the
-		// shorter configured lifetime wins.
 		t.mock.timers.tick(15 * 60 * 1000);
 		await handler(defaultEvent, defaultContext);
 
 		strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 2);
 	});
 
-	test("It should call aws-sdk if cache enabled but cached param has expired using NextRotationDate", async (t) => {
+	test("It should call aws-sdk if cache enabled but cached param has expired using the rotation window", async (t) => {
 		t.mock.timers.setTime(1_700_000_000_000);
-		const nextRotation = new Date(Date.now() + 50 * 1000);
+		const nextRotation = new Date(Date.now() + dayMs + 50 * 1000);
 		const mockService = mockClient(SecretsManagerClient)
 			.on(DescribeSecretCommand, { SecretId: "api_key_NextRotationDate" })
 			.resolves({ NextRotationDate: nextRotation })
@@ -451,7 +452,6 @@ describe("@middy/secrets-manager", () => {
 
 		await handler(defaultEvent, defaultContext);
 		await handler(defaultEvent, defaultContext);
-		// Cached until the rotation date even though cacheExpiry is -1 (infinite).
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
 		t.mock.timers.tick(15 * 60 * 1000);
 		await handler(defaultEvent, defaultContext);
@@ -664,11 +664,11 @@ describe("@middy/secrets-manager", () => {
 		strictEqual(sendStub.callCount, 3);
 	});
 
-	test("It should expire cache at NextRotationDate independent of cacheExpiry:-1", async (t) => {
+	test("It should expire cache when the rotation window opens independent of cacheExpiry:-1", async (t) => {
 		// Use a realistic epoch so the rotation timestamp is treated as an absolute
 		// expiry (a small value < 24h in ms would be misread as a duration).
 		t.mock.timers.setTime(1_700_000_000_000);
-		const rotationDate = new Date(Date.now() + 50 * 1000);
+		const rotationDate = new Date(Date.now() + dayMs + 50 * 1000);
 		const mockService = mockClient(SecretsManagerClient)
 			.on(DescribeSecretCommand, { SecretId: "api_key_RotationExpiry" })
 			.resolves({ NextRotationDate: rotationDate })
@@ -698,13 +698,8 @@ describe("@middy/secrets-manager", () => {
 
 		await handler(defaultEvent, defaultContext);
 		await handler(defaultEvent, defaultContext);
-		// Before the rotation date the value is cached, so only a single
-		// DescribeSecret was needed across the repeat invocations.
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
 		strictEqual(sendStub.callCount, 2);
-		// Once the NextRotationDate passes the cache must expire even though
-		// cacheExpiry is -1 (infinite), triggering a fresh DescribeSecret to learn
-		// the new rotation date plus a fresh GetSecretValue.
 		t.mock.timers.tick(60 * 1000);
 		await handler(defaultEvent, defaultContext);
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
@@ -716,11 +711,11 @@ describe("@middy/secrets-manager", () => {
 		// expiry ~1000x into the future and defeat rotation-based invalidation).
 		t.mock.timers.setTime(1_700_000_000_000);
 		const lastChanged = new Date(Date.now() - 60 * 1000);
-		const nextRotation = new Date(Date.now() + 90 * 1000);
+		const nextRotation = new Date(Date.now() + dayMs + 90 * 1000);
 		const mockService = mockClient(SecretsManagerClient)
 			.on(DescribeSecretCommand, { SecretId: "api_key_DateFields" })
 			.resolves({
-				LastRotationDate: lastChanged,
+				LastRotatedDate: lastChanged,
 				LastChangedDate: lastChanged,
 				NextRotationDate: nextRotation,
 			})
@@ -737,7 +732,6 @@ describe("@middy/secrets-manager", () => {
 			.use(
 				secretsManager({
 					AwsClient: SecretsManagerClient,
-					// 1h duration; the sooner NextRotationDate (+90s) must clamp expiry.
 					cacheExpiry: 60 * 60 * 1000,
 					fetchData: {
 						token: "api_key_DateFields",
@@ -750,17 +744,15 @@ describe("@middy/secrets-manager", () => {
 
 		await handler(defaultEvent, defaultContext);
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
-		// Advance past NextRotationDate (+90s) but well within cacheExpiry (1h). The
-		// cache must expire at the rotation date, forcing a fresh DescribeSecret.
 		t.mock.timers.tick(100 * 1000);
 		await handler(defaultEvent, defaultContext);
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
 	});
 
-	test("It should expire the shared cache at the soonest rotation date across keys", async (t) => {
+	test("It should expire the shared cache at the soonest rotation window across keys", async (t) => {
 		t.mock.timers.setTime(1_700_000_000_000);
-		const soonRotation = new Date(Date.now() + 40 * 1000);
-		const lateRotation = new Date(Date.now() + 10 * 60 * 1000);
+		const soonRotation = new Date(Date.now() + dayMs + 40 * 1000);
+		const lateRotation = new Date(Date.now() + dayMs + 10 * 60 * 1000);
 		const mockService = mockClient(SecretsManagerClient)
 			.on(DescribeSecretCommand, { SecretId: "secret_soon" })
 			.resolves({ NextRotationDate: soonRotation })
@@ -797,8 +789,6 @@ describe("@middy/secrets-manager", () => {
 		await handler(defaultEvent, defaultContext);
 		// Two Describe calls (one per key) on the first, uncached invocation.
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
-		// Past the soonest rotation date (+40s) but before the later one (+10m): the
-		// shared cache entry must expire and trigger fresh DescribeSecret calls.
 		t.mock.timers.tick(60 * 1000);
 		await handler(defaultEvent, defaultContext);
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 4);
@@ -859,7 +849,7 @@ describe("@middy/secrets-manager", () => {
 		const mockService = mockClient(SecretsManagerClient)
 			.on(DescribeSecretCommand, { SecretId: "api_key_stale_change" })
 			.resolves({
-				LastRotationDate: changed,
+				LastRotatedDate: changed,
 				LastChangedDate: changed,
 				NextRotationDate: nextRotation,
 			})
@@ -897,14 +887,14 @@ describe("@middy/secrets-manager", () => {
 		strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 1);
 	});
 
-	test("It should expire at NextRotationDate when it is sooner than cacheExpiry", async (t) => {
+	test("It should expire when the rotation window opens sooner than cacheExpiry", async (t) => {
 		t.mock.timers.setTime(1_700_000_000_000);
 		const changed = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
-		const nextRotation = new Date(Date.now() + 30 * 60 * 1000);
+		const nextRotation = new Date(Date.now() + dayMs + 30 * 60 * 1000);
 		const mockService = mockClient(SecretsManagerClient)
 			.on(DescribeSecretCommand, { SecretId: "api_key_soon_rotation" })
 			.resolves({
-				LastRotationDate: changed,
+				LastRotatedDate: changed,
 				LastChangedDate: changed,
 				NextRotationDate: nextRotation,
 			})
@@ -937,8 +927,6 @@ describe("@middy/secrets-manager", () => {
 		await handler(defaultEvent, defaultContext);
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
 		strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 1);
-		// 31 min later NextRotationDate has passed, well inside the 1 h cacheExpiry,
-		// so the secret is described and fetched again.
 		t.mock.timers.tick(31 * 60 * 1000);
 		await handler(defaultEvent, defaultContext);
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
@@ -1080,6 +1068,74 @@ describe("@middy/secrets-manager", () => {
 			() => secretsManagerValidateOptions({ fetchData: { token: 42 } }),
 			(e) => e instanceof TypeError && e.message.includes("fetchData"),
 		);
+	});
+
+	const rejectsOption = (options, messagePart) =>
+		throws(
+			() => secretsManagerValidateOptions(options),
+			(e) =>
+				e instanceof TypeError &&
+				e.cause.package === "@middy/secrets-manager" &&
+				e.message.includes(messagePart),
+		);
+
+	test("secretsManagerValidateOptions applies the GetSecretValue SecretId limits to fetchData values", () => {
+		// https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+		doesNotThrow(() =>
+			secretsManagerValidateOptions({
+				fetchData: {
+					name: "dev/api_token+=.@-",
+					arn: "arn:aws:secretsmanager:us-west-2:123456789012:secret:MyTestDatabaseSecret-a1b2c3",
+					long: "s".repeat(2048),
+				},
+			}),
+		);
+		rejectsOption({ fetchData: { token: "" } }, "fetchData.token");
+		rejectsOption(
+			{ fetchData: { token: "s".repeat(2049) } },
+			"fetchData.token",
+		);
+		rejectsOption({ fetchData: { token: "dev/api token" } }, "fetchData.token");
+		rejectsOption({ fetchData: { token: "dev/ünï" } }, "fetchData.token");
+	});
+
+	test("secretsManagerValidateOptions bounds the fetchData and fetchRotationDate internal keys", () => {
+		// fetchRotationDate is a oneOf, whose error names only the option.
+		for (const [option, value, keyError] of [
+			["fetchData", "secret", (key) => key],
+			["fetchRotationDate", true, () => "fetchRotationDate"],
+		]) {
+			doesNotThrow(() =>
+				secretsManagerValidateOptions({
+					[option]: { "@middy/db.password!": value },
+				}),
+			);
+			doesNotThrow(() =>
+				secretsManagerValidateOptions({
+					[option]: Object.fromEntries(
+						Array.from({ length: 1024 }, (_, i) => [`k${i}`, value]),
+					),
+				}),
+			);
+			rejectsOption(
+				{
+					[option]: Object.fromEntries(
+						Array.from({ length: 1025 }, (_, i) => [`k${i}`, value]),
+					),
+				},
+				option,
+			);
+			rejectsOption({ [option]: { "a b": value } }, keyError("a b"));
+			doesNotThrow(() =>
+				secretsManagerValidateOptions({
+					[option]: { ["k".repeat(1024)]: value },
+				}),
+			);
+			rejectsOption(
+				{ [option]: { ["k".repeat(1025)]: value } },
+				keyError("kkk"),
+			);
+		}
 	});
 
 	test("secretsManagerValidateOptions validates disablePrefetch as a boolean", () => {
@@ -1252,7 +1308,7 @@ describe("@middy/secrets-manager", () => {
 		const mockService = mockClient(SecretsManagerClient)
 			.on(DescribeSecretCommand, { SecretId: "api_key_zero_expiry" })
 			.resolves({
-				LastRotationDate: changed,
+				LastRotatedDate: changed,
 				LastChangedDate: changed,
 				NextRotationDate: nextRotation,
 			})
@@ -1338,7 +1394,7 @@ describe("@middy/secrets-manager", () => {
 		// When the rotation expiry equals the current time exactly, the entry must
 		// be considered expired and re-described. A `>=` boundary would keep it.
 		t.mock.timers.setTime(1_700_000_000_000);
-		const rotationDate = new Date(Date.now() + 90 * 1000);
+		const rotationDate = new Date(Date.now() + dayMs + 90 * 1000);
 		const mockService = mockClient(SecretsManagerClient)
 			.on(DescribeSecretCommand, { SecretId: "api_key_exact_expiry" })
 			.resolves({ NextRotationDate: rotationDate })
@@ -1374,14 +1430,10 @@ describe("@middy/secrets-manager", () => {
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
 	});
 
-	test("It should expire at the NextRotationDate learned once a rotation has passed", async (t) => {
-		// After the first rotation date lapses the secret is described again, and
-		// the later rotation date it reports must govern the next expiry: neither
-		// the lapsed date (which would refetch on every invocation) nor the -1
-		// cacheExpiry (which would never refetch again).
+	test("It should expire when the rotation window learned after a rotation opens", async (t) => {
 		t.mock.timers.setTime(1_700_000_000_000);
-		const firstRotation = new Date(Date.now() + 90 * 1000);
-		const secondRotation = new Date(Date.now() + 600 * 1000);
+		const firstRotation = new Date(Date.now() + dayMs + 90 * 1000);
+		const secondRotation = new Date(Date.now() + dayMs + 600 * 1000);
 		const mockService = mockClient(SecretsManagerClient)
 			.on(DescribeSecretCommand, { SecretId: "api_key_relearn" })
 			.resolvesOnce({ NextRotationDate: firstRotation })
@@ -1411,16 +1463,13 @@ describe("@middy/secrets-manager", () => {
 			.before(middleware);
 
 		await handler(defaultEvent, defaultContext);
-		// Past the first rotation date: described and fetched again.
 		t.mock.timers.tick(120 * 1000);
 		await handler(defaultEvent, defaultContext);
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
 		strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 2);
-		// Before the second rotation date: served from the cache.
 		t.mock.timers.tick(300 * 1000);
 		await handler(defaultEvent, defaultContext);
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
-		// Past the second rotation date: described and fetched once more.
 		t.mock.timers.tick(200 * 1000);
 		await handler(defaultEvent, defaultContext);
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 3);
@@ -1537,8 +1586,8 @@ describe("@middy/secrets-manager", () => {
 
 	test("It should refresh rotation dates only once the cached entry has expired", async (t) => {
 		t.mock.timers.setTime(1_700_000_000_000);
-		const firstRotation = new Date(Date.now() + 90 * 1000);
-		const secondRotation = new Date(Date.now() + 600 * 1000);
+		const firstRotation = new Date(Date.now() + dayMs + 90 * 1000);
+		const secondRotation = new Date(Date.now() + dayMs + 600 * 1000);
 		const mockService = mockClient(SecretsManagerClient)
 			.on(DescribeSecretCommand, { SecretId: "api_key_refresh" })
 			.resolvesOnce({ NextRotationDate: firstRotation })
@@ -1565,15 +1614,11 @@ describe("@middy/secrets-manager", () => {
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
 		strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 1);
 
-		// Inside the rotation window: the cached entry is served untouched, with no
-		// DescribeSecret round trip.
 		t.mock.timers.tick(10 * 1000);
 		await handler(defaultEvent, defaultContext);
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
 		strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 1);
 
-		// Past NextRotationDate: the rotation date is described again and the
-		// secret re-fetched under the new expiry.
 		t.mock.timers.tick(90 * 1000);
 		await handler(defaultEvent, defaultContext);
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
@@ -1628,7 +1673,9 @@ describe("@middy/secrets-manager", () => {
 		// the Date the SDK unmarshals; it must still clamp the cache instead of
 		// dissolving into NaN and caching forever.
 		t.mock.timers.setTime(1_700_000_000_000);
-		const nextRotation = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+		const nextRotation = new Date(
+			Date.now() + dayMs + 5 * 60 * 1000,
+		).toISOString();
 		const mockService = mockClient(SecretsManagerClient)
 			.on(DescribeSecretCommand, { SecretId: "api_key_iso_rotation" })
 			.resolves({ NextRotationDate: nextRotation })
@@ -1686,6 +1733,119 @@ describe("@middy/secrets-manager", () => {
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
 		strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 1);
 		t.mock.timers.tick(30 * 1000);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
+	});
+
+	const rotationWindowHandler = (SecretId) =>
+		middy(() => {})
+			.use(
+				secretsManager({
+					AwsClient: SecretsManagerClient,
+					cacheKey: SecretId,
+					cacheExpiry: -1,
+					fetchData: { token: SecretId },
+					fetchRotationDate: true,
+					disablePrefetch: true,
+				}),
+			)
+			.before(async (request) => {
+				const values = await getInternal(["token"], request);
+				return values.token;
+			});
+
+	test("It should pick up a rotation within 60 s inside the rotation window", async (t) => {
+		t.mock.timers.setTime(1_700_000_000_000);
+		const windowEnd = new Date(Date.now() + 12 * hourMs);
+		const nextWindowEnd = new Date(Date.now() + 30 * 24 * hourMs);
+		const mockService = mockClient(SecretsManagerClient)
+			.on(DescribeSecretCommand, { SecretId: "api_key_in_window" })
+			.resolvesOnce({ NextRotationDate: windowEnd })
+			.resolvesOnce({ NextRotationDate: windowEnd })
+			.resolves({ NextRotationDate: nextWindowEnd })
+			.on(GetSecretValueCommand, { SecretId: "api_key_in_window" })
+			.resolvesOnce({ SecretString: "old" })
+			.resolvesOnce({ SecretString: "old" })
+			.resolves({ SecretString: "rotated" });
+		const handler = rotationWindowHandler("api_key_in_window");
+
+		strictEqual(await handler(defaultEvent, defaultContext), "old");
+		t.mock.timers.tick(60 * 1000 - 1);
+		strictEqual(await handler(defaultEvent, defaultContext), "old");
+		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
+		t.mock.timers.tick(1);
+		strictEqual(await handler(defaultEvent, defaultContext), "old");
+		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
+		t.mock.timers.tick(60 * 1000);
+		strictEqual(await handler(defaultEvent, defaultContext), "rotated");
+		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 3);
+		t.mock.timers.tick(hourMs);
+		strictEqual(await handler(defaultEvent, defaultContext), "rotated");
+		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 3);
+	});
+
+	test("It should open the rotation window RotationRules.Duration before NextRotationDate", async (t) => {
+		t.mock.timers.setTime(1_700_000_000_000);
+		const mockService = mockClient(SecretsManagerClient)
+			.on(DescribeSecretCommand, { SecretId: "api_key_duration" })
+			.resolves({
+				NextRotationDate: new Date(Date.now() + 5 * hourMs),
+				RotationRules: {
+					ScheduleExpression: "cron(0 16 1,15 * ? *)",
+					Duration: "2h",
+				},
+			})
+			.on(GetSecretValueCommand, { SecretId: "api_key_duration" })
+			.resolves({ SecretString: "token" });
+		const handler = rotationWindowHandler("api_key_duration");
+
+		await handler(defaultEvent, defaultContext);
+		t.mock.timers.tick(3 * hourMs - 1);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
+		t.mock.timers.tick(1);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
+		t.mock.timers.tick(60 * 1000);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 3);
+	});
+
+	test("It should open the rotation window one hour before NextRotationDate for a rate in hours without Duration", async (t) => {
+		t.mock.timers.setTime(1_700_000_000_000);
+		const mockService = mockClient(SecretsManagerClient)
+			.on(DescribeSecretCommand, { SecretId: "api_key_rate_hours" })
+			.resolves({
+				NextRotationDate: new Date(Date.now() + 3 * hourMs),
+				RotationRules: { ScheduleExpression: "rate(12 hours)" },
+			})
+			.on(GetSecretValueCommand, { SecretId: "api_key_rate_hours" })
+			.resolves({ SecretString: "token" });
+		const handler = rotationWindowHandler("api_key_rate_hours");
+
+		await handler(defaultEvent, defaultContext);
+		t.mock.timers.tick(2 * hourMs - 1);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
+		t.mock.timers.tick(1);
+		await handler(defaultEvent, defaultContext);
+		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
+	});
+
+	test("It should take a cron schedule without Duration as a 24 hour window", async (t) => {
+		t.mock.timers.setTime(1_700_000_000_000);
+		const mockService = mockClient(SecretsManagerClient)
+			.on(DescribeSecretCommand, { SecretId: "api_key_cron_hours" })
+			.resolves({
+				NextRotationDate: new Date(Date.now() + 3 * hourMs),
+				RotationRules: { ScheduleExpression: "cron(0 /8 * * ? *)" },
+			})
+			.on(GetSecretValueCommand, { SecretId: "api_key_cron_hours" })
+			.resolves({ SecretString: "token" });
+		const handler = rotationWindowHandler("api_key_cron_hours");
+
+		await handler(defaultEvent, defaultContext);
+		t.mock.timers.tick(60 * 1000);
 		await handler(defaultEvent, defaultContext);
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
 	});
@@ -1831,11 +1991,13 @@ describe("@middy/secrets-manager", () => {
 		strictEqual(constructed, 1);
 	});
 
-	test("It should re-describe at a NextRotationDate less than a minute away", async (t) => {
+	test("It should re-describe when a rotation window opens less than a minute away", async (t) => {
 		t.mock.timers.setTime(1_700_000_000_000);
 		const mockService = mockClient(SecretsManagerClient)
 			.on(DescribeSecretCommand, { SecretId: "api_key_SoonRotation" })
-			.resolves({ NextRotationDate: new Date(Date.now() + 30 * 1000) })
+			.resolves({
+				NextRotationDate: new Date(Date.now() + dayMs + 30 * 1000),
+			})
 			.on(GetSecretValueCommand, { SecretId: "api_key_SoonRotation" })
 			.resolves({ SecretString: "token" });
 		const handler = middy(() => {}).use(
@@ -1852,18 +2014,16 @@ describe("@middy/secrets-manager", () => {
 		t.mock.timers.tick(29 * 1000);
 		await handler(defaultEvent, defaultContext);
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
-		// The rotation is due in 30 s; the 60 s retry floor is only for a date
-		// that has already passed, so the secret is described again at 31 s.
 		t.mock.timers.tick(2 * 1000);
 		await handler(defaultEvent, defaultContext);
 		strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
 	});
 
-	test("It should keep the cache for a minute when NextRotationDate is exactly now", async (t) => {
+	test("It should keep the cache for a minute when the rotation window opens exactly now", async (t) => {
 		t.mock.timers.setTime(1_700_000_000_000);
 		const mockService = mockClient(SecretsManagerClient)
 			.on(DescribeSecretCommand, { SecretId: "api_key_DueRotation" })
-			.resolves({ NextRotationDate: new Date(Date.now()) })
+			.resolves({ NextRotationDate: new Date(Date.now() + dayMs) })
 			.on(GetSecretValueCommand, { SecretId: "api_key_DueRotation" })
 			.resolves({ SecretString: "token" });
 		const handler = middy(() => {}).use(
@@ -1916,5 +2076,67 @@ describe("@middy/secrets-manager", () => {
 
 		await handler(defaultEvent, defaultContext);
 		ok(sends > afterFirst);
+	});
+
+	const expectSharedOptionError = (options, messagePart) => {
+		let error;
+		try {
+			secretsManagerValidateOptions(options);
+		} catch (e) {
+			error = e;
+		}
+		ok(error instanceof TypeError, `expected a TypeError for ${messagePart}`);
+		strictEqual(error.cause.package, "@middy/secrets-manager");
+		ok(error.message.includes(messagePart), error.message);
+	};
+
+	test("secretsManagerValidateOptions validates awsClientOptions keys against the AWS SDK client config", () => {
+		secretsManagerValidateOptions({
+			awsClientOptions: {
+				region: "us-east-1",
+				endpoint: "https://example.com",
+				credentials: async () => ({
+					accessKeyId: "AKID",
+					secretAccessKey: "secret",
+				}),
+			},
+		});
+		expectSharedOptionError(
+			{ awsClientOptions: { regoin: "us-east-1" } },
+			"awsClientOptions.regoin",
+		);
+	});
+
+	test("secretsManagerValidateOptions validates awsClientAssumeRole as an internal key name", () => {
+		secretsManagerValidateOptions({
+			awsClientAssumeRole: "@middy/sts.role-arn:a/b_1!",
+		});
+		secretsManagerValidateOptions({ awsClientAssumeRole: "k".repeat(1024) });
+		expectSharedOptionError(
+			{ awsClientAssumeRole: "k".repeat(1025) },
+			"awsClientAssumeRole",
+		);
+		expectSharedOptionError({ awsClientAssumeRole: "" }, "awsClientAssumeRole");
+		expectSharedOptionError(
+			{ awsClientAssumeRole: "a b" },
+			"awsClientAssumeRole",
+		);
+	});
+
+	test("secretsManagerValidateOptions validates contextKey as a key name", () => {
+		secretsManagerValidateOptions({ contextKey: "@middy/ctx.name-a:b/c_1!" });
+		secretsManagerValidateOptions({ contextKey: "k".repeat(1024) });
+		expectSharedOptionError({ contextKey: "k".repeat(1025) }, "contextKey");
+		expectSharedOptionError({ contextKey: "" }, "contextKey");
+		expectSharedOptionError({ contextKey: "a b" }, "contextKey");
+	});
+
+	test("secretsManagerValidateOptions validates the cache options with the shared rules", () => {
+		secretsManagerValidateOptions({
+			cacheKey: "@middy/secrets-manager",
+			cacheKeyExpiry: { "@middy/secrets-manager": 1000 },
+		});
+		expectSharedOptionError({ cacheKey: "a b" }, "cacheKey");
+		expectSharedOptionError({ cacheKeyExpiry: { "a b": 1000 } }, "a b");
 	});
 });

@@ -17,7 +17,7 @@ npm install --save @middy/rds pg
 npm install --save @middy/rds postgres
 ```
 
-For IAM token authentication, pair with `@middy/rds-signer` and pass `internalKey` so the resolved token is merged into `config.password` before the client is built.
+For IAM token authentication, pair with `@middy/rds-signer` and pass `internalKey`. The token is read on every invocation and handed to the driver as a `config.password` function, so a cached client or pool authenticates each new connection with the latest token. A custom `client` adapter receives that function instead of a string.
 
 
 ## Documentation and examples

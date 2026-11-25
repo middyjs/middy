@@ -1,4 +1,5 @@
 ---
+
 title: Connect
 description: "Use Middy with Amazon Connect contact flow Lambda events."
 ---
@@ -24,14 +25,15 @@ flowchart LR
 ```
 
 ## AWS Documentation
+
 - [Using Lambda with Amazon Connect](https://docs.aws.amazon.com/lambda/latest/dg/services-connect.html)
 
 ## Example
-```javascript
-import middy from '@middy/core'
 
-export const handler = middy()
-  .handler((event, context, {signal}) => {
-    // ...
-  })
+```javascript
+import middy from "@middy/core";
+
+export const handler = middy().handler((event, context, { signal }) => {
+	// ...
+});
 ```

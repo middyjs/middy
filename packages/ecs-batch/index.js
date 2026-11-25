@@ -7,6 +7,10 @@ import { availableParallelism } from "node:os";
 // intercept setTimeout; a named import binds the real function at load time.
 import timers from "node:timers/promises";
 import { validateOptions } from "@middy/util";
+import {
+	sqsAcknowledgeHeadroomSeconds,
+	sqsMaxVisibilityTimeoutSeconds,
+} from "./pollHelpers.js";
 
 const name = "ecs-batch";
 const pkg = `@middy/${name}`;
@@ -24,34 +28,56 @@ const noop = () => {};
 // that would only find the source closed again.
 const sourceClosedExitCode = 2;
 
+// "When delay is larger than 2147483647 or less than 1 or NaN, the delay will be set to 1."
+// https://nodejs.org/api/timers.html#settimeoutcallback-delay-args
+const timerMs = { type: "integer", minimum: 0, maximum: 2_147_483_647 };
+
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:ecs-batch:options",
+	$defs: { Function: false, Object: false },
 	type: "object",
 	properties: {
-		handler: { instanceof: "Function" },
+		handler: { $ref: "#/$defs/Function" },
 		poller: {
 			type: "object",
 			properties: {
-				source: { type: "string" },
-				poll: { instanceof: "Function" },
-				acknowledge: { instanceof: "Function" },
+				source: {
+					type: "string",
+					maxLength: 1024,
+					pattern: /^[\x21-\x7E]+$/u,
+				},
+				poll: { $ref: "#/$defs/Function" },
+				acknowledge: { $ref: "#/$defs/Function" },
+				client: { $ref: "#/$defs/Object" },
+				consumer: { $ref: "#/$defs/Object" },
+				// VisibilityTimeout "Values range: 0 to 43200."
+				// https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_ChangeMessageVisibility.html
+				visibilityTimeout: { type: "integer", minimum: 0, maximum: 43_200 },
 			},
 			required: ["source", "poll", "acknowledge"],
-			additionalProperties: true,
+			additionalProperties: false,
+			unevaluatedProperties: false,
 		},
-		workers: { type: "integer", minimum: 1 },
-		timeout: { type: "integer", minimum: 0 },
-		gracefulShutdownMs: { type: "integer", minimum: 0 },
-		onError: { instanceof: "Function" },
+		// "On 64-bit systems, pid_max can be set to any value up to 2^22 (PID_MAX_LIMIT, approximately 4 million)."
+		// https://man7.org/linux/man-pages/man5/proc_sys_kernel.5.html
+		workers: { type: "integer", minimum: 1, maximum: 4_194_304 },
+		timeout: timerMs,
+		gracefulShutdownMs: timerMs,
+		onError: { $ref: "#/$defs/Function" },
 		contextOverride: {
 			type: "object",
 			properties: {
-				awsRequestId: { instanceof: "Function" },
+				awsRequestId: { $ref: "#/$defs/Function" },
 			},
+			required: [],
 			additionalProperties: false,
+			unevaluatedProperties: false,
 		},
 	},
 	required: ["handler", "poller"],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const ecsBatchValidateOptions = (options) =>
@@ -159,10 +185,6 @@ export const runPollLoop = async ({
 			response = await handler(event, context);
 		} catch (err) {
 			report(err, event);
-			// Handler threw: skip ack. Resuming the poller releases the batch for
-			// redelivery (Kafka commits nothing, RMQ/AMQ nack, Kinesis and DynamoDB
-			// Streams re-read from the batch's first record); SQS leaves it to the
-			// visibility timeout.
 			continue;
 		}
 		try {
@@ -309,6 +331,9 @@ export const runPrimary = async (options, deps = {}) => {
 // process each record again; scale those by running one task per stream.
 const singleWorkerSources = new Set(["aws:kinesis", "aws:dynamodb"]);
 
+const maxDerivedSqsTimeout =
+	(sqsMaxVisibilityTimeoutSeconds - sqsAcknowledgeHeadroomSeconds) * 1000;
+
 export const ecsBatchRunner = async (opts, deps = {}) => {
 	const clusterImpl = deps.cluster ?? cluster;
 	const options = { ...defaults, ...opts };
@@ -338,6 +363,16 @@ export const ecsBatchRunner = async (opts, deps = {}) => {
 					data: { visibilityTimeout, timeout: options.timeout },
 				},
 			},
+		);
+	}
+	if (
+		source === "aws:sqs" &&
+		visibilityTimeout === undefined &&
+		options.timeout > maxDerivedSqsTimeout
+	) {
+		throw new Error(
+			"timeout is too long for SQS: the derived visibilityTimeout would exceed 43200 seconds",
+			{ cause: { package: pkg, data: { timeout: options.timeout } } },
 		);
 	}
 	if (clusterImpl.isPrimary) {

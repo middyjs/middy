@@ -1,4 +1,5 @@
 ---
+
 title: AWS Relational Database Service (RDS)
 description: "Connect to AWS RDS from Lambda using Middy with IAM authentication and connection pooling."
 ---
@@ -18,20 +19,20 @@ First, you need to pass in a password. In order from most secure to least: `RDS.
 Additionally, you will want to verify the RDS certificate and the domain of your connection. `@middy/rds/ssl` handles this: it sets `rejectUnauthorized: true` and bundles your CA, and leaves hostname verification to Node's `tls` defaults. When you connect through a CNAME, pass `servername` so the certificate is checked against the real RDS endpoint.
 
 ```javascript
-import ssl from '@middy/rds/ssl'
-import ca from '@middy/rds/certificates/us-east-1'
+import ssl from "@middy/rds/ssl";
+import ca from "@middy/rds/certificates/us-east-1";
 
 // spread into your client config
 const connectionOptions = {
-  host: 'db.cluster-id.us-east-1.rds.amazonaws.com',
-  ...ssl(ca),
-}
+	host: "db.cluster-id.us-east-1.rds.amazonaws.com",
+	...ssl(ca),
+};
 
 // connecting through a CNAME
 const cnameConnectionOptions = {
-  host: 'db.example.com',
-  ...ssl(ca, { servername: 'db.cluster-id.us-east-1.rds.amazonaws.com' }),
-}
+	host: "db.example.com",
+	...ssl(ca, { servername: "db.cluster-id.us-east-1.rds.amazonaws.com" }),
+};
 ```
 
 Corresponding `RDS.ParameterGroups` values should be set to enforce TLS connections.

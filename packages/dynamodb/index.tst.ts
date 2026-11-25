@@ -1,11 +1,16 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import type { NativeAttributeValue } from "@aws-sdk/util-dynamodb";
 import middy from "@middy/core";
 import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expect, test } from "tstyche";
 import * as indexModule from "./index.js";
-import dynamodb, { type Context, dynamoDbParam } from "./index.js";
+import dynamodb, {
+	type Context,
+	type DynamoDbGetItemInput,
+	dynamoDbParam,
+} from "./index.js";
 
 const options = {
 	AwsClient: DynamoDBClient,
@@ -44,11 +49,7 @@ test("use with setToContext: true", () => {
 			fetchData: {
 				configurationObjFromDynamo: {
 					TableName: "someConfigTableName",
-					Key: {
-						pk: {
-							S: "someConfigItemPrimaryKey",
-						},
-					},
+					Key: { pk: "someConfigItemPrimaryKey" },
 				},
 			},
 			setToContext: true,
@@ -75,11 +76,7 @@ test("use with setToContext: false", () => {
 			fetchData: {
 				configurationObjFromDynamo: {
 					TableName: "someConfigTableName",
-					Key: {
-						pk: {
-							S: "someConfigItemPrimaryKey",
-						},
-					},
+					Key: { pk: "someConfigItemPrimaryKey" },
 				},
 			},
 			setToContext: false,
@@ -123,11 +120,7 @@ handler
 			fetchData: {
 				configurationObjFromDynamo: {
 					TableName: "someConfigTableName",
-					Key: {
-						pk: {
-							S: "someConfigItemPrimaryKey",
-						},
-					},
+					Key: { pk: "someConfigItemPrimaryKey" },
 				},
 			},
 			setToContext: true,
@@ -149,11 +142,7 @@ handler
 			fetchData: {
 				configurationObjFromDynamo: {
 					TableName: "someConfigTableName",
-					Key: {
-						pk: {
-							S: "someConfigItemPrimaryKey",
-						},
-					},
+					Key: { pk: "someConfigItemPrimaryKey" },
 				},
 			},
 			setToContext: false,
@@ -175,11 +164,7 @@ handler
 					param3: number;
 				}>({
 					TableName: "someConfigTableName",
-					Key: {
-						pk: {
-							S: "someConfigItemPrimaryKey",
-						},
-					},
+					Key: { pk: "someConfigItemPrimaryKey" },
 				}),
 			},
 			setToContext: true,
@@ -213,11 +198,7 @@ handler
 					param3: number;
 				}>({
 					TableName: "someConfigTableName",
-					Key: {
-						pk: {
-							S: "someConfigItemPrimaryKey",
-						},
-					},
+					Key: { pk: "someConfigItemPrimaryKey" },
 				}),
 			},
 			setToContext: false,
@@ -232,6 +213,25 @@ handler
 		}>();
 	});
 
+test("Key takes native values, which the middleware marshalls", () => {
+	expect(dynamodb).type.toBeCallableWith({
+		fetchData: {
+			config: { TableName: "table", Key: { pk: "tenant", sk: 42 } },
+		},
+	});
+	expect(dynamoDbParam<{ enabled: boolean }>).type.toBeCallableWith({
+		TableName: "table",
+		Key: { pk: "tenant", sk: 42 },
+		ConsistentRead: true,
+	});
+	expect<DynamoDbGetItemInput["Key"]>().type.toBe<
+		Record<string, NativeAttributeValue>
+	>();
+	expect(dynamodb).type.not.toBeCallableWith({
+		fetchData: { config: { TableName: "table" } },
+	});
+});
+
 test("contextKey literal narrows middyContext without as const", () => {
 	handler
 		.use(
@@ -240,7 +240,7 @@ test("contextKey literal narrows middyContext without as const", () => {
 				fetchData: {
 					configurationObjFromDynamo: {
 						TableName: "someConfigTableName",
-						Key: { pk: { S: "someConfigItemPrimaryKey" } },
+						Key: { pk: "someConfigItemPrimaryKey" },
 					},
 				},
 				setToContext: true,

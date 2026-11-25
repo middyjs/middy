@@ -1,6 +1,6 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { describe, test } from "node:test";
-import middy from "../core/index.js";
+import middy from "@middy/core";
 import urlEncodePathParser, {
 	httpUrlencodePathParserValidateOptions,
 } from "./index.js";
@@ -42,6 +42,58 @@ describe("@middy/http-urlencode-path-parser", () => {
 
 		const response = await handler(event, defaultContext);
 		strictEqual(response, undefined);
+	});
+
+	test("It should leave the path parameters of a payload format 2.0 event as they are", async (t) => {
+		const handler = middy((event, context) => {
+			return event.pathParameters;
+		});
+
+		handler.use(urlEncodePathParser());
+
+		const event = {
+			version: "2.0",
+			rawPath: "/user/100%25/a%252Fb",
+			requestContext: {
+				http: { method: "GET", path: "/user/100%/a%2Fb" },
+			},
+			pathParameters: {
+				id: "100%",
+				name: "a%2Fb",
+			},
+		};
+
+		const response = await handler(event, defaultContext);
+		deepStrictEqual(response, {
+			id: "100%",
+			name: "a%2Fb",
+		});
+	});
+
+	test("It should decode the path parameters of a VPC Lattice V2 event", async (t) => {
+		const handler = middy((event, context) => {
+			return event.pathParameters;
+		});
+
+		handler.use(urlEncodePathParser());
+
+		const event = {
+			version: "2.0",
+			method: "GET",
+			path: "/user/M%C3%AEddy",
+			requestContext: {
+				serviceArn:
+					"arn:aws:vpc-lattice:us-east-1:123456789012:service/svc-0a40eebed65f8d69c",
+			},
+			pathParameters: {
+				id: "M%C3%AEddy",
+			},
+		};
+
+		const response = await handler(event, defaultContext);
+		deepStrictEqual(response, {
+			id: "Mîddy",
+		});
 	});
 
 	// Security: Malformed URI encoding attack vectors

@@ -1,26 +1,54 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { validateOptions } from "@middy/util";
+import { reservedPropertyNames, validateOptions } from "@middy/util";
 
 const name = "http-header-normalizer";
 const pkg = `@middy/${name}`;
 
+// RFC 9110 section 5.6.2: "token = 1*tchar"
+// https://www.rfc-editor.org/rfc/rfc9110#section-5.6.2
+const headerNameSchema = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\w!#$%&'*+.^`|~-]+$/u,
+	not: { type: "string", enum: reservedPropertyNames },
+};
+
+// RFC 9110 section 5.5: field-vchar, SP and HTAB
+// https://www.rfc-editor.org/rfc/rfc9110#section-5.5
+const headerValueSchema = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\t\x20-\x7E]*$/u,
+};
+
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:http-header-normalizer:options",
+	$defs: { Function: false },
 	type: "object",
 	properties: {
 		canonical: { type: "boolean" },
 		defaultHeaders: {
 			type: "object",
+			propertyNames: headerNameSchema,
+			maxProperties: 1024,
+			required: [],
 			additionalProperties: {
-				oneOf: [
-					{ type: "string" },
-					{ type: "array", items: { type: "string" } },
-				],
+				...headerValueSchema,
+				type: ["string", "array"],
+				items: headerValueSchema,
+				maxItems: 1024,
+				uniqueItems: true,
+				unevaluatedItems: false,
 			},
+			unevaluatedProperties: false,
 		},
-		normalizeHeaderKey: { instanceof: "Function" },
+		normalizeHeaderKey: { $ref: "#/$defs/Function" },
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const httpHeaderNormalizerValidateOptions = (options) =>

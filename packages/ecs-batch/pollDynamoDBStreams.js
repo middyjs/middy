@@ -9,15 +9,37 @@ import {
 	GetShardIteratorCommand,
 } from "@aws-sdk/client-dynamodb-streams";
 import { validateOptions } from "@middy/util";
+import { isTransientReadError, retryDelay, sleep } from "./pollHelpers.js";
 
 const pkg = "@middy/ecs-batch/pollDynamoDBStreams";
 
+// "When delay is larger than 2147483647 or less than 1 or NaN, the delay will be set to 1."
+// https://nodejs.org/api/timers.html#settimeoutcallback-delay-args
+const timerMs = { type: "integer", minimum: 0, maximum: 2_147_483_647 };
+
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:ecs-batch:pollDynamoDBStreams:options",
+	$defs: { Object: false },
 	type: "object",
 	properties: {
-		streamArn: { type: "string" },
-		shardId: { type: "string" },
-		client: { type: "object", additionalProperties: true },
+		// StreamArn length and EventSourceArn "(\d{12})?" account:
+		// https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_streams_GetShardIterator.html
+		// https://docs.aws.amazon.com/lambda/latest/api/API_CreateEventSourceMapping.html
+		streamArn: {
+			type: "string",
+			minLength: 37,
+			maxLength: 1024,
+			pattern:
+				/^arn:aws[\w-]*:dynamodb:[\w-]*:(?:\d{12})?:table\/[\x21-\x7E]+$/u,
+		},
+		shardId: {
+			type: "string",
+			minLength: 28,
+			maxLength: 65,
+			pattern: /^[\x21-\x7E]+$/u,
+		},
+		client: { $ref: "#/$defs/Object" },
 		shardIteratorType: {
 			type: "string",
 			enum: [
@@ -25,17 +47,33 @@ const optionSchema = {
 				"AFTER_SEQUENCE_NUMBER",
 				"TRIM_HORIZON",
 				"LATEST",
+				"AT_TIMESTAMP",
 			],
 		},
-		sequenceNumber: { type: "string" },
+		sequenceNumber: {
+			type: "string",
+			minLength: 21,
+			maxLength: 40,
+			pattern: /^[\x21-\x7E]+$/u,
+		},
+		// Timestamp, used with AT_TIMESTAMP, "is the Unix epoch date with
+		// precision in milliseconds. For example, 1791316726.480.":
+		// https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_streams_GetShardIterator.html
+		// Epoch seconds, at most the ECMAScript time value range of 8.64e15 ms:
+		// https://tc39.es/ecma262/#sec-time-values-and-time-range
+		timestamp: { type: "number", minimum: 0, maximum: 8_640_000_000_000 },
+		// https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_streams_GetRecords.html
 		limit: { type: "integer", minimum: 1, maximum: 1000 },
-		pollingDelay: { type: "integer", minimum: 0 },
-		awsRegion: { type: "string" },
+		pollingDelay: timerMs,
+		// The SDK takes any region that is a valid host label:
+		// node_modules/@smithy/core/dist-es/submodules/transport/isValidHostLabel.js
+		awsRegion: { type: "string", maxLength: 63, pattern: /^[A-Za-z0-9-]+$/u },
 		maxRetryAttempts: { type: "integer", minimum: -1, maximum: 10000 },
-		retryDelayMs: { type: "integer", minimum: 0 },
+		retryDelayMs: timerMs,
 	},
 	required: ["streamArn", "shardId"],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const pollDynamoDBStreamsValidateOptions = (options) =>
@@ -81,11 +119,19 @@ const regionFromArn = (streamArn) => streamArn.split(":")[3];
 
 const noop = () => {};
 
-// Backoff before a failed batch is re-read: retryDelayMs, doubling per
-// consecutive failure at the same sequence number, capped at 30 s (or
-// retryDelayMs when that is larger).
-const retryDelay = (retryDelayMs, attempt) =>
-	Math.min(retryDelayMs * 2 ** (attempt - 1), Math.max(retryDelayMs, 30_000));
+// GetRecords raises LimitExceededException when too many processes read one
+// shard (its other cause, a limit above 1000, the option schema rules out);
+// the next two are documented for every DynamoDB action, and TimeoutError is
+// what the SDK raises when its own request timeout fires.
+// https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_streams_GetRecords.html
+// https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/CommonErrors.html
+// https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/programming-with-javascript.html#programming-with-javascript-error-handling
+const transientErrorNames = new Set([
+	"LimitExceededException",
+	"ThrottlingException",
+	"RequestTimeoutException",
+	"TimeoutError",
+]);
 
 // A batchItemFailures entry whose itemIdentifier is null, empty or names no
 // record in the batch invalidates the whole response: Lambda then retries
@@ -129,26 +175,33 @@ export const pollDynamoDBStreams = (opts) => {
 	// iterator only moves forward, so a later failure is at a new sequence
 	// number and never needs an explicit reset.
 	let retry;
+	let readFailures = 0;
 	// Where the current iterator reads from, to ask for a new one there when it
 	// expires, with the failed records a retry from there re-reads.
 	let position;
 
-	// Resolves undefined when the signal aborted the request.
-	const getShardIterator = async (signal, input) => {
-		try {
-			const res = await client.send(
-				new GetShardIteratorCommand({
-					StreamArn: opts.streamArn,
-					ShardId: opts.shardId,
-					...input,
-				}),
-				{ abortSignal: signal },
-			);
-			return res.ShardIterator;
-		} catch (err) {
-			if (signal.aborted) return undefined;
-			throw err;
+	const getShardIterator = async (signal, input, report) => {
+		let failures = 0;
+		while (!signal.aborted) {
+			try {
+				const res = await client.send(
+					new GetShardIteratorCommand({
+						StreamArn: opts.streamArn,
+						ShardId: opts.shardId,
+						...input,
+					}),
+					{ abortSignal: signal },
+				);
+				return res.ShardIterator;
+			} catch (err) {
+				if (signal.aborted) break;
+				if (!isTransientReadError(err, transientErrorNames)) throw err;
+				report(err);
+				failures++;
+				await sleep(retryDelay(retryDelayMs, failures), signal);
+			}
 		}
+		return undefined;
 	};
 
 	// Records older than the 24 hour retention are trimmed, and asking for an
@@ -158,7 +211,7 @@ export const pollDynamoDBStreams = (opts) => {
 	// https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_streams_GetShardIterator.html
 	const seek = async (signal, event, report) => {
 		try {
-			return await getShardIterator(signal, position.input);
+			return await getShardIterator(signal, position.input, report);
 		} catch (err) {
 			if (err.name !== "TrimmedDataAccessException") throw err;
 			report(
@@ -171,7 +224,7 @@ export const pollDynamoDBStreams = (opts) => {
 				event,
 			);
 			position = { input: { ShardIteratorType: "TRIM_HORIZON" }, failed: [] };
-			return getShardIterator(signal, position.input);
+			return getShardIterator(signal, position.input, report);
 		}
 	};
 	// Past the batch, all of it processed or discarded.
@@ -207,10 +260,15 @@ export const pollDynamoDBStreams = (opts) => {
 				input: {
 					ShardIteratorType: shardIteratorType,
 					SequenceNumber: opts.sequenceNumber,
+					Timestamp: opts.timestamp,
 				},
 				failed: [],
 			};
-			let shardIterator = await getShardIterator(signal, position.input);
+			let shardIterator = await getShardIterator(
+				signal,
+				position.input,
+				report,
+			);
 			while (!signal.aborted && shardIterator) {
 				let res;
 				try {
@@ -226,10 +284,17 @@ export const pollDynamoDBStreams = (opts) => {
 					// An iterator expires 15 minutes after it was issued, which a long
 					// handler or backoff can outlast: ask for a new one where it read.
 					// https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_streams_GetRecords.html
-					if (err.name !== "ExpiredIteratorException") throw err;
-					shardIterator = await seek(signal, undefined, report);
+					if (err.name === "ExpiredIteratorException") {
+						shardIterator = await seek(signal, undefined, report);
+						continue;
+					}
+					if (!isTransientReadError(err, transientErrorNames)) throw err;
+					report(err);
+					readFailures++;
+					await sleep(retryDelay(retryDelayMs, readFailures), signal);
 					continue;
 				}
+				readFailures = 0;
 				const records = res.Records ?? [];
 				if (!records.length) {
 					shardIterator = nextIterator(res);
@@ -275,18 +340,7 @@ export const pollDynamoDBStreams = (opts) => {
 					continue;
 				}
 				retry = { sequenceNumber, attempt };
-				try {
-					await timers.setTimeout(
-						retryDelay(retryDelayMs, attempt),
-						undefined,
-						{
-							signal,
-						},
-					);
-				} catch {
-					// aborted: shutting down, the batch is re-read after restart
-					return;
-				}
+				await sleep(retryDelay(retryDelayMs, attempt), signal);
 				position = {
 					input: {
 						ShardIteratorType: "AT_SEQUENCE_NUMBER",

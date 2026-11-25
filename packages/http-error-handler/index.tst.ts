@@ -37,6 +37,21 @@ test("Options omitPaths and mask", () => {
 	expect<boolean>().type.not.toBeAssignableTo<NonNullable<Options["mask"]>>();
 });
 
+test("Options omitPaths accepts a path given as an array of segments", () => {
+	const options: Options = {
+		omitPaths: ["error.cause", ["event", "headers", "x.api.key"]],
+	};
+	expect(options).type.toBeAssignableTo<Options>();
+	expect<number[][]>().type.not.toBeAssignableTo<
+		NonNullable<Options["omitPaths"]>
+	>();
+});
+
+test("Options omitPaths accepts readonly paths", () => {
+	const omitPaths = ["error.cause", ["event", "headers", "x.api.key"]] as const;
+	expect<Options>().type.toBeAssignableFrom({ omitPaths });
+});
+
 test("httpErrorHandlerValidateOptions accepts typed options and returns them", () => {
 	const options = {} as indexModule.Options;
 	expect(

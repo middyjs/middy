@@ -1,9 +1,10 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import { constants as bufferConstants } from "node:buffer";
 import cluster from "node:cluster";
 import { availableParallelism } from "node:os";
 import { Readable } from "node:stream";
-import { validateOptions } from "@middy/util";
+import { reservedPropertyNames, validateOptions } from "@middy/util";
 
 const name = "ecs-http";
 const pkg = `@middy/${name}`;
@@ -21,29 +22,80 @@ const defaults = {
 	gracefulShutdownMs: 25_000,
 };
 
+// "When delay is larger than 2147483647 or less than 1 or NaN, the delay will be set to 1."
+// https://nodejs.org/api/timers.html#settimeoutcallback-delay-args
+const timerMs = { type: "integer", minimum: 0, maximum: 2_147_483_647 };
+
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:ecs-http:options",
+	$defs: { Function: false },
 	type: "object",
 	properties: {
-		handler: { instanceof: "Function" },
-		loadHandler: { instanceof: "Function" },
+		handler: { $ref: "#/$defs/Function" },
+		loadHandler: { $ref: "#/$defs/Function" },
 		port: { type: "integer", minimum: 0, maximum: 65535 },
-		host: { type: "string" },
+		host: { type: "string", maxLength: 1024, pattern: /^[\w.:%-]+$/u },
 		eventVersion: { type: "string", enum: ["1.0", "2.0", "alb"] },
-		requestContext: { type: "object", additionalProperties: true },
-		workers: { type: "integer", minimum: 1 },
-		timeout: { type: "integer", minimum: 0 },
-		bodyLimit: { type: "integer", minimum: 0 },
-		trustedProxies: { type: "integer", minimum: 0 },
-		gracefulShutdownMs: { type: "integer", minimum: 0 },
+		requestContext: {
+			type: "object",
+			properties: {
+				// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html
+				elb: {
+					type: "object",
+					properties: {
+						targetGroupArn: {
+							type: "string",
+							maxLength: 1024,
+							pattern: /^arn:aws[\w-]*:[\w-]+:[\w-]*:\d{0,12}:[\x21-\x7E]+$/u,
+						},
+					},
+					required: [],
+					additionalProperties: false,
+					unevaluatedProperties: false,
+				},
+			},
+			propertyNames: {
+				type: "string",
+				maxLength: 1024,
+				pattern: /^[\x21-\x7E]+$/u,
+				not: { type: "string", enum: reservedPropertyNames },
+			},
+			maxProperties: 1024,
+			required: [],
+			additionalProperties: {
+				type: ["string", "number", "boolean"],
+				maxLength: 1024,
+				pattern: /^[\p{L}\p{N}\p{P}\p{S} ]*$/u,
+				minimum: -Number.MAX_SAFE_INTEGER,
+				maximum: Number.MAX_SAFE_INTEGER,
+			},
+			unevaluatedProperties: false,
+		},
+		// "On 64-bit systems, pid_max can be set to any value up to 2^22 (PID_MAX_LIMIT, approximately 4 million)."
+		// https://man7.org/linux/man-pages/man5/proc_sys_kernel.5.html
+		workers: { type: "integer", minimum: 1, maximum: 4_194_304 },
+		timeout: timerMs,
+		bodyLimit: {
+			type: "integer",
+			minimum: 0,
+			maximum: bufferConstants.MAX_STRING_LENGTH,
+		},
+		trustedProxies: { type: "integer", minimum: 0, maximum: 1024 },
+		gracefulShutdownMs: timerMs,
 		contextOverride: {
 			type: "object",
 			properties: {
-				awsRequestId: { instanceof: "Function" },
+				awsRequestId: { $ref: "#/$defs/Function" },
 			},
+			required: [],
 			additionalProperties: false,
+			unevaluatedProperties: false,
 		},
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const ecsHttpValidateOptions = (options) => {
@@ -118,7 +170,6 @@ const isTextContentType = (contentType) => {
 
 export const lowercaseHeaders = (rawHeaders) => {
 	const headers = {};
-	// `for...in` for the same reason as buildMultiValueHeaders below.
 	for (const k in rawHeaders) {
 		const v = rawHeaders[k];
 		headers[k.toLowerCase()] = Array.isArray(v) ? v.join(",") : v;
@@ -126,17 +177,39 @@ export const lowercaseHeaders = (rawHeaders) => {
 	return headers;
 };
 
-const buildMultiValueHeaders = (rawHeaders) => {
-	const out = {};
-	// `for...in` avoids the `[k, v]` tuple array allocation that
-	// `Object.entries` does. Header names from req.headers are already
-	// lowercased by node:http; skip the redundant .toLowerCase() too.
-	for (const k in rawHeaders) {
-		const v = rawHeaders[k];
-		out[k] = Array.isArray(v) ? v : [v];
-	}
-	return out;
+// A header sent on more than one line reaches a Lambda function in a form
+// that depends on the event source:
+// - API Gateway REST (1.0) lists every value in multiValueHeaders and keeps
+//   the last one in headers: `header2: value1` and `header2: value2` arrive
+//   as headers.header2 "value2", multiValueHeaders.header2 ["value1","value2"].
+//   https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-input-format
+// - API Gateway HTTP (2.0): "Duplicate headers are combined with commas and
+//   included in the headers field", as in "header2": "value1,value2".
+//   https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html#http-api-develop-integrations-lambda.proxy-format-differences
+// - ALB without multi-value headers: "the load balancer uses the last value
+//   that it receives".
+//   https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
+// req.headers gives none of these: node:http joins the lines with ", " there,
+// or keeps only the first for headers such as host and user-agent.
+// req.headersDistinct holds every received value in order.
+// https://nodejs.org/api/http.html#messageheadersdistinct
+// node:http keeps set-cookie in an array even when it is sent once.
+// https://nodejs.org/api/http.html#messageheaders
+const needsDistinctHeaders = (headers, req) => {
+	const receivedLines = req.rawHeaders.length / 2;
+	const headerLineRepeats = receivedLines !== Object.keys(headers).length;
+	return headerLineRepeats || headers["set-cookie"] !== undefined;
 };
+
+const mapHeaderValues = (reqHeaders, values, toValue) => {
+	const mapped = {};
+	for (const k in reqHeaders) mapped[k] = toValue(values[k]);
+	return mapped;
+};
+const lastValue = (values) => values[values.length - 1];
+const commaJoined = (values) => values.join(",");
+const everyValue = (values) => values;
+const inArray = (value) => [value];
 
 // With routing.http.xff_client_port.enabled ALB appends "ip:port" for IPv4
 // and "[ip]:port" for IPv6; a bare IPv6 hop has no brackets. The event
@@ -270,7 +343,7 @@ const EMPTY_BUFFER = Buffer.alloc(0);
 // Event builders accept pre-parsed inputs from the request handler so the
 // request hot path doesn't re-parse headers/url for each builder call.
 // `headers` MUST already be the per-request headers object (req.headers is
-// already lowercased by node:http; only repeated headers may have array values).
+// already lowercased by node:http).
 // `url` is the result of splitUrl(req.url). `requestStart` is reused as
 // `timeEpoch` to skip a redundant Date.now().
 
@@ -282,7 +355,10 @@ const encodeBody = (body, isBase64Encoded) => {
 export const buildEventV2 = (input) => {
 	const { req, body, isBase64Encoded, requestContext, sourceIp, requestId } =
 		input;
-	const headers = input.headers ?? req.headers;
+	const single = input.headers ?? req.headers;
+	const headers = needsDistinctHeaders(single, req)
+		? mapHeaderValues(single, req.headersDistinct, commaJoined)
+		: single;
 	const url = input.url ?? splitUrl(req.url);
 	const requestStart = input.requestStart ?? Date.now();
 	return {
@@ -290,7 +366,9 @@ export const buildEventV2 = (input) => {
 		routeKey: "$default",
 		rawPath: url.path,
 		rawQueryString: url.queryString,
-		cookies: parseCookies(headers.cookie),
+		// node:http joins repeated cookie lines with "; " in req.headers, the
+		// separator parseCookies splits on, so every line's cookies are listed.
+		cookies: parseCookies(single.cookie),
 		headers,
 		queryStringParameters: collectQuery(url.queryString),
 		requestContext: {
@@ -313,7 +391,16 @@ export const buildEventV2 = (input) => {
 export const buildEventV1 = (input) => {
 	const { req, body, isBase64Encoded, requestContext, sourceIp, requestId } =
 		input;
-	const headers = input.headers ?? req.headers;
+	const single = input.headers ?? req.headers;
+	const distinct = needsDistinctHeaders(single, req)
+		? req.headersDistinct
+		: undefined;
+	const headers = distinct
+		? mapHeaderValues(single, distinct, lastValue)
+		: single;
+	const multiValueHeaders = distinct
+		? mapHeaderValues(single, distinct, everyValue)
+		: mapHeaderValues(single, single, inArray);
 	const url = input.url ?? splitUrl(req.url);
 	const {
 		single: queryStringParameters,
@@ -325,7 +412,7 @@ export const buildEventV1 = (input) => {
 		path: url.path,
 		httpMethod: req.method,
 		headers,
-		multiValueHeaders: buildMultiValueHeaders(req.headers),
+		multiValueHeaders,
 		queryStringParameters,
 		multiValueQueryStringParameters,
 		pathParameters: null,
@@ -348,7 +435,10 @@ export const buildEventV1 = (input) => {
 // https://docs.aws.amazon.com/lambda/latest/dg/services-alb.html
 export const buildEventAlb = (input) => {
 	const { req, body, isBase64Encoded, requestContext, requestId } = input;
-	const headers = input.headers ?? req.headers;
+	const single = input.headers ?? req.headers;
+	const headers = needsDistinctHeaders(single, req)
+		? mapHeaderValues(single, req.headersDistinct, lastValue)
+		: single;
 	const url = input.url ?? splitUrl(req.url);
 	const queryStringParameters = collectQueryEncoded(url.queryString);
 	const albBody = encodeBody(body, isBase64Encoded);
@@ -400,10 +490,21 @@ const mergeMultiValueHeaders = (headers, multiValueHeaders) => {
 	}
 };
 
-const framingHeaderPattern = /^(content-length|transfer-encoding)$/i;
-const hasFramingHeader = (headers) => {
-	for (const k in headers) if (framingHeaderPattern.test(k)) return true;
-	return false;
+// A Lambda function does not frame its own response: "The load balancer does
+// not honor hop-by-hop headers, such as Connection or Transfer-Encoding. You
+// can omit the Content-Length header because the load balancer computes it
+// before sending responses to clients."
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#respond-to-load-balancer
+// Here the handler's headers go straight onto the socket, where a wrong value
+// (headers copied from an upstream response, say) leaves the keep-alive
+// connection out of step for the next request the load balancer sends on it.
+const framingHeaderPattern = /^(connection|content-length|transfer-encoding)$/i;
+const omitFramingHeaders = (headers) => {
+	const kept = {};
+	for (const k in headers) {
+		if (!framingHeaderPattern.test(k)) kept[k] = headers[k];
+	}
+	return kept;
 };
 
 // res.end only takes a string or bytes, so any other body is sent as JSON.
@@ -461,6 +562,7 @@ export const writeResponse = (res, result) => {
 	// Settle the payload before writeHead: anything that throws here still
 	// reaches writeError with the headers unsent.
 	const payload = responsePayload(body, isBase64Encoded);
+	headers = omitFramingHeaders(headers);
 	if (payload === undefined) {
 		res.writeHead(statusCode, headers);
 		res.end();
@@ -469,7 +571,7 @@ export const writeResponse = (res, result) => {
 	// writeHead flushes the headers, so without an explicit length node:http
 	// falls back to chunked encoding even for a fully buffered body.
 	const byteLength = Buffer.byteLength(payload);
-	if (!hasFramingHeader(headers)) headers["content-length"] = byteLength;
+	headers["content-length"] = byteLength;
 	res.writeHead(statusCode, headers);
 	// A string whose UTF-8 length equals its length is ASCII, which latin1
 	// writes byte-for-byte. node:http reserves 3 bytes per character for a
@@ -489,11 +591,9 @@ const writeError = (res, err) => {
 		res.destroy();
 		return;
 	}
+	const code = err?.statusCode;
 	const statusCode =
-		typeof err?.statusCode === "number" && err.statusCode >= 400
-			? err.statusCode
-			: 500;
-	// Below 500 `err` is an object: that is where the numeric statusCode came from.
+		Number.isInteger(code) && code >= 400 && code <= 599 ? code : 500;
 	const message =
 		statusCode >= 500 ? "Internal Server Error" : (err.message ?? "");
 	const payload = JSON.stringify({ message });
@@ -569,6 +669,7 @@ export const createRequestHandler = ({
 	const requestIdOverride = contextOverride?.awsRequestId;
 	// A Lambda Web Function adds lambda-web-request-id to every request: its
 	// awsRequestId. Anywhere else that header could only come from the client.
+	// https://docs.aws.amazon.com/lambda/latest/dg/web-functions-runtimes.html
 	const requestIdHeader = process.env.AWS_LAMBDA_HTTP_ENDPOINT
 		? "lambda-web-request-id"
 		: "x-amzn-trace-id";
@@ -625,8 +726,15 @@ export const createRequestHandler = ({
 			closeIfDraining(res);
 			writeResponse(res, result);
 		} catch (err) {
-			closeIfDraining(res);
-			writeError(res, err);
+			// This listener is async, so anything thrown from here becomes an
+			// unhandled rejection, which ends the process and every request it
+			// has in flight.
+			try {
+				closeIfDraining(res);
+				writeError(res, err);
+			} catch {
+				res.destroy();
+			}
 		}
 	};
 };

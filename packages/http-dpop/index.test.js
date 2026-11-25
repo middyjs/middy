@@ -1,8 +1,8 @@
 import { deepEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { constants, generateKeyPairSync, sign } from "node:crypto";
 import { describe, test } from "node:test";
+import middy from "@middy/core";
 import { SignJWT } from "jose";
-import middy from "../core/index.js";
 import httpJwt from "../http-jwt/index.js";
 import realHttpDpop, {
 	accessTokenHash,
@@ -60,6 +60,11 @@ const ALGORITHMS = {
 		hash: null,
 		options: {},
 	},
+	Ed25519: {
+		keypair: () => generateKeyPairSync("ed25519"),
+		hash: null,
+		options: {},
+	},
 };
 
 const publicJwk = (publicKey) => publicKey.export({ format: "jwk" });
@@ -88,10 +93,11 @@ const proofFor = (
 		ath = accessTokenHash(TOKEN),
 		signWith = key.privateKey,
 		signAs = key.alg,
+		protectedHeader = {},
 		...rest
 	} = {},
 ) => {
-	const header = b64({ typ, alg, jwk });
+	const header = b64({ typ, alg, jwk, ...protectedHeader });
 	const claims = { jti, htm, htu, iat, ath, ...rest };
 	for (const [k, v] of Object.entries(claims)) {
 		if (v === null) delete claims[k];
@@ -174,6 +180,17 @@ describe("@middy/http-dpop", () => {
 		const result = await handler(
 			makeEvent({ authorization: `Bearer ${TOKEN}` }),
 			ctx,
+		);
+
+		strictEqual(result.dpop, undefined);
+	});
+
+	test("It should read a null payload as an unbound token", async () => {
+		const handler = makeHandler(null);
+
+		const result = await handler(
+			makeEvent({ authorization: `Bearer ${TOKEN}` }),
+			{ ...defaultContext },
 		);
 
 		strictEqual(result.dpop, undefined);
@@ -454,6 +471,35 @@ describe("@middy/http-dpop", () => {
 		strictEqual(result.dpop.jti, "proof-1");
 	});
 
+	test("It should accept the same Ed25519 key under either name", async () => {
+		// RFC 9864 §2.2: "Ed25519" replaces the polymorphic "EdDSA"; both verify the one key.
+		const key = keyFor("Ed25519");
+		const handler = makeHandler(boundPayload(key), {
+			algorithm: ["Ed25519", "EdDSA"],
+		});
+
+		for (const alg of ["Ed25519", "EdDSA"]) {
+			const result = await handler(
+				makeEvent({ dpop: proofFor(key, { alg, signAs: alg, jti: alg }) }),
+				{ ...defaultContext },
+			);
+			strictEqual(result.dpop.jti, alg);
+		}
+	});
+
+	test("It should reject an EC key wearing an Ed25519 alg", async () => {
+		const key = keyFor("ES256");
+		const handler = makeHandler(boundPayload(key));
+
+		const result = await handler(
+			makeEvent({ dpop: proofFor(key, { alg: "Ed25519" }) }),
+			{ ...defaultContext },
+		).catch((e) => e);
+
+		strictEqual(result.statusCode, 401);
+		ok(result.cause.data.reason.includes("does not match"));
+	});
+
 	test("It should reject an RSA key wearing an ES256 alg", async () => {
 		// Algorithm confusion: node:crypto ignores dsaEncoding on an RSA key, so
 		// without the kty pin this would verify as RSA-SHA256 against a key the
@@ -637,6 +683,51 @@ describe("@middy/http-dpop", () => {
 		strictEqual(result.statusCode, 401);
 	});
 
+	test("It should reject a repeated DPoP header that API Gateway REST folds to its last value", async () => {
+		const key = keyFor();
+		const handler = makeHandler(boundPayload(key));
+		const last = proofFor(key);
+
+		const result = await handler(
+			{
+				path: PATH,
+				httpMethod: "GET",
+				headers: { Authorization: `DPoP ${TOKEN}`, DPoP: last },
+				multiValueHeaders: {
+					Authorization: [`DPoP ${TOKEN}`],
+					DPoP: [proofFor(key, { jti: "proof-2" }), last],
+				},
+				requestContext: { domainName: DOMAIN },
+			},
+			{ ...defaultContext },
+		).catch((e) => e);
+
+		strictEqual(result.statusCode, 401);
+		strictEqual(result.cause.data.reason, "Missing DPoP header");
+	});
+
+	test("It should accept a single DPoP header on an API Gateway REST event", async () => {
+		const key = keyFor();
+		const handler = makeHandler(boundPayload(key));
+		const proof = proofFor(key);
+
+		const result = await handler(
+			{
+				path: PATH,
+				httpMethod: "GET",
+				headers: { Authorization: `DPoP ${TOKEN}`, DPoP: proof },
+				multiValueHeaders: {
+					Authorization: [`DPoP ${TOKEN}`],
+					DPoP: [proof],
+				},
+				requestContext: { domainName: DOMAIN },
+			},
+			{ ...defaultContext },
+		);
+
+		strictEqual(result.dpop.jti, "proof-1");
+	});
+
 	// ALB with multi-value headers enabled sends `multiValueHeaders` and no `headers`.
 	// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html#multi-value-headers
 	test("It should read headers from ALB multiValueHeaders", async () => {
@@ -775,6 +866,8 @@ describe("@middy/http-dpop", () => {
 				httpJwt({
 					internalKey: "hmac",
 					algorithm: "HS256",
+					audience: null,
+					issuer: null,
 					tokenCookieName: "session",
 				}),
 			)
@@ -842,7 +935,7 @@ describe("@middy/http-dpop", () => {
 
 		strictEqual(
 			result.headers["WWW-Authenticate"],
-			'DPoP algs="ES256 ES384 ES512 PS256 RS256 EdDSA"',
+			'DPoP algs="ES256 ES384 ES512 PS256 RS256 EdDSA Ed25519"',
 		);
 	});
 
@@ -1056,6 +1149,29 @@ describe("@middy/http-dpop", () => {
 		strictEqual(result.possession.jti, "proof-1");
 	});
 
+	test("It should find the payload under a payloadKey that contains a dot", async () => {
+		const key = keyFor();
+		const handler = makeHandler(boundPayload(key), { payloadKey: "auth.jwt" });
+
+		const result = await handler(makeEvent({ dpop: proofFor(key) }), {
+			...defaultContext,
+		});
+
+		strictEqual(result.dpop.jti, "proof-1");
+	});
+
+	test("It should wait for a payload the verifier published as a promise", async () => {
+		const key = keyFor();
+		const handler = makeHandler(Promise.resolve(boundPayload(key)));
+
+		const result = await handler(
+			makeEvent({ authorization: `Bearer ${TOKEN}` }),
+			{ ...defaultContext },
+		).catch((e) => e);
+
+		strictEqual(result.statusCode, 401);
+	});
+
 	test("It should write only to internal by default", async () => {
 		const key = keyFor();
 		const ctx = { ...defaultContext };
@@ -1105,6 +1221,74 @@ describe("@middy/http-dpop", () => {
 			name: "TypeError",
 			message: "Option 'tokenKey' must be string",
 		});
+	});
+
+	test("httpDpopValidateOptions accepts only the algorithms the middleware verifies", () => {
+		const algorithm = [
+			"ES256",
+			"ES384",
+			"ES512",
+			"PS256",
+			"RS256",
+			"EdDSA",
+			"Ed25519",
+		];
+		httpDpopValidateOptions({ algorithm });
+		for (const alg of algorithm) httpDpopValidateOptions({ algorithm: alg });
+		for (const value of ["HS256", "none", "PS384", ["ES256", "ES256"]]) {
+			throws(() => httpDpopValidateOptions({ algorithm: value }), {
+				name: "TypeError",
+				message: "Option 'algorithm' must match exactly one schema in oneOf",
+			});
+		}
+	});
+
+	test("httpDpopValidateOptions accepts an http or https origin of at most 1024 characters", () => {
+		for (const origin of [
+			"https://api.example.com",
+			"https://api.example.com/v1",
+			"http://internal-alb.example.com",
+		]) {
+			httpDpopValidateOptions({ origin });
+		}
+		for (const origin of [
+			"api.example.com",
+			"xhttps://api.example.com",
+			"ftp://api.example.com",
+			"https://api example.com",
+			`https://${"a".repeat(1017)}`,
+		]) {
+			throws(() => httpDpopValidateOptions({ origin }), { name: "TypeError" });
+		}
+	});
+
+	test("httpDpopValidateOptions accepts a visible ASCII key name for payloadKey, tokenKey and proofKey", () => {
+		httpDpopValidateOptions({
+			payloadKey: "auth.jwt",
+			tokenKey: "jwt-token",
+			proofKey: "possession",
+			confirmationClaim: "https://example.com/cnf",
+		});
+		httpDpopValidateOptions({
+			payloadKey: "@middy/http-jwt",
+			tokenKey: "token#1",
+			proofKey: "@middy/http-dpop",
+		});
+		throws(() => httpDpopValidateOptions({ proofKey: "a".repeat(1025) }), {
+			message: "Option 'proofKey' must have length <= 1024",
+		});
+		for (const key of ["", "a b", "a\nb"]) {
+			for (const option of ["payloadKey", "tokenKey", "proofKey"]) {
+				throws(() => httpDpopValidateOptions({ [option]: key }), {
+					name: "TypeError",
+				});
+			}
+		}
+		for (const confirmationClaim of ["", "a\nb", "a".repeat(1025)]) {
+			throws(() => httpDpopValidateOptions({ confirmationClaim }), {
+				name: "TypeError",
+			});
+		}
 	});
 
 	test("jwkThumbprint matches the RFC 7638 worked example", () => {
@@ -1579,10 +1763,7 @@ describe("@middy/http-dpop", () => {
 		strictEqual(jkt, key.jkt);
 	});
 
-	test("It should pass through when no verified payload was written", async () => {
-		// The token middleware may not have run at all; reading its payload key
-		// then yields undefined, which must be treated as an unbound request rather
-		// than crashing.
+	test("It should answer 500 when no verified payload was written", async () => {
 		const key = keyFor();
 		const handler = middy((event, context) => context.middyContext).use(
 			httpDpop(),
@@ -1590,9 +1771,34 @@ describe("@middy/http-dpop", () => {
 
 		const result = await handler(makeEvent({ dpop: proofFor(key) }), {
 			...defaultContext,
-		});
+		}).catch((e) => e);
 
-		strictEqual(result.dpop, undefined);
+		strictEqual(result.statusCode, 500);
+		strictEqual(
+			result.cause.data.reason,
+			"No verified payload at request.internal['jwt']: run the token verifier first and give both the same payloadKey",
+		);
+		strictEqual(result.cause.package, "@middy/http-dpop");
+	});
+
+	test("It should reject a proof whose header marks an extension as critical", async () => {
+		const key = keyFor();
+		const handler = makeHandler(boundPayload(key));
+
+		const result = await handler(
+			makeEvent({
+				dpop: proofFor(key, {
+					protectedHeader: { crit: ["exp"], exp: 1 },
+				}),
+			}),
+			{ ...defaultContext },
+		).catch((e) => e);
+
+		strictEqual(result.statusCode, 401);
+		strictEqual(
+			result.cause.data.reason,
+			"Proof 'crit' lists an extension that is not supported",
+		);
 	});
 
 	test("It should accept a proof of exactly maxProofLength", async () => {

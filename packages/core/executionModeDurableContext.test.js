@@ -73,6 +73,25 @@ describe("@middy/core/DurableContext", () => {
 			strictEqual(seen, "tenant-123");
 		});
 
+		test("Should expose getRemainingTimeInMillis from the Lambda context to the handler under the real SDK", async (t) => {
+			let seen;
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+			}).handler((event, context) => {
+				seen = context.getRemainingTimeInMillis();
+				return "ok";
+			});
+			const runner = new LocalDurableTestRunner({
+				handlerFunction: (event, context) =>
+					handler(event, { ...context, getRemainingTimeInMillis: () => 1234 }),
+			});
+
+			const execution = await runner.run({ payload: {} });
+
+			strictEqual(execution.getStatus(), "SUCCEEDED");
+			strictEqual(seen, 1234);
+		});
+
 		test("Should return with executionMode:executionModeDurableContext using string", async (t) => {
 			const input = "x".repeat(1024 * 1024);
 			const handler = middy({
@@ -298,6 +317,133 @@ describe("@middy/core/DurableContext", () => {
 
 			strictEqual(execution.getStatus(), "FAILED");
 			strictEqual(execution.getError().errorMessage, "handler failed");
+		});
+
+		const withRemainingTime = (handler, remainingTimeInMillis) => {
+			return (event, context) =>
+				handler(event, {
+					...context,
+					getRemainingTimeInMillis: () => remainingTimeInMillis,
+				});
+		};
+		const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+		test("Should not race a handler that outlasts the remaining time under the default early timeout", async (t) => {
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+			}).handler(async (event, context) => {
+				await context.step("checkpointed", async () => "done");
+				return context.step("slow", async () => {
+					await sleep(150);
+					return "ok";
+				});
+			});
+			const runner = new LocalDurableTestRunner({
+				handlerFunction: withRemainingTime(handler, 50),
+			});
+
+			const execution = await runner.run({ payload: {} });
+
+			strictEqual(execution.getStatus(), "SUCCEEDED");
+			strictEqual(execution.getResult(), "ok");
+		});
+
+		test("Should race the handler under an early timeout that was set explicitly", async (t) => {
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+				timeoutEarlyInMillis: 10,
+				timeoutEarlyResponse: () => "early",
+			}).handler(async () => {
+				await sleep(150);
+				return "late";
+			});
+			const runner = new LocalDurableTestRunner({
+				handlerFunction: withRemainingTime(handler, 50),
+			});
+
+			const execution = await runner.run({ payload: {} });
+
+			strictEqual(execution.getStatus(), "SUCCEEDED");
+			strictEqual(execution.getResult(), "early");
+		});
+
+		test("Should disarm an explicit early timeout when the invocation suspends", async (t) => {
+			let timeoutEarlyResponses = 0;
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+				timeoutEarlyInMillis: 10,
+				timeoutEarlyResponse: () => {
+					timeoutEarlyResponses++;
+					return "early";
+				},
+			}).handler(async (event, context) => {
+				await context.wait("pause", { seconds: 1 });
+				return "done";
+			});
+			const runner = new LocalDurableTestRunner({
+				handlerFunction: withRemainingTime(handler, 500),
+			});
+
+			const execution = await runner.run({ payload: {} });
+
+			strictEqual(execution.getStatus(), "SUCCEEDED");
+			strictEqual(execution.getResult(), "done");
+			strictEqual(timeoutEarlyResponses, 0);
+		});
+
+		test("Should number the steps of nested middy handlers on the one durable context", async (t) => {
+			const processed = [];
+			const record = middy().handler((item, context) =>
+				context.step("process", async () => {
+					processed.push(item);
+					return `processed:${item}`;
+				}),
+			);
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+			}).handler(async (event, context) => {
+				const a = await record("A", context);
+				const b = await record("B", context);
+				const c = await context.step("outer", async () => "outer");
+				return { a, b, c };
+			});
+			const runner = new LocalDurableTestRunner({ handlerFunction: handler });
+
+			const execution = await runner.run({ payload: {} });
+
+			strictEqual(execution.getStatus(), "SUCCEEDED");
+			deepStrictEqual(execution.getResult(), {
+				a: "processed:A",
+				b: "processed:B",
+				c: "outer",
+			});
+			deepStrictEqual(processed, ["A", "B"]);
+		});
+
+		test("Should disarm the explicit early timeout of a nested middy handler when the invocation suspends", async (t) => {
+			let timeoutEarlyResponses = 0;
+			const nested = middy({
+				timeoutEarlyInMillis: 10,
+				timeoutEarlyResponse: () => {
+					timeoutEarlyResponses++;
+					return "early";
+				},
+			}).handler(async (event, context) => {
+				await context.wait("pause", { seconds: 1 });
+				return "done";
+			});
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+			}).handler((event, context) => nested(event, context));
+			const runner = new LocalDurableTestRunner({
+				handlerFunction: withRemainingTime(handler, 500),
+			});
+
+			const execution = await runner.run({ payload: {} });
+
+			strictEqual(execution.getStatus(), "SUCCEEDED");
+			strictEqual(execution.getResult(), "done");
+			strictEqual(timeoutEarlyResponses, 0);
 		});
 
 		test("Should return with executionMode:executionModeDurableContext using body:''", async (t) => {

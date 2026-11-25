@@ -1,4 +1,5 @@
 ---
+
 title: http-response-serializer
 description: "Serialize HTTP responses based on content negotiation with custom serializers."
 ---
@@ -67,49 +68,49 @@ Serialization is skipped when the handler already set `Content-Type` in `headers
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import httpContentNegotiation from '@middy/http-content-negotiation'
-import httpResponseSerializer from '@middy/http-response-serializer'
+import middy from "@middy/core";
+import httpContentNegotiation from "@middy/http-content-negotiation";
+import httpResponseSerializer from "@middy/http-response-serializer";
 
 const lambdaHandler = (event, context) => {
-  const body = 'Hello World'
+	const body = "Hello World";
 
-  return {
-    statusCode: 200,
-    body
-  }
-}
+	return {
+		statusCode: 200,
+		body,
+	};
+};
 
 export const handler = middy()
-  .use(httpContentNegotiation()) // Publishes context.middyContext['http-content-negotiation']
-  .use(
-    httpResponseSerializer({
-      serializers: [
-        {
-          regex: /^application\/xml$/,
-          serializer: ({ body }) => `<message>${body}</message>`
-        },
-        {
-          regex: /^application\/json$/,
-          serializer: ({ body }) => JSON.stringify(body)
-        },
-        {
-          regex: /^text\/plain$/,
-          serializer: ({ body }) => body
-        }
-      ],
-      defaultContentType: 'application/json'
-    })
-  )
-  .handler(lambdaHandler)
+	.use(httpContentNegotiation()) // Publishes context.middyContext['http-content-negotiation']
+	.use(
+		httpResponseSerializer({
+			serializers: [
+				{
+					regex: /^application\/xml$/,
+					serializer: ({ body }) => `<message>${body}</message>`,
+				},
+				{
+					regex: /^application\/json$/,
+					serializer: ({ body }) => JSON.stringify(body),
+				},
+				{
+					regex: /^text\/plain$/,
+					serializer: ({ body }) => body,
+				},
+			],
+			defaultContentType: "application/json",
+		}),
+	)
+	.handler(lambdaHandler);
 
 const event = {
-  headers: {
-    Accept: 'application/xml;q=0.9, text/x-dvi; q=0.8, text/x-c'
-  }
-}
+	headers: {
+		Accept: "application/xml;q=0.9, text/x-dvi; q=0.8, text/x-c",
+	},
+};
 
-const response = await handler(event, {})
-strictEqual(response.headers['Content-Type'], 'application/xml')
-strictEqual(response.body, '<message>Hello World</message>')
+const response = await handler(event, {});
+strictEqual(response.headers["Content-Type"], "application/xml");
+strictEqual(response.body, "<message>Hello World</message>");
 ```

@@ -1,6 +1,6 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { describe, test } from "node:test";
-import middy from "../core/index.js";
+import middy from "@middy/core";
 import httpContentNegotiation, {
 	httpContentNegotiationValidateOptions,
 } from "./index.js";
@@ -108,7 +108,7 @@ describe("@middy/http-content-negotiation", () => {
 		const event = {
 			headers: {
 				"accept-charset": "iso-8859-5, unicode-1-1;q=0.8",
-				"accept-encoding": "deflate",
+				"accept-encoding": "deflate, identity;q=0",
 				"accept-language": "da, fr;q=0.8",
 				accept: "text/html, text/x-dvi; q=0.8, text/x-c",
 			},
@@ -127,6 +127,121 @@ describe("@middy/http-content-negotiation", () => {
 				preferredLanguage: "en",
 				preferredMediaTypes: [],
 				preferredMediaType: "text/plain",
+			},
+		);
+	});
+
+	test("It should prefer identity when the request has no Accept-Encoding header", async (t) => {
+		const handler = middy(
+			(event, context) => context.middyContext["http-content-negotiation"],
+		);
+		handler.use(
+			httpContentNegotiation({
+				parseCharsets: false,
+				parseLanguages: false,
+				parseMediaTypes: false,
+				availableEncodings: ["br", "gzip"],
+			}),
+		);
+
+		const resultingContext = await handler(
+			{ headers: { host: "example.org" } },
+			defaultContext,
+		);
+
+		deepStrictEqual(
+			{ ...resultingContext },
+			{
+				preferredEncodings: ["identity"],
+				preferredEncoding: "identity",
+			},
+		);
+	});
+
+	test("It should prefer identity over the first available encoding when the request accepts neither", async (t) => {
+		const handler = middy(
+			(event, context) => context.middyContext["http-content-negotiation"],
+		);
+		handler.use(
+			httpContentNegotiation({
+				parseCharsets: false,
+				parseLanguages: false,
+				parseMediaTypes: false,
+				availableEncodings: ["br", "gzip"],
+				defaultToFirstEncoding: true,
+			}),
+		);
+
+		for (const acceptEncoding of ["identity", "deflate", "gzip;q=0, br;q=0"]) {
+			const resultingContext = await handler(
+				{ headers: { "accept-encoding": acceptEncoding } },
+				defaultContext,
+			);
+
+			deepStrictEqual(
+				{ ...resultingContext },
+				{
+					preferredEncodings: ["identity"],
+					preferredEncoding: "identity",
+				},
+			);
+		}
+	});
+
+	test("It should throw 406 when the request refuses identity and every available encoding", async (t) => {
+		const handler = middy(
+			(event, context) => context.middyContext["http-content-negotiation"],
+		);
+		handler.use(
+			httpContentNegotiation({
+				parseCharsets: false,
+				parseLanguages: false,
+				parseMediaTypes: false,
+				availableEncodings: ["br", "gzip"],
+			}),
+		);
+
+		for (const acceptEncoding of ["deflate, identity;q=0", "*;q=0"]) {
+			let thrown;
+			try {
+				await handler(
+					{ headers: { "accept-encoding": acceptEncoding } },
+					defaultContext,
+				);
+			} catch (e) {
+				thrown = e;
+			}
+			strictEqual(thrown.statusCode, 406);
+			deepStrictEqual(thrown.cause.data, {
+				reason: "Unsupported Encoding. Acceptable values: br, gzip",
+				"Accept-Encoding": acceptEncoding,
+			});
+		}
+	});
+
+	test("It should keep the negotiated encodings when one of the available encodings is acceptable", async (t) => {
+		const handler = middy(
+			(event, context) => context.middyContext["http-content-negotiation"],
+		);
+		handler.use(
+			httpContentNegotiation({
+				parseCharsets: false,
+				parseLanguages: false,
+				parseMediaTypes: false,
+				availableEncodings: ["br", "gzip"],
+			}),
+		);
+
+		const resultingContext = await handler(
+			{ headers: { "accept-encoding": "deflate, gzip;q=0.5" } },
+			defaultContext,
+		);
+
+		deepStrictEqual(
+			{ ...resultingContext },
+			{
+				preferredEncodings: ["gzip"],
+				preferredEncoding: "gzip",
 			},
 		);
 	});
@@ -964,7 +1079,7 @@ describe("@middy/http-content-negotiation", () => {
 		const event = {
 			headers: {
 				"accept-charset": "iso-8859-5",
-				"accept-encoding": "deflate",
+				"accept-encoding": "deflate, identity;q=0",
 				"accept-language": "da",
 				accept: "text/plain",
 			},
@@ -975,5 +1090,127 @@ describe("@middy/http-content-negotiation", () => {
 		strictEqual(resultingContext.preferredCharset, undefined);
 		strictEqual(resultingContext.preferredEncoding, undefined);
 		strictEqual(resultingContext.preferredLanguage, undefined);
+	});
+
+	test("httpContentNegotiationValidateOptions accepts the documented available values", () => {
+		httpContentNegotiationValidateOptions({
+			availableCharsets: ["iso-8859-5", "utf-8", "utf-16"],
+			availableEncodings: ["br", "deflate", "gzip", "zstd", "identity"],
+			availableLanguages: ["it-it", "fr-fr", "en", "en-CA", "zh-Hant-TW"],
+			availableMediaTypes: [
+				"text/plain",
+				"text/x-dvi",
+				"text/html;level=1",
+				"text/html ;level=1",
+				"text/html; level=1",
+				'text/plain;charset="utf-8"',
+				"application/vnd.api+json",
+			],
+			contextKey: "http-content-negotiation",
+		});
+	});
+
+	test("httpContentNegotiationValidateOptions rejects a malformed available value", () => {
+		for (const [options, path] of [
+			[{ availableCharsets: ["utf 8"] }, "availableCharsets[0]"],
+			[{ availableLanguages: ["en_US"] }, "availableLanguages[0]"],
+			[{ availableLanguages: ["en-"] }, "availableLanguages[0]"],
+			[{ availableLanguages: ["toolonglang"] }, "availableLanguages[0]"],
+			[{ availableMediaTypes: ["text"] }, "availableMediaTypes[0]"],
+			[{ availableMediaTypes: [" text/plain"] }, "availableMediaTypes[0]"],
+			[
+				{ availableMediaTypes: ["text/plain\r\nX-Injected: 1"] },
+				"availableMediaTypes[0]",
+			],
+			[{ contextKey: "a b" }, "contextKey"],
+		]) {
+			throws(() => httpContentNegotiationValidateOptions(options), {
+				name: "TypeError",
+				message: new RegExp(
+					`^Option '${RegExp.escape(path)}' must match pattern `,
+				),
+			});
+		}
+	});
+
+	test("httpContentNegotiationValidateOptions bounds string options to 1024 characters", () => {
+		const language = `a${"-abcdefgh".repeat(113)}`;
+		const charset = "c".repeat(1024);
+		const mediaType = `text/${"a".repeat(126)};p=${"v".repeat(1024 - 134)}`;
+		strictEqual(language.length, 1018);
+		strictEqual(mediaType.length, 1024);
+		httpContentNegotiationValidateOptions({
+			availableCharsets: [charset],
+			availableLanguages: [language],
+			availableMediaTypes: [mediaType],
+			contextKey: "k".repeat(1024),
+		});
+		for (const [options, path] of [
+			[{ availableCharsets: [`${charset}c`] }, "availableCharsets[0]"],
+			[
+				{ availableLanguages: [`${language}-abcdefg`] },
+				"availableLanguages[0]",
+			],
+			[{ availableMediaTypes: [`${mediaType}v`] }, "availableMediaTypes[0]"],
+			[{ contextKey: "k".repeat(1025) }, "contextKey"],
+		]) {
+			throws(() => httpContentNegotiationValidateOptions(options), {
+				name: "TypeError",
+				message: `Option '${path}' must have length <= 1024`,
+			});
+		}
+	});
+
+	test("httpContentNegotiationValidateOptions caps the available lists and rejects duplicates", () => {
+		const many = Array.from({ length: 1025 }, (_, i) => `c${i}`);
+		httpContentNegotiationValidateOptions({
+			availableCharsets: many.slice(0, 1024),
+		});
+		for (const key of [
+			"availableCharsets",
+			"availableLanguages",
+			"availableMediaTypes",
+		]) {
+			throws(() => httpContentNegotiationValidateOptions({ [key]: many }), {
+				name: "TypeError",
+				message: `Option '${key}' must have <= 1024 items`,
+			});
+		}
+		for (const [key, value] of [
+			["availableCharsets", "utf-8"],
+			["availableEncodings", "gzip"],
+			["availableLanguages", "en"],
+			["availableMediaTypes", "text/plain"],
+		]) {
+			throws(
+				() => httpContentNegotiationValidateOptions({ [key]: [value, value] }),
+				{ name: "TypeError", message: `Duplicate item at '${key}[1]'` },
+			);
+		}
+		throws(
+			() =>
+				httpContentNegotiationValidateOptions({
+					availableEncodings: [
+						"br",
+						"deflate",
+						"gzip",
+						"zstd",
+						"identity",
+						"br",
+					],
+				}),
+			{
+				name: "TypeError",
+				message: "Option 'availableEncodings' must have <= 5 items",
+			},
+		);
+	});
+
+	test("httpContentNegotiationValidateOptions accepts any visible ASCII contextKey", () => {
+		httpContentNegotiationValidateOptions({ contextKey: "@middy/x" });
+		throws(() => httpContentNegotiationValidateOptions({ contextKey: "" }), {
+			name: "TypeError",
+			message: /^Option 'contextKey' must match pattern /,
+		});
 	});
 });

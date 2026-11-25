@@ -1,7 +1,7 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
+import middy from "@middy/core";
 import { clearCache, getInternal } from "@middy/util";
-import middy from "../core/index.js";
 import rdsSigner, { rdsSignerValidateOptions } from "./index.js";
 
 describe("@middy/rds-signer", () => {
@@ -493,6 +493,84 @@ describe("@middy/rds-signer", () => {
 		strictEqual(receivedConfig.port, 5432);
 	});
 
+	test("It should keep awsClientOptions values when no env var or fetchData value replaces them", async (t) => {
+		const saved = {
+			PGHOST: process.env.PGHOST,
+			PGPORT: process.env.PGPORT,
+			PGUSER: process.env.PGUSER,
+		};
+		delete process.env.PGHOST;
+		delete process.env.PGPORT;
+		delete process.env.PGUSER;
+		t.after(() => {
+			Object.assign(process.env, saved);
+		});
+
+		let receivedConfig;
+		class AwsClient {
+			constructor(config) {
+				receivedConfig = config;
+			}
+			getAuthToken = t.mock.fn(
+				async () => "https://rds.amazonaws.com?X-Amz-Security-Token=token",
+			);
+		}
+		const handler = middy(() => {}).use(
+			rdsSigner({
+				AwsClient,
+				awsClientOptions: {
+					region: "us-east-1",
+					hostname: "options.example.com",
+					port: 3306,
+					username: "options_user",
+				},
+				cacheExpiry: 0,
+				fetchData: { token: {} },
+				disablePrefetch: true,
+			}),
+		);
+
+		await handler(defaultEvent, defaultContext);
+		deepStrictEqual(receivedConfig, {
+			region: "us-east-1",
+			hostname: "options.example.com",
+			port: 3306,
+			username: "options_user",
+		});
+	});
+
+	test("It should rank fetchData over env vars over awsClientOptions", async (t) => {
+		let receivedConfig;
+		class AwsClient {
+			constructor(config) {
+				receivedConfig = config;
+			}
+			getAuthToken = t.mock.fn(
+				async () => "https://rds.amazonaws.com?X-Amz-Security-Token=token",
+			);
+		}
+		const handler = middy(() => {}).use(
+			rdsSigner({
+				AwsClient,
+				awsClientOptions: {
+					hostname: "options.example.com",
+					port: 3306,
+					username: "options_user",
+				},
+				cacheExpiry: 0,
+				fetchData: { token: { username: "explicit" } },
+				disablePrefetch: true,
+			}),
+		);
+
+		await handler(defaultEvent, defaultContext);
+		deepStrictEqual(receivedConfig, {
+			hostname: "hostname",
+			port: 5432,
+			username: "explicit",
+		});
+	});
+
 	test("It should prefer explicit fetchData values over env var defaults", async (t) => {
 		let receivedConfig;
 		class AwsClient {
@@ -580,6 +658,21 @@ describe("@middy/rds-signer", () => {
 			ok(e.message.includes("hostname is required"));
 			strictEqual(e.cause?.package, "@middy/rds-signer");
 		}
+	});
+
+	test("It should throw at creation when username is missing and no env var is set", (t) => {
+		const savedPGUSER = process.env.PGUSER;
+		delete process.env.PGUSER;
+		delete process.env.DBUSER;
+		t.after(() => {
+			process.env.PGUSER = savedPGUSER;
+		});
+
+		throws(() => rdsSigner({ fetchData: { token: {} } }), {
+			message:
+				"fetchData.token.username is required; set PGUSER, DBUSER, or pass username explicitly",
+			cause: { package: "@middy/rds-signer" },
+		});
 	});
 
 	test("rdsSignerValidateOptions rejects fetchData entry with non-integer port", () => {
@@ -924,5 +1017,172 @@ describe("@middy/rds-signer", () => {
 			ok(e instanceof TypeError);
 			ok(e.message.includes("cacheMaxSize"));
 		}
+	});
+});
+
+describe("rdsSignerValidateOptions signer options", () => {
+	const fn = () => {};
+	const signer = {
+		region: "ca-central-1",
+		hostname: "db.cluster-abc.us-east-1.rds.amazonaws.com",
+		username: "iam_role",
+		port: 5432,
+	};
+	const rejectsOption = (options, message) =>
+		throws(() => rdsSignerValidateOptions(options), {
+			name: "TypeError",
+			message,
+			cause: { package: "@middy/rds-signer" },
+		});
+	// Each entry is checked both as a fetchData entry and as awsClientOptions,
+	// which is merged into every entry before the Signer is built.
+	const bothWays = (entry, check) => {
+		check({ fetchData: { token: entry } }, "fetchData.token");
+		check({ awsClientOptions: entry }, "awsClientOptions");
+	};
+
+	test("accepts every key of the Signer configuration", () => {
+		for (const entry of [
+			{},
+			signer,
+			{
+				...signer,
+				hostname: "mydb.123456789012.ca-central-1.rds.amazonaws.com",
+			},
+			{ hostname: "10.0.12.34", port: 1 },
+			{ hostname: "fd00:ec2::1a2b" },
+			{ port: 65535, username: "x".repeat(63) },
+			{ region: fn, profile: "prod", sha256: class {} },
+			{ credentials: fn },
+			{
+				credentials: {
+					accessKeyId: "AKIAIOSFODNN7EXAMPLE",
+					secretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+					sessionToken: "FwoGZXIvYXdzEBYaDH",
+					expiration: new Date(),
+				},
+			},
+		]) {
+			bothWays(entry, (options) => rdsSignerValidateOptions(options));
+		}
+	});
+
+	test("rejects a key the Signer does not read", () => {
+		bothWays(
+			{ ...signer, endpoint: "https://rds.amazonaws.com" },
+			(options, path) =>
+				rejectsOption(options, `Unknown option '${path}.endpoint'`),
+		);
+	});
+
+	test("rejects a hostname, port or username the token cannot be signed for", () => {
+		bothWays({ hostname: "x".repeat(254) }, (options, path) =>
+			rejectsOption(
+				options,
+				`Option '${path}.hostname' must have length <= 253`,
+			),
+		);
+		for (const hostname of ["db example.com", "***.rds.amazonaws.com", ""]) {
+			bothWays({ hostname }, (options, path) =>
+				rejectsOption(
+					options,
+					`Option '${path}.hostname' must match pattern /^[A-Za-z0-9.:-]+$/u`,
+				),
+			);
+		}
+		bothWays({ port: 0 }, (options, path) =>
+			rejectsOption(options, `Option '${path}.port' must be >= 1`),
+		);
+		bothWays({ port: 65536 }, (options, path) =>
+			rejectsOption(options, `Option '${path}.port' must be <= 65535`),
+		);
+		bothWays({ username: "x".repeat(64) }, (options, path) =>
+			rejectsOption(
+				options,
+				`Option '${path}.username' must have length <= 63`,
+			),
+		);
+		bothWays({ username: "iam\nrole" }, (options, path) =>
+			rejectsOption(
+				options,
+				`Option '${path}.username' must match pattern /^[\\p{L}\\p{N}\\p{P}\\p{S} ]+$/u`,
+			),
+		);
+	});
+
+	test("rejects credentials, region, profile or sha256 the SDK cannot use", () => {
+		for (const [entry, key] of [
+			[{ credentials: "AKIA" }, "credentials"],
+			[{ credentials: { accessKeyId: "AKIAIOSFODNN7EXAMPLE" } }, "credentials"],
+			[{ region: "us east 1" }, "region"],
+		]) {
+			bothWays(entry, (options, path) =>
+				rejectsOption(
+					options,
+					`Option '${path}.${key}' must match exactly one schema in oneOf`,
+				),
+			);
+		}
+		bothWays({ profile: "my profile" }, (options, path) =>
+			rejectsOption(
+				options,
+				`Option '${path}.profile' must match pattern /^[\\x21-\\x7E]+$/u`,
+			),
+		);
+		bothWays({ sha256: "sha256" }, (options, path) =>
+			rejectsOption(
+				options,
+				`Option '${path}.sha256' must be instanceof Function`,
+			),
+		);
+	});
+
+	test("rejects a fetchData key that is blank, or too many of them", () => {
+		rdsSignerValidateOptions({ fetchData: { "@middy/x": {} } });
+		for (const key of ["rds token", ""]) {
+			rejectsOption(
+				{ fetchData: { [key]: {} } },
+				`Invalid property name '${key}' in option 'fetchData': Option 'fetchData.${key}' must match pattern /^[\\x21-\\x7E]+$/u`,
+			);
+		}
+		rejectsOption(
+			{ fetchData: { ["x".repeat(1025)]: {} } },
+			`Invalid property name '${"x".repeat(1025)}' in option 'fetchData': Option 'fetchData.${"x".repeat(1025)}' must have length <= 1024`,
+		);
+		rejectsOption(
+			{
+				fetchData: Object.fromEntries(
+					Array.from({ length: 1025 }, (_, i) => [`token${i}`, {}]),
+				),
+			},
+			"Option 'fetchData' must have <= 1024 properties",
+		);
+	});
+
+	test("accepts the context options and cache options", () => {
+		rdsSignerValidateOptions({
+			AwsClient: class {},
+			setToContext: true,
+			contextKey: "rds-signer",
+			disablePrefetch: true,
+			cacheKey: "@middy/rds-signer",
+			cacheKeyExpiry: { "@middy/rds-signer": -1 },
+			cacheExpiry: 840_000,
+			cacheMaxSize: 128,
+		});
+	});
+
+	test("rejects a context key that is blank or over-long", () => {
+		rdsSignerValidateOptions({ contextKey: "@middy/x" });
+		for (const contextKey of ["rds signer", ""]) {
+			rejectsOption(
+				{ contextKey },
+				"Option 'contextKey' must match pattern /^[\\x21-\\x7E]+$/u",
+			);
+		}
+		rejectsOption(
+			{ contextKey: "x".repeat(1025) },
+			"Option 'contextKey' must have length <= 1024",
+		);
 	});
 });

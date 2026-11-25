@@ -1,4 +1,5 @@
 ---
+
 title: secrets-manager-extension
 description: "Fetch Secrets Manager secrets via the AWS Parameters and Secrets Lambda Extension, no SDK, lower latency, automatic caching."
 status: alpha
@@ -52,58 +53,58 @@ npm install --save @middy/secrets-manager-extension
 ## Sample usage (string secret)
 
 ```javascript
-import middy from '@middy/core'
-import { getInternal } from '@middy/util'
-import secretsManagerExtension from '@middy/secrets-manager-extension'
+import middy from "@middy/core";
+import { getInternal } from "@middy/util";
+import secretsManagerExtension from "@middy/secrets-manager-extension";
 
 const lambdaHandler = (event, context) => {
-  return {}
-}
+	return {};
+};
 
 export const handler = middy()
-  .use(
-    secretsManagerExtension({
-      fetchData: {
-        accessToken: 'prod/service/access_token'
-      },
-      cacheExpiry: 15 * 60 * 1000,
-      cacheKey: 'sm-tokens'
-    })
-  )
-  .before(async (request) => {
-    const { accessToken } = await getInternal(['accessToken'], request)
-    // use accessToken
-  })
-  .handler(lambdaHandler)
+	.use(
+		secretsManagerExtension({
+			fetchData: {
+				accessToken: "prod/service/access_token",
+			},
+			cacheExpiry: 15 * 60 * 1000,
+			cacheKey: "sm-tokens",
+		}),
+	)
+	.before(async (request) => {
+		const { accessToken } = await getInternal(["accessToken"], request);
+		// use accessToken
+	})
+	.handler(lambdaHandler);
 ```
 
 ## Sample usage (JSON secret)
 
 ```javascript
-import middy from '@middy/core'
-import { getInternal } from '@middy/util'
-import secretsManagerExtension from '@middy/secrets-manager-extension'
+import middy from "@middy/core";
+import { getInternal } from "@middy/util";
+import secretsManagerExtension from "@middy/secrets-manager-extension";
 
 export const handler = middy()
-  .use(
-    secretsManagerExtension({
-      fetchData: {
-        credentials: 'prod/db/credentials' // stored as JSON: {"username":"...", "password":"..."}
-      },
-      cacheExpiry: 15 * 60 * 1000,
-      cacheKey: 'sm-secrets'
-    })
-  )
-  .before(async (request) => {
-    const values = await getInternal(
-      { username: 'credentials.username', password: 'credentials.password' },
-      request
-    )
-    // values.username, values.password
-  })
-  .handler((event, context) => {
-    return {}
-  })
+	.use(
+		secretsManagerExtension({
+			fetchData: {
+				credentials: "prod/db/credentials", // stored as JSON: {"username":"...", "password":"..."}
+			},
+			cacheExpiry: 15 * 60 * 1000,
+			cacheKey: "sm-secrets",
+		}),
+	)
+	.before(async (request) => {
+		const values = await getInternal(
+			{ username: "credentials.username", password: "credentials.password" },
+			request,
+		);
+		// values.username, values.password
+	})
+	.handler((event, context) => {
+		return {};
+	});
 ```
 
 ## Usage with TypeScript
@@ -111,37 +112,41 @@ export const handler = middy()
 Use `secretsManagerExtensionParam<T>()` to provide type hints for fetched values:
 
 ```typescript
-import middy from '@middy/core'
-import { getInternal } from '@middy/util'
+import middy from "@middy/core";
+import { getInternal } from "@middy/util";
 import secretsManagerExtension, {
-  secretsManagerExtensionParam
-} from '@middy/secrets-manager-extension'
-import type { Context as LambdaContext } from 'aws-lambda'
+	secretsManagerExtensionParam,
+} from "@middy/secrets-manager-extension";
+import type { Context as LambdaContext } from "aws-lambda";
 
 interface DbCredentials {
-  username: string
-  password: string
+	username: string;
+	password: string;
 }
 
 const lambdaHandler = (event: {}, context: LambdaContext) => {
-  return {}
-}
+	return {};
+};
 
 export const handler = middy()
-  .use(
-    secretsManagerExtension({
-      fetchData: {
-        accessToken: secretsManagerExtensionParam<string>('prod/service/api-key'),
-        dbCredentials: secretsManagerExtensionParam<DbCredentials>('prod/db/credentials')
-      },
-      cacheExpiry: 15 * 60 * 1000,
-      cacheKey: 'sm-secrets'
-    })
-  )
-  .before(async (request) => {
-    const data = await getInternal(['accessToken', 'dbCredentials'], request)
-    // data.accessToken is typed as string
-    // data.dbCredentials is typed as DbCredentials
-  })
-  .handler(lambdaHandler)
+	.use(
+		secretsManagerExtension({
+			fetchData: {
+				accessToken: secretsManagerExtensionParam<string>(
+					"prod/service/api-key",
+				),
+				dbCredentials: secretsManagerExtensionParam<DbCredentials>(
+					"prod/db/credentials",
+				),
+			},
+			cacheExpiry: 15 * 60 * 1000,
+			cacheKey: "sm-secrets",
+		}),
+	)
+	.before(async (request) => {
+		const data = await getInternal(["accessToken", "dbCredentials"], request);
+		// data.accessToken is typed as string
+		// data.dbCredentials is typed as DbCredentials
+	})
+	.handler(lambdaHandler);
 ```

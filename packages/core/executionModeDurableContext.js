@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 import { withDurableExecution } from "@aws/durable-execution-sdk-js";
 import { lambdaContextKeys } from "@middy/util";
+import { timeoutEarlyTimers } from "./timeoutEarlyTimers.js";
+
+const durableContextKeys = [...lambdaContextKeys, "getRemainingTimeInMillis"];
 
 export const executionModeDurableContext = (
 	{ middyRequest, runRequest },
@@ -11,7 +14,7 @@ export const executionModeDurableContext = (
 	onErrorMiddlewares,
 	plugin,
 ) => {
-	const middy = withDurableExecution(async (event, context) => {
+	const durableHandler = withDurableExecution(async (event, context) => {
 		const request = middyRequest(event, context);
 
 		// normalize context with executionModeStandard, before requestStart so
@@ -21,7 +24,11 @@ export const executionModeDurableContext = (
 		// from there itself) under `lambdaContext`; `executionContext` only
 		// carries `durableExecutionArn`.
 		// Idea: Use Proxy instead of copying. Faster for common use case?
-		copyKeys(request.context, request.context.lambdaContext, lambdaContextKeys);
+		copyKeys(
+			request.context,
+			request.context.lambdaContext,
+			durableContextKeys,
+		);
 		plugin.requestStart(request);
 
 		// Run requestEnd, then rethrow the request error. `hasError` (not
@@ -59,6 +66,21 @@ export const executionModeDurableContext = (
 		if (hasError) throw requestError;
 		return response;
 	});
+	// When the SDK suspends an invocation (a wait, a callback, a step retry) it
+	// answers Lambda without ever settling the handler promise, so the request
+	// never reaches the point where it clears its own early-timeout timer. Left
+	// armed, that timer would fire into a later invocation of the same
+	// execution environment.
+	// https://docs.aws.amazon.com/lambda/latest/dg/durable-execution-sdk-retries.html
+	const middy = async (event, lambdaContext) => {
+		const timers = new Set();
+		lambdaContext[timeoutEarlyTimers] = timers;
+		try {
+			return await durableHandler(event, lambdaContext);
+		} finally {
+			timers.forEach(clearTimeout);
+		}
+	};
 	middy.handler = (replaceLambdaHandler) => {
 		lambdaHandler = replaceLambdaHandler;
 		return middy;

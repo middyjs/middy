@@ -1,6 +1,12 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { buildPathTree, omit, validateOptions } from "@middy/util";
+import {
+	buildPathTree,
+	omit,
+	omitPathsSchema,
+	validateOmitPaths,
+	validateOptions,
+} from "@middy/util";
 
 const name = "error-logger";
 const pkg = `@middy/${name}`;
@@ -12,17 +18,29 @@ const defaults = {
 };
 
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:error-logger:options",
+	$defs: { Function: false },
 	type: "object",
 	properties: {
-		logger: { instanceof: "Function" },
-		omitPaths: { type: "array", items: { type: "string" } },
-		mask: { type: "string" },
+		logger: { $ref: "#/$defs/Function" },
+		omitPaths: omitPathsSchema,
+		mask: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\p{L}\p{N}\p{P}\p{S} ]*$/u,
+		},
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
-export const errorLoggerValidateOptions = (options) =>
-	validateOptions(pkg, optionSchema, options);
+export const errorLoggerValidateOptions = (options) => {
+	const validated = validateOptions(pkg, optionSchema, options);
+	validateOmitPaths(validated.omitPaths);
+	return validated;
+};
 
 const errorLoggerMiddleware = (opts = {}) => {
 	// `{ ...defaults, ...opts }` lets an explicit `logger: undefined` override
@@ -52,7 +70,10 @@ const errorLoggerMiddleware = (opts = {}) => {
 	// invocation outcome (e.g. replace a handled 404 with an AggregateError).
 	const errorLoggerMiddlewareOnError = (request) => {
 		try {
-			logger(omit(request, omitPathTree, mask));
+			const logged = logger(omit(request, omitPathTree, mask));
+			if (typeof logged?.then === "function") {
+				return settleLoggerPromise(logged);
+			}
 		} catch (e) {
 			console.error(e);
 		}
@@ -61,4 +82,13 @@ const errorLoggerMiddleware = (opts = {}) => {
 		onError: errorLoggerMiddlewareOnError,
 	};
 };
+
+const settleLoggerPromise = async (logged) => {
+	try {
+		await logged;
+	} catch (e) {
+		console.error(e);
+	}
+};
+
 export default errorLoggerMiddleware;

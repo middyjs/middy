@@ -39,6 +39,31 @@ test("Options logger rejects false", () => {
 	expect<boolean>().type.not.toBeAssignableTo<NonNullable<Options["logger"]>>();
 });
 
+test("Options omitPaths accepts the array path form", () => {
+	expect(errorLogger).type.toBeCallableWith({
+		omitPaths: [
+			"event.headers.authorization",
+			["error", "cause", "data", "user.email"],
+		],
+	});
+	expect(errorLogger).type.toBeCallableWith({
+		omitPaths: [["error", "cause", "data", "user.email"]] as const,
+	});
+	expect<Array<string | string[]>>().type.toBeAssignableTo<
+		NonNullable<Options["omitPaths"]>
+	>();
+	expect<number[][]>().type.not.toBeAssignableTo<
+		NonNullable<Options["omitPaths"]>
+	>();
+	expect<string>().type.not.toBeAssignableTo<
+		NonNullable<Options["omitPaths"]>
+	>();
+});
+
+test("logger may be async", () => {
+	expect(errorLogger).type.toBeCallableWith({ logger: async () => {} });
+});
+
 test("Options omitPaths and mask", () => {
 	const options: Options = {
 		omitPaths: ["error.cause.data.body"],

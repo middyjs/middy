@@ -7,7 +7,7 @@ updates:
     schedule:
       interval: "weekly"
     cooldown:
-      default-days: 14
+      default-days: 7
     groups:
       everything:
         patterns:
@@ -20,4 +20,4 @@ updates:
     schedule:
       interval: "weekly"
     cooldown:
-      default-days: 14
+      default-days: 7

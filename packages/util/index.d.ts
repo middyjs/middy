@@ -86,6 +86,11 @@ export interface Options<Client, ClientOptions> {
 	) => Client;
 	awsClientOptions?: Partial<ClientOptions>;
 	awsClientAssumeRole?: string;
+	/**
+	 * Wraps the client for tracing (`captureAWSv3Client`). Setting it turns
+	 * prefetch off: X-Ray cannot record a request sent outside of an
+	 * invocation, so the client is built and captured inside the first one.
+	 */
 	awsClientCapture?: (service: Client) => Client;
 	fetchData?: { [key: string]: string };
 	disablePrefetch?: boolean;
@@ -164,9 +169,11 @@ declare function createClientInit<Client, ClientOptions>(
 ): (request: Request) => Promise<Client>;
 
 /**
- * Whether the middleware can fetch at construction. Throws when the effective
- * `cacheExpiry` can only be a mistyped duration: above 86400000 (read as a
- * unix timestamp) but before 2001-01-01 (978307200000).
+ * Whether the middleware can fetch at construction: not with
+ * `awsClientAssumeRole`, `awsClientCapture`, `disablePrefetch` or a
+ * `cacheExpiry` of 0. Throws when the effective `cacheExpiry` can only be a
+ * mistyped duration: above 86400000 (read as a unix timestamp) but before
+ * 2001-01-01 (978307200000).
  */
 declare function canPrefetch<Client, ClientOptions>(
 	options: Options<Client, ClientOptions>,
@@ -327,6 +334,13 @@ declare function jsonParseProtectProto(
 	packageName?: string,
 ): unknown;
 
+/**
+ * Whether `response` is a payload returned without the HTTP response wrapper:
+ * it has no `statusCode`, `body` or `headers`, so the whole value is the body.
+ * `undefined` and `null` count as unwrapped.
+ */
+declare function isUnwrappedHttpResponse(response: unknown): boolean;
+
 declare function normalizeHttpResponse(
 	request: Request,
 ): Record<string, unknown>;
@@ -337,21 +351,125 @@ declare function normalizeHttpResponse(
  */
 export type PathTree = Map<string, PathTree | true>;
 
-declare function buildPathTree(
-	paths: ReadonlyArray<string | ReadonlyArray<string | number>>,
-): PathTree;
+/**
+ * One `omitPaths` entry, relative to the request. Keys match
+ * case-insensitively.
+ * - A string is dot-delimited (`event.headers.authorization`), and a `[]`
+ *   segment selects every element of an array (`event.Records.[].body`). Any
+ *   other use of `[`, `]` or `*`, or an all-digit segment, is rejected.
+ * - An array lists the segments, each one a literal key, so a key that holds
+ *   a dot, a bracket or a star stays addressable
+ *   (`["event", "CodePipeline.job", "data"]`). `"[]"` still selects every
+ *   element of an array. An array element cannot be selected by its index.
+ */
+export type OmitPath = string | ReadonlyArray<string>;
+
+/**
+ * Throws a `TypeError` for a path that could never match: an unsupported
+ * string segment, an empty array path, a segment that is not a string, or a
+ * `__proto__`, `constructor` or `prototype` segment. When two paths overlap,
+ * the shorter one covers the longer.
+ */
+declare function buildPathTree(paths: ReadonlyArray<OmitPath>): PathTree;
+
+/**
+ * The option schema rule for `omitPaths`: an array whose entries are a string
+ * or a non-empty array of strings. Pair it with `validateOmitPaths`, which
+ * rejects the paths this shape lets through but that could never match.
+ */
+declare const omitPathsSchema: ArrayRule;
+
+/**
+ * The option schema rule for `awsClientOptions`: the config keys every AWS SDK
+ * v3 client constructor shares, with providers, functions and instances as
+ * `$ref` rules. Those resolve against the consuming schema's root, which must
+ * declare `$defs: { Function: false, Object: false }`.
+ */
+declare const awsClientOptionsSchema: ObjectRule;
+
+/**
+ * The option schema rules for `disablePrefetch`, `cacheKey`, `cacheKeyExpiry`,
+ * `cacheExpiry` and `cacheMaxSize`, to spread into a schema's `properties`.
+ */
+declare const cacheOptionSchemaProperties: {
+	disablePrefetch: BooleanRule;
+	cacheKey: StringRule;
+	cacheKeyExpiry: ObjectRule;
+	cacheExpiry: NumberRule;
+	cacheMaxSize: NumberRule;
+};
+
+/**
+ * Throws the `TypeError` `buildPathTree` would throw for `omitPaths`. Does
+ * nothing for `undefined`.
+ */
+declare function validateOmitPaths(
+	omitPaths: ReadonlyArray<OmitPath> | undefined,
+): void;
+
+/**
+ * Whether `omit(value, pathTree)` removes or masks a string found in `value`
+ * at `segments`: a path ends at it, ends above it, or continues into it (a
+ * string has nothing below it to keep). Segments match case-insensitively, as
+ * `omit` matches keys. `false` without a `pathTree`.
+ */
+declare function pathTreeOmitsString(
+	pathTree: PathTree | undefined,
+	segments: ReadonlyArray<string>,
+): boolean;
+
+/**
+ * An `Error` after `omit` walked it: a plain object holding the error's own
+ * properties (`message`, `stack`, `cause` and any added to it) and its
+ * `name`. It is not an `instanceof Error` and has none of its methods.
+ */
+export type OmittedError = {
+	name: string;
+	message?: string;
+	stack?: string;
+	cause?: unknown;
+	[key: string]: unknown;
+};
+
+/**
+ * `T` as `omit` hands it back. An `Error` anywhere in it may have become an
+ * `OmittedError`: always for the value passed in, and for a nested one when a
+ * path leads into it. The types cannot follow which paths matched, so a
+ * matched leaf keeps its declared type although it is absent, or holds the
+ * mask, at run time.
+ */
+export type Omitted<T> = T extends Error
+	? T | OmittedError
+	: T extends (...args: never[]) => unknown
+		? T
+		: T extends object
+			? { [K in keyof T]: Omitted<T[K]> }
+			: T;
 
 /**
  * Returns `value` unchanged when no `pathTree` entry applies; otherwise a
- * shallow clone with the matched leaves removed, or replaced by `mask`.
+ * shallow clone with the matched leaves removed, or replaced by `mask`. A
+ * path that ends in `[]` empties the array, or replaces every element by
+ * `mask`.
  * `Error` values are normalized to a plain object first, so non-enumerable
  * properties such as `cause` and `stack` are still reachable by path. Plain
  * objects and arrays are walked in place; a class instance (the durable
  * execution `context`) is walked through a copy of its own properties when a
- * path reaches into it, and built-ins such as `Date`, `Map`, `Set`, `Buffer`
- * and streams are never opened.
+ * path reaches into it.
+ * A path never leaves the value it names in the output. Where it cannot go
+ * on, the value it stopped at is removed or masked whole: a string, a `Map`
+ * or a `Set` the path continues into, and an array met by a key segment
+ * instead of `[]`. A number, a boolean, `null` and `undefined` stay, since
+ * nothing sits below them, and so do the other built-ins (`Date`, `Buffer`,
+ * streams, promises), which are never opened. When the value passed in is
+ * itself where a path stops, the result is `mask`, or `undefined` without one.
  */
-declare function omit<T>(value: T, pathTree?: PathTree, mask?: string): T;
+declare function omit<T>(value: T): T;
+declare function omit<T>(
+	value: T,
+	pathTree: PathTree | undefined,
+	mask?: string,
+): Omitted<T>;
 
 declare function modifyCache(cacheKey: string, value: unknown): void;
 
@@ -423,15 +541,17 @@ export type JsonSchemaType =
 	| "number"
 	| "integer"
 	| "boolean"
+	| "null"
 	| "object"
 	| "array";
 
 export type StringRule = {
 	type: "string";
-	pattern?: string;
+	pattern?: RegExp;
 	minLength?: number;
 	maxLength?: number;
 	enum?: readonly string[];
+	not?: OptionSchemaRule;
 	examples?: readonly string[];
 };
 
@@ -440,6 +560,7 @@ export type NumberRule = {
 	minimum?: number;
 	maximum?: number;
 	exclusiveMinimum?: number;
+	exclusiveMaximum?: number;
 	enum?: readonly number[];
 	examples?: readonly number[];
 };
@@ -453,7 +574,10 @@ export type BooleanRule = {
 export type ArrayRule = {
 	type: "array";
 	items?: OptionSchemaRule;
+	minItems?: number;
+	maxItems?: number;
 	uniqueItems?: boolean;
+	unevaluatedItems?: false;
 	examples?: readonly unknown[];
 };
 
@@ -462,12 +586,36 @@ export type ObjectRule = {
 	required?: readonly string[];
 	properties?: { [key: string]: OptionSchemaRule };
 	additionalProperties?: boolean | OptionSchemaRule;
+	unevaluatedProperties?: false;
+	propertyNames?: OptionSchemaRule;
+	patternProperties?: Record<string, OptionSchemaRule>;
+	maxProperties?: number;
 	examples?: readonly object[];
 };
 
+export type NullRule = {
+	type: "null";
+	examples?: readonly null[];
+};
+
+type TypeKeywords = "type" | "enum" | "examples";
+
+/**
+ * A value of any listed type. Each keyword constrains only the type it
+ * targets, so `pattern` ignores a number and `minimum` ignores a string.
+ */
+export type TypeListRule = Omit<StringRule, TypeKeywords> &
+	Omit<NumberRule, TypeKeywords> &
+	Omit<ArrayRule, TypeKeywords> &
+	Omit<ObjectRule, TypeKeywords> & {
+		type: readonly JsonSchemaType[];
+		enum?: readonly unknown[];
+		examples?: readonly unknown[];
+	};
+
 export type EnumRule = {
 	enum: readonly unknown[];
-	type?: JsonSchemaType;
+	type?: JsonSchemaType | readonly JsonSchemaType[];
 	examples?: readonly unknown[];
 };
 
@@ -476,8 +624,8 @@ export type ConstRule = {
 	examples?: readonly unknown[];
 };
 
-export type InstanceofRule = {
-	instanceof: string;
+export type RefRule = {
+	$ref: `#/$defs/${string}`;
 	examples?: readonly unknown[];
 };
 
@@ -495,16 +643,41 @@ export type OptionSchemaRule =
 	| StringRule
 	| NumberRule
 	| BooleanRule
+	| NullRule
 	| ArrayRule
 	| ObjectRule
+	| TypeListRule
 	| EnumRule
 	| ConstRule
-	| InstanceofRule
+	| RefRule
 	| OneOfRule
 	| AllOfRule;
 
-export type OptionSchema = ObjectRule;
+/**
+ * The root of an option schema. `$defs` entries are `false` and named after a
+ * global class; a `{ $ref: "#/$defs/<name>" }` rule checks
+ * `instanceof globalThis[name]`.
+ */
+export type OptionSchema = ObjectRule & {
+	$schema?: "https://json-schema.org/draft/2020-12/schema";
+	$id?: string;
+	$defs?: Record<string, false>;
+};
 
+/**
+ * Keys that reach an object's prototype chain when assigned. Exclude them from
+ * key names with `propertyNames: { ..., not: { type: "string", enum: reservedPropertyNames } }`.
+ */
+export declare const reservedPropertyNames: readonly string[];
+
+/**
+ * Validates `options` against `schema` and returns them. A rule is the
+ * conjunction of its keywords: constraints written next to `const`, `enum`,
+ * `oneOf`, `allOf`, `not` or `$ref` are checked too. A keyword outside
+ * the rule types above throws a `TypeError` that names it and its option path,
+ * whatever options are passed. `examples` and the root `$id` are the only
+ * annotations accepted.
+ */
 export declare function validateOptions<
 	TOptions extends Record<string, unknown> = Record<string, unknown>,
 >(packageName: string, schema: OptionSchema, options?: TOptions): TOptions;

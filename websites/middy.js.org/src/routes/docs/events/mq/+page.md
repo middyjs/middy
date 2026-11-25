@@ -1,4 +1,5 @@
 ---
+
 title: MQ
 description: "Use Middy with Amazon MQ (ActiveMQ/RabbitMQ) Lambda trigger events."
 ---
@@ -29,16 +30,18 @@ flowchart LR
 Every hop through SNS, SQS, EventBridge, or EventBridge Pipes wraps the event Lambda receives in that service's envelope. [`@middy/event-normalizer`](/docs/middlewares/event-normalizer) unwraps the SNS and SQS envelopes.
 
 ## AWS Documentation
+
 - [Using Lambda with Amazon MQ](https://docs.aws.amazon.com/lambda/latest/dg/with-mq.html)
 
 ## Example
+
 ```javascript
-import middy from '@middy/core'
-import eventNormalizerMiddleware from '@middy/event-normalizer'
+import middy from "@middy/core";
+import eventNormalizerMiddleware from "@middy/event-normalizer";
 
 export const handler = middy()
-  .use(eventNormalizerMiddleware())
-  .handler((event, context, {signal}) => {
-    // ...
-  })
+	.use(eventNormalizerMiddleware())
+	.handler((event, context, { signal }) => {
+		// ...
+	});
 ```

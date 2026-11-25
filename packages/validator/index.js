@@ -1,6 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { HttpError, validateOptions } from "@middy/util";
+import { HttpError, reservedPropertyNames, validateOptions } from "@middy/util";
 
 const name = "validator";
 const pkg = `@middy/${name}`;
@@ -16,20 +16,50 @@ const defaults = {
 	contextKeyHttpContentNegotiation: "http-content-negotiation",
 };
 
+// RFC 5646 section 2.1: every subtag is 1 to 8 alphanumerics, joined by "-"
+// https://www.rfc-editor.org/rfc/rfc5646#section-2.1
+const languageTagPattern = /^[A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8}){0,127}$/u;
+const languageTagSchema = {
+	type: "string",
+	maxLength: 1024,
+	pattern: languageTagPattern,
+};
+
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:validator:options",
+	$defs: { Function: false },
 	type: "object",
 	properties: {
-		eventSchema: { instanceof: "Function" },
-		contextSchema: { instanceof: "Function" },
-		responseSchema: { instanceof: "Function" },
-		defaultLanguage: { type: "string" },
+		eventSchema: { $ref: "#/$defs/Function" },
+		contextSchema: { $ref: "#/$defs/Function" },
+		responseSchema: { $ref: "#/$defs/Function" },
+		defaultLanguage: languageTagSchema,
 		languages: {
 			type: "object",
-			additionalProperties: { instanceof: "Function" },
+			patternProperties: {
+				[languageTagPattern.source]: { $ref: "#/$defs/Function" },
+			},
+			propertyNames: {
+				type: "string",
+				maxLength: 1024,
+				pattern: /^[\x21-\x7E]+$/u,
+				not: { type: "string", enum: reservedPropertyNames },
+			},
+			maxProperties: 1024,
+			required: [],
+			additionalProperties: false,
+			unevaluatedProperties: false,
 		},
-		contextKeyHttpContentNegotiation: { type: "string" },
+		contextKeyHttpContentNegotiation: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\x21-\x7E]+$/u,
+		},
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const validatorValidateOptions = (options) =>

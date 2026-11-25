@@ -1,4 +1,5 @@
 ---
+
 title: WorkMail
 description: "Use Middy with Amazon WorkMail Lambda events for email flow rules."
 ---
@@ -28,14 +29,15 @@ flowchart LR
 ```
 
 ## AWS Documentation
+
 - [Configuring AWS Lambda for Amazon WorkMail](https://docs.aws.amazon.com/workmail/latest/adminguide/lambda.html)
 
 ## Example
-```javascript
-import middy from '@middy/core'
 
-export const handler = middy()
-  .handler((event, context, {signal}) => {
-    // ...
-  })
+```javascript
+import middy from "@middy/core";
+
+export const handler = middy().handler((event, context, { signal }) => {
+	// ...
+});
 ```

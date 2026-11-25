@@ -3,9 +3,10 @@ import {
 	notStrictEqual,
 	ok,
 	strictEqual,
+	throws,
 } from "node:assert/strict";
 import { describe, test } from "node:test";
-import middy from "../core/index.js";
+import middy from "@middy/core";
 import httpMultipartBodyParser, {
 	httpMultipartBodyParserValidateOptions,
 } from "./index.js";
@@ -560,8 +561,7 @@ describe("@middy/http-multipart-body-parser", () => {
 		strictEqual(response.files.length, 3);
 	});
 
-	// Security: Prototype pollution via __proto__ fieldname
-	test("It should not pollute prototype with __proto__ fieldname", async (t) => {
+	test("It should throw 422 for a field named __proto__", async (t) => {
 		const handler = middy((event, context) => {
 			return event.body;
 		});
@@ -575,12 +575,77 @@ describe("@middy/http-multipart-body-parser", () => {
 			body: '--TEST\r\nContent-Disposition: form-data; name="__proto__"\r\n\r\npolluted\r\n--TEST--',
 			isBase64Encoded: false,
 		};
-		const response = await handler(event, defaultContext);
 
-		// Should store the value on the null-prototype object without polluting Object.prototype
-		strictEqual(response.__proto__, "polluted");
-		strictEqual({}.polluted, undefined);
-		strictEqual(Object.getPrototypeOf(response), null);
+		let thrown;
+		try {
+			await handler(event, defaultContext);
+		} catch (e) {
+			thrown = e;
+		}
+		strictEqual(thrown?.statusCode, 422);
+		deepStrictEqual(thrown.cause, {
+			package: "@middy/http-multipart-body-parser",
+			data: {
+				reason: "Forbidden key in multipart/form-data body",
+				key: "__proto__",
+			},
+		});
+	});
+
+	test("It should throw 422 for a file field named __proto__", async (t) => {
+		const handler = middy((event, context) => {
+			return event.body;
+		});
+
+		handler.use(httpMultipartBodyParser());
+
+		const event = {
+			headers: {
+				"Content-Type": "multipart/form-data; boundary=TEST",
+			},
+			body: '--TEST\r\nContent-Disposition: form-data; name="__proto__"; filename="evil.txt"\r\nContent-Type: text/plain\r\n\r\npolluted\r\n--TEST--',
+			isBase64Encoded: false,
+		};
+
+		let thrown;
+		try {
+			await handler(event, defaultContext);
+		} catch (e) {
+			thrown = e;
+		}
+		strictEqual(thrown?.statusCode, 422);
+		deepStrictEqual(thrown.cause, {
+			package: "@middy/http-multipart-body-parser",
+			data: {
+				reason: "Forbidden key in multipart/form-data body",
+				key: "__proto__",
+			},
+		});
+	});
+
+	test("It should throw 422 for a bracketed field stored as __proto__", async (t) => {
+		const handler = middy((event, context) => {
+			return event.body;
+		});
+
+		handler.use(httpMultipartBodyParser());
+
+		const event = {
+			headers: {
+				"Content-Type": "multipart/form-data; boundary=TEST",
+			},
+			body: '--TEST\r\nContent-Disposition: form-data; name="__proto__[]"\r\n\r\npolluted\r\n--TEST--',
+			isBase64Encoded: false,
+		};
+
+		let thrown;
+		try {
+			await handler(event, defaultContext);
+		} catch (e) {
+			thrown = e;
+		}
+		strictEqual(thrown?.statusCode, 422);
+		strictEqual(thrown.cause.data.key, "__proto__");
 	});
 
 	test("It should not pollute prototype with constructor fieldname", async (t) => {
@@ -679,7 +744,6 @@ describe("@middy/http-multipart-body-parser", () => {
 				highWaterMark: 16384,
 				fileHwm: 16384,
 				defCharset: "utf8",
-				defParamCharset: "latin1",
 				preservePath: false,
 				isPartAFile: () => true,
 				limits: {
@@ -690,15 +754,22 @@ describe("@middy/http-multipart-body-parser", () => {
 					files: 5,
 					parts: 20,
 					headerPairs: 50,
+					headerSize: 81920,
 				},
 			},
 		});
 	});
 
-	test("httpMultipartBodyParserValidateOptions allows unknown busboy keys (version drift)", () => {
-		httpMultipartBodyParserValidateOptions({
-			busboy: { futureOption: "value" },
-		});
+	test("httpMultipartBodyParserValidateOptions rejects busboy keys @fastify/busboy does not define", () => {
+		for (const [busboy, path] of [
+			[{ futureOption: "value" }, "busboy.futureOption"],
+			[{ defParamCharset: "latin1" }, "busboy.defParamCharset"],
+		]) {
+			throws(() => httpMultipartBodyParserValidateOptions({ busboy }), {
+				name: "TypeError",
+				message: `Unknown option '${path}'`,
+			});
+		}
 	});
 
 	// RFC 9110 5.6.6 allows no whitespace around the parameter `;`, and a quoted
@@ -845,10 +916,17 @@ describe("@middy/http-multipart-body-parser", () => {
 		);
 	});
 
-	test("httpMultipartBodyParserValidateOptions allows unknown busboy.limits keys", () => {
-		httpMultipartBodyParserValidateOptions({
-			busboy: { limits: { futureLimit: 5 } },
-		});
+	test("httpMultipartBodyParserValidateOptions rejects busboy.limits keys @fastify/busboy does not define", () => {
+		throws(
+			() =>
+				httpMultipartBodyParserValidateOptions({
+					busboy: { limits: { futureLimit: 5 } },
+				}),
+			{
+				name: "TypeError",
+				message: "Unknown option 'busboy.limits.futureLimit'",
+			},
+		);
 	});
 
 	test("httpMultipartBodyParserValidateOptions rejects non-boolean disableContentTypeError", () => {
@@ -1589,5 +1667,141 @@ describe("@middy/http-multipart-body-parser", () => {
 		notStrictEqual(settled, "pending");
 		strictEqual(settled.error.statusCode, 413);
 		deepStrictEqual(settled.error.cause.data, { limit: "fieldNameSize" });
+	});
+
+	test("httpMultipartBodyParserValidateOptions bounds busboy sizes and limits to safe integers", () => {
+		const max = Number.MAX_SAFE_INTEGER;
+		const limitKeys = [
+			"fieldNameSize",
+			"fieldSize",
+			"fields",
+			"fileSize",
+			"files",
+			"parts",
+			"headerPairs",
+			"headerSize",
+		];
+		httpMultipartBodyParserValidateOptions({
+			busboy: {
+				highWaterMark: max,
+				fileHwm: max,
+				limits: Object.fromEntries(limitKeys.map((key) => [key, max])),
+			},
+		});
+		for (const key of ["highWaterMark", "fileHwm"]) {
+			throws(
+				() =>
+					httpMultipartBodyParserValidateOptions({
+						busboy: { [key]: max + 2 },
+					}),
+				{
+					name: "TypeError",
+					message: `Option 'busboy.${key}' must be <= ${max}`,
+				},
+			);
+			throws(
+				() => httpMultipartBodyParserValidateOptions({ busboy: { [key]: 0 } }),
+				{ name: "TypeError", message: `Option 'busboy.${key}' must be >= 1` },
+			);
+		}
+		for (const key of limitKeys) {
+			throws(
+				() =>
+					httpMultipartBodyParserValidateOptions({
+						busboy: { limits: { [key]: max + 2 } },
+					}),
+				{
+					name: "TypeError",
+					message: `Option 'busboy.limits.${key}' must be <= ${max}`,
+				},
+			);
+			throws(
+				() =>
+					httpMultipartBodyParserValidateOptions({
+						busboy: { limits: { [key]: -1 } },
+					}),
+				{
+					name: "TypeError",
+					message: `Option 'busboy.limits.${key}' must be >= 0`,
+				},
+			);
+		}
+	});
+
+	test("httpMultipartBodyParserValidateOptions bounds charset names", () => {
+		httpMultipartBodyParserValidateOptions({
+			charset: "c".repeat(1024),
+			busboy: { defCharset: "c".repeat(1024) },
+		});
+		for (const [options, path] of [
+			[{ charset: "utf 8" }, "charset"],
+			[{ busboy: { defCharset: "utf 8" } }, "busboy.defCharset"],
+		]) {
+			throws(() => httpMultipartBodyParserValidateOptions(options), {
+				name: "TypeError",
+				message: new RegExp(
+					`^Option '${RegExp.escape(path)}' must match pattern `,
+				),
+			});
+		}
+		for (const [options, path] of [
+			[{ charset: "c".repeat(1025) }, "charset"],
+			[{ busboy: { defCharset: "c".repeat(1025) } }, "busboy.defCharset"],
+		]) {
+			throws(() => httpMultipartBodyParserValidateOptions(options), {
+				name: "TypeError",
+				message: `Option '${path}' must have length <= 1024`,
+			});
+		}
+	});
+
+	test("httpMultipartBodyParserValidateOptions bounds busboy.headers to RFC 9110 fields", () => {
+		httpMultipartBodyParserValidateOptions({
+			busboy: {
+				headers: { "Content-Type": "multipart/form-data; boundary=x" },
+			},
+		});
+		throws(
+			() =>
+				httpMultipartBodyParserValidateOptions({
+					busboy: { headers: { "content type": "x" } },
+				}),
+			{
+				name: "TypeError",
+				message:
+					/^Invalid property name 'content type' in option 'busboy.headers': /,
+			},
+		);
+		throws(
+			() =>
+				httpMultipartBodyParserValidateOptions({
+					busboy: { headers: { "content-type": "a\r\nb" } },
+				}),
+			{
+				name: "TypeError",
+				message: /^Option 'busboy.headers.content-type' must match pattern /,
+			},
+		);
+		throws(
+			() =>
+				httpMultipartBodyParserValidateOptions({
+					busboy: { headers: { "content-type": "v".repeat(1025) } },
+				}),
+			{
+				name: "TypeError",
+				message:
+					"Option 'busboy.headers.content-type' must have length <= 1024",
+			},
+		);
+		const headers = Object.fromEntries(
+			Array.from({ length: 1025 }, (_, i) => [`x-${i}`, "v"]),
+		);
+		throws(
+			() => httpMultipartBodyParserValidateOptions({ busboy: { headers } }),
+			{
+				name: "TypeError",
+				message: "Option 'busboy.headers' must have <= 1024 properties",
+			},
+		);
 	});
 });

@@ -1,10 +1,5 @@
 import { expect, test } from "tstyche";
-import {
-	type ActiveMQEvent,
-	type AmqPoller,
-	type MQBatchResponse,
-	pollAmq,
-} from "./pollAmq.js";
+import { type ActiveMQEvent, type AmqPoller, pollAmq } from "./pollAmq.js";
 import {
 	type DynamoDBStreamsPoller,
 	pollDynamoDBStreams,
@@ -84,6 +79,55 @@ test("stream and Kafka pollers take maxRetryAttempts and retryDelayMs", () => {
 	});
 });
 
+test("pollDynamoDBStreams takes AT_TIMESTAMP with an epoch-seconds timestamp", () => {
+	expect(
+		pollDynamoDBStreams({
+			streamArn: "arn",
+			shardId: "0",
+			shardIteratorType: "AT_TIMESTAMP",
+			timestamp: 1_791_316_726.48,
+		}),
+	).type.toBe<DynamoDBStreamsPoller>();
+	expect(pollDynamoDBStreams).type.not.toBeCallableWith({
+		streamArn: "arn",
+		shardId: "0",
+		shardIteratorType: "AT_TIMESTAMP",
+		timestamp: new Date(),
+	});
+});
+
+test("pollKafka takes ssl as a boolean or TLS connection options", () => {
+	const base = { brokers: ["b"], groupId: "g", topics: ["t"] };
+	expect(pollKafka({ ...base, ssl: true })).type.toBe<KafkaPoller>();
+	expect(
+		pollKafka({ ...base, ssl: { rejectUnauthorized: true, ca: ["pem"] } }),
+	).type.toBe<KafkaPoller>();
+	expect(pollKafka).type.not.toBeCallableWith({ ...base, ssl: "true" });
+});
+
+test("broker pollers take maxRetryAttempts and retryDelayMs", () => {
+	expect(
+		pollAmq({
+			connectOptions: {},
+			destination: "/queue/q",
+			maxRetryAttempts: 3,
+			retryDelayMs: 500,
+		}),
+	).type.toBe<AmqPoller>();
+	expect(
+		pollRmq({ queue: "q", maxRetryAttempts: -1, retryDelayMs: 0 }),
+	).type.toBe<RmqPoller>();
+	expect(pollAmq).type.not.toBeCallableWith({
+		connectOptions: {},
+		destination: "/queue/q",
+		retryDelayMs: "500",
+	});
+	expect(pollRmq).type.not.toBeCallableWith({
+		queue: "q",
+		maxRetryAttempts: "3",
+	});
+});
+
 test("Kafka batch failures accept Lambda's object identifier and the legacy string", () => {
 	expect({
 		batchItemFailures: [{ itemIdentifier: { partition: "t-0", offset: 15 } }],
@@ -122,7 +166,9 @@ test("ActiveMQ and RabbitMQ events use the documented record shapes", () => {
 	expect<
 		RabbitMQEvent["rmqMessagesByQueue"][string][number]["basicProperties"]["timestamp"]
 	>().type.toBe<string | null>();
-	expect({
-		batchItemFailures: [{ itemIdentifier: "ID:1" }],
-	}).type.toBeAssignableTo<MQBatchResponse>();
+});
+
+test("broker pollers do not type a partial batch response", () => {
+	expect<Parameters<AmqPoller["acknowledge"]>[1]>().type.toBe<unknown>();
+	expect<Parameters<RmqPoller["acknowledge"]>[1]>().type.toBe<unknown>();
 });

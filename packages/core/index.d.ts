@@ -282,8 +282,8 @@ declare type UseFn<
 
 /**
  * Middy factory function. Use it to wrap your existing handler to enable middlewares on it.
- * @param handler your original AWS Lambda function
- * @param plugin wraps around each middleware and handler to add custom lifecycle behaviours (e.g. to profile performance)
+ * @param handlerOrPluginConfig your original AWS Lambda function, or the plugin config when the handler is set later with `.handler()`
+ * @param pluginConfig wraps around each middleware and handler to add custom lifecycle behaviours (e.g. to profile performance)
  */
 declare function middy<
 	TEvent = unknown,
@@ -292,13 +292,13 @@ declare function middy<
 	TContext extends LambdaContext | DurableContextLike = LambdaContext,
 	TInternal extends Record<string, unknown> = {},
 >(
-	handler?:
+	handlerOrPluginConfig?:
 		| LambdaHandler<TEvent, TResult>
 		// The handler you write receives `context.middyContext`; the middyfied
 		// handler AWS invokes does not require it, so only the input side is widened.
 		| MiddyInputHandler<TEvent, TResult, WithMiddyContext<TContext>>
 		| PluginObject,
-	plugin?: PluginObject,
+	pluginConfig?: PluginObject,
 ): MiddyfiedHandler<TEvent, TResult, TErr, TContext, TInternal>;
 
 declare namespace middy {

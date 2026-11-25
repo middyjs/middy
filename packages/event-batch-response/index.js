@@ -1,5 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import { validateOptions } from "@middy/util";
 
 const name = "event-batch-response";
 const pkg = `@middy/${name}`;
@@ -96,38 +97,51 @@ const encodeFirehoseData = (value, fallback) => {
 	return Buffer.from(JSON.stringify(value)).toString("base64");
 };
 
-const toFirehoseRecord = (recordId, inputData, value, defaultResult) => {
+// A Firehose stream with Amazon MSK as its source names the payload
+// `kafkaRecordValue`, in the record it sends and in the record it requires
+// back; every other source uses `data`.
+// docs.aws.amazon.com/firehose/latest/dev/data-transformation-status-model.html
+// docs.aws.amazon.com/firehose/latest/dev/apache-iceberg-format-input-record-different.html
+const firehosePayloadField = (record) =>
+	Object.hasOwn(record ?? {}, "kafkaRecordValue") ? "kafkaRecordValue" : "data";
+
+const toFirehoseRecord = (recordId, field, inputData, value, defaultResult) => {
 	if (value && typeof value === "object" && "result" in value) {
-		return {
+		const record = {
 			recordId,
 			result: value.result,
-			data: encodeFirehoseData(value.data, inputData),
+			[field]: encodeFirehoseData(value[field], inputData),
 		};
+		// Dynamic partitioning (`metadata.partitionKeys`) and Iceberg table
+		// routing (`metadata.otfMetadata`) read `metadata` from each returned
+		// record, so it is passed through untouched.
+		// docs.aws.amazon.com/firehose/latest/dev/dynamic-partitioning-partitioning-keys.html
+		// docs.aws.amazon.com/firehose/latest/dev/apache-iceberg-format-input-record-different.html
+		if (value.metadata !== undefined) record.metadata = value.metadata;
+		return record;
 	}
 	return {
 		recordId,
 		result: defaultResult,
-		data: encodeFirehoseData(value, inputData),
+		[field]: encodeFirehoseData(value, inputData),
 	};
 };
 
 const buildFirehoseResponse = ({ records, source, settled, snapshot }) => {
 	const out = records.map((record, idx) => {
 		const entry = settled[idx];
-		// Firehose requires base64 `data`, echoed as the original input. Prefer
-		// what the first in-place parser kept, then this middleware's own
-		// snapshot; re-encode only when neither holds the raw string.
-		const data = record?.[rawDataKey]?.data ?? snapshot[idx];
+		const field = firehosePayloadField(record);
+		const data = record?.[rawDataKey]?.[field] ?? snapshot[idx];
 		const inputData =
 			typeof data === "string" ? data : encodeFirehoseData(data);
 		const identifier = source.identify(record);
 		if (entry?.status === "fulfilled") {
-			return toFirehoseRecord(identifier, inputData, entry.value, "Ok");
+			return toFirehoseRecord(identifier, field, inputData, entry.value, "Ok");
 		}
 		return {
 			recordId: identifier,
 			result: "ProcessingFailed",
-			data: inputData,
+			[field]: inputData,
 		};
 	});
 	return { records: out };
@@ -170,9 +184,8 @@ const sources = Object.assign(Object.create(null), {
 	"aws:lambda:events": {
 		getRecords: (event) => asArray(event.records),
 		identify: (record) => record?.recordId,
-		// The input `data` is echoed back for failed and untransformed records;
-		// keep the raw base64 before a parser replaces it in place.
-		snapshot: (records) => records.map((record) => record?.data),
+		snapshot: (records) =>
+			records.map((record) => record?.[firehosePayloadField(record)]),
 		buildResponse: buildFirehoseResponse,
 	},
 });
@@ -218,7 +231,65 @@ export const flattenBatchRecords = (event) => {
 	return source.getRecords(event);
 };
 
-const eventBatchResponseMiddleware = () => {
+const defaults = {
+	logger: (request, { reason }) => console.error(reason),
+};
+
+const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:event-batch-response:options",
+	$defs: { Function: false },
+	type: "object",
+	properties: {
+		logger: {
+			oneOf: [{ $ref: "#/$defs/Function" }, { type: "boolean", const: false }],
+		},
+	},
+	required: [],
+	additionalProperties: false,
+	unevaluatedProperties: false,
+};
+
+export const eventBatchResponseValidateOptions = (options) =>
+	validateOptions(pkg, optionSchema, options);
+
+const settleLoggerPromise = async (logged) => {
+	try {
+		await logged;
+	} catch (e) {
+		console.error(e);
+	}
+};
+
+const awaitAll = async (promises) => {
+	await Promise.all(promises);
+};
+
+const logRecordFailures = (logger, request, records, settled) => {
+	const pendingLoggers = [];
+	for (let idx = 0; idx < records.length; idx += 1) {
+		const entry = settled[idx];
+		if (entry?.status === "fulfilled") continue;
+		try {
+			const logged = logger(request, {
+				reason: entry?.reason,
+				record: records[idx],
+			});
+			if (typeof logged?.then === "function") {
+				pendingLoggers.push(settleLoggerPromise(logged));
+			}
+		} catch (e) {
+			console.error(e);
+		}
+	}
+	if (pendingLoggers.length > 0) {
+		return awaitAll(pendingLoggers);
+	}
+};
+
+const eventBatchResponseMiddleware = (opts = {}) => {
+	const { logger } = { ...defaults, ...opts };
+
 	const eventBatchResponseMiddlewareBefore = (request) => {
 		const source = resolveBatchSource(request.event);
 		if (!source) return;
@@ -236,15 +307,23 @@ const eventBatchResponseMiddleware = () => {
 	const eventBatchResponseMiddlewareAfter = (request) => {
 		const cached = request.internal[pkg];
 		if (!cached) return;
-		if (!Array.isArray(request.response)) return;
+		const settled = request.response;
+		if (!Array.isArray(settled)) return;
 
-		request.response = cached.source.buildResponse({
-			records: cached.records,
-			source: cached.source,
-			snapshot: cached.snapshot,
-			settled: request.response,
+		const { source, records, snapshot } = cached;
+		const response = source.buildResponse({
+			records,
+			source,
+			snapshot,
+			settled,
 			request,
 		});
+		const pendingLoggers =
+			typeof logger === "function"
+				? logRecordFailures(logger, request, records, settled)
+				: undefined;
+		request.response = response;
+		return pendingLoggers;
 	};
 
 	const eventBatchResponseMiddlewareOnError = async (request) => {
@@ -260,7 +339,7 @@ const eventBatchResponseMiddleware = () => {
 			),
 		);
 
-		eventBatchResponseMiddlewareAfter(request);
+		await eventBatchResponseMiddlewareAfter(request);
 	};
 
 	return {

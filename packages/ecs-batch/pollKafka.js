@@ -1,44 +1,88 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-// The module object rather than a named import so a test's mock timers can
-// intercept setTimeout; a named import binds the real function at load time.
-import timers from "node:timers/promises";
 import { validateOptions } from "@middy/util";
 import { Kafka } from "kafkajs";
+import { retryDelay, sleep } from "./pollHelpers.js";
 
 const pkg = "@middy/ecs-batch/pollKafka";
 
+// "When delay is larger than 2147483647 or less than 1 or NaN, the delay will be set to 1."
+// https://nodejs.org/api/timers.html#settimeoutcallback-delay-args
+const maxTimerMs = 2_147_483_647;
+
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:ecs-batch:pollKafka:options",
+	$defs: { Object: false },
 	type: "object",
 	properties: {
-		clientId: { type: "string" },
-		brokers: { type: "array", items: { type: "string" }, minItems: 1 },
-		groupId: { type: "string" },
-		topics: { type: "array", items: { type: "string" }, minItems: 1 },
+		clientId: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\p{L}\p{N}\p{P}\p{S} ]+$/u,
+		},
+		// KAFKA_BOOTSTRAP_SERVERS "Maximum length of 300":
+		// https://docs.aws.amazon.com/lambda/latest/api/API_SelfManagedEventSource.html
+		brokers: {
+			type: "array",
+			items: {
+				type: "string",
+				maxLength: 300,
+				pattern: /^[\w.-]+:\d{1,5}$/u,
+			},
+			minItems: 1,
+			maxItems: 1024,
+			uniqueItems: true,
+			unevaluatedItems: false,
+		},
+		groupId: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\p{L}\p{N}\p{P}\p{S} ]+$/u,
+		},
+		// LEGAL_CHARS = "[a-zA-Z0-9._-]" and MAX_NAME_LENGTH = 249:
+		// https://github.com/apache/kafka/blob/trunk/clients/src/main/java/org/apache/kafka/common/internals/Topic.java
+		topics: {
+			type: "array",
+			items: {
+				type: "string",
+				maxLength: 249,
+				pattern: /^[\w.-]+$/u,
+			},
+			minItems: 1,
+			maxItems: 1024,
+			uniqueItems: true,
+			unevaluatedItems: false,
+		},
 		fromBeginning: { type: "boolean" },
-		client: { type: "object", additionalProperties: true },
-		consumer: { type: "object", additionalProperties: true },
-		ssl: { type: "boolean" },
-		eventSourceArn: { type: "string" },
+		client: { $ref: "#/$defs/Object" },
+		consumer: { $ref: "#/$defs/Object" },
+		// "The options are passed directly to tls.connect and used to create the
+		// TLS Secure Context, all options are accepted. Use ssl: true if you
+		// don't have any extra configurations and want to enable SSL."
+		// https://kafka.js.org/docs/configuration#ssl
+		ssl: { oneOf: [{ type: "boolean" }, { $ref: "#/$defs/Object" }] },
+		// EventSourceArn "arn:(aws[a-zA-Z0-9-]*):([a-zA-Z0-9\-])+:([a-z]{2}(-gov)?-[a-z]+-\d{1})?:(\d{12})?:(.*)":
+		// https://docs.aws.amazon.com/lambda/latest/api/API_CreateEventSourceMapping.html
+		eventSourceArn: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^arn:aws[\w-]*:[\w-]+:[\w-]*:(?:\d{12})?:[\x21-\x7E]+$/u,
+		},
 		selfManaged: { type: "boolean" },
-		heartbeatIntervalMs: { type: "integer", minimum: 1 },
+		heartbeatIntervalMs: { type: "integer", minimum: 1, maximum: maxTimerMs },
 		maxRetryAttempts: { type: "integer", minimum: -1, maximum: 10000 },
-		retryDelayMs: { type: "integer", minimum: 0 },
+		retryDelayMs: { type: "integer", minimum: 0, maximum: maxTimerMs },
 	},
 	required: ["brokers", "groupId", "topics"],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const pollKafkaValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
 const noop = () => {};
-
-// Backoff before a failed batch is fetched again: retryDelayMs, doubling per
-// consecutive failure of the same record, capped at 30 s (or retryDelayMs
-// when that is larger).
-const retryDelay = (retryDelayMs, attempt) =>
-	Math.min(retryDelayMs * 2 ** (attempt - 1), Math.max(retryDelayMs, 30_000));
 
 // A Buffer is a Uint8Array; viewing either over its own memory encodes the
 // same bytes without a copy.
@@ -233,13 +277,7 @@ export const pollKafka = (opts) => {
 			return new Set();
 		}
 		retries.set(partitionKey, { from, attempt });
-		try {
-			await timers.setTimeout(retryDelay(retryDelayMs, attempt), undefined, {
-				signal,
-			});
-		} catch {
-			// aborted: shutting down, the batch redelivers after restart
-		}
+		await sleep(retryDelay(retryDelayMs, attempt), signal);
 		return failed;
 	};
 

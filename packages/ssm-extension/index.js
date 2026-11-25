@@ -3,10 +3,12 @@
 import {
 	assignSetToContext,
 	buildSetToContextSpec,
+	cacheOptionSchemaProperties,
 	canPrefetch,
 	evictCacheOnFailure,
 	jsonSafeParse,
 	processCache,
+	reservedPropertyNames,
 	validateOptions,
 } from "@middy/util";
 
@@ -18,40 +20,51 @@ const defaults = {
 	disablePrefetch: false,
 	cacheKey: pkg,
 	cacheKeyExpiry: {},
-	cacheExpiry: -1,
+	// The extension is the cache: "the cached value is used for further
+	// invocations until it expires", after SSM_PARAMETER_STORE_TTL (300 s by
+	// default). It is asked on every invocation so the function sees the
+	// value it refreshed, instead of keeping the first one for good.
+	// https://docs.aws.amazon.com/systems-manager/latest/userguide/ps-integration-lambda-extensions.html
+	cacheExpiry: 0,
 	setToContext: false,
 	contextKey: name,
 };
 
+const internalKeySchema = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\x21-\x7E]+$/u,
+	not: { type: "string", enum: reservedPropertyNames },
+};
+
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:ssm-extension:options",
+	$defs: { Function: false },
 	type: "object",
 	properties: {
-		fetchData: { type: "object", additionalProperties: { type: "string" } },
-		disablePrefetch: { type: "boolean" },
-		cacheKey: { type: "string" },
-		cacheKeyExpiry: {
+		fetchData: {
 			type: "object",
+			propertyNames: internalKeySchema,
+			maxProperties: 1024,
+			required: [],
+			// "Parameter names can't contain spaces."
+			// https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_GetParameter.html
 			additionalProperties: {
-				type: "number",
-				minimum: -1,
-				maximum: Number.MAX_SAFE_INTEGER,
+				type: "string",
+				maxLength: 2048,
+				pattern: /^[\x21-\x7E]+$/u,
 			},
+			unevaluatedProperties: false,
 		},
-		cacheExpiry: {
-			type: "number",
-			minimum: -1,
-			maximum: Number.MAX_SAFE_INTEGER,
-		},
-		cacheMaxSize: {
-			type: "integer",
-			minimum: 1,
-			maximum: Number.MAX_SAFE_INTEGER,
-		},
+		...cacheOptionSchemaProperties,
 		setToContext: { type: "boolean" },
-		contextKey: { type: "string" },
-		awsSessionToken: { instanceof: "Function" },
+		contextKey: internalKeySchema,
+		awsSessionToken: { $ref: "#/$defs/Function" },
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const ssmExtensionValidateOptions = (options) =>

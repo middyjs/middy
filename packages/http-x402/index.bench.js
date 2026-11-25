@@ -1,5 +1,5 @@
 import { bench, suite } from "node:bench";
-import middy from "../core/index.js";
+import middy from "@middy/core";
 import httpX402 from "./index.js";
 
 class MockFacilitatorClient {
@@ -29,6 +29,7 @@ const setupHandler = () =>
 			price: 0.001,
 			payTo: "0xpayto",
 			asset: "0xasset",
+			facilitatorUrl: "https://facilitator.example.com",
 			// "unsupported version" reject.
 			versions: [1, 2],
 			FacilitatorClient: MockFacilitatorClient,

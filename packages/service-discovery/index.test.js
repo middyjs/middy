@@ -671,13 +671,109 @@ describe("@middy/service-discovery", () => {
 		}
 	});
 
-	test("validateOptions allows extra (additional) properties on a fetchData entry", () => {
+	const discover = (entry) => ({
+		fetchData: { ec2: { NamespaceName: "ns", ServiceName: "svc", ...entry } },
+	});
+
+	test("validateOptions rejects a fetchData entry key DiscoverInstances does not take", () => {
+		rejects(discover({ ExtraThing: "ok" }), "fetchData.ec2.ExtraThing");
+	});
+
+	test("validateOptions accepts every DiscoverInstances request parameter", () => {
+		// https://docs.aws.amazon.com/cloud-map/latest/api/API_DiscoverInstances.html
 		accepts({
 			fetchData: {
-				ec2: { NamespaceName: "ns", ServiceName: "svc", ExtraThing: "ok" },
+				ec2: {
+					NamespaceName:
+						"arn:aws:servicediscovery:us-west-2:123456789012:namespace/ns-e1tpmexample0001",
+					ServiceName: "example-dns-pub-service",
+					MaxResults: 1000,
+					QueryParameters: { version: "v1", az: "1a" },
+					OptionalParameters: { stage: "" },
+					HealthStatus: "HEALTHY_OR_ELSE_ALL",
+					OwnerAccount: "123456789012",
+				},
 			},
 		});
 	});
+
+	test("validateOptions bounds the fetchData internal keys", () => {
+		const entry = { NamespaceName: "ns", ServiceName: "svc" };
+		accepts({ fetchData: { "@middy/db.password!": entry } });
+		accepts({
+			fetchData: Object.fromEntries(
+				Array.from({ length: 1024 }, (_, i) => [`k${i}`, entry]),
+			),
+		});
+		rejects(
+			{
+				fetchData: Object.fromEntries(
+					Array.from({ length: 1025 }, (_, i) => [`k${i}`, entry]),
+				),
+			},
+			"fetchData",
+		);
+		rejects({ fetchData: { "a b": entry } }, "a b");
+		accepts({ fetchData: { ["k".repeat(1024)]: entry } });
+		rejects({ fetchData: { ["k".repeat(1025)]: entry } }, "kkk");
+	});
+
+	test("validateOptions applies the DiscoverInstances limits to NamespaceName", () => {
+		accepts(discover({ NamespaceName: "!~".repeat(512) }));
+		rejects(discover({ NamespaceName: "n".repeat(1025) }), "NamespaceName");
+		rejects(discover({ NamespaceName: "" }), "NamespaceName");
+		rejects(discover({ NamespaceName: "a b" }), "NamespaceName");
+	});
+
+	test("validateOptions applies the DiscoverInstances limits to ServiceName", () => {
+		accepts(discover({ ServiceName: "_a-b_.c" }));
+		accepts(discover({ ServiceName: "." }));
+		accepts(discover({ ServiceName: "s".repeat(127) }));
+		rejects(discover({ ServiceName: "s".repeat(128) }), "ServiceName");
+		rejects(discover({ ServiceName: "" }), "ServiceName");
+		rejects(discover({ ServiceName: "a:b" }), "ServiceName");
+	});
+
+	test("validateOptions applies the DiscoverInstances limits to MaxResults", () => {
+		rejects(discover({ MaxResults: 1001 }), "MaxResults");
+		rejects(discover({ MaxResults: 1.5 }), "MaxResults");
+	});
+
+	test("validateOptions applies the DiscoverInstances limits to OwnerAccount", () => {
+		rejects(discover({ OwnerAccount: 123456789012 }), "OwnerAccount");
+		rejects(discover({ OwnerAccount: "12345678901" }), "OwnerAccount");
+		rejects(discover({ OwnerAccount: "1234567890123" }), "OwnerAccount");
+		rejects(discover({ OwnerAccount: "12345678901a" }), "OwnerAccount");
+		rejects(discover({ OwnerAccount: "a12345678901" }), "OwnerAccount");
+	});
+
+	for (const name of ["QueryParameters", "OptionalParameters"]) {
+		test(`validateOptions applies the DiscoverInstances limits to ${name}`, () => {
+			accepts(discover({ [name]: { [`${"!~".repeat(127)}k`]: "v" } }));
+			accepts(discover({ [name]: { k: `!${" \t~".repeat(341)}` } }));
+			accepts(discover({ [name]: { k: "trailing " } }));
+			rejects(discover({ [name]: { ["k".repeat(256)]: "v" } }), name);
+			rejects(discover({ [name]: { "a b": "v" } }), name);
+			rejects(discover({ [name]: { k: "v".repeat(1025) } }), name);
+			rejects(discover({ [name]: { k: " leading" } }), name);
+			rejects(discover({ [name]: { k: "new\nline" } }), name);
+			accepts(
+				discover({
+					[name]: Object.fromEntries(
+						Array.from({ length: 1024 }, (_, i) => [`k${i}`, "v"]),
+					),
+				}),
+			);
+			rejects(
+				discover({
+					[name]: Object.fromEntries(
+						Array.from({ length: 1025 }, (_, i) => [`k${i}`, "v"]),
+					),
+				}),
+				name,
+			);
+		});
+	}
 
 	// optionSchema: cacheKeyExpiry
 	test("validateOptions rejects non-object cacheKeyExpiry", () => {
@@ -1092,5 +1188,67 @@ describe("@middy/service-discovery", () => {
 
 		await handler(defaultEvent, defaultContext);
 		ok(sends > afterFirst);
+	});
+
+	const expectSharedOptionError = (options, messagePart) => {
+		let error;
+		try {
+			serviceDiscoveryValidateOptions(options);
+		} catch (e) {
+			error = e;
+		}
+		ok(error instanceof TypeError, `expected a TypeError for ${messagePart}`);
+		strictEqual(error.cause.package, "@middy/service-discovery");
+		ok(error.message.includes(messagePart), error.message);
+	};
+
+	test("serviceDiscoveryValidateOptions validates awsClientOptions keys against the AWS SDK client config", () => {
+		serviceDiscoveryValidateOptions({
+			awsClientOptions: {
+				region: "us-east-1",
+				endpoint: "https://example.com",
+				credentials: async () => ({
+					accessKeyId: "AKID",
+					secretAccessKey: "secret",
+				}),
+			},
+		});
+		expectSharedOptionError(
+			{ awsClientOptions: { regoin: "us-east-1" } },
+			"awsClientOptions.regoin",
+		);
+	});
+
+	test("serviceDiscoveryValidateOptions validates awsClientAssumeRole as an internal key name", () => {
+		serviceDiscoveryValidateOptions({
+			awsClientAssumeRole: "@middy/sts.role-arn:a/b_1!",
+		});
+		serviceDiscoveryValidateOptions({ awsClientAssumeRole: "k".repeat(1024) });
+		expectSharedOptionError(
+			{ awsClientAssumeRole: "k".repeat(1025) },
+			"awsClientAssumeRole",
+		);
+		expectSharedOptionError({ awsClientAssumeRole: "" }, "awsClientAssumeRole");
+		expectSharedOptionError(
+			{ awsClientAssumeRole: "a b" },
+			"awsClientAssumeRole",
+		);
+	});
+
+	test("serviceDiscoveryValidateOptions validates contextKey as a key name", () => {
+		serviceDiscoveryValidateOptions({ contextKey: "@middy/ctx.name-a:b/c_1!" });
+		serviceDiscoveryValidateOptions({ contextKey: "k".repeat(1024) });
+		expectSharedOptionError({ contextKey: "k".repeat(1025) }, "contextKey");
+		expectSharedOptionError({ contextKey: "" }, "contextKey");
+		expectSharedOptionError({ contextKey: "a b" }, "contextKey");
+	});
+
+	test("serviceDiscoveryValidateOptions validates the cache options with the shared rules", () => {
+		serviceDiscoveryValidateOptions({
+			cacheKey: "@middy/service-discovery",
+			cacheKeyExpiry: { "@middy/service-discovery": 1000 },
+		});
+		expectSharedOptionError({ cacheKey: "a b" }, "cacheKey");
+		expectSharedOptionError({ cacheKeyExpiry: { "a b": 1000 } }, "a b");
 	});
 });

@@ -44,6 +44,35 @@ test("Options logger accepts false to disable logging", () => {
 	expect<true>().type.not.toBeAssignableTo<NonNullable<Options["logger"]>>();
 });
 
+test("Options omitPaths accepts the array path form", () => {
+	expect(sqsPartialBatchFailure).type.toBeCallableWith({
+		omitPaths: [
+			"event.headers.authorization",
+			["event", "Records", "[]", "messageAttributes", "user.email"],
+		],
+	});
+	expect(sqsPartialBatchFailure).type.toBeCallableWith({
+		omitPaths: [
+			["event", "Records", "[]", "messageAttributes", "user.email"],
+		] as const,
+	});
+	expect<Array<string | string[]>>().type.toBeAssignableTo<
+		NonNullable<Options["omitPaths"]>
+	>();
+	expect<number[][]>().type.not.toBeAssignableTo<
+		NonNullable<Options["omitPaths"]>
+	>();
+	expect<string>().type.not.toBeAssignableTo<
+		NonNullable<Options["omitPaths"]>
+	>();
+});
+
+test("logger may be async", () => {
+	expect(sqsPartialBatchFailure).type.toBeCallableWith({
+		logger: async () => {},
+	});
+});
+
 test("Options omitPaths accepts string array", () => {
 	expect<string[]>().type.toBeAssignableTo<NonNullable<Options["omitPaths"]>>();
 	expect<number[]>().type.not.toBeAssignableTo<

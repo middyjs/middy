@@ -5,31 +5,66 @@ import { contextNamespace, HttpError, validateOptions } from "@middy/util";
 const name = "http-content-negotiation";
 const pkg = `@middy/${name}`;
 
+const listOf = (items) => ({
+	type: "array",
+	items,
+	maxItems: 1024,
+	uniqueItems: true,
+	unevaluatedItems: false,
+});
+
+const contentCodings = ["br", "deflate", "gzip", "zstd", "identity"];
+
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:http-content-negotiation:options",
 	type: "object",
 	properties: {
 		parseCharsets: { type: "boolean" },
-		availableCharsets: { type: "array", items: { type: "string" } },
+		// RFC 9110 section 8.3.2: "charset = token"
+		// https://www.rfc-editor.org/rfc/rfc9110#section-8.3.2
+		availableCharsets: listOf({
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\w!#$%&'*+.^`|~-]+$/u,
+		}),
 		defaultToFirstCharset: { type: "boolean" },
 		parseEncodings: { type: "boolean" },
 		availableEncodings: {
-			type: "array",
-			items: {
-				type: "string",
-				enum: ["br", "deflate", "gzip", "zstd", "identity"],
-			},
+			...listOf({ type: "string", enum: contentCodings }),
+			maxItems: contentCodings.length,
 		},
 		defaultToFirstEncoding: { type: "boolean" },
 		parseLanguages: { type: "boolean" },
-		availableLanguages: { type: "array", items: { type: "string" } },
+		// RFC 5646 section 2.1: every subtag is 1 to 8 alphanumerics, joined by "-"
+		// https://www.rfc-editor.org/rfc/rfc5646#section-2.1
+		availableLanguages: listOf({
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8}){0,127}$/u,
+		}),
 		defaultToFirstLanguage: { type: "boolean" },
 		parseMediaTypes: { type: "boolean" },
-		availableMediaTypes: { type: "array", items: { type: "string" } },
+		// RFC 9110 section 8.3.1 media-type with RFC 6838 section 4.2 restricted-name
+		// https://www.rfc-editor.org/rfc/rfc9110#section-8.3.1
+		// https://www.rfc-editor.org/rfc/rfc6838#section-4.2
+		availableMediaTypes: listOf({
+			type: "string",
+			maxLength: 1024,
+			pattern:
+				/^[A-Za-z0-9][\w!#$&^.+-]{0,126}\/[A-Za-z0-9][\w!#$&^.+-]{0,126}(?:[ \t]*;[ \t]*[\w!#$%&'*+.^`|~-]+=(?:[\w!#$%&'*+.^`|~-]+|"[\t \x21\x23-\x5B\x5D-\x7E]*")){0,32}$/u,
+		}),
 		defaultToFirstMediaType: { type: "boolean" },
 		failOnMismatch: { type: "boolean" },
-		contextKey: { type: "string" },
+		contextKey: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^[\x21-\x7E]+$/u,
+		},
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const httpContentNegotiationValidateOptions = (options) =>
@@ -40,9 +75,23 @@ import encoding from "negotiator/lib/encoding.js";
 import language from "negotiator/lib/language.js";
 import mediaType from "negotiator/lib/mediaType.js";
 
+// RFC 9110 section 12.5.3: "If a non-empty Accept-Encoding header field is
+// present in a request and none of the available representations for the
+// response have a content coding that is listed as acceptable, the origin
+// server SHOULD send a response without any content coding unless the
+// identity coding is indicated as unacceptable."
+// https://www.rfc-editor.org/rfc/rfc9110#section-12.5.3
+const identityEncoding = ["identity"];
+const parseEncoding = (headerValue, availableEncodings) => {
+	const results = encoding(headerValue, availableEncodings);
+	return results.length === 0
+		? encoding(headerValue, identityEncoding)
+		: results;
+};
+
 const parseFn = {
 	Charset: charset,
-	Encoding: encoding,
+	Encoding: parseEncoding,
 	Language: language,
 	MediaType: mediaType,
 };

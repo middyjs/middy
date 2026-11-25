@@ -12,13 +12,18 @@ const name = "http-json-body-parser";
 const pkg = `@middy/${name}`;
 
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:http-json-body-parser:options",
+	$defs: { Function: false },
 	type: "object",
 	properties: {
-		reviver: { instanceof: "Function" },
+		reviver: { $ref: "#/$defs/Function" },
 		disableContentTypeCheck: { type: "boolean" },
 		disableContentTypeError: { type: "boolean" },
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const httpJsonBodyParserValidateOptions = (options) =>

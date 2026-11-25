@@ -47,37 +47,40 @@ npm install --save @middy/http-json-body-parser @middy/http-error-handler @middy
 ## Example
 
 ```javascript
-import middy from '@middy/core'
-import httpJsonBodyParser from '@middy/http-json-body-parser'
-import httpErrorHandler from '@middy/http-error-handler'
-import validator from '@middy/validator'
-import { transpileSchema } from '@middy/validator/transpile'
+import middy from "@middy/core";
+import httpJsonBodyParser from "@middy/http-json-body-parser";
+import httpErrorHandler from "@middy/http-error-handler";
+import validator from "@middy/validator";
+import { transpileSchema } from "@middy/validator/transpile";
 
 const schema = {
-  type: 'object',
-  properties: {
-    body: {
-      type: 'object',
-      properties: {
-        amount: { type: 'number' },
-        currency: { type: 'string' }
-      },
-      required: ['amount', 'currency']
-    }
-  }
-}
+	type: "object",
+	properties: {
+		body: {
+			type: "object",
+			properties: {
+				amount: { type: "number" },
+				currency: { type: "string" },
+			},
+			required: ["amount", "currency"],
+		},
+	},
+};
 
 const lambdaHandler = async (event) => {
-  const { amount, currency } = event.body
-  // ... business logic
-  return { statusCode: 200, body: JSON.stringify({ ok: true, amount, currency }) }
-}
+	const { amount, currency } = event.body;
+	// ... business logic
+	return {
+		statusCode: 200,
+		body: JSON.stringify({ ok: true, amount, currency }),
+	};
+};
 
 export const handler = middy()
-  .use(httpJsonBodyParser())
-  .use(validator({ eventSchema: transpileSchema(schema) }))
-  .use(httpErrorHandler())
-  .handler(lambdaHandler)
+	.use(httpJsonBodyParser())
+	.use(validator({ eventSchema: transpileSchema(schema) }))
+	.use(httpErrorHandler())
+	.handler(lambdaHandler);
 ```
 
 ## When to use Middy
@@ -113,4 +116,4 @@ See [When to use Middy](https://middy.js.org/docs/intro/when-to-use) and [Middy 
 
 ## License
 
-Licensed under [MIT License](LICENSE). Copyright (c) 2017-2026 [will Farrell](https://github.com/willfarrell), [Luciano Mammino](https://github.com/lmammino),  and [Middy contributors](https://github.com/middyjs/middy/graphs/contributors).
+Licensed under [MIT License](LICENSE). Copyright (c) 2017-2026 [will Farrell](https://github.com/willfarrell), [Luciano Mammino](https://github.com/lmammino), and [Middy contributors](https://github.com/middyjs/middy/graphs/contributors).

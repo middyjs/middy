@@ -1,4 +1,5 @@
 ---
+
 title: ssm-extension
 description: "Fetch SSM Parameter Store values via the AWS Parameters and Secrets Lambda Extension, no SDK, lower latency, automatic caching."
 status: alpha
@@ -52,29 +53,29 @@ npm install --save @middy/ssm-extension
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import { getInternal } from '@middy/util'
-import ssmExtension from '@middy/ssm-extension'
+import middy from "@middy/core";
+import { getInternal } from "@middy/util";
+import ssmExtension from "@middy/ssm-extension";
 
 const lambdaHandler = (event, context) => {
-  return {}
-}
+	return {};
+};
 
 export const handler = middy()
-  .use(
-    ssmExtension({
-      fetchData: {
-        accessToken: '/dev/service_name/access_token'
-      },
-      cacheExpiry: 15 * 60 * 1000,
-      cacheKey: 'ssm-defaults'
-    })
-  )
-  .before(async (request) => {
-    const { accessToken } = await getInternal(['accessToken'], request)
-    // use accessToken
-  })
-  .handler(lambdaHandler)
+	.use(
+		ssmExtension({
+			fetchData: {
+				accessToken: "/dev/service_name/access_token",
+			},
+			cacheExpiry: 15 * 60 * 1000,
+			cacheKey: "ssm-defaults",
+		}),
+	)
+	.before(async (request) => {
+		const { accessToken } = await getInternal(["accessToken"], request);
+		// use accessToken
+	})
+	.handler(lambdaHandler);
 ```
 
 ## Usage with TypeScript
@@ -82,35 +83,35 @@ export const handler = middy()
 Use `ssmExtensionParam<T>()` to provide type hints for fetched values:
 
 ```typescript
-import middy from '@middy/core'
-import { getInternal } from '@middy/util'
-import ssmExtension, { ssmExtensionParam } from '@middy/ssm-extension'
-import type { Context as LambdaContext } from 'aws-lambda'
+import middy from "@middy/core";
+import { getInternal } from "@middy/util";
+import ssmExtension, { ssmExtensionParam } from "@middy/ssm-extension";
+import type { Context as LambdaContext } from "aws-lambda";
 
 interface DbConfig {
-  host: string
-  port: number
+	host: string;
+	port: number;
 }
 
 const lambdaHandler = (event: {}, context: LambdaContext) => {
-  return {}
-}
+	return {};
+};
 
 export const handler = middy()
-  .use(
-    ssmExtension({
-      fetchData: {
-        accessToken: ssmExtensionParam<string>('/dev/service/access_token'),
-        dbConfig: ssmExtensionParam<DbConfig>('/dev/service/db_config')
-      },
-      cacheExpiry: 15 * 60 * 1000,
-      cacheKey: 'ssm-params'
-    })
-  )
-  .before(async (request) => {
-    const data = await getInternal(['accessToken', 'dbConfig'], request)
-    // data.accessToken is typed as string
-    // data.dbConfig is typed as DbConfig
-  })
-  .handler(lambdaHandler)
+	.use(
+		ssmExtension({
+			fetchData: {
+				accessToken: ssmExtensionParam<string>("/dev/service/access_token"),
+				dbConfig: ssmExtensionParam<DbConfig>("/dev/service/db_config"),
+			},
+			cacheExpiry: 15 * 60 * 1000,
+			cacheKey: "ssm-params",
+		}),
+	)
+	.before(async (request) => {
+		const data = await getInternal(["accessToken", "dbConfig"], request);
+		// data.accessToken is typed as string
+		// data.dbConfig is typed as DbConfig
+	})
+	.handler(lambdaHandler);
 ```

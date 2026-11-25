@@ -1,4 +1,5 @@
 ---
+
 title: http-dpop
 description: "Require a DPoP (RFC 9449) proof of possession for sender-constrained access tokens, so a stolen token is useless on its own."
 status: alpha
@@ -27,7 +28,7 @@ There is no peer dependency: verification uses `node:crypto` only.
 - `proofKey` (string) (default `dpop`): Key under which the verified proof claims are stored.
 - `confirmationClaim` (string) (default `cnf`): Claim holding `{ jkt }`. Only change this if your authorization server puts the thumbprint somewhere non-standard.
 - `origin` (string) (optional): The `https://host` the proof's `htu` must name. When omitted it is derived from `requestContext.domainName`, which API Gateway sets from the domain that served the request. Set it explicitly behind a CDN, a custom proxy, or an ALB. It may carry a base path (`https://api.example.com/v1`), which is what a custom domain's API mapping needs; see the note below. A trailing slash is trimmed, and a value that is not a URL throws at construction rather than failing every request.
-- `algorithm` (string | string[]) (optional): Allowed proof algorithms. Defaults to all of `ES256`, `ES384`, `ES512`, `PS256`, `RS256`, `EdDSA`. Narrow it if you control every client.
+- `algorithm` (string | string[]) (optional): Allowed proof algorithms. Defaults to all of `ES256`, `ES384`, `ES512`, `PS256`, `RS256`, `EdDSA`, `Ed25519`. `Ed25519` is the fully-specified name for `EdDSA` over Ed25519 (RFC 9864); both verify the same key. Narrow it if you control every client.
 - `maxAge` (number) (default `60`): How many seconds either side of now a proof's `iat` may fall.
 - `maxProofLength` (number) (default `8192`): Longest `DPoP` header accepted, checked before anything parses it.
 - `required` (boolean) (default `false`): When `true`, a token with no confirmation claim is rejected instead of passed through.
@@ -52,43 +53,43 @@ NOTES:
 ### With `@middy/http-jwt`
 
 ```javascript
-import middy from '@middy/core'
-import httpJwt from '@middy/http-jwt'
-import httpDpop from '@middy/http-dpop'
-import httpErrorHandler from '@middy/http-error-handler'
+import middy from "@middy/core";
+import httpJwt from "@middy/http-jwt";
+import httpDpop from "@middy/http-dpop";
+import httpErrorHandler from "@middy/http-error-handler";
 
 const lambdaHandler = async (event) => {
-  // The verified proof is on request.internal.dpop.
-  return { statusCode: 200, body: JSON.stringify({ ok: true }) }
-}
+	// The verified proof is on request.internal.dpop.
+	return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+};
 
 export const handler = middy()
-  .use(
-    httpJwt({
-      issuers: {
-        'https://auth.example.com': {
-          jwksUri: 'https://auth.example.com/.well-known/jwks.json',
-          audience: 'https://api.example.com',
-        },
-      },
-      algorithm: 'RS256',
-    }),
-  )
-  // After the verifier: only it can turn the token into the `cnf` claim.
-  .use(httpDpop({ payloadKey: 'jwt' }))
-  .use(httpErrorHandler())
-  .handler(lambdaHandler)
+	.use(
+		httpJwt({
+			issuers: {
+				"https://auth.example.com": {
+					jwksUri: "https://auth.example.com/.well-known/jwks.json",
+					audience: "https://api.example.com",
+				},
+			},
+			algorithm: "RS256",
+		}),
+	)
+	// After the verifier: only it can turn the token into the `cnf` claim.
+	.use(httpDpop({ payloadKey: "jwt" }))
+	.use(httpErrorHandler())
+	.handler(lambdaHandler);
 ```
 
 ### With `@middy/http-paseto`
 
 ```javascript
 export const handler = middy()
-  .use(kms({ fetchData: { pasetoKey: 'alias/paseto-signing-key' } }))
-  .use(httpPaseto({ internalKey: 'pasetoKey', payloadKey: 'paseto' }))
-  .use(httpDpop({ payloadKey: 'paseto', origin: 'https://api.example.com' }))
-  .use(httpErrorHandler())
-  .handler(lambdaHandler)
+	.use(kms({ fetchData: { pasetoKey: "alias/paseto-signing-key" } }))
+	.use(httpPaseto({ internalKey: "pasetoKey", payloadKey: "paseto" }))
+	.use(httpDpop({ payloadKey: "paseto", origin: "https://api.example.com" }))
+	.use(httpErrorHandler())
+	.handler(lambdaHandler);
 ```
 
 ### Requiring a bound token
@@ -134,18 +135,22 @@ If your threat model needs it, the verified claims are published at `request.int
 
 ```javascript
 const dpopReplay = (table) => ({
-  before: async (request) => {
-    const { jti, iat } = request.internal.dpop ?? {}
-    if (!jti) return // unbound token, nothing to check
-    // Conditional put; throw a 401 if the jti already exists.
-    await putOnce(table, jti, iat + 60)
-  },
-})
+	before: async (request) => {
+		const { jti, iat } = request.internal.dpop ?? {};
+		if (!jti) return; // unbound token, nothing to check
+		// Conditional put; throw a 401 if the jti already exists.
+		await putOnce(table, jti, iat + 60);
+	},
+});
 
 export const handler = middy()
-  .use(httpJwt({ /* ... */ }))
-  .use(httpDpop())
-  .use(dpopReplay('dpop-jti'))
+	.use(
+		httpJwt({
+			/* ... */
+		}),
+	)
+	.use(httpDpop())
+	.use(dpopReplay("dpop-jti"));
 ```
 
 The stronger answer in the spec is the `DPoP-Nonce` flow (RFC 9449 §8), where the server controls freshness directly. It is not implemented here yet.

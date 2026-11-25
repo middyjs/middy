@@ -1,4 +1,5 @@
 ---
+
 title: Early Response
 description: "Learn how to return early responses from Middy middleware, useful for caching and authorization."
 position: 4
@@ -15,51 +16,50 @@ In this example, we can use this capability for building a sample caching middle
 ```javascript
 // some function that calculates the cache id based on the current event
 const calculateCacheId = (event) => {
-  /* ... */
-}
-const storage = {}
+	/* ... */
+};
+const storage = {};
 
 // middleware
 const cacheMiddleware = (options) => {
-  let cacheKey
+	let cacheKey;
 
-  const cacheMiddlewareBefore = async (request) => {
-    cacheKey = options.calculateCacheId(request.event)
-    if (Object.hasOwnProperty.call(options.storage, cacheKey)) {
+	const cacheMiddlewareBefore = async (request) => {
+		cacheKey = options.calculateCacheId(request.event);
+		if (Object.hasOwnProperty.call(options.storage, cacheKey)) {
+			// if the value can be `undefined` use this line
+			request.earlyResponse = options.storage[cacheKey];
 
-      // if the value can be `undefined` use this line
-      request.earlyResponse = options.storage[cacheKey]
+			// exits early and returns the value from the cache if it's already there
+			return options.storage[cacheKey];
+		}
+	};
 
-      // exits early and returns the value from the cache if it's already there
-      return options.storage[cacheKey]
-    }
-  }
+	const cacheMiddlewareAfter = async (request) => {
+		// stores the calculated response in the cache
+		options.storage[cacheKey] = request.response;
+	};
 
-  const cacheMiddlewareAfter = async (request) => {
-    // stores the calculated response in the cache
-    options.storage[cacheKey] = request.response
-  }
+	const cacheMiddlewareOnError = async (request) => {
+		// Note: onError cannot earlyResonse with undefined
+	};
 
-  const cacheMiddlewareOnError = async (request) => {
-    // Note: onError cannot earlyResonse with undefined
-  }
-
-  return {
-    before: cacheMiddlewareBefore,
-    after: cacheMiddlewareAfter
-  }
-}
+	return {
+		before: cacheMiddlewareBefore,
+		after: cacheMiddlewareAfter,
+	};
+};
 
 // sample usage
 const lambdaHandler = (event, context) => {
-  /* ... */
-}
+	/* ... */
+};
 export const handler = middy()
-  .use(
-    cacheMiddleware({
-      calculateCacheId,
-      storage
-    })
-  )
-  .handler(lambdaHandler)
+	.use(
+		cacheMiddleware({
+			calculateCacheId,
+			storage,
+		}),
+	)
+	.handler(lambdaHandler);
 ```

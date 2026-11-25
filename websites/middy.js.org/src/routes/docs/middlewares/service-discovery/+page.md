@@ -1,4 +1,5 @@
 ---
+
 title: service-discovery
 description: "Fetch AWS Cloud Map service discovery instances for connecting to other services."
 ---
@@ -36,31 +37,31 @@ NOTES:
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import serviceDiscovery from '@middy/service-discovery'
+import middy from "@middy/core";
+import serviceDiscovery from "@middy/service-discovery";
 
 const lambdaHandler = (event, context) => {
-  const response = {
-    statusCode: 200,
-    headers: {},
-    body: JSON.stringify({ message: 'hello world' })
-  }
+	const response = {
+		statusCode: 200,
+		headers: {},
+		body: JSON.stringify({ message: "hello world" }),
+	};
 
-  return response
-}
+	return response;
+};
 
 export const handler = middy()
-  .use(
-    serviceDiscovery({
-      fetchData: {
-        instances: {
-          NamespaceName: '...',
-          ServiceName: '...'
-        }
-      }
-    })
-  )
-  .handler(lambdaHandler)
+	.use(
+		serviceDiscovery({
+			fetchData: {
+				instances: {
+					NamespaceName: "...",
+					ServiceName: "...",
+				},
+			},
+		}),
+	)
+	.handler(lambdaHandler);
 ```
 
 ## Bundling

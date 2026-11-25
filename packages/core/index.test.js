@@ -9,6 +9,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { spawnSync } from "node:child_process";
 import { syncBuiltinESMExports } from "node:module";
 import { describe, test } from "node:test";
+import timers from "node:timers";
 import { DurablePromise } from "@aws/durable-execution-sdk-js";
 import { contextNamespace } from "@middy/util";
 import middy, { middyValidateOptions } from "./index.js";
@@ -325,6 +326,19 @@ describe("@middy/core", () => {
 	test('"middy" should allow setting plugin as first arg', async (t) => {
 		const executed = [];
 		const handler = middy({
+			beforePrefetch: () => {
+				executed.push("beforePrefetch");
+			},
+		}).handler(() => {
+			executed.push("handler");
+		});
+		await handler(defaultEvent, defaultContext);
+		deepStrictEqual(executed, ["beforePrefetch", "handler"]);
+	});
+
+	test('"middy" should apply the plugin given as second arg when the handler arg is undefined', async (t) => {
+		const executed = [];
+		const handler = middy(undefined, {
 			beforePrefetch: () => {
 				executed.push("beforePrefetch");
 			},
@@ -1317,6 +1331,27 @@ describe("@middy/core", () => {
 		ok(Date.now() - started < 1_000);
 	});
 
+	test("Should not race the handler when the remaining time is not a number", async (t) => {
+		t.mock.timers.reset();
+		syncBuiltinESMExports();
+		const handler = middy(
+			() =>
+				new Promise((resolve) => {
+					setTimeout(() => resolve("response"), 20);
+				}),
+			{
+				timeoutEarlyInMillis: 1,
+				timeoutEarlyResponse: () => "timed out",
+			},
+		);
+
+		const response = await handler(defaultEvent, {
+			getRemainingTimeInMillis: () => undefined,
+		});
+
+		strictEqual(response, "response");
+	});
+
 	test("Should not keep the process alive once requests finish", () => {
 		// Real timers in a child process: a 60s early-timeout timer left
 		// holding the event loop would keep it running past the spawn timeout.
@@ -1710,6 +1745,20 @@ describe("@middy/core", () => {
 		strictEqual(response, "response");
 	});
 
+	test("Should add its early-timeout timer to the Set a durable mode keeps on lambdaContext", async (t) => {
+		const timers = new Set();
+		const handler = middy(async () => "response");
+
+		await handler(defaultEvent, {
+			getRemainingTimeInMillis: () => 1000,
+			lambdaContext: {
+				[Symbol.for("@middy/core/timeoutEarlyTimers")]: timers,
+			},
+		});
+
+		strictEqual(timers.size, 1);
+	});
+
 	test("Should use lambdaContext.getRemainingTimeInMillis as fallback", async (t) => {
 		await withMockedCoreTimers(t, async () => {
 			let clockReads = 0;
@@ -1835,6 +1884,59 @@ describe("@middy/core", () => {
 		process.removeListener("warning", onWarning);
 
 		ok(!warnings.includes("TimeoutOverflowWarning"));
+	});
+
+	test("Should not time out when the clock reports no limit", async (t) => {
+		await withMockedCoreTimers(t, async () => {
+			const settled = [];
+			const handler = middy(
+				() =>
+					new Promise((resolve) => setTimeout(() => resolve("late"), 900_000)),
+				{ timeoutEarlyInMillis: 5, timeoutEarlyResponse: () => "early" },
+			);
+			handler(defaultEvent, {
+				getRemainingTimeInMillis: () => Number.POSITIVE_INFINITY,
+			}).then((response) => settled.push([response, Date.now()]));
+			const flush = () => new Promise((resolve) => setImmediate(resolve));
+			t.mock.timers.tick(899_999);
+			await flush();
+			deepStrictEqual(settled, []);
+			t.mock.timers.tick(1);
+			await flush();
+			deepStrictEqual(settled, [["late", 900_000]]);
+		});
+	});
+
+	test("Should arm no early-timeout timer when the remaining time is not finite", async (t) => {
+		t.mock.timers.reset();
+		const coreSetTimeout = t.mock.method(timers, "setTimeout");
+		syncBuiltinESMExports();
+		try {
+			const run = (remainingTime) =>
+				middy(
+					() =>
+						new Promise((resolve) => {
+							globalThis.setTimeout(() => resolve("response"), 20);
+						}),
+					{ timeoutEarlyInMillis: 5, timeoutEarlyResponse: () => "early" },
+				)(defaultEvent, { getRemainingTimeInMillis: () => remainingTime });
+
+			strictEqual(await run(1_000), "response");
+			strictEqual(coreSetTimeout.mock.callCount(), 1);
+
+			for (const remainingTime of [
+				Number.POSITIVE_INFINITY,
+				Number.NEGATIVE_INFINITY,
+				Number.NaN,
+			]) {
+				coreSetTimeout.mock.resetCalls();
+				strictEqual(await run(remainingTime), "response");
+				strictEqual(coreSetTimeout.mock.callCount(), 0, String(remainingTime));
+			}
+		} finally {
+			coreSetTimeout.mock.restore();
+			syncBuiltinESMExports();
+		}
 	});
 
 	test("Should not invoke timeoutEarlyResponse on error", async (t) => {
@@ -2221,6 +2323,15 @@ describe("@middy/core", () => {
 		}
 	});
 
+	test("middyValidateOptions caps timeoutEarlyInMillis at the setTimeout maximum delay", () => {
+		middyValidateOptions({ timeoutEarlyInMillis: 2147483647 });
+		throws(() => middyValidateOptions({ timeoutEarlyInMillis: 2147483648 }), {
+			name: "TypeError",
+			message: "Option 'timeoutEarlyInMillis' must be <= 2147483647",
+			cause: { package: "@middy/core" },
+		});
+	});
+
 	test("middyValidateOptions rejects non-object internal", () => {
 		try {
 			middyValidateOptions({ internal: "not-an-object" });
@@ -2235,6 +2346,22 @@ describe("@middy/core", () => {
 		middyValidateOptions({
 			internal: { anything: 1, nested: { value: true }, arr: [1, 2] },
 		});
+	});
+
+	test("middyValidateOptions takes internal as runtime state, not JSON data", () => {
+		middyValidateOptions({
+			internal: {
+				pending: Promise.resolve("value"),
+				client: new (class Client {})(),
+			},
+		});
+		for (const internal of [null, "not-an-object", 1]) {
+			throws(() => middyValidateOptions({ internal }), {
+				name: "TypeError",
+				message: "Option 'internal' must be instanceof Object",
+				cause: { package: "@middy/core" },
+			});
+		}
 	});
 
 	// index.js:66 - timeoutEarly is false when timeoutEarlyInMillis is 0
@@ -2512,6 +2639,105 @@ describe("@middy/core", () => {
 		}
 		strictEqual(caught, handlerError);
 		deepStrictEqual(onErrorCalls, []);
+	});
+
+	test("the default early timeout does not race the handler under a durable execution context", async (t) => {
+		await withMockedCoreTimers(t, async () => {
+			const durableContext = {
+				[Symbol.for("@aws/durable-execution-sdk-js/durable-context")]: true,
+				getRemainingTimeInMillis: () => 10,
+			};
+			const handler = middy(
+				() => new Promise((resolve) => setTimeout(() => resolve("late"), 100)),
+			);
+
+			const pending = handler(defaultEvent, durableContext);
+			t.mock.timers.tick(100);
+
+			strictEqual(await pending, "late");
+		});
+	});
+
+	test("an early timeout set explicitly races the handler under a durable execution context", async (t) => {
+		await withMockedCoreTimers(t, async () => {
+			const durableContext = {
+				[Symbol.for("@aws/durable-execution-sdk-js/durable-context")]: true,
+				getRemainingTimeInMillis: () => 10,
+			};
+			const handler = middy(
+				() => new Promise((resolve) => setTimeout(() => resolve("late"), 100)),
+				{ timeoutEarlyInMillis: 1, timeoutEarlyResponse: () => "early" },
+			);
+
+			const pending = handler(defaultEvent, durableContext);
+			t.mock.timers.tick(100);
+
+			strictEqual(await pending, "early");
+		});
+	});
+
+	class DurableContextDouble {
+		[Symbol.for("@aws/durable-execution-sdk-js/durable-context")] = true;
+		functionName = "durable-fn";
+		#steps = 0;
+		step() {
+			this.#steps += 1;
+			return this.#steps;
+		}
+	}
+
+	test("a nested middy calls the durable context's methods on the durable context itself", async (t) => {
+		const inner = middy((event, context) => context.step());
+		const outer = middy(async (event, context) => [
+			await inner(event, context),
+			await inner(event, context),
+			context.step(),
+		]);
+
+		const steps = await outer(defaultEvent, new DurableContextDouble());
+
+		deepStrictEqual(steps, [1, 2, 3]);
+	});
+
+	test("a nested middy under a durable context reads the outer context and keeps its own writes", async (t) => {
+		const seen = {};
+		const inner = middy((event, context) => {
+			seen.innerFunctionName = context.functionName;
+			seen.innerX = context.middyContext.x;
+		}).before((request) => {
+			request.context.middyContext.y = "inner";
+			request.context.extra = "inner";
+		});
+		const outer = middy(inner)
+			.before((request) => {
+				request.context.middyContext.x = "outer";
+			})
+			.after((request) => {
+				seen.outerY = request.context.middyContext.y;
+				seen.outerExtra = request.context.extra;
+			});
+
+		await outer(defaultEvent, new DurableContextDouble());
+
+		deepStrictEqual(seen, {
+			innerFunctionName: "durable-fn",
+			innerX: "outer",
+			outerY: undefined,
+			outerExtra: undefined,
+		});
+	});
+
+	test("a nested middy outside a durable execution reads the outer context's functions unchanged", async (t) => {
+		const getRemainingTimeInMillis = () => 1000;
+		let innerClock;
+		const inner = middy((event, context) => {
+			innerClock = context.getRemainingTimeInMillis;
+		});
+		const outer = middy(inner);
+
+		await outer(defaultEvent, { getRemainingTimeInMillis });
+
+		strictEqual(innerClock, getRemainingTimeInMillis);
 	});
 
 	// #1661 contract: a store entered with enterWith() in a hook's

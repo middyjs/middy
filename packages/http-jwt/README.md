@@ -48,6 +48,14 @@ By default `requireExp` is `true`, so a token without an `exp` claim is rejected
 
 With `issuers`, every entry must resolve an `audience` (its own or the top-level one), or the factory throws: a shared issuer signs tokens for every client it serves, and [RFC 9068 section 4](https://www.rfc-editor.org/rfc/rfc9068#section-4) requires the resource server to check `aud`. Set `audience: null` to opt out explicitly, for example for Amazon Cognito access tokens, which carry `client_id` instead of `aud`; check that with `expectedClaims: { client_id }`.
 
+With `internalKey`, both `audience` and `issuer` must be set, or the factory throws. A static key or secret is often shared by several services, so without them a token minted for one service is accepted by every other ([RFC 9068 section 4](https://www.rfc-editor.org/rfc/rfc9068#section-4), [RFC 8725 section 3.9](https://www.rfc-editor.org/rfc/rfc8725#section-3.9)). Set either to `null` to opt out of that check explicitly.
+
+An HMAC secret must be at least as long as the hash output of every configured `HS*` algorithm: 32 bytes for `HS256`, 48 for `HS384`, 64 for `HS512` ([RFC 7518 section 3.2](https://www.rfc-editor.org/rfc/rfc7518#section-3.2)). A shorter one, whether a string, a secret `KeyObject` or an HMAC `CryptoKey`, is a `500` on every request.
+
+With `issuers`, an `HS*` algorithm is refused at construction, whether set on the entry or inherited from the top level. A JWKS is fetched in the clear by anyone who can reach it, so a symmetric key in one is a published secret ([RFC 7517 section 9.2](https://www.rfc-editor.org/rfc/rfc7517#section-9.2)) and no HS-signed token can verify against it. HMAC secrets go through `internalKey`.
+
+A JWKS is never used past `cacheExpiry`. Once it has expired and cannot be refreshed, every request fails with the `502` or `504` of the refresh instead of being verified against the expired document, so a key the issuer has withdrawn stops verifying during an outage.
+
 
 ## Contributing
 

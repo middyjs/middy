@@ -12,11 +12,15 @@ const defaultContext = {
 
 const secret = "super-secret-key-for-perf-benchmark-1234";
 const secretBuffer = Buffer.from(secret);
+const audience = "https://api.example.com";
+const issuer = "https://auth.example.com";
 
 const token = await new SignJWT({ sub: "perf-user", role: "admin" })
 	.setProtectedHeader({ alg: "HS256", typ: "at+jwt" })
 	.setIssuedAt()
 	.setExpirationTime("1h")
+	.setAudience(audience)
+	.setIssuer(issuer)
 	.sign(secretBuffer);
 
 const setupHandler = () =>
@@ -24,7 +28,9 @@ const setupHandler = () =>
 		.before((request) => {
 			request.internal.hmacKey = secret;
 		})
-		.use(httpJwt({ internalKey: "hmacKey", algorithm: "HS256" }));
+		.use(
+			httpJwt({ internalKey: "hmacKey", algorithm: "HS256", audience, issuer }),
+		);
 
 const warmHandler = setupHandler();
 const event = { headers: { authorization: `Bearer ${token}` } };

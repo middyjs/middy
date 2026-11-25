@@ -1,6 +1,6 @@
 {
 	"name": "@middy/rds",
-	"version": "8.0.0-alpha.2",
+	"version": "8.0.0-rc.0",
 	"description": "RDS (Relational Database Service) connection middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -278,9 +278,9 @@
 	],
 	"scripts": {
 		"prepack": "npm run build",
-		"build": "./bin/certificates",
+		"build": "node bin/certificates.js",
 		"test": "npm run test:unit && npm run test:fuzz",
-		"test:unit": "node --test",
+		"test:unit": "node --experimental-test-module-mocks --test",
 		"test:fuzz": "node --test index.fuzz.js",
 		"test:bench": "node --experimental-bench --bench 'index.bench.js'",
 		"test:mutation": "cd ../.. && MUTATE_PACKAGE=\"$(basename \"$OLDPWD\")\" stryker run"
@@ -318,8 +318,8 @@
 	"peerDependencies": {
 		"@types/pg": "^8.0.0",
 		"pg": "^8.23.1",
-		"postgres": "^3.0.0",
-		"@middy/core": "8.0.0-alpha.2"
+		"postgres": "^4.0.0",
+		"@middy/core": "8.0.0-rc.0"
 	},
 	"peerDependenciesMeta": {
 		"@types/pg": {
@@ -336,14 +336,14 @@
 		}
 	},
 	"dependencies": {
-		"@middy/util": "8.0.0-alpha.2"
+		"@middy/util": "8.0.0-rc.0"
 	},
 	"devDependencies": {
-		"@middy/core": "8.0.0-alpha.2",
+		"@middy/core": "8.0.0-rc.0",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^24.0.0",
 		"@types/pg": "^8.0.0",
 		"pg": "^8.23.1",
-		"postgres": "^3.0.0"
+		"postgres": "^4.0.0"
 	}
 }

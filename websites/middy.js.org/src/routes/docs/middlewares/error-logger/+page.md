@@ -1,4 +1,5 @@
 ---
+
 title: error-logger
 description: "Log Lambda errors to CloudWatch automatically without interfering with error handling."
 ---
@@ -32,16 +33,16 @@ npm install --save @middy/error-logger
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import errorLogger from '@middy/error-logger'
-import httpErrorHandler from '@middy/http-error-handler'
+import middy from "@middy/core";
+import errorLogger from "@middy/error-logger";
+import httpErrorHandler from "@middy/http-error-handler";
 
 const lambdaHandler = (event, context) => {
-  // your handler logic
-}
+	// your handler logic
+};
 
 export const handler = middy()
-  .use(httpErrorHandler())
-  .use(errorLogger()) // onError runs first: logs the original error
-  .handler(lambdaHandler)
+	.use(httpErrorHandler())
+	.use(errorLogger()) // onError runs first: logs the original error
+	.handler(lambdaHandler);
 ```

@@ -1,6 +1,6 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { describe, test } from "node:test";
-import middy from "../core/index.js";
+import middy from "@middy/core";
 import cloudformationRouter, {
 	cloudformationRouterValidateOptions,
 } from "./index.js";
@@ -312,6 +312,24 @@ describe("@middy/cloudformation-router", () => {
 		});
 	});
 
+	test("It should throw at construction for a duplicate requestType", async (t) => {
+		let thrown;
+		try {
+			cloudformationRouter([
+				{ requestType: "Create", handler: () => "first" },
+				{ requestType: "Create", handler: () => "second" },
+			]);
+		} catch (e) {
+			thrown = e;
+		}
+		ok(thrown, "expected a duplicate requestType to throw");
+		strictEqual(thrown.message, "Duplicate route");
+		deepStrictEqual(thrown.cause, {
+			package: "@middy/cloudformation-router",
+			data: { requestType: "Create" },
+		});
+	});
+
 	test("cloudformationRouterValidateOptions rejects unknown extra property on route", () => {
 		try {
 			cloudformationRouterValidateOptions({
@@ -371,19 +389,73 @@ describe("@middy/cloudformation-router", () => {
 		}
 	});
 
-	test("cloudformationRouterValidateOptions rejects duplicate requestType", () => {
-		try {
-			cloudformationRouterValidateOptions({
-				routes: [
-					{ requestType: "Create", handler: () => {} },
-					{ requestType: "Create", handler: () => {} },
-				],
-			});
-			ok(false, "expected throw");
-		} catch (e) {
-			ok(e instanceof TypeError);
-			ok(e.message.includes("routes[1]"));
-			strictEqual(e.cause.package, "@middy/cloudformation-router");
-		}
+	test("cloudformationRouterValidateOptions leaves a duplicate requestType to construction", () => {
+		const routes = [
+			{ requestType: "Create", handler: () => {} },
+			{ requestType: "Create", handler: () => {} },
+		];
+		cloudformationRouterValidateOptions({ routes });
+		throws(() => cloudformationRouter({ routes }), {
+			message: "Duplicate route",
+		});
+	});
+
+	test("cloudformationRouterValidateOptions rejects the same route object twice", () => {
+		const route = { requestType: "Create", handler: () => {} };
+		const routes = [route, route];
+		throws(() => cloudformationRouterValidateOptions({ routes }), {
+			name: "TypeError",
+			message: "Duplicate item at 'routes[1]'",
+		});
+		throws(() => cloudformationRouter({ routes }), {
+			message: "Duplicate route",
+		});
+	});
+
+	test("cloudformationRouterValidateOptions rejects equal routes that share a handler", () => {
+		const handler = () => {};
+		const routes = [
+			{ requestType: "Delete", handler },
+			{ requestType: "Delete", handler },
+		];
+		throws(() => cloudformationRouterValidateOptions({ routes }), {
+			name: "TypeError",
+			message: "Duplicate item at 'routes[1]'",
+		});
+		throws(() => cloudformationRouter({ routes }), {
+			message: "Duplicate route",
+		});
+	});
+
+	test("cloudformationRouterValidateOptions accepts one route per request type and no more", () => {
+		const handler = () => {};
+		const routes = [
+			{ requestType: "Create", handler },
+			{ requestType: "Update", handler },
+			{ requestType: "Delete", handler },
+		];
+		cloudformationRouterValidateOptions({ routes });
+		throws(
+			() =>
+				cloudformationRouterValidateOptions({
+					routes: [...routes, { requestType: "Create", handler() {} }],
+				}),
+			{ message: "Option 'routes' must have <= 3 items" },
+		);
+	});
+
+	test("cloudformationRouterValidateOptions rejects a non-function handler or notFoundResponse", () => {
+		throws(
+			() =>
+				cloudformationRouterValidateOptions({
+					routes: [{ requestType: "Create", handler: "index.handler" }],
+				}),
+			{ message: "Option 'routes[0].handler' must be instanceof Function" },
+		);
+		throws(
+			() => cloudformationRouterValidateOptions({ notFoundResponse: {} }),
+			{ message: "Option 'notFoundResponse' must be instanceof Function" },
+		);
+		cloudformationRouterValidateOptions({ notFoundResponse: async () => {} });
 	});
 });

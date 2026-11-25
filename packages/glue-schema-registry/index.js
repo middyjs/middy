@@ -3,7 +3,9 @@
 import { GetSchemaVersionCommand, GlueClient } from "@aws-sdk/client-glue";
 import {
 	assignSetToContext,
+	awsClientOptionsSchema,
 	buildSetToContextSpec,
+	cacheOptionSchemaProperties,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClientInit,
@@ -12,6 +14,7 @@ import {
 	getCache,
 	modifyCache,
 	processCache,
+	reservedPropertyNames,
 	validateOptions,
 } from "@middy/util";
 
@@ -34,74 +37,100 @@ const defaults = {
 	contextKey: name,
 };
 
+const internalKeySchema = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\x21-\x7E]+$/u,
+	not: { type: "string", enum: reservedPropertyNames },
+};
+
+// https://docs.aws.amazon.com/glue/latest/webapi/API_SchemaId.html
+const schemaIdNameSchema = {
+	type: "string",
+	minLength: 1,
+	maxLength: 255,
+	pattern: /^[\w$#.-]+$/u,
+};
+
+// https://docs.aws.amazon.com/glue/latest/webapi/API_GetSchemaVersion.html
+const schemaVersionIdPattern =
+	/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u;
+
+const schemaVersionIdSchema = {
+	type: "string",
+	maxLength: 36,
+	pattern: schemaVersionIdPattern,
+};
+
+const objectOf = (properties, required = []) => ({
+	type: "object",
+	properties,
+	required,
+	additionalProperties: false,
+	unevaluatedProperties: false,
+});
+
+const schemaIdSchema = objectOf({
+	SchemaName: schemaIdNameSchema,
+	RegistryName: schemaIdNameSchema,
+	SchemaArn: {
+		type: "string",
+		minLength: 1,
+		maxLength: 10240,
+		pattern:
+			/^arn:aws(?:-cn|-us-gov|-eusc|-iso|-iso-[bef])?:glue:[\x21-\x7E]+$/u,
+	},
+});
+
+// https://docs.aws.amazon.com/glue/latest/webapi/API_SchemaVersionNumber.html
+const schemaVersionNumberSchema = objectOf({
+	VersionNumber: { type: "integer", minimum: 1, maximum: 100000 },
+	LatestVersion: { type: "boolean" },
+});
+
+const getSchemaVersionInputSchema = {
+	...objectOf({
+		SchemaVersionId: schemaVersionIdSchema,
+		SchemaId: schemaIdSchema,
+		SchemaVersionNumber: schemaVersionNumberSchema,
+	}),
+	oneOf: [
+		objectOf({ SchemaVersionId: schemaVersionIdSchema }, ["SchemaVersionId"]),
+		objectOf(
+			{
+				SchemaId: schemaIdSchema,
+				SchemaVersionNumber: schemaVersionNumberSchema,
+			},
+			["SchemaId"],
+		),
+	],
+};
+
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:glue-schema-registry:options",
+	$defs: { Function: false, Object: false },
 	type: "object",
 	properties: {
-		AwsClient: { instanceof: "Function" },
-		awsClientOptions: { type: "object" },
-		awsClientAssumeRole: { type: "string" },
-		awsClientCapture: { instanceof: "Function" },
-		disablePrefetch: { type: "boolean" },
-		cacheKey: { type: "string" },
-		cacheKeyExpiry: {
-			type: "object",
-			additionalProperties: {
-				type: "number",
-				minimum: -1,
-				maximum: Number.MAX_SAFE_INTEGER,
-			},
-		},
-		cacheExpiry: {
-			type: "number",
-			minimum: -1,
-			maximum: Number.MAX_SAFE_INTEGER,
-		},
-		cacheMaxSize: {
-			type: "integer",
-			minimum: 1,
-			maximum: Number.MAX_SAFE_INTEGER,
-		},
+		AwsClient: { $ref: "#/$defs/Function" },
+		awsClientOptions: awsClientOptionsSchema,
+		awsClientAssumeRole: internalKeySchema,
+		awsClientCapture: { $ref: "#/$defs/Function" },
+		...cacheOptionSchemaProperties,
 		setToContext: { type: "boolean" },
-		contextKey: { type: "string" },
+		contextKey: internalKeySchema,
 		fetchData: {
 			type: "object",
-			additionalProperties: {
-				oneOf: [
-					{
-						type: "object",
-						required: ["SchemaVersionId"],
-						properties: { SchemaVersionId: { type: "string" } },
-						additionalProperties: true,
-					},
-					{
-						type: "object",
-						required: ["SchemaId"],
-						properties: {
-							SchemaId: {
-								type: "object",
-								properties: {
-									SchemaName: { type: "string" },
-									RegistryName: { type: "string" },
-									SchemaArn: { type: "string" },
-								},
-								additionalProperties: true,
-							},
-							SchemaVersionNumber: {
-								type: "object",
-								properties: {
-									VersionNumber: { type: "integer", minimum: 1 },
-									LatestVersion: { type: "boolean" },
-								},
-								additionalProperties: true,
-							},
-						},
-						additionalProperties: true,
-					},
-				],
-			},
+			propertyNames: internalKeySchema,
+			maxProperties: 1024,
+			required: [],
+			additionalProperties: getSchemaVersionInputSchema,
+			unevaluatedProperties: false,
 		},
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const glueSchemaRegistryValidateOptions = (options) =>
@@ -169,9 +198,6 @@ const glueSchemaRegistryMiddleware = (opts = {}) => {
 		before: glueSchemaRegistryMiddlewareBefore,
 	};
 };
-
-const schemaVersionIdPattern =
-	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const resolveClientInits = new WeakMap();
 

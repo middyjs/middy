@@ -26,30 +26,47 @@ const methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]; //
 const allMethods = [...methods, "ANY"];
 
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:http-router:options",
+	$defs: { Function: false },
 	type: "object",
 	properties: {
 		routes: {
 			type: "array",
-			uniqueItems: true,
 			items: {
 				type: "object",
-				required: ["method", "path", "handler"],
 				properties: {
 					method: { type: "string", enum: allMethods },
 					path: {
 						allOf: [
-							{ type: "string", pattern: "^/" },
-							{ type: "string", pattern: "^(/|.*[^/])$" },
+							{
+								type: "string",
+								maxLength: 1024,
+								pattern: /^\/[\p{L}\p{M}\p{N}\p{P}\p{S} ]*$/u,
+							},
+							{
+								type: "string",
+								maxLength: 1024,
+								pattern:
+									/^(\/|[\x20-\x7E\xA0-\u{10FFFF}]*[\x20-\x2E\x30-\x7E\xA0-\u{10FFFF}])$/u,
+							},
 						],
 					},
-					handler: { instanceof: "Function" },
+					handler: { $ref: "#/$defs/Function" },
 				},
+				required: ["method", "path", "handler"],
 				additionalProperties: false,
+				unevaluatedProperties: false,
 			},
+			maxItems: 1024,
+			uniqueItems: true,
+			unevaluatedItems: false,
 		},
-		notFoundResponse: { instanceof: "Function" },
+		notFoundResponse: { $ref: "#/$defs/Function" },
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const httpRouterValidateOptions = (options) =>
@@ -141,27 +158,21 @@ const httpRouteHandler = (opts = {}) => {
 			return staticHandler(event, context, abort);
 		}
 
-		// Dynamic. Slash count of the request path, less a trailing slash, so
-		// `/user/1` and `/user/1/` reach the same fixed-depth route. Wildcard
-		// routes carry segmentCount=-1 and match regardless.
 		let reqSegments = countSlashes(path);
 		if (path.charCodeAt(path.length - 1) === 47) reqSegments -= 1;
 		// Method-specific routes first, then ANY, each in registration order.
 		for (const dynamicRoutes of [routesDynamic[method], routesDynamicAnyList]) {
 			if (!dynamicRoutes) continue;
 			for (const route of dynamicRoutes) {
-				// Stryker disable next-line ConditionalExpression,BlockStatement: pure performance pre-filter. A non-proxy dynamic route's regex matches exactly its slash depth, so skipping (or not skipping) by segmentCount can never change which route the authoritative `path.match` selects.
-				if (route.segmentCount !== -1 && route.segmentCount !== reqSegments) {
+				if (!route.greedy && route.segmentCount !== reqSegments) {
 					continue;
 				}
 				const match = path.match(route.path);
 				if (match) {
-					const params = match.groups;
-					// A bare `{proxy+}` parent (e.g. `/files` for `/files/{proxy+}`)
-					// leaves the greedy group unmatched (undefined); normalize it to ""
-					// so `proxy` is always a string, matching the documented behavior.
-					if ("proxy" in params && params.proxy === undefined) {
-						params.proxy = "";
+					const params = Object.create(null);
+					const { names } = route;
+					for (let i = 0; i < names.length; i++) {
+						params[names[i]] = match[i + 1] ?? "";
 					}
 					// Only `%25` and `%2F` survive normalizeRawPath, so this can't throw.
 					if (encoded) {
@@ -170,8 +181,8 @@ const httpRouteHandler = (opts = {}) => {
 						}
 					}
 					event.pathParameters = {
-						...params,
 						...event.pathParameters,
+						...params,
 					};
 					return route.handler(event, context, abort);
 				}
@@ -184,10 +195,18 @@ const httpRouteHandler = (opts = {}) => {
 	return handler;
 };
 
-const regExpEscapeChars = /[.+?^${}()|[\]\\]/g;
-const regExpDynamicWildcards = /\/\\\{(proxy)\\\+\\\}$/;
-const regExpDynamicParameters = /\/\\\{([^/]+)\\\}/g;
-const regExpGroupNames = /\(\?<[^>]+>/g;
+const regExpEscapeChars = /[.*+?^${}()|[\]\\]/g;
+// API Gateway does not hold path variable names to JavaScript identifiers;
+// its own example is `/{department}/{produce-category}/{product-type}`.
+// https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
+const regExpSegmentVariables = /\/\{([^/{}+]+)\}/g;
+// `{proxy+}` is only the customary name: "To create a greedy path variable,
+// add + to the variable name" and "The greedy path variable must be at the end
+// of the resource path."
+// https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-routes.html
+const regExpGreedyVariable = /\/\{([^/{}+]+)\+\}$/;
+
+const escapeRegExpLiteral = (text) => text.replace(regExpEscapeChars, "\\$&");
 
 // The table for `method`, created on first use, or the shared ANY table.
 const tableFor = (method, tables, tableAny) => {
@@ -220,26 +239,44 @@ const attachDynamicRoute = (method, path, route, table) => {
 };
 
 const compileDynamicRoute = (path, handler) => {
-	const pathPartialRegExp = path
-		.replace(regExpEscapeChars, "\\$&")
-		.replace(regExpDynamicWildcards, "(?:/(?<$1>.*))?")
-		.replace(regExpDynamicParameters, "/(?<$1>[^/]+)");
-	if (pathPartialRegExp.includes("\\{") || pathPartialRegExp.includes("\\}")) {
+	const greedyVariable = regExpGreedyVariable.exec(path);
+	const greedy = greedyVariable !== null;
+	const segmentPath = greedy ? path.slice(0, greedyVariable.index) : path;
+	const names = [];
+	let pathPartialRegExp = "";
+	let literalStart = 0;
+	for (const variable of segmentPath.matchAll(regExpSegmentVariables)) {
+		const literal = segmentPath.slice(literalStart, variable.index);
+		pathPartialRegExp += `${escapeRegExpLiteral(literal)}/([^/]+)`;
+		names.push(variable[1]);
+		literalStart = variable.index + variable[0].length;
+	}
+	pathPartialRegExp += escapeRegExpLiteral(segmentPath.slice(literalStart));
+	if (greedy) {
+		names.push(greedyVariable[1]);
+		pathPartialRegExp += "(?:/(.*))?";
+	}
+	if (
+		pathPartialRegExp.includes("\\{") ||
+		pathPartialRegExp.includes("\\}") ||
+		new Set(names).size !== names.length
+	) {
 		throw new Error("Invalid route path", {
 			cause: { package: pkg, data: { path } },
 		});
 	}
 	// SAST Skipped: Not accessible by users
 	// nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
-	const pathRegExp = new RegExp(`^${pathPartialRegExp}/?$`); // Adds in optional `/`
-	// What the pattern matches, with the capture names taken out: `/a/{x}` and
-	// `/a/{y}` accept exactly the same requests, so they compare as duplicates.
-	const signature = JSON.stringify(pathPartialRegExp.split(regExpGroupNames));
-	// `{proxy+}` matches across slashes so its depth is unconstrained; mark -1.
-	// All other dynamic params capture a single segment, so depth == slash count.
-	// Stryker disable next-line StringLiteral: forcing segmentCount to -1 only disables the performance pre-filter; the authoritative `path.match` regex still gates every route, so routing results are unchanged.
-	const segmentCount = path.includes("{proxy+}") ? -1 : countSlashes(path);
-	return { path: pathRegExp, handler, segmentCount, signature };
+	const pathRegExp = new RegExp(`^${pathPartialRegExp}/?$`, "s"); // Adds in optional `/`
+	const signature = pathPartialRegExp;
+	return {
+		path: pathRegExp,
+		handler,
+		greedy,
+		segmentCount: countSlashes(path),
+		signature,
+		names,
+	};
 };
 
 const countSlashes = (s) => {

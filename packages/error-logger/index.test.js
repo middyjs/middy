@@ -1,5 +1,6 @@
 import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { describe, test } from "node:test";
+import { setImmediate } from "node:timers/promises";
 import middy from "../core/index.js";
 import errorLogger, { errorLoggerValidateOptions } from "./index.js";
 
@@ -7,6 +8,8 @@ const defaultEvent = {};
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
+
+const thenKey = "then";
 
 describe("@middy/error-logger", () => {
 	test("It should log errors and propagate the error", async (t) => {
@@ -100,6 +103,102 @@ describe("@middy/error-logger", () => {
 		deepStrictEqual(response, { statusCode: 404 });
 		strictEqual(consoleError.mock.callCount(), 1);
 		strictEqual(consoleError.mock.calls[0].arguments[0], loggerError);
+	});
+
+	test("It should report a rejected async logger via console.error and keep the handled response", async (t) => {
+		const loggerError = new Error("log sink unreachable");
+		const consoleError = t.mock.method(console, "error", () => {});
+
+		const handler = middy(() => {
+			throw new Error("Not Found");
+		})
+			.use({
+				onError: (request) => {
+					request.response = { statusCode: 404 };
+				},
+			})
+			.use(
+				errorLogger({
+					logger: async () => {
+						throw loggerError;
+					},
+				}),
+			);
+
+		const response = await handler(defaultEvent, defaultContext);
+		deepStrictEqual(response, { statusCode: 404 });
+		strictEqual(consoleError.mock.callCount(), 1);
+		strictEqual(consoleError.mock.calls[0].arguments[0], loggerError);
+	});
+
+	test("It should wait for an async logger before the invocation settles", async (t) => {
+		const error = new Error("boom");
+		let shipped = false;
+
+		const handler = middy(() => {
+			throw error;
+		}).use(
+			errorLogger({
+				logger: async () => {
+					await setImmediate();
+					shipped = true;
+				},
+			}),
+		);
+
+		await t.assert.rejects(handler(defaultEvent, defaultContext), (e) => {
+			strictEqual(e, error);
+			return true;
+		});
+		strictEqual(shipped, true);
+	});
+
+	test("It should ignore what an async logger resolves to", async (t) => {
+		const error = new Error("boom");
+
+		const handler = middy(() => {
+			throw error;
+		}).use(errorLogger({ logger: async () => ({ chained: true }) }));
+
+		await t.assert.rejects(handler(defaultEvent, defaultContext), (e) => {
+			strictEqual(e, error);
+			return true;
+		});
+	});
+
+	test("It should await a thenable returned by the logger", async (t) => {
+		const error = new Error("boom");
+		const loggerError = new Error("log sink unreachable");
+		const consoleError = t.mock.method(console, "error", () => {});
+
+		const handler = middy(() => {
+			throw error;
+		}).use(
+			errorLogger({
+				logger: () => ({
+					[thenKey]: (_resolve, reject) => reject(loggerError),
+				}),
+			}),
+		);
+
+		await t.assert.rejects(handler(defaultEvent, defaultContext), (e) => {
+			strictEqual(e, error);
+			return true;
+		});
+		strictEqual(consoleError.mock.callCount(), 1);
+		strictEqual(consoleError.mock.calls[0].arguments[0], loggerError);
+	});
+
+	test("It should keep the hook synchronous for a synchronous logger", (t) => {
+		const consoleError = t.mock.method(console, "error", () => {});
+		const request = { event: defaultEvent, error: new Error("boom") };
+
+		for (const result of [undefined, null, { chained: true }, "logged"]) {
+			const logger = t.mock.fn(() => result);
+			strictEqual(errorLogger({ logger }).onError(request), undefined);
+			strictEqual(logger.mock.callCount(), 1);
+		}
+		strictEqual(consoleError.mock.callCount(), 0);
 	});
 
 	test("It should use default logger (console.error) when no logger is provided", async (t) => {
@@ -207,6 +306,21 @@ describe("@middy/error-logger", () => {
 		}
 	});
 
+	test("errorLoggerValidateOptions caps mask at 1024 printable characters", () => {
+		errorLoggerValidateOptions({ mask: "***omitted***" });
+		errorLoggerValidateOptions({ mask: "x".repeat(1024) });
+		throws(() => errorLoggerValidateOptions({ mask: "x".repeat(1025) }), {
+			name: "TypeError",
+			message: "Option 'mask' must have length <= 1024",
+			cause: { package: "@middy/error-logger" },
+		});
+		throws(() => errorLoggerValidateOptions({ mask: "line\nbreak" }), {
+			name: "TypeError",
+			message: /^Option 'mask' must match pattern /,
+			cause: { package: "@middy/error-logger" },
+		});
+	});
+
 	test("It should redact omitPaths from the error before logging", async (t) => {
 		const error = new Error("boom");
 		error.user = { ssn: "123-45-6789", id: 7 };
@@ -291,6 +405,55 @@ describe("@middy/error-logger", () => {
 		} catch (_e) {}
 
 		ok(captured.error instanceof Error);
+	});
+
+	test("It should omit an array path whose segment holds a dot", async (t) => {
+		const error = new Error("boom", {
+			cause: { data: { "user.email": "a@example.com", id: 7 } },
+		});
+		let captured = null;
+		const omitPaths = [["error", "cause", "data", "user.email"]];
+		errorLoggerValidateOptions({ omitPaths });
+
+		const handler = middy(() => {
+			throw error;
+		}).use(
+			errorLogger({ logger: (request) => (captured = request), omitPaths }),
+		);
+
+		await t.assert.rejects(handler(defaultEvent, defaultContext));
+
+		deepStrictEqual(captured.error.cause.data, { id: 7 });
+		strictEqual(error.cause.data["user.email"], "a@example.com");
+	});
+
+	test("errorLoggerValidateOptions rejects an omitPaths entry that is not a string or an array of strings", () => {
+		for (const entry of [1, null, {}, ["error", 1], [["error"]], []]) {
+			throws(() => errorLoggerValidateOptions({ omitPaths: [entry] }), {
+				name: "TypeError",
+				message: "Option 'omitPaths[0]' must match exactly one schema in oneOf",
+				cause: { package: "@middy/error-logger" },
+			});
+		}
+	});
+
+	test("errorLoggerValidateOptions rejects a path that could never match", () => {
+		for (const path of [
+			"error.cause[].body",
+			"error.cause.0.body",
+			"error.cause.*.body",
+			["error", "cause", "__proto__"],
+		]) {
+			const invalidPath = { name: "TypeError", message: /^Invalid path / };
+			throws(
+				() => errorLoggerValidateOptions({ omitPaths: [path] }),
+				invalidPath,
+			);
+			throws(() => errorLogger({ omitPaths: [path] }), invalidPath);
+		}
+		errorLoggerValidateOptions({
+			omitPaths: ["error.cause.[].body", ["error", "cause", "[]", "0"]],
+		});
 	});
 
 	test("errorLoggerValidateOptions accepts omitPaths and mask", () => {

@@ -1,6 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import avro from "avro-js";
+import { assertSchemaVersion } from "./assertSchemaVersion.js";
 
 const pkg = "@middy/event-batch-parser";
 
@@ -27,6 +28,7 @@ export const parseAvro = (parserOpts = {}) => {
 				{ cause: { package: pkg, data: { internalKey } } },
 			);
 		}
+		assertSchemaVersion(framing?.schemaVersionId, entry.schemaVersionId);
 		let type = typeCache.get(schemaDefinition);
 		if (!type) {
 			type = avro.parse(schemaDefinition);

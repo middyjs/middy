@@ -1,4 +1,5 @@
 ---
+
 title: Upgrade 2.x -> 3.x
 description: "Migrate from Middy 2.x to 3.x with ESM support, routers, and improved error handling."
 ---
@@ -185,9 +186,9 @@ If you still need `setToEnv` you can do something like so:
 
 ```javascript
 middy(lambdaHandler)
-  .use(/*...*/)
-  .before(async (request) => {
-    const values = await getInternal(['NODE_ENV'], request)
-    process.env.NODE_ENV = values.NODE_ENV
-  })
+	.use(/*...*/)
+	.before(async (request) => {
+		const values = await getInternal(["NODE_ENV"], request);
+		process.env.NODE_ENV = values.NODE_ENV;
+	});
 ```

@@ -1,6 +1,6 @@
 {
 	"name": "@middy/ecs-http",
-	"version": "8.0.0-alpha.2",
+	"version": "8.0.0-rc.0",
 	"description": "ECS/Fargate HTTP server runtime for the middy framework",
 	"type": "module",
 	"engines": {
@@ -29,7 +29,8 @@
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --test",
 		"test:fuzz": "node --test index.fuzz.js",
-		"test:bench": "node --experimental-bench --bench 'index.bench.js'"
+		"test:bench": "node --experimental-bench --bench 'index.bench.js'",
+		"test:mutation": "cd ../.. && MUTATE_PACKAGE=\"$(basename \"$OLDPWD\")\" stryker run"
 	},
 	"license": "MIT",
 	"keywords": [
@@ -65,10 +66,10 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "8.0.0-alpha.2"
+		"@middy/util": "8.0.0-rc.0"
 	},
 	"peerDependencies": {
-		"@middy/core": "8.0.0-alpha.2",
+		"@middy/core": "8.0.0-rc.0",
 		"@types/aws-lambda": "^8.0.0"
 	},
 	"peerDependenciesMeta": {
@@ -80,7 +81,7 @@
 		}
 	},
 	"devDependencies": {
-		"@middy/core": "8.0.0-alpha.2",
+		"@middy/core": "8.0.0-rc.0",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^24.0.0"
 	}

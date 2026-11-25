@@ -1,4 +1,5 @@
 ---
+
 title: appconfig
 description: "Fetch and parse AWS AppConfig configuration values in your Lambda with Middy."
 ---
@@ -37,30 +38,30 @@ NOTES:
 ## Sample usage
 
 ```javascript
-import middy from '@middy/core'
-import appConfig from '@middy/appconfig'
+import middy from "@middy/core";
+import appConfig from "@middy/appconfig";
 
 const handler = middy()
-  .use(
-    appConfig({
-      fetchData: {
-        config: {
-          ApplicationIdentifier: '...',
-          ConfigurationProfileIdentifier: '...',
-          EnvironmentIdentifier: '...'
-        }
-      }
-    })
-  )
-  .handler((event, context) => {
-    const response = {
-      statusCode: 200,
-      headers: {},
-      body: JSON.stringify({ message: 'hello world' })
-    }
+	.use(
+		appConfig({
+			fetchData: {
+				config: {
+					ApplicationIdentifier: "...",
+					ConfigurationProfileIdentifier: "...",
+					EnvironmentIdentifier: "...",
+				},
+			},
+		}),
+	)
+	.handler((event, context) => {
+		const response = {
+			statusCode: 200,
+			headers: {},
+			body: JSON.stringify({ message: "hello world" }),
+		};
 
-    return response
-  })
+		return response;
+	});
 ```
 
 ## Bundling
@@ -80,35 +81,39 @@ This way TypeScript can understand how to treat the additional data attached to 
 The following example illustrates how to use `appConfigParam`:
 
 ```typescript
-import middy from '@middy/core'
-import { getInternal } from '@middy/util'
-import appConfig, { appConfigParam } from '@middy/appconfig'
+import middy from "@middy/core";
+import { getInternal } from "@middy/util";
+import appConfig, { appConfigParam } from "@middy/appconfig";
 
 const lambdaHandler = (event, context) => {
-  return {
-    statusCode: 200,
-    headers: {},
-    body: JSON.stringify({ message: 'hello world' })
-  }
-}
+	return {
+		statusCode: 200,
+		headers: {},
+		body: JSON.stringify({ message: "hello world" }),
+	};
+};
 
 export const handler = middy()
-  .use(
-    appConfig({
-      fetchData: {
-        config: appConfigParam<{field1: string, field2: string, field3: number}>({
-          ApplicationIdentifier: '...',
-          ConfigurationProfileIdentifier: '...',
-          EnvironmentIdentifier: '...'
-        })
-      }
-    })
-  )
-  .before(async (request) => {
-    const data = await getInternal('config', request)
-    // data.config.field1 (string)
-    // data.config.field2 (string)
-    // data.config.field3 (number)
-  })
-  .handler(lambdaHandler)
+	.use(
+		appConfig({
+			fetchData: {
+				config: appConfigParam<{
+					field1: string;
+					field2: string;
+					field3: number;
+				}>({
+					ApplicationIdentifier: "...",
+					ConfigurationProfileIdentifier: "...",
+					EnvironmentIdentifier: "...",
+				}),
+			},
+		}),
+	)
+	.before(async (request) => {
+		const data = await getInternal("config", request);
+		// data.config.field1 (string)
+		// data.config.field2 (string)
+		// data.config.field3 (number)
+	})
+	.handler(lambdaHandler);
 ```

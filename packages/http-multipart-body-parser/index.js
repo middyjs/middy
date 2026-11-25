@@ -1,7 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import BusBoy from "@fastify/busboy";
-import { HttpError, validateOptions } from "@middy/util";
+import { HttpError, reservedPropertyNames, validateOptions } from "@middy/util";
 
 const name = "http-multipart-body-parser";
 const pkg = `@middy/${name}`;
@@ -11,40 +11,79 @@ const pkg = `@middy/${name}`;
 // busboy, which rejects a missing or malformed boundary as a 422.
 const mimePattern = /^multipart\/form-data[ \t]*(;|$)/i;
 
+const closedObject = (properties) => ({
+	type: "object",
+	properties,
+	required: [],
+	additionalProperties: false,
+	unevaluatedProperties: false,
+});
+
+const integerFrom = (minimum) => ({
+	type: "integer",
+	minimum,
+	maximum: Number.MAX_SAFE_INTEGER,
+});
+
+// RFC 9110 section 8.3.2: "charset = token"
+// https://www.rfc-editor.org/rfc/rfc9110#section-8.3.2
+const charsetSchema = {
+	type: "string",
+	maxLength: 1024,
+	pattern: /^[\w!#$%&'*+.^`|~-]+$/u,
+};
+
+// @fastify/busboy BusboyConfig, node_modules/@fastify/busboy/types/index.d.ts
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:http-multipart-body-parser:options",
+	$defs: { Function: false },
 	type: "object",
 	properties: {
-		busboy: {
-			type: "object",
-			properties: {
-				headers: { type: "object", additionalProperties: true },
-				highWaterMark: { type: "integer", minimum: 1 },
-				fileHwm: { type: "integer", minimum: 1 },
-				defCharset: { type: "string" },
-				defParamCharset: { type: "string" },
-				preservePath: { type: "boolean" },
-				isPartAFile: { instanceof: "Function" },
-				limits: {
-					type: "object",
-					properties: {
-						fieldNameSize: { type: "integer", minimum: 0 },
-						fieldSize: { type: "integer", minimum: 0 },
-						fields: { type: "integer", minimum: 0 },
-						fileSize: { type: "integer", minimum: 0 },
-						files: { type: "integer", minimum: 0 },
-						parts: { type: "integer", minimum: 0 },
-						headerPairs: { type: "integer", minimum: 0 },
-					},
-					additionalProperties: true,
+		busboy: closedObject({
+			headers: {
+				type: "object",
+				// RFC 9110 section 5.6.2 token and section 5.5 field value
+				// https://www.rfc-editor.org/rfc/rfc9110#section-5.6.2
+				// https://www.rfc-editor.org/rfc/rfc9110#section-5.5
+				propertyNames: {
+					type: "string",
+					maxLength: 1024,
+					pattern: /^[\w!#$%&'*+.^`|~-]+$/u,
+					not: { type: "string", enum: reservedPropertyNames },
 				},
+				maxProperties: 1024,
+				required: [],
+				additionalProperties: {
+					type: "string",
+					maxLength: 1024,
+					pattern: /^[\t\x20-\x7E]*$/u,
+				},
+				unevaluatedProperties: false,
 			},
-			additionalProperties: true,
-		},
-		charset: { type: "string" },
+			highWaterMark: integerFrom(1),
+			fileHwm: integerFrom(1),
+			defCharset: charsetSchema,
+			isPartAFile: { $ref: "#/$defs/Function" },
+			preservePath: { type: "boolean" },
+			limits: closedObject({
+				fieldNameSize: integerFrom(0),
+				fieldSize: integerFrom(0),
+				fields: integerFrom(0),
+				fileSize: integerFrom(0),
+				files: integerFrom(0),
+				parts: integerFrom(0),
+				headerPairs: integerFrom(0),
+				headerSize: integerFrom(0),
+			}),
+		}),
+		charset: { type: "string", maxLength: 1024, pattern: /^[A-Za-z0-9-]+$/u },
 		disableContentTypeCheck: { type: "boolean" },
 		disableContentTypeError: { type: "boolean" },
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const httpMultipartBodyParserValidateOptions = (options) =>
@@ -201,6 +240,23 @@ const parseMultipartData = (event, contentType, options) => {
 			return true;
 		};
 
+		const checkNotProtoKey = (key) => {
+			if (key === "__proto__") {
+				return reject(
+					new HttpError(422, {
+						cause: {
+							package: pkg,
+							data: {
+								reason: "Forbidden key in multipart/form-data body",
+								key,
+							},
+						},
+					}),
+				);
+			}
+			return true;
+		};
+
 		busboy
 			.on(
 				"file",
@@ -211,7 +267,8 @@ const parseMultipartData = (event, contentType, options) => {
 					// uncaughtException, so it goes on before the field-name guard
 					// can return early.
 					file.on("error", reject);
-					if (!checkFieldName(fieldname)) return;
+					if (!checkFieldName(fieldname) || !checkNotProtoKey(fieldname))
+						return;
 					const attachment = {
 						filename,
 						mimetype,
@@ -265,6 +322,7 @@ const parseMultipartData = (event, contentType, options) => {
 					// repeated file field or a `a[]` field does, so no value is lost.
 					const bracketed = openBracket > 0;
 					const key = bracketed ? fieldname.slice(0, openBracket) : fieldname;
+					if (!checkNotProtoKey(key)) return;
 					const current = multipartData[key];
 					if (current === undefined) {
 						multipartData[key] = bracketed ? [value] : value;

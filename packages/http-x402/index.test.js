@@ -1,6 +1,10 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { describe, test } from "node:test";
-import middy from "../core/index.js";
+import middy from "@middy/core";
+import {
+	FacilitatorResponseError,
+	FacilitatorTimeoutError,
+} from "@x402/core/http";
 import httpCors from "../http-cors/index.js";
 import httpSecurityHeaders from "../http-security-headers/index.js";
 import httpX402, { httpX402ValidateOptions } from "./index.js";
@@ -9,6 +13,7 @@ const defaultOptions = {
 	price: 0.001,
 	payTo: "0xpayto",
 	asset: "0xasset",
+	facilitatorUrl: "https://facilitator.example.com",
 };
 
 const defaultContext = { getRemainingTimeInMillis: () => 1000 };
@@ -342,6 +347,45 @@ describe("@middy/http-x402", () => {
 		strictEqual(mockVerify.mock.callCount(), 1);
 	});
 
+	test("verify throws a FacilitatorResponseError - 502, handler not run, message not exposed", async (t) => {
+		const mockVerify = t.mock.fn(async () => {
+			throw new FacilitatorResponseError(
+				"Facilitator verify returned invalid JSON: upstream secret detail",
+			);
+		});
+		class MockFacilitatorClient {
+			verify(...args) {
+				return mockVerify(...args);
+			}
+			settle() {}
+		}
+		let handlerRan = false;
+		const handler = middy(() => {
+			handlerRan = true;
+			return { statusCode: 200, body: "ok" };
+		}).use(
+			httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+		);
+
+		const error = await handler(
+			{ headers: { "payment-signature": makePaymentHeader(testPayload) } },
+			defaultContext,
+		).catch((e) => e);
+
+		strictEqual(error.statusCode, 502);
+		strictEqual(error.message, "Bad Gateway");
+		strictEqual(error.expose, true);
+		deepStrictEqual(error.cause, {
+			package: "@middy/http-x402",
+			data: {
+				reason:
+					"Facilitator verify failed: Facilitator verify returned invalid JSON: upstream secret detail",
+			},
+		});
+		strictEqual(handlerRan, false);
+		strictEqual(mockVerify.mock.callCount(), 1);
+	});
+
 	test("settle throws (facilitator down) returns clean 402 without leaking message", async (t) => {
 		const mockSettle = t.mock.fn(async () => {
 			throw new Error("facilitator 503: settle secret detail");
@@ -380,6 +424,55 @@ describe("@middy/http-x402", () => {
 		strictEqual(settlement.transaction, "");
 		strictEqual(settlement.network, "eip155:8453");
 		ok(!JSON.stringify(settlement).includes("settle secret detail"));
+		strictEqual(mockSettle.mock.callCount(), 1);
+	});
+
+	test("settle throws a FacilitatorResponseError - 502, handler response withheld", async (t) => {
+		const mockSettle = t.mock.fn(async () => {
+			throw new FacilitatorResponseError(
+				"Facilitator settle returned invalid JSON: settle secret detail",
+			);
+		});
+		class MockFacilitatorClient {
+			verify() {
+				return defaultVerifyResult;
+			}
+			settle(...args) {
+				return mockSettle(...args);
+			}
+		}
+		let releasedResponse;
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: "paid secret",
+			headers: {},
+		}))
+			.use(
+				httpX402({
+					...defaultOptions,
+					FacilitatorClient: MockFacilitatorClient,
+				}),
+			)
+			.onError((request) => {
+				releasedResponse = request.response;
+			});
+
+		const error = await handler(
+			{ headers: { "payment-signature": makePaymentHeader(testPayload) } },
+			defaultContext,
+		).catch((e) => e);
+
+		strictEqual(error.statusCode, 502);
+		strictEqual(error.message, "Bad Gateway");
+		strictEqual(error.expose, true);
+		deepStrictEqual(error.cause, {
+			package: "@middy/http-x402",
+			data: {
+				reason:
+					"Facilitator settle failed: Facilitator settle returned invalid JSON: settle secret detail",
+			},
+		});
+		strictEqual(releasedResponse, undefined);
 		strictEqual(mockSettle.mock.callCount(), 1);
 	});
 
@@ -986,6 +1079,41 @@ describe("@middy/http-x402", () => {
 		strictEqual(requirements.amount, "10000");
 	});
 
+	test("price conversion: string '.25' without a leading zero with decimals:6 produces amount 250000", async (t) => {
+		const { MockFacilitatorClient, mockVerify } = makeMockClient(
+			t,
+			defaultVerifyResult,
+			defaultSettleResult,
+		);
+		const options = {
+			...defaultOptions,
+			price: ".25",
+			decimals: 6,
+			FacilitatorClient: MockFacilitatorClient,
+		};
+		// The option schema and the conversion agree on this form.
+		httpX402ValidateOptions(options);
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: "ok",
+			headers: {},
+		})).use(httpX402(options));
+
+		await handler(
+			{
+				headers: {
+					"payment-signature": makePaymentHeader(
+						withAccepted({ amount: "250000" }),
+					),
+				},
+			},
+			defaultContext,
+		);
+
+		const [, requirements] = mockVerify.mock.calls[0].arguments;
+		strictEqual(requirements.amount, "250000");
+	});
+
 	test("18-decimal string price produces exact integer atomic amount", async (t) => {
 		const { MockFacilitatorClient, mockVerify } = makeMockClient(
 			t,
@@ -1192,6 +1320,7 @@ describe("@middy/http-x402", () => {
 		let threw = false;
 		try {
 			httpX402({
+				facilitatorUrl: defaultOptions.facilitatorUrl,
 				payTo: "0xpayto",
 				asset: "0xasset",
 				FacilitatorClient: MockFacilitatorClient,
@@ -1212,6 +1341,7 @@ describe("@middy/http-x402", () => {
 		let threw = false;
 		try {
 			httpX402({
+				facilitatorUrl: defaultOptions.facilitatorUrl,
 				price: "",
 				payTo: "0xpayto",
 				asset: "0xasset",
@@ -1233,6 +1363,7 @@ describe("@middy/http-x402", () => {
 		let threw = false;
 		try {
 			httpX402({
+				facilitatorUrl: defaultOptions.facilitatorUrl,
 				amount: "12.5",
 				payTo: "0xpayto",
 				asset: "0xasset",
@@ -1254,6 +1385,7 @@ describe("@middy/http-x402", () => {
 		let threw = false;
 		try {
 			httpX402({
+				facilitatorUrl: defaultOptions.facilitatorUrl,
 				price: "0.0000001",
 				decimals: 6,
 				payTo: "0xpayto",
@@ -1442,7 +1574,35 @@ describe("@middy/http-x402", () => {
 		strictEqual(challenge.resource.mimeType, "text/csv");
 	});
 
-	test("default facilitatorUrl is passed to FacilitatorClient, nothing else", (t) => {
+	for (const [label, facilitatorUrl] of [
+		["missing", undefined],
+		["empty", ""],
+		["not a string", 42],
+	]) {
+		test(`It should throw at construction when facilitatorUrl is ${label}`, (t) => {
+			const { MockFacilitatorClient } = makeMockClient(
+				t,
+				defaultVerifyResult,
+				defaultSettleResult,
+			);
+			throws(
+				() =>
+					httpX402({
+						price: 0.001,
+						payTo: "0xpayto",
+						asset: "0xasset",
+						facilitatorUrl,
+						FacilitatorClient: MockFacilitatorClient,
+					}),
+				{
+					message: "@middy/http-x402 facilitatorUrl is required",
+					cause: { package: "@middy/http-x402" },
+				},
+			);
+		});
+	}
+
+	test("facilitatorUrl is passed to FacilitatorClient, nothing else", (t) => {
 		let capturedArg;
 		class MockFacilitatorClient {
 			constructor(arg) {
@@ -1451,8 +1611,12 @@ describe("@middy/http-x402", () => {
 			verify() {}
 			settle() {}
 		}
-		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient });
-		deepStrictEqual(capturedArg, { url: "https://x402.org/facilitator" });
+		httpX402({
+			...defaultOptions,
+			facilitatorUrl: "https://facilitator.example.com",
+			FacilitatorClient: MockFacilitatorClient,
+		});
+		deepStrictEqual(capturedArg, { url: "https://facilitator.example.com" });
 	});
 
 	test("httpX402ValidateOptions - FacilitatorClient must be a Function", () => {
@@ -1462,6 +1626,7 @@ describe("@middy/http-x402", () => {
 				price: 0.001,
 				payTo: "0x",
 				asset: "0x",
+				facilitatorUrl: "https://facilitator.example.com",
 				FacilitatorClient: 123,
 			});
 		} catch (e) {
@@ -1495,6 +1660,7 @@ describe("@middy/http-x402", () => {
 				price: 0.001,
 				payTo: "0x",
 				asset: "0x",
+				facilitatorUrl: "https://facilitator.example.com",
 				amount: 123,
 			});
 		} catch (e) {
@@ -1512,6 +1678,7 @@ describe("@middy/http-x402", () => {
 				price: 0.001,
 				payTo: "0x",
 				asset: "0x",
+				facilitatorUrl: "https://facilitator.example.com",
 				decimals: 6.5,
 			});
 		} catch (e) {
@@ -1529,6 +1696,7 @@ describe("@middy/http-x402", () => {
 				price: 0.001,
 				payTo: "0x",
 				asset: "0x",
+				facilitatorUrl: "https://facilitator.example.com",
 				network: 123,
 			});
 		} catch (e) {
@@ -1546,6 +1714,7 @@ describe("@middy/http-x402", () => {
 				price: 0.001,
 				payTo: "0x",
 				asset: "0x",
+				facilitatorUrl: "https://facilitator.example.com",
 				description: 123,
 			});
 		} catch (e) {
@@ -1563,6 +1732,7 @@ describe("@middy/http-x402", () => {
 				price: 0.001,
 				payTo: "0x",
 				asset: "0x",
+				facilitatorUrl: "https://facilitator.example.com",
 				mimeType: 123,
 			});
 		} catch (e) {
@@ -1887,6 +2057,7 @@ describe("@middy/http-x402", () => {
 		let threw = false;
 		try {
 			httpX402({
+				facilitatorUrl: defaultOptions.facilitatorUrl,
 				price: "1e2",
 				payTo: "0xpayto",
 				asset: "0xasset",
@@ -1908,6 +2079,7 @@ describe("@middy/http-x402", () => {
 		let message;
 		try {
 			httpX402({
+				facilitatorUrl: defaultOptions.facilitatorUrl,
 				amount: "12.5",
 				payTo: "0xpayto",
 				asset: "0xasset",
@@ -1928,6 +2100,7 @@ describe("@middy/http-x402", () => {
 		let threw = false;
 		try {
 			httpX402({
+				facilitatorUrl: defaultOptions.facilitatorUrl,
 				price: "1.5abc",
 				payTo: "0xpayto",
 				asset: "0xasset",
@@ -1949,6 +2122,7 @@ describe("@middy/http-x402", () => {
 		let threw = false;
 		try {
 			httpX402({
+				facilitatorUrl: defaultOptions.facilitatorUrl,
 				price: "abc1.5",
 				payTo: "0xpayto",
 				asset: "0xasset",
@@ -2004,6 +2178,7 @@ describe("@middy/http-x402", () => {
 		let message;
 		try {
 			httpX402({
+				facilitatorUrl: defaultOptions.facilitatorUrl,
 				price: "abc",
 				payTo: "0xpayto",
 				asset: "0xasset",
@@ -2028,6 +2203,7 @@ describe("@middy/http-x402", () => {
 		let message;
 		try {
 			httpX402({
+				facilitatorUrl: defaultOptions.facilitatorUrl,
 				price: "0.0000001",
 				decimals: 6,
 				payTo: "0xpayto",
@@ -2216,7 +2392,11 @@ describe("@middy/http-x402", () => {
 	test("httpX402ValidateOptions - missing required field payTo throws", () => {
 		let threw = false;
 		try {
-			httpX402ValidateOptions({ price: 0.001, asset: "0x" });
+			httpX402ValidateOptions({
+				price: 0.001,
+				asset: "0x",
+				facilitatorUrl: "https://facilitator.example.com",
+			});
 		} catch (e) {
 			threw = true;
 			ok(e.message.includes("payTo"));
@@ -2227,12 +2407,36 @@ describe("@middy/http-x402", () => {
 	test("httpX402ValidateOptions - missing required field asset throws", () => {
 		let threw = false;
 		try {
-			httpX402ValidateOptions({ price: 0.001, payTo: "0x" });
+			httpX402ValidateOptions({
+				price: 0.001,
+				payTo: "0x",
+				facilitatorUrl: "https://facilitator.example.com",
+			});
 		} catch (e) {
 			threw = true;
 			ok(e.message.includes("asset"));
 		}
 		ok(threw);
+	});
+
+	test("httpX402ValidateOptions - missing required field facilitatorUrl throws", () => {
+		throws(
+			() => httpX402ValidateOptions({ price: 0.001, payTo: "0x", asset: "0x" }),
+			/facilitatorUrl/,
+		);
+	});
+
+	test("httpX402ValidateOptions - empty facilitatorUrl throws", () => {
+		throws(
+			() =>
+				httpX402ValidateOptions({
+					price: 0.001,
+					payTo: "0x",
+					asset: "0x",
+					facilitatorUrl: "",
+				}),
+			/facilitatorUrl/,
+		);
 	});
 
 	test("httpX402ValidateOptions - unknown option throws", () => {
@@ -2242,6 +2446,7 @@ describe("@middy/http-x402", () => {
 				price: 0.001,
 				payTo: "0x",
 				asset: "0x",
+				facilitatorUrl: "https://facilitator.example.com",
 				unknown: true,
 			});
 		} catch (e) {
@@ -2252,7 +2457,12 @@ describe("@middy/http-x402", () => {
 	});
 
 	test("httpX402ValidateOptions - valid minimal options pass", () => {
-		httpX402ValidateOptions({ price: 0.001, payTo: "0x", asset: "0x" });
+		httpX402ValidateOptions({
+			price: 0.001,
+			payTo: "0x",
+			asset: "0x",
+			facilitatorUrl: "https://facilitator.example.com",
+		});
 	});
 
 	test("httpX402ValidateOptions - valid options with human function pass", () => {
@@ -2260,6 +2470,7 @@ describe("@middy/http-x402", () => {
 			price: 0.001,
 			payTo: "0x",
 			asset: "0x",
+			facilitatorUrl: "https://facilitator.example.com",
 			human: () => false,
 		});
 	});
@@ -2271,6 +2482,7 @@ describe("@middy/http-x402", () => {
 				price: 0.001,
 				payTo: "0x",
 				asset: "0x",
+				facilitatorUrl: "https://facilitator.example.com",
 				extra: "usdc",
 			});
 		} catch (e) {
@@ -2635,6 +2847,34 @@ describe("@middy/http-x402", () => {
 		strictEqual(JSON.parse(response.body).error, "unexpected_verify_error");
 	});
 
+	test("verify throws a FacilitatorTimeoutError - 504", async (t) => {
+		const mockVerify = t.mock.fn(async () => {
+			throw new FacilitatorTimeoutError("verify", 90000);
+		});
+		class MockFacilitatorClient {
+			verify(...args) {
+				return mockVerify(...args);
+			}
+			settle() {}
+		}
+		const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
+			httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+		);
+
+		const error = await handler(
+			{ headers: { "payment-signature": makePaymentHeader(testPayload) } },
+			defaultContext,
+		).catch((e) => e);
+
+		strictEqual(error.statusCode, 504);
+		strictEqual(error.message, "Gateway Timeout");
+		strictEqual(error.expose, true);
+		strictEqual(
+			error.cause.data.reason,
+			"Facilitator verify failed: Facilitator verify request timed out after 90000ms",
+		);
+	});
+
 	test("settle throws with a string errorReason - reason is forwarded", async (t) => {
 		const mockSettle = t.mock.fn(async () => {
 			const error = new Error("Facilitator settle failed (402)");
@@ -2670,12 +2910,19 @@ describe("@middy/http-x402", () => {
 		strictEqual(settlement.errorReason, "insufficient_funds");
 	});
 
-	test("settle throws settlement_pending with a transaction - hash is forwarded", async (t) => {
+	const pendingSettleResult = {
+		success: false,
+		errorReason: "settlement_pending",
+		transaction: "0xabc123",
+		network: "eip155:8453",
+	};
+
+	const settleSequenceHandler = (t, outcomes) => {
+		let call = 0;
 		const mockSettle = t.mock.fn(async () => {
-			const error = new Error("receipt timeout");
-			error.errorReason = "settlement_pending";
-			error.transaction = "0xabc123";
-			throw error;
+			const outcome = outcomes[call++];
+			if (outcome instanceof Error) throw outcome;
+			return outcome;
 		});
 		class MockFacilitatorClient {
 			verify() {
@@ -2692,11 +2939,116 @@ describe("@middy/http-x402", () => {
 		})).use(
 			httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
 		);
+		return { handler, mockSettle };
+	};
 
-		const response = await handler(
-			{ headers: { "payment-signature": makePaymentHeader(testPayload) } },
-			defaultContext,
+	const paidEvent = () => ({
+		headers: { "payment-signature": makePaymentHeader(testPayload) },
+	});
+
+	test("settle returns settlement_pending with a transaction - retried once, then delivered", async (t) => {
+		const { handler, mockSettle } = settleSequenceHandler(t, [
+			pendingSettleResult,
+			defaultSettleResult,
+		]);
+
+		const response = await handler(paidEvent(), defaultContext);
+
+		strictEqual(response.statusCode, 200);
+		strictEqual(response.body, "ok");
+		deepStrictEqual(
+			decodeResponseHeader(response.headers["PAYMENT-RESPONSE"]),
+			defaultSettleResult,
 		);
+		strictEqual(mockSettle.mock.callCount(), 2);
+		deepStrictEqual(
+			mockSettle.mock.calls[1].arguments,
+			mockSettle.mock.calls[0].arguments,
+		);
+	});
+
+	test("settle returns settlement_pending twice - one retry only, second result is final", async (t) => {
+		const { handler, mockSettle } = settleSequenceHandler(t, [
+			pendingSettleResult,
+			{ ...pendingSettleResult, transaction: "0xdef456" },
+			defaultSettleResult,
+		]);
+
+		const response = await handler(paidEvent(), defaultContext);
+
+		strictEqual(response.statusCode, 402);
+		strictEqual(
+			decodeResponseHeader(response.headers["PAYMENT-RESPONSE"]).transaction,
+			"0xdef456",
+		);
+		strictEqual(mockSettle.mock.callCount(), 2);
+	});
+
+	for (const [label, firstResult, statusCode] of [
+		[
+			"settlement_pending without a transaction",
+			{ ...pendingSettleResult, transaction: "" },
+			402,
+		],
+		[
+			"another failure that carries a transaction",
+			{ ...pendingSettleResult, errorReason: "insufficient_funds" },
+			402,
+		],
+		[
+			"a success, whatever reason it names",
+			{ ...defaultSettleResult, errorReason: "settlement_pending" },
+			200,
+		],
+	]) {
+		test(`settle is not retried for ${label}`, async (t) => {
+			const { handler, mockSettle } = settleSequenceHandler(t, [
+				firstResult,
+				{ ...defaultSettleResult, transaction: "0xretried" },
+			]);
+
+			const response = await handler(paidEvent(), defaultContext);
+
+			strictEqual(response.statusCode, statusCode);
+			deepStrictEqual(
+				decodeResponseHeader(response.headers["PAYMENT-RESPONSE"]),
+				firstResult,
+			);
+			strictEqual(mockSettle.mock.callCount(), 1);
+		});
+	}
+
+	const pendingSettleError = () => {
+		const error = new Error("receipt timeout");
+		error.errorReason = "settlement_pending";
+		error.transaction = "0xabc123";
+		return error;
+	};
+
+	test("settle throws settlement_pending with a transaction - retried once, then delivered", async (t) => {
+		const { handler, mockSettle } = settleSequenceHandler(t, [
+			pendingSettleError(),
+			defaultSettleResult,
+		]);
+
+		const response = await handler(paidEvent(), defaultContext);
+
+		strictEqual(response.statusCode, 200);
+		deepStrictEqual(
+			decodeResponseHeader(response.headers["PAYMENT-RESPONSE"]),
+			defaultSettleResult,
+		);
+		strictEqual(mockSettle.mock.callCount(), 2);
+	});
+
+	test("settle throws settlement_pending twice - one retry only, hash is forwarded", async (t) => {
+		const { handler, mockSettle } = settleSequenceHandler(t, [
+			pendingSettleError(),
+			pendingSettleError(),
+			defaultSettleResult,
+		]);
+
+		const response = await handler(paidEvent(), defaultContext);
 
 		strictEqual(response.statusCode, 402);
 		const settlement = decodeResponseHeader(
@@ -2704,6 +3056,7 @@ describe("@middy/http-x402", () => {
 		);
 		strictEqual(settlement.errorReason, "settlement_pending");
 		strictEqual(settlement.transaction, "0xabc123");
+		strictEqual(mockSettle.mock.callCount(), 2);
 	});
 
 	test("settle throws with a non-string transaction - empty transaction", async (t) => {
@@ -2799,6 +3152,33 @@ describe("@middy/http-x402", () => {
 
 		strictEqual(response.statusCode, 402);
 		strictEqual(JSON.parse(response.body).error, "unexpected_settle_error");
+	});
+
+	test("settle throws a FacilitatorTimeoutError - 504", async (t) => {
+		const { handler } = settleSequenceHandler(t, [
+			new FacilitatorTimeoutError("settle", 90000),
+		]);
+
+		const error = await handler(paidEvent(), defaultContext).catch((e) => e);
+
+		strictEqual(error.statusCode, 504);
+		strictEqual(error.message, "Gateway Timeout");
+		strictEqual(
+			error.cause.data.reason,
+			"Facilitator settle failed: Facilitator settle request timed out after 90000ms",
+		);
+	});
+
+	test("settle retry that throws a FacilitatorResponseError - 502", async (t) => {
+		const { handler, mockSettle } = settleSequenceHandler(t, [
+			pendingSettleResult,
+			new FacilitatorResponseError("Facilitator settle returned invalid JSON"),
+		]);
+
+		const error = await handler(paidEvent(), defaultContext).catch((e) => e);
+
+		strictEqual(error.statusCode, 502);
+		strictEqual(mockSettle.mock.callCount(), 2);
 	});
 
 	test("extra option is advertised in accepts and matched against accepted", async (t) => {
@@ -3251,6 +3631,37 @@ describe("@middy/http-x402", () => {
 		strictEqual(body.x402Version, 1);
 		strictEqual(body.error, "unexpected_verify_error");
 		ok(!response.body.includes("v1 secret detail"));
+	});
+
+	test("v1 verify throws with a string invalidReason - reason is forwarded in the v1 body", async (t) => {
+		const mockVerify = t.mock.fn(async () => {
+			const error = new Error("Facilitator verify failed (400)");
+			error.invalidReason = "invalid_exact_evm_payload_signature";
+			throw error;
+		});
+		class MockFacilitatorClient {
+			verify(...args) {
+				return mockVerify(...args);
+			}
+			settle() {}
+		}
+		const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
+			httpX402({
+				...defaultOptions,
+				versions: [1, 2],
+				FacilitatorClient: MockFacilitatorClient,
+			}),
+		);
+
+		const response = await handler(
+			{ headers: { "x-payment": makePaymentHeader(testPayloadV1) } },
+			defaultContext,
+		);
+
+		strictEqual(response.statusCode, 402);
+		const body = JSON.parse(response.body);
+		strictEqual(body.x402Version, 1);
+		strictEqual(body.error, "invalid_exact_evm_payload_signature");
 	});
 
 	test("v1 settle failure returns 402 with X-PAYMENT-RESPONSE", async (t) => {
@@ -3774,6 +4185,7 @@ describe("@middy/http-x402", () => {
 				price: 0.001,
 				payTo: "0x",
 				asset: "0x",
+				facilitatorUrl: "https://facilitator.example.com",
 				versions: [3],
 			});
 		} catch (e) {
@@ -3790,6 +4202,7 @@ describe("@middy/http-x402", () => {
 				price: 0.001,
 				payTo: "0x",
 				asset: "0x",
+				facilitatorUrl: "https://facilitator.example.com",
 				versions: 2,
 			});
 		} catch (e) {
@@ -3800,17 +4213,234 @@ describe("@middy/http-x402", () => {
 		ok(threw);
 	});
 
+	test("httpX402ValidateOptions - versions must be non-empty and unique", () => {
+		for (const versions of [[], [2, 2], [1, 2, 1]]) {
+			throws(() => httpX402ValidateOptions({ ...defaultOptions, versions }), {
+				name: "TypeError",
+			});
+		}
+	});
+
+	test("httpX402ValidateOptions - facilitatorUrl must be an https URL of at most 1024 characters", () => {
+		httpX402ValidateOptions({
+			...defaultOptions,
+			facilitatorUrl: "https://x402.org/facilitator",
+		});
+		for (const facilitatorUrl of [
+			"http://localhost:4022",
+			"x402.org/facilitator",
+			"https://x402.org/a b",
+			`https://${"a".repeat(1017)}`,
+		]) {
+			throws(
+				() => httpX402ValidateOptions({ ...defaultOptions, facilitatorUrl }),
+				{ name: "TypeError" },
+			);
+		}
+	});
+
+	test("httpX402ValidateOptions - price string, amount and decimals follow the atomic-unit rules", () => {
+		for (const price of ["0.001", ".5", "123456789", 0.001]) {
+			httpX402ValidateOptions({ ...defaultOptions, price });
+		}
+		for (const price of ["", "1.", "1e2", "abc", "-1", 0]) {
+			throws(() => httpX402ValidateOptions({ ...defaultOptions, price }), {
+				message: "Option 'price' must match exactly one schema in oneOf",
+			});
+		}
+		httpX402ValidateOptions({ ...defaultOptions, amount: "1000" });
+		for (const amount of ["", "12.5", "-1", "1e3"]) {
+			throws(() => httpX402ValidateOptions({ ...defaultOptions, amount }), {
+				name: "TypeError",
+			});
+		}
+		for (const decimals of [0, 6, 18, 255]) {
+			httpX402ValidateOptions({ ...defaultOptions, decimals });
+		}
+		throws(() => httpX402ValidateOptions({ ...defaultOptions, decimals: -1 }), {
+			message: "Option 'decimals' must be >= 0",
+		});
+		throws(
+			() => httpX402ValidateOptions({ ...defaultOptions, decimals: 256 }),
+			{
+				message: "Option 'decimals' must be <= 255",
+			},
+		);
+	});
+
+	test("httpX402ValidateOptions - network must be a CAIP-2 chain id", () => {
+		for (const network of [
+			"eip155:8453",
+			"solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+			"tvm:-239",
+			"starknet:SN_SEPOLIA",
+		]) {
+			httpX402ValidateOptions({ ...defaultOptions, network });
+		}
+		for (const network of [
+			"base",
+			"eip155",
+			"EIP155:1",
+			"ab:1",
+			`eip155:${"1".repeat(33)}`,
+		]) {
+			throws(() => httpX402ValidateOptions({ ...defaultOptions, network }), {
+				name: "TypeError",
+			});
+		}
+	});
+
+	test("httpX402ValidateOptions - payTo and asset are visible ASCII of at most 1024 characters", () => {
+		httpX402ValidateOptions({
+			...defaultOptions,
+			payTo: "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+			asset: "0x2::sui::SUI",
+		});
+		for (const value of ["", "0x a", "a".repeat(1025)]) {
+			throws(
+				() => httpX402ValidateOptions({ ...defaultOptions, payTo: value }),
+				{ name: "TypeError" },
+			);
+			throws(
+				() => httpX402ValidateOptions({ ...defaultOptions, asset: value }),
+				{ name: "TypeError" },
+			);
+		}
+	});
+
+	test("httpX402ValidateOptions - description and mimeType are bounded", () => {
+		httpX402ValidateOptions({
+			...defaultOptions,
+			description: "Données premium",
+			mimeType: "text/csv",
+		});
+		httpX402ValidateOptions({ ...defaultOptions, description: "" });
+		for (const description of ["a\nb", "a".repeat(1025)]) {
+			throws(
+				() => httpX402ValidateOptions({ ...defaultOptions, description }),
+				{ name: "TypeError" },
+			);
+		}
+		for (const mimeType of [
+			"json",
+			"text/csv; charset=utf-8",
+			`${"a".repeat(128)}/json`,
+		]) {
+			throws(() => httpX402ValidateOptions({ ...defaultOptions, mimeType }), {
+				name: "TypeError",
+			});
+		}
+	});
+
+	test("httpX402ValidateOptions - extra accepts the exact scheme keys of the x402 network specs", () => {
+		for (const extra of [
+			{ name: "USD Coin", version: "2" },
+			{
+				feePayer: "2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4",
+				memo: "invoice-2024-001",
+				recentBlockhash: "EkSnNWid2cvwEVnVx9aBqawnmiCNiDgp3gUdkDPTKN1N",
+				lastValidBlockHeight: "150",
+			},
+			{ external: "0123456789abcdef0123456789abcdef" },
+			{ areFeesSponsored: true },
+			{ gasStation: "https://gas.example.com" },
+			{
+				responseDestination:
+					"0:92433a576cbe56c4dcc86d94b497a2cf18a9baa9c8283fea28ea43eb3c25cfed",
+				forwardPayload: "te6cckEBAgEAkwABnYgBFpKiX+/=",
+				forwardTonAmount: "50000000",
+			},
+			{
+				areFeesSponsored: false,
+				invoiceId: "INV-2025-001",
+				destinationTag: 4294967295,
+				issuer: "rMwjYedjc7qqtKYVLiAccJSmCwih4LnE2q",
+			},
+			{ confirmationPolicy: { l1Confirmations: -1 } },
+			{ confirmationPolicy: { l1Confirmations: 20 } },
+			{},
+		]) {
+			httpX402ValidateOptions({ ...defaultOptions, extra });
+		}
+	});
+
+	test("httpX402ValidateOptions - extra rejects reserved, unknown or out-of-range keys", () => {
+		for (const [extra, message] of [
+			[{ paymentFlow: "upfront" }, "Unknown option 'extra.paymentFlow'"],
+			[
+				{ assetTransferMethod: "permit2" },
+				"Unknown option 'extra.assetTransferMethod'",
+			],
+			[{ token: "USDC" }, "Unknown option 'extra.token'"],
+			[
+				{ memo: "a".repeat(257) },
+				"Option 'extra.memo' must have length <= 256",
+			],
+			[
+				{ destinationTag: 4294967296 },
+				"Option 'extra.destinationTag' must be <= 4294967295",
+			],
+			[{ destinationTag: -1 }, "Option 'extra.destinationTag' must be >= 0"],
+			[
+				{ confirmationPolicy: { l1Confirmations: 21 } },
+				"Option 'extra.confirmationPolicy.l1Confirmations' must be <= 20",
+			],
+			[
+				{ confirmationPolicy: { l1Confirmations: -2 } },
+				"Option 'extra.confirmationPolicy.l1Confirmations' must be >= -1",
+			],
+			[
+				{ confirmationPolicy: { minimum: 1 } },
+				"Unknown option 'extra.confirmationPolicy.minimum'",
+			],
+			[
+				{ areFeesSponsored: "true" },
+				"Option 'extra.areFeesSponsored' must be boolean",
+			],
+			[
+				{ gasStation: "http://gas.example.com" },
+				"Option 'extra.gasStation' must match pattern /^https:\\/\\/[\\x21-\\x7E]+$/u",
+			],
+			[
+				{ forwardPayload: "te6cc.EB" },
+				"Option 'extra.forwardPayload' must match pattern /^[\\w+/=-]+$/u",
+			],
+			[
+				{ forwardTonAmount: "5e7" },
+				"Option 'extra.forwardTonAmount' must match pattern /^\\d+$/u",
+			],
+		]) {
+			throws(() => httpX402ValidateOptions({ ...defaultOptions, extra }), {
+				name: "TypeError",
+				message,
+			});
+		}
+	});
+
+	test("httpX402ValidateOptions - FacilitatorClient and human must be functions", () => {
+		httpX402ValidateOptions({
+			...defaultOptions,
+			FacilitatorClient: class {},
+			human: async () => false,
+		});
+		throws(() => httpX402ValidateOptions({ ...defaultOptions, human: true }), {
+			message: "Option 'human' must be instanceof Function",
+		});
+	});
+
 	test("httpX402ValidateOptions - valid versions pass", () => {
 		httpX402ValidateOptions({
 			price: 0.001,
 			payTo: "0x",
 			asset: "0x",
+			facilitatorUrl: "https://facilitator.example.com",
 			versions: [1, 2],
 		});
 		httpX402ValidateOptions({
 			price: 0.001,
 			payTo: "0x",
 			asset: "0x",
+			facilitatorUrl: "https://facilitator.example.com",
 			versions: [2],
 		});
 	});

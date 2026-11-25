@@ -6,22 +6,52 @@ import {
 	SQSClient,
 } from "@aws-sdk/client-sqs";
 import { validateOptions } from "@middy/util";
+import {
+	sqsAcknowledgeHeadroomSeconds,
+	sqsMaxVisibilityTimeoutSeconds,
+} from "./pollHelpers.js";
 
 const pkg = "@middy/ecs-batch/pollSqs";
 
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:ecs-batch:pollSqs:options",
+	$defs: { Object: false },
 	type: "object",
 	properties: {
-		queueUrl: { type: "string" },
-		client: { type: "object", additionalProperties: true },
+		// QueueUrl and MaxNumberOfMessages "Valid values: 1 to 10":
+		// https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_ReceiveMessage.html
+		queueUrl: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^https?:\/\/[\x21-\x7E]+$/u,
+		},
+		client: { $ref: "#/$defs/Object" },
 		maxNumberOfMessages: { type: "integer", minimum: 1, maximum: 10 },
+		// "The maximum long polling wait time is 20 seconds."
+		// https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-short-and-long-polling.html
 		waitTimeSeconds: { type: "integer", minimum: 0, maximum: 20 },
-		visibilityTimeout: { type: "integer", minimum: 0 },
-		eventSourceArn: { type: "string" },
-		awsRegion: { type: "string" },
+		// VisibilityTimeout "Values range: 0 to 43200."
+		// https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_ChangeMessageVisibility.html
+		visibilityTimeout: {
+			type: "integer",
+			minimum: 0,
+			maximum: sqsMaxVisibilityTimeoutSeconds,
+		},
+		// EventSourceArn "arn:(aws[a-zA-Z0-9-]*):([a-zA-Z0-9\-])+:([a-z]{2}(-gov)?-[a-z]+-\d{1})?:(\d{12})?:(.*)":
+		// https://docs.aws.amazon.com/lambda/latest/api/API_CreateEventSourceMapping.html
+		eventSourceArn: {
+			type: "string",
+			maxLength: 1024,
+			pattern: /^arn:aws[\w-]*:[\w-]+:[\w-]*:(?:\d{12})?:[\x21-\x7E]+$/u,
+		},
+		// The SDK takes any region that is a valid host label:
+		// node_modules/@smithy/core/dist-es/submodules/transport/isValidHostLabel.js
+		awsRegion: { type: "string", maxLength: 63, pattern: /^[A-Za-z0-9-]+$/u },
 	},
 	required: ["queueUrl"],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const pollSqsValidateOptions = (options) =>
@@ -137,10 +167,6 @@ const chunk = (arr, size) => {
 	return out;
 };
 
-// Time left after the handler's budget for DeleteMessageBatch, retries
-// included, before a batch's messages become visible again.
-const acknowledgeHeadroomSeconds = 30;
-
 export const pollSqs = (opts) => {
 	pollSqsValidateOptions(opts);
 	const client = opts.client ?? new SQSClient({});
@@ -173,7 +199,7 @@ export const pollSqs = (opts) => {
 				opts.visibilityTimeout ??
 				(timeout === undefined
 					? undefined
-					: Math.ceil(timeout / 1000) + acknowledgeHeadroomSeconds);
+					: Math.ceil(timeout / 1000) + sqsAcknowledgeHeadroomSeconds);
 			const params =
 				visibilityTimeout === undefined
 					? receiveParams

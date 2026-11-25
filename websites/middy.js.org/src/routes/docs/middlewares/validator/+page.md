@@ -1,4 +1,5 @@
 ---
+
 title: validator
 description: "Validate Lambda event input and response output against JSON schemas with Middy."
 ---
@@ -82,121 +83,121 @@ Transpile Fluent (.ftl) localization file into ajv compatible format using [`ajv
 Example for event validation:
 
 ```javascript
-import middy from '@middy/core'
-import validator from '@middy/validator'
-import { transpileSchema } from '@middy/validator/transpile'
+import middy from "@middy/core";
+import validator from "@middy/validator";
+import { transpileSchema } from "@middy/validator/transpile";
 
 const lambdaHandler = (event, context) => {
-  return {}
-}
+	return {};
+};
 
 const schema = {
-  type: 'object',
-  required: ['body', 'foo'],
-  properties: {
-    // this will pass validation
-    body: {
-      type: 'string'
-    },
-    // this won't as it won't be in the event
-    foo: {
-      type: 'string'
-    }
-  }
-}
+	type: "object",
+	required: ["body", "foo"],
+	properties: {
+		// this will pass validation
+		body: {
+			type: "string",
+		},
+		// this won't as it won't be in the event
+		foo: {
+			type: "string",
+		},
+	},
+};
 
 export const handler = middy()
-  .use(
-    validator({
-      eventSchema: transpileSchema(schema)
-    })
-  )
-  .handler(lambdaHandler)
+	.use(
+		validator({
+			eventSchema: transpileSchema(schema),
+		}),
+	)
+	.handler(lambdaHandler);
 
 // invokes the handler, note that property foo is missing
 const event = {
-  body: JSON.stringify({ something: 'somethingelse' })
-}
+	body: JSON.stringify({ something: "somethingelse" }),
+};
 await rejects(handler(event, {}), (err) => {
-  strictEqual(err.statusCode, 400)
-  strictEqual(err.cause.data.reason, 'Event object failed validation')
-  return true
-})
+	strictEqual(err.statusCode, 400);
+	strictEqual(err.cause.data.reason, "Event object failed validation");
+	return true;
+});
 ```
 
 Example for response validation:
 
 ```javascript
-import middy from '@middy/core'
-import validator from '@middy/validator'
-import { transpileSchema } from '@middy/validator/transpile'
+import middy from "@middy/core";
+import validator from "@middy/validator";
+import { transpileSchema } from "@middy/validator/transpile";
 
 const lambdaHandler = (event, context) => {
-  return {}
-}
+	return {};
+};
 
 const responseSchema = transpileSchema({
-  type: 'object',
-  required: ['body', 'statusCode'],
-  properties: {
-    body: {
-      type: 'object'
-    },
-    statusCode: {
-      type: 'number'
-    }
-  }
-})
+	type: "object",
+	required: ["body", "statusCode"],
+	properties: {
+		body: {
+			type: "object",
+		},
+		statusCode: {
+			type: "number",
+		},
+	},
+});
 
 export const handler = middy()
-  .use(validator({ responseSchema }))
-  .handler(lambdaHandler)
+	.use(validator({ responseSchema }))
+	.handler(lambdaHandler);
 
 await rejects(handler({}, {}), (err) => {
-  strictEqual(err.statusCode, 500)
-  strictEqual(err.cause.data.reason, 'Response object failed validation')
-  return true
-})
+	strictEqual(err.statusCode, 500);
+	strictEqual(err.cause.data.reason, "Response object failed validation");
+	return true;
+});
 // the invalid response stays on request.response for onError middlewares
 ```
 
 Example for body validation:
 
 ```javascript
-import middy from '@middy/core'
-import httpJsonBodyParser from '@middy/http-json-body-parser'
-import validator from '@middy/validator'
-import { transpileSchema } from '@middy/validator/transpile'
+import middy from "@middy/core";
+import httpJsonBodyParser from "@middy/http-json-body-parser";
+import validator from "@middy/validator";
+import { transpileSchema } from "@middy/validator/transpile";
 
 const lambdaHandler = (event, context) => {
-  return {}
-}
+	return {};
+};
 
 const eventSchema = {
-  type: 'object',
-  required: ['body'],
-  properties: {
-    body: {
-      type: 'object',
-      required: ['name', 'email'],
-      properties: {
-        name: { type: 'string' },
-        email: { type: 'string', format: 'email' }
-        // schema options https://ajv.js.org/json-schema.html#json-data-type
-      }
-    }
-  }
-}
+	type: "object",
+	required: ["body"],
+	properties: {
+		body: {
+			type: "object",
+			required: ["name", "email"],
+			properties: {
+				name: { type: "string" },
+				email: { type: "string", format: "email" },
+				// schema options https://ajv.js.org/json-schema.html#json-data-type
+			},
+		},
+	},
+};
 
 export const handler = middy()
-  // to validate the body we need to parse it first
-  .use(httpJsonBodyParser())
-  .use(
-    validator({
-      eventSchema: transpileSchema(eventSchema)
-    })
-  )
-  .handler(lambdaHandler)
+	// to validate the body we need to parse it first
+	.use(httpJsonBodyParser())
+	.use(
+		validator({
+			eventSchema: transpileSchema(eventSchema),
+		}),
+	)
+	.handler(lambdaHandler);
 ```
 
 ## Validating the envelope and the body separately
@@ -204,43 +205,43 @@ export const handler = middy()
 The example above validates once, after parsing, so its schema has to describe the envelope as well as the payload. Splitting it in two means the envelope is checked while `body` is still a string, so a malformed request never reaches the parser, and `nestedSchema` keeps the body schema standalone so neither schema repeats the other.
 
 ```javascript
-import middy from '@middy/core'
-import httpJsonBodyParser from '@middy/http-json-body-parser'
-import validator from '@middy/validator'
-import { nestedSchema, transpileSchema } from '@middy/validator/transpile'
+import middy from "@middy/core";
+import httpJsonBodyParser from "@middy/http-json-body-parser";
+import validator from "@middy/validator";
+import { nestedSchema, transpileSchema } from "@middy/validator/transpile";
 
 const lambdaHandler = (event, context) => {
-  return {}
-}
+	return {};
+};
 
 // Knows nothing about where it lives, reusable as-is elsewhere.
 const bodySchema = {
-  type: 'object',
-  required: ['name', 'email'],
-  properties: {
-    name: { type: 'string' },
-    email: { type: 'string', format: 'email' }
-  }
-}
+	type: "object",
+	required: ["name", "email"],
+	properties: {
+		name: { type: "string" },
+		email: { type: "string", format: "email" },
+	},
+};
 
 const envelopeSchema = transpileSchema({
-  type: 'object',
-  required: ['httpMethod', 'body'],
-  properties: {
-    httpMethod: { const: 'POST' },
-    body: { type: 'string' }
-  }
-})
+	type: "object",
+	required: ["httpMethod", "body"],
+	properties: {
+		httpMethod: { const: "POST" },
+		body: { type: "string" },
+	},
+});
 
 export const handler = middy()
-  .use(validator({ eventSchema: envelopeSchema }))
-  .use(httpJsonBodyParser())
-  .use(
-    validator({
-      eventSchema: transpileSchema(nestedSchema('/body', bodySchema))
-    })
-  )
-  .handler(lambdaHandler)
+	.use(validator({ eventSchema: envelopeSchema }))
+	.use(httpJsonBodyParser())
+	.use(
+		validator({
+			eventSchema: transpileSchema(nestedSchema("/body", bodySchema)),
+		}),
+	)
+	.handler(lambdaHandler);
 ```
 
 Both validators throw a `400`. The first rejects a malformed envelope before the parser runs, the second reports the full path to the offending field, so the ajv `errors` on `request.error.cause.data` say which one fired (`/httpMethod` against a `GET`, `/body/email` against a bad address).
@@ -283,24 +284,24 @@ done
 ```
 
 ```javascript
-import middy from '@middy/core'
-import validator from '@middy/validator'
-import eventSchema from './schema.event.js'
-import en from './en.js'
-import fr from './fr.js'
+import middy from "@middy/core";
+import validator from "@middy/validator";
+import eventSchema from "./schema.event.js";
+import en from "./en.js";
+import fr from "./fr.js";
 
 const lambdaHandler = (event, context) => {
-  return {}
-}
+	return {};
+};
 
 export const handler = middy()
-  .use(
-    validator({
-      eventSchema,
-      languages: { en, fr }
-    })
-  )
-  .handler(lambdaHandler)
+	.use(
+		validator({
+			eventSchema,
+			languages: { en, fr },
+		}),
+	)
+	.handler(lambdaHandler);
 ```
 
 ## Transpile locales in a build step
@@ -309,36 +310,36 @@ export const handler = middy()
 before deploying and import the generated modules at runtime:
 
 ```javascript
-import { readFile, writeFile } from 'node:fs/promises'
-import { transpileFTL } from '@middy/validator/transpile'
+import { readFile, writeFile } from "node:fs/promises";
+import { transpileFTL } from "@middy/validator/transpile";
 
-for (const locale of ['en', 'fr']) {
-  const ftl = await readFile(`./${locale}.ftl`, 'utf8')
-  await writeFile(`./${locale}.js`, transpileFTL(ftl, { locale }), 'utf8')
+for (const locale of ["en", "fr"]) {
+	const ftl = await readFile(`./${locale}.ftl`, "utf8");
+	await writeFile(`./${locale}.js`, transpileFTL(ftl, { locale }), "utf8");
 }
 ```
 
 ## Transpile the schema during cold-start with default messages
 
 ```javascript
-import middy from '@middy/core'
-import validator from '@middy/validator'
-import { transpileSchema } from '@middy/validator/transpile'
-import { en, fr } from 'ajv-ftl-i18n' // `ajv-i18n` can also be used
-import eventSchema from './schema.event.json'
+import middy from "@middy/core";
+import validator from "@middy/validator";
+import { transpileSchema } from "@middy/validator/transpile";
+import { en, fr } from "ajv-ftl-i18n"; // `ajv-i18n` can also be used
+import eventSchema from "./schema.event.json";
 
 const lambdaHandler = (event, context) => {
-  return {}
-}
+	return {};
+};
 
 export const handler = middy()
-  .use(
-    validator({
-      eventSchema: transpileSchema(eventSchema),
-      languages: { en, fr }
-    })
-  )
-  .handler(lambdaHandler)
+	.use(
+		validator({
+			eventSchema: transpileSchema(eventSchema),
+			languages: { en, fr },
+		}),
+	)
+	.handler(lambdaHandler);
 ```
 
 

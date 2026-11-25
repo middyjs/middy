@@ -1,7 +1,7 @@
 import { equal, ok, rejects, strictEqual } from "node:assert/strict";
 import { describe, test } from "node:test";
+import middy from "@middy/core";
 import { clearCache, getInternal, modifyCache } from "@middy/util";
-import middy from "../core/index.js";
 import secretsManagerExtension, {
 	secretsManagerExtensionParam,
 	secretsManagerExtensionValidateOptions,
@@ -493,6 +493,7 @@ describe("@middy/secrets-manager-extension", () => {
 	test("It should allow the fetch 30 s outside an invocation (prefetch)", async (t) => {
 		const timeout = t.mock.method(AbortSignal, "timeout");
 		secretsManagerExtension({
+			cacheExpiry: -1,
 			fetchData: { token: "api_key" },
 		});
 		// The fetch starts once the session token has resolved.
@@ -618,12 +619,7 @@ describe("@middy/secrets-manager-extension", () => {
 		await handler(event, context);
 	});
 
-	test("It should cache forever by default (cacheExpiry default -1)", async (t) => {
-		// No cacheExpiry passed: default is -1 (infinite). A positive default (e.g. the
-		// `+1` mutant) is treated as a 1ms duration, so after ticking the clock well
-		// past it the second invocation would re-fetch. Ticking proves the default is
-		// infinite, not a tiny positive duration.
-		t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+	test("It should ask the extension on every invocation by default (cacheExpiry 0)", async (_t) => {
 		const handler = middy(() => {})
 			.use(
 				secretsManagerExtension({
@@ -637,9 +633,17 @@ describe("@middy/secrets-manager-extension", () => {
 				equal(values.token, "token");
 			});
 		await handler(event, context);
-		t.mock.timers.tick(60000);
 		await handler(event, context);
-		equal(fetchCount, 1);
+		equal(fetchCount, 2);
+	});
+
+	test("It should not prefetch by default (cacheExpiry 0)", async (_t) => {
+		secretsManagerExtension({
+			cacheKey: "sm-ext-default-prefetch",
+			fetchData: { token: "api_key" },
+		});
+		await Promise.resolve();
+		equal(fetchCount, 0);
 	});
 
 	test("secretsManagerExtensionValidateOptions accepts cacheKeyExpiry with numeric -1", () => {
@@ -733,6 +737,63 @@ describe("@middy/secrets-manager-extension", () => {
 		} catch (e) {
 			ok(e instanceof TypeError);
 		}
+	});
+
+	const rejectsOption = (options, messagePart) => {
+		try {
+			secretsManagerExtensionValidateOptions(options);
+			ok(false, `expected throw for ${messagePart}`);
+		} catch (e) {
+			ok(e instanceof TypeError, "expected TypeError");
+			strictEqual(e.cause.package, "@middy/secrets-manager-extension");
+			ok(
+				e.message.includes(messagePart),
+				`expected message to include '${messagePart}', got: ${e.message}`,
+			);
+		}
+	};
+
+	test("secretsManagerExtensionValidateOptions applies the GetSecretValue SecretId limits to fetchData values", () => {
+		// https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+		// https://docs.aws.amazon.com/lambda/latest/dg/with-secrets-manager.html
+		secretsManagerExtensionValidateOptions({
+			fetchData: {
+				name: "prod/service/access_token+=.@-",
+				arn: "arn:aws:secretsmanager:us-east-1:111122223333:secret:SECRET_NAME",
+				long: "s".repeat(2048),
+			},
+		});
+		rejectsOption({ fetchData: { token: "" } }, "fetchData.token");
+		rejectsOption(
+			{ fetchData: { token: "s".repeat(2049) } },
+			"fetchData.token",
+		);
+		rejectsOption({ fetchData: { token: "prod/a b" } }, "fetchData.token");
+		rejectsOption({ fetchData: { token: "prod/ünï" } }, "fetchData.token");
+	});
+
+	test("secretsManagerExtensionValidateOptions bounds the fetchData internal keys", () => {
+		secretsManagerExtensionValidateOptions({
+			fetchData: { "@middy/db.password!": "secret" },
+		});
+		secretsManagerExtensionValidateOptions({
+			fetchData: Object.fromEntries(
+				Array.from({ length: 1024 }, (_, i) => [`k${i}`, "secret"]),
+			),
+		});
+		rejectsOption(
+			{
+				fetchData: Object.fromEntries(
+					Array.from({ length: 1025 }, (_, i) => [`k${i}`, "secret"]),
+				),
+			},
+			"fetchData",
+		);
+		rejectsOption({ fetchData: { "a b": "secret" } }, "a b");
+		secretsManagerExtensionValidateOptions({
+			fetchData: { ["k".repeat(1024)]: "secret" },
+		});
+		rejectsOption({ fetchData: { ["k".repeat(1025)]: "secret" } }, "kkk");
 	});
 
 	test("secretsManagerExtensionValidateOptions validates contextKey as a string", () => {
@@ -829,5 +890,36 @@ describe("@middy/secrets-manager-extension", () => {
 			ok(e instanceof TypeError);
 			ok(e.message.includes("awsSessionToken"));
 		}
+	});
+
+	const expectSharedOptionError = (options, messagePart) => {
+		let error;
+		try {
+			secretsManagerExtensionValidateOptions(options);
+		} catch (e) {
+			error = e;
+		}
+		ok(error instanceof TypeError, `expected a TypeError for ${messagePart}`);
+		strictEqual(error.cause.package, "@middy/secrets-manager-extension");
+		ok(error.message.includes(messagePart), error.message);
+	};
+
+	test("secretsManagerExtensionValidateOptions validates contextKey as a key name", () => {
+		secretsManagerExtensionValidateOptions({
+			contextKey: "@middy/ctx.name-a:b/c_1!",
+		});
+		secretsManagerExtensionValidateOptions({ contextKey: "k".repeat(1024) });
+		expectSharedOptionError({ contextKey: "k".repeat(1025) }, "contextKey");
+		expectSharedOptionError({ contextKey: "" }, "contextKey");
+		expectSharedOptionError({ contextKey: "a b" }, "contextKey");
+	});
+
+	test("secretsManagerExtensionValidateOptions validates the cache options with the shared rules", () => {
+		secretsManagerExtensionValidateOptions({
+			cacheKey: "@middy/secrets-manager-extension",
+			cacheKeyExpiry: { "@middy/secrets-manager-extension": 1000 },
+		});
+		expectSharedOptionError({ cacheKey: "a b" }, "cacheKey");
+		expectSharedOptionError({ cacheKeyExpiry: { "a b": 1000 } }, "a b");
 	});
 });

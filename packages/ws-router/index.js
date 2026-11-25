@@ -19,24 +19,36 @@ const defaults = {
 };
 
 const optionSchema = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "urn:middy:ws-router:options",
+	$defs: { Function: false },
 	type: "object",
 	properties: {
 		routes: {
 			type: "array",
-			uniqueItems: true,
 			items: {
 				type: "object",
-				required: ["routeKey", "handler"],
 				properties: {
-					routeKey: { type: "string" },
-					handler: { instanceof: "Function" },
+					routeKey: {
+						type: "string",
+						maxLength: 1024,
+						pattern: /^[\p{L}\p{N}\p{P}\p{S} ]+$/u,
+					},
+					handler: { $ref: "#/$defs/Function" },
 				},
+				required: ["routeKey", "handler"],
 				additionalProperties: false,
+				unevaluatedProperties: false,
 			},
+			maxItems: 1024,
+			uniqueItems: true,
+			unevaluatedItems: false,
 		},
-		notFoundResponse: { instanceof: "Function" },
+		notFoundResponse: { $ref: "#/$defs/Function" },
 	},
+	required: [],
 	additionalProperties: false,
+	unevaluatedProperties: false,
 };
 
 export const wsRouterValidateOptions = (options) =>

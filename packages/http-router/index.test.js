@@ -1,6 +1,12 @@
-import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	ok,
+	rejects,
+	strictEqual,
+	throws,
+} from "node:assert/strict";
 import { describe, mock, test } from "node:test";
-import middy from "../core/index.js";
+import middy from "@middy/core";
 import httpRouter, { httpRouterValidateOptions } from "./index.js";
 
 const defaultContext = {
@@ -113,16 +119,23 @@ describe("@middy/http-router", () => {
 		const response = await handler(event, defaultContext);
 		ok(response);
 	});
-	test("It should not route to a dynamic route with `{var-iable}`", async (t) => {
-		throws(
-			() =>
-				httpRouter([
-					{ method: "GET", path: "/user/{i-d}/", handler: () => true },
-				]),
-			(e) =>
-				e.name === "SyntaxError" &&
-				e.message.endsWith("Invalid capture group name"),
-		);
+	test("It should route to a dynamic route with `{var-iable}`", async (t) => {
+		const event = {
+			httpMethod: "GET",
+			path: "/user/1",
+		};
+		const handler = httpRouter([
+			{
+				method: "GET",
+				path: "/user/{i-d}/",
+				handler: (event) => {
+					deepStrictEqual(event.pathParameters, { "i-d": "1" });
+					return true;
+				},
+			},
+		]);
+		const response = await handler(event, defaultContext);
+		ok(response);
 	});
 
 	test("It should route to a dynamic route with `{variable}` with trailing slash", async (t) => {
@@ -226,6 +239,54 @@ describe("@middy/http-router", () => {
 		ok(response);
 	});
 
+	test("It should route to a greedy variable of any name", async (t) => {
+		const handler = httpRouter([
+			{
+				method: "GET",
+				path: "/files/{file-path+}",
+				handler: (event) => event.pathParameters,
+			},
+		]);
+		deepStrictEqual(
+			await handler({ httpMethod: "GET", path: "/files/a/b" }, defaultContext),
+			{ "file-path": "a/b" },
+		);
+		deepStrictEqual(
+			await handler({ httpMethod: "GET", path: "/files" }, defaultContext),
+			{ "file-path": "" },
+		);
+	});
+
+	test("It should match a greedy variable against a rest of path that holds a line terminator", async (t) => {
+		const handler = httpRouter([
+			{
+				method: "GET",
+				path: "/files/{proxy+}",
+				handler: (event) => event.pathParameters,
+			},
+		]);
+		for (const [encoded, decoded] of [
+			["%0A", "\n"],
+			["%0D", "\r"],
+			["%E2%80%A8", "\u2028"],
+			["%E2%80%A9", "\u2029"],
+		]) {
+			deepStrictEqual(
+				await handler(
+					{
+						version: "2.0",
+						rawPath: `/files/a${encoded}b/c${encoded}`,
+						requestContext: {
+							http: { method: "GET", path: `/files/a${decoded}b/c${decoded}` },
+						},
+					},
+					defaultContext,
+				),
+				{ proxy: `a${decoded}b/c${decoded}` },
+			);
+		}
+	});
+
 	test("It should not match a sibling segment against a parent `{proxy+}` route", async (t) => {
 		let proxyCalled = false;
 		const handler = httpRouter([
@@ -249,6 +310,26 @@ describe("@middy/http-router", () => {
 			strictEqual(e.statusCode, 404);
 		}
 		strictEqual(proxyCalled, false);
+	});
+
+	test("It should let the matched route's parameters replace same-named ones on the event", async (t) => {
+		const event = {
+			httpMethod: "GET",
+			path: "/files/a/b",
+			pathParameters: {
+				proxy: "files/a/b",
+				previous: "321",
+			},
+		};
+		const handler = httpRouter([
+			{
+				method: "GET",
+				path: "/files/{proxy+}",
+				handler: (event) => event.pathParameters,
+			},
+		]);
+		const response = await handler(event, defaultContext);
+		deepStrictEqual(response, { proxy: "a/b", previous: "321" });
 	});
 
 	test("It should populate pathParameters to a dynamic route even if they already exist in the event", async (t) => {
@@ -1219,20 +1300,143 @@ describe("@middy/http-router", () => {
 		}
 	});
 
-	test("httpRouterValidateOptions throws on duplicate static route", () => {
-		try {
-			httpRouterValidateOptions({
-				routes: [
-					{ method: "GET", path: "/a", handler: () => {} },
-					{ method: "GET", path: "/a", handler: () => {} },
-				],
-			});
-			ok(false, "expected throw");
-		} catch (e) {
-			ok(e instanceof TypeError);
-			ok(e.message.includes("routes[1]"));
-			strictEqual(e.cause.package, "@middy/http-router");
+	test("httpRouterValidateOptions rejects a path that does not start with '/' or holds a space separator other than U+0020", () => {
+		for (const path of ["a/b", "/a\u00A0b"]) {
+			throws(
+				() =>
+					httpRouterValidateOptions({
+						routes: [{ method: "GET", path, handler: () => {} }],
+					}),
+				{ name: "TypeError" },
+				JSON.stringify(path),
+			);
 		}
+	});
+
+	test("httpRouterValidateOptions leaves duplicate routes to the factory", () => {
+		const options = {
+			routes: [
+				{ method: "GET", path: "/a", handler: () => {} },
+				{ method: "GET", path: "/a", handler: () => {} },
+			],
+		};
+		strictEqual(httpRouterValidateOptions(options), options);
+		throws(() => httpRouter(options), { message: "Duplicate route" });
+	});
+
+	test("httpRouterValidateOptions rejects the same route object twice", () => {
+		const route = { method: "GET", path: "/a", handler: () => {} };
+		const options = { routes: [route, route] };
+		throws(() => httpRouterValidateOptions(options), {
+			name: "TypeError",
+			message: "Duplicate item at 'routes[1]'",
+		});
+		throws(() => httpRouter(options), { message: "Duplicate route" });
+	});
+
+	test("httpRouterValidateOptions rejects equal routes that share a handler", () => {
+		const handler = () => {};
+		const options = {
+			routes: [
+				{ method: "GET", path: "/a/{id}", handler },
+				{ method: "GET", path: "/a/{id}", handler },
+			],
+		};
+		throws(() => httpRouterValidateOptions(options), {
+			name: "TypeError",
+			message: "Duplicate item at 'routes[1]'",
+		});
+		throws(() => httpRouter(options), { message: "Duplicate route" });
+	});
+
+	test("httpRouterValidateOptions leaves renamed route variables to the factory", () => {
+		const handler = () => {};
+		const options = {
+			routes: [
+				{ method: "GET", path: "/a/{id}", handler },
+				{ method: "GET", path: "/a/{other}", handler },
+			],
+		};
+		strictEqual(httpRouterValidateOptions(options), options);
+		throws(() => httpRouter(options), { message: "Duplicate route" });
+	});
+
+	test("httpRouterValidateOptions rejects more than 1024 routes", () => {
+		const handler = () => {};
+		const routes = Array.from({ length: 1025 }, (_, i) => ({
+			method: "GET",
+			path: `/r${i}`,
+			handler,
+		}));
+		httpRouterValidateOptions({ routes: routes.slice(0, 1024) });
+		throws(() => httpRouterValidateOptions({ routes }), {
+			message: "Option 'routes' must have <= 1024 items",
+		});
+	});
+
+	test("httpRouterValidateOptions accepts route variables and Unicode segments", () => {
+		const handler = () => {};
+		httpRouterValidateOptions({
+			routes: [
+				{ method: "GET", path: "/users/{id}", handler },
+				{ method: "GET", path: "/files/{proxy+}", handler },
+				{ method: "GET", path: "/a/{user-id}/{rest+}", handler },
+				{ method: "GET", path: "/v1.0/a*b/{id}/{proxy+}", handler },
+				{ method: "GET", path: "/café", handler },
+				{ method: "GET", path: "/café", handler },
+				{ method: "GET", path: "/a…", handler },
+			],
+		});
+	});
+
+	test("httpRouterValidateOptions rejects a path with a control character", () => {
+		throws(
+			() =>
+				httpRouterValidateOptions({
+					routes: [{ method: "GET", path: "/a\n", handler: () => {} }],
+				}),
+			{ name: "TypeError" },
+		);
+	});
+
+	test("httpRouterValidateOptions rejects the double-slash path", () => {
+		throws(
+			() =>
+				httpRouterValidateOptions({
+					routes: [{ method: "GET", path: "//", handler: () => {} }],
+				}),
+			{ name: "TypeError" },
+		);
+	});
+
+	test("httpRouterValidateOptions rejects a path longer than 1024 characters", () => {
+		const handler = () => {};
+		httpRouterValidateOptions({
+			routes: [{ method: "GET", path: `/${"a".repeat(1023)}`, handler }],
+		});
+		throws(
+			() =>
+				httpRouterValidateOptions({
+					routes: [{ method: "GET", path: `/${"a".repeat(1024)}`, handler }],
+				}),
+			{ message: "Option 'routes[0].path' must have length <= 1024" },
+		);
+	});
+
+	test("httpRouterValidateOptions rejects a non-function handler or notFoundResponse", () => {
+		throws(
+			() =>
+				httpRouterValidateOptions({
+					routes: [{ method: "GET", path: "/a", handler: "index.handler" }],
+				}),
+			{ message: "Option 'routes[0].handler' must be instanceof Function" },
+		);
+		throws(
+			() =>
+				httpRouterValidateOptions({ notFoundResponse: { statusCode: 404 } }),
+			{ message: "Option 'notFoundResponse' must be instanceof Function" },
+		);
+		httpRouterValidateOptions({ notFoundResponse: async () => {} });
 	});
 
 	test("httpRouterValidateOptions allows distinct routes", () => {
@@ -1561,27 +1765,16 @@ describe("@middy/http-router", () => {
 		}
 	});
 
-	// Wildcard $ anchor: {proxy+} must be terminal (index.js:156)
-	test("It should treat a non-terminal {proxy+} as a literal param and throw on construction", async (t) => {
-		try {
-			httpRouter([
-				{ method: "GET", path: "/files/{proxy+}/x", handler: () => true },
-			]);
-			ok(false, "expected throw on invalid capture group name");
-		} catch (e) {
-			ok(
-				e.message.includes("Invalid capture group name"),
-				`unexpected message: ${e.message}`,
-			);
+	test("It should throw at construction for a greedy variable that is not at the end of the path", async (t) => {
+		for (const path of ["/files/{proxy+}/x", "/files/{proxy+}/{id}"]) {
+			throws(() => httpRouter([{ method: "GET", path, handler: () => true }]), {
+				message: "Invalid route path",
+				cause: { package: "@middy/http-router", data: { path } },
+			});
 		}
 	});
 
-	// {proxy+} depth marker vs fixed-depth dynamic (index.js:189)
 	test("It should not treat a non-proxy dynamic route as unbounded depth", async (t) => {
-		// /a/{x} has fixed depth 2; a 3-segment request must 404, while the
-		// 2-segment request matches. If segmentCount were forced to -1 the route
-		// would behave like a wildcard for the regex... but regex still constrains.
-		// Distinguish via a sibling deeper route that should win at depth 3.
 		const handler = httpRouter([
 			{ method: "GET", path: "/a/{x}", handler: () => "two" },
 			{ method: "GET", path: "/a/{x}/{y}", handler: () => "three" },
@@ -1594,6 +1787,22 @@ describe("@middy/http-router", () => {
 			await handler({ httpMethod: "GET", path: "/a/1/2" }, defaultContext),
 			"three",
 		);
+	});
+
+	test("It should only try the dynamic routes whose depth matches the request", async (t) => {
+		const handler = httpRouter([
+			{ method: "GET", path: "/a/{x}", handler: () => "two" },
+			{ method: "GET", path: "/a/{x}/{y}", handler: () => "three" },
+		]);
+		const match = mock.method(String.prototype, "match");
+		t.after(() => match.mock.restore());
+		const response = handler(
+			{ httpMethod: "GET", path: "/a/1/2" },
+			defaultContext,
+		);
+		match.mock.restore();
+		strictEqual(response, "three");
+		strictEqual(match.mock.callCount(), 1);
 	});
 
 	// v2 optional chaining for method (index.js:207)
@@ -1727,6 +1936,164 @@ describe("@middy/http-router", () => {
 			strictEqual(e.message, "Invalid route path");
 		}
 		ok(thrown, "expected construction error for path '/users/{}'");
+	});
+
+	test("It should throw at construction for a variable name used twice in one path", async (t) => {
+		for (const path of ["/a/{id}/b/{id}", "/a/{id}/{id+}"]) {
+			throws(() => httpRouter([{ method: "GET", path, handler: () => true }]), {
+				message: "Invalid route path",
+				cause: { package: "@middy/http-router", data: { path } },
+			});
+		}
+	});
+
+	test("It should match a `*` in a dynamic route literally", async (t) => {
+		const handler = httpRouter([
+			{
+				method: "GET",
+				path: "/a*b/{id}",
+				handler: (event) => event.pathParameters,
+			},
+		]);
+		deepStrictEqual(
+			await handler({ httpMethod: "GET", path: "/a*b/1" }, defaultContext),
+			{ id: "1" },
+		);
+		for (const path of ["/b/1", "/ab/1", "/aab/1"]) {
+			await rejects(
+				async () => handler({ httpMethod: "GET", path }, defaultContext),
+				{ statusCode: 404 },
+			);
+		}
+	});
+
+	test("It should match every regular expression character in a dynamic route literally", async (t) => {
+		for (const [literal, lookalike] of [
+			["v1.0", "v1x0"],
+			["a+b", "aab"],
+			["a?b", "b"],
+			["(x)", "x"],
+			["$ref", "ref"],
+			["a|b", "a"],
+			["^a", "a"],
+			["[ab]", "a"],
+			["a\\d", "a1"],
+		]) {
+			const handler = httpRouter([
+				{
+					method: "GET",
+					path: `/${literal}/{id}.${literal}`,
+					handler: (event) => event.pathParameters,
+				},
+			]);
+			deepStrictEqual(
+				await handler(
+					{ httpMethod: "GET", path: `/${literal}/1.${literal}` },
+					defaultContext,
+				),
+				{ id: "1" },
+			);
+			for (const path of [
+				`/${lookalike}/1.${literal}`,
+				`/${literal}/1.${lookalike}`,
+			]) {
+				await rejects(
+					async () => handler({ httpMethod: "GET", path }, defaultContext),
+					{ statusCode: 404 },
+				);
+			}
+		}
+	});
+
+	test("It should keep variables and a greedy variable working beside literal regular expression characters", async (t) => {
+		const handler = httpRouter([
+			{
+				method: "GET",
+				path: "/v1.0/a*b/{id}/{proxy+}",
+				handler: (event) => event.pathParameters,
+			},
+		]);
+		deepStrictEqual(
+			await handler(
+				{ httpMethod: "GET", path: "/v1.0/a*b/1/x/y" },
+				defaultContext,
+			),
+			{ id: "1", proxy: "x/y" },
+		);
+		deepStrictEqual(
+			await handler({ httpMethod: "GET", path: "/v1.0/a*b/1" }, defaultContext),
+			{ id: "1", proxy: "" },
+		);
+	});
+
+	test("It should throw at construction for a variable that is not a whole path segment", async (t) => {
+		for (const path of [
+			"/a/x{id}",
+			"/a/{x}{y}",
+			"/a/{x}-{y}",
+			"/a/{a+b}",
+			"/a/{+}",
+			"/a/{id}}",
+			"/a/b{proxy+}",
+		]) {
+			throws(() => httpRouter([{ method: "GET", path, handler: () => true }]), {
+				message: "Invalid route path",
+				cause: { package: "@middy/http-router", data: { path } },
+			});
+		}
+	});
+
+	test("It should route to variables whose names are not JavaScript identifiers", async (t) => {
+		const handler = httpRouter([
+			{
+				method: "GET",
+				path: "/a/{user.id}/{1st}/{__proto__}/{$ref}.json",
+				handler: (event) => event.pathParameters,
+			},
+		]);
+		const pathParameters = await handler(
+			{ httpMethod: "GET", path: "/a/1/2/3/4.json" },
+			defaultContext,
+		);
+		deepStrictEqual(Object.entries(pathParameters), [
+			["user.id", "1"],
+			["1st", "2"],
+			["__proto__", "3"],
+			["$ref", "4"],
+		]);
+		strictEqual(Object.getPrototypeOf(pathParameters), Object.prototype);
+	});
+
+	test("It should decode every variable of a percent-encoded v2 path, whatever its name", async (t) => {
+		const handler = httpRouter([
+			{
+				method: "GET",
+				path: "/a/{user-id}/{rest+}",
+				handler: (event) => event.pathParameters,
+			},
+		]);
+		deepStrictEqual(
+			await handler(
+				{
+					version: "2.0",
+					rawPath: "/a/x%20y/b%2Fc/d%25",
+					requestContext: { http: { method: "GET", path: "/a/x y/b/c/d%" } },
+				},
+				defaultContext,
+			),
+			{ "user-id": "x y", rest: "b/c/d%" },
+		);
+	});
+
+	test("It should throw on a duplicate greedy route that differs only in variable name", () => {
+		throws(
+			() =>
+				httpRouter([
+					{ method: "GET", path: "/files/{proxy+}", handler: () => true },
+					{ method: "GET", path: "/files/{file-path+}", handler: () => true },
+				]),
+			{ message: "Duplicate route" },
+		);
 	});
 
 	// Duplicate dynamic routes throw at construction, the same as static ones:

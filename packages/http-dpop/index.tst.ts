@@ -34,7 +34,7 @@ test("use with all options", () => {
 		proofKey: "dpop",
 		confirmationClaim: "cnf",
 		origin: "https://api.example.com",
-		algorithm: ["ES256", "EdDSA"],
+		algorithm: ["ES256", "EdDSA", "Ed25519"],
 		maxAge: 60,
 		maxProofLength: 8192,
 		required: true,

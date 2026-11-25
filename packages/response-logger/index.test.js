@@ -1,6 +1,8 @@
 import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
+import { constants as bufferConstants } from "node:buffer";
 import { Readable } from "node:stream";
 import { describe, test } from "node:test";
+import { setImmediate } from "node:timers/promises";
 import { createReadableStream, createWritableStream } from "@datastream/core";
 import { executionModeStreamifyResponse } from "../core/executionModeStreamifyResponse.js";
 import middy from "../core/index.js";
@@ -18,6 +20,8 @@ globalThis.awslambda = {
 		},
 	},
 };
+
+const thenKey = "then";
 
 describe("@middy/response-logger", () => {
 	test("It should log the response", async (t) => {
@@ -157,6 +161,94 @@ describe("@middy/response-logger", () => {
 		strictEqual(await handler({ foo: "bar" }, defaultContext), "handler");
 		strictEqual(consoleError.mock.callCount(), 1);
 		strictEqual(consoleError.mock.calls[0].arguments[0], loggerError);
+	});
+
+	test("It should report a rejected async logger via console.error and keep the response", async (t) => {
+		const loggerError = new Error("log sink unreachable");
+		const consoleError = t.mock.method(console, "error", () => {});
+
+		const handler = middy(() => "handler").use(
+			responseLogger({
+				logger: async () => {
+					throw loggerError;
+				},
+			}),
+		);
+
+		strictEqual(await handler({ foo: "bar" }, defaultContext), "handler");
+		strictEqual(consoleError.mock.callCount(), 1);
+		strictEqual(consoleError.mock.calls[0].arguments[0], loggerError);
+	});
+
+	test("It should wait for an async logger before the invocation settles", async (t) => {
+		let shipped = false;
+
+		const handler = middy(() => "handler").use(
+			responseLogger({
+				logger: async () => {
+					await setImmediate();
+					shipped = true;
+					return { chained: true };
+				},
+			}),
+		);
+
+		strictEqual(await handler({ foo: "bar" }, defaultContext), "handler");
+		strictEqual(shipped, true);
+	});
+
+	test("It should wait for an async logger when an error is handled", async (t) => {
+		let shipped = false;
+
+		const handler = middy(() => {
+			throw new Error("error");
+		})
+			.use(
+				responseLogger({
+					logger: async () => {
+						await setImmediate();
+						shipped = true;
+						return { chained: true };
+					},
+				}),
+			)
+			.onError((request) => {
+				request.response = "recovered";
+			});
+
+		strictEqual(await handler({ foo: "bar" }, defaultContext), "recovered");
+		strictEqual(shipped, true);
+	});
+
+	test("It should await a thenable returned by the logger", async (t) => {
+		const loggerError = new Error("log sink unreachable");
+		const consoleError = t.mock.method(console, "error", () => {});
+
+		const handler = middy(() => "handler").use(
+			responseLogger({
+				logger: () => ({
+					[thenKey]: (_resolve, reject) => reject(loggerError),
+				}),
+			}),
+		);
+
+		strictEqual(await handler({ foo: "bar" }, defaultContext), "handler");
+		strictEqual(consoleError.mock.callCount(), 1);
+		strictEqual(consoleError.mock.calls[0].arguments[0], loggerError);
+	});
+
+	test("It should keep the hooks synchronous for a synchronous logger", (t) => {
+		const consoleError = t.mock.method(console, "error", () => {});
+		const request = { event: {}, response: "handler" };
+
+		for (const result of [undefined, null, { chained: true }, "logged"]) {
+			const logger = t.mock.fn(() => result);
+			const middleware = responseLogger({ logger });
+			strictEqual(middleware.after(request), undefined);
+			strictEqual(middleware.onError(request), undefined);
+			strictEqual(logger.mock.callCount(), 2);
+		}
+		strictEqual(consoleError.mock.callCount(), 0);
 	});
 
 	test("It should log the response when an error is handled", async (t) => {
@@ -421,24 +513,32 @@ describe("@middy/response-logger", () => {
 		strictEqual(logged, "ab...[truncated, logged 3 of 6 bytes]");
 	});
 
-	test("It should log a body over 1 MiB whole by default", async () => {
-		const input = "x".repeat(1024 * 1024 + 1);
-		const { logged } = await runWebStream(webStreamOf(input));
+	test("It should log a body of exactly the CloudWatch Logs event size (1 MiB) whole by default", async () => {
+		const input = "x".repeat(1024 * 1024);
+		const { logged } = await runWebStream(webStreamOf(input), {}, false);
 		strictEqual(logged, input);
 	});
 
-	test("It should cap the logged body at the Lambda streamed response maximum (200 MiB) by default", async () => {
-		// One 1 MiB chunk enqueued repeatedly keeps the test's own memory small.
+	test("It should cap the logged body at the CloudWatch Logs event size (1 MiB) by default", async () => {
 		const mib = new Uint8Array(1024 * 1024).fill(120); // "x"
-		const chunks = Array.from({ length: 200 }, () => mib);
 		const { logged } = await runWebStream(
-			webStreamOf(...chunks, new Uint8Array([121])),
+			webStreamOf(mib, new Uint8Array([121])),
 			{},
 			false,
 		);
-		const marker = "...[truncated, logged 209715200 of 209715201 bytes]";
-		strictEqual(logged.length, 209715200 + marker.length);
+		const marker = "...[truncated, logged 1048576 of 1048577 bytes]";
+		strictEqual(logged.length, 1048576 + marker.length);
 		ok(logged.endsWith(`x${marker}`));
+	});
+
+	test("It should log a body over 1 MiB whole when maxBodyBytes allows it", async () => {
+		const input = "x".repeat(1024 * 1024 + 1);
+		const { logged } = await runWebStream(
+			webStreamOf(input),
+			{ maxBodyBytes: 2 * 1024 * 1024 },
+			false,
+		);
+		strictEqual(logged, input);
 	});
 
 	test("It should decode only the bytes it keeps, and none past maxBodyBytes", async (t) => {
@@ -865,6 +965,50 @@ describe("@middy/response-logger", () => {
 		}
 	});
 
+	test("It should omit an array path whose segment holds a dot", async (t) => {
+		const logger = t.mock.fn();
+		const omitPaths = [["response", "user.email"]];
+		responseLoggerValidateOptions({ omitPaths });
+
+		const handler = middy(() => ({ "user.email": "a@example.com", id: 7 })).use(
+			responseLogger({ logger, omitPaths }),
+		);
+
+		const response = await handler({}, defaultContext);
+
+		deepStrictEqual(logger.mock.calls[0].arguments[0].response, { id: 7 });
+		deepStrictEqual(response, { "user.email": "a@example.com", id: 7 });
+	});
+
+	test("responseLoggerValidateOptions rejects an omitPaths entry that is not a string or an array of strings", () => {
+		for (const entry of [1, null, {}, ["response", 1], [["response"]], []]) {
+			throws(() => responseLoggerValidateOptions({ omitPaths: [entry] }), {
+				name: "TypeError",
+				message: "Option 'omitPaths[0]' must match exactly one schema in oneOf",
+				cause: { package: "@middy/response-logger" },
+			});
+		}
+	});
+
+	test("responseLoggerValidateOptions rejects a path that could never match", () => {
+		for (const path of [
+			"response.items[].body",
+			"response.items.0.body",
+			"response.items.*.body",
+			["response", "items", "__proto__"],
+		]) {
+			const invalidPath = { name: "TypeError", message: /^Invalid path / };
+			throws(
+				() => responseLoggerValidateOptions({ omitPaths: [path] }),
+				invalidPath,
+			);
+			throws(() => responseLogger({ omitPaths: [path] }), invalidPath);
+		}
+		responseLoggerValidateOptions({
+			omitPaths: ["response.items.[].body", ["response", "items", "[]", "0"]],
+		});
+	});
+
 	test("responseLoggerValidateOptions rejects wrong types", () => {
 		try {
 			responseLoggerValidateOptions({ logger: "not-a-fn" });
@@ -890,6 +1034,38 @@ describe("@middy/response-logger", () => {
 				(e) => e.message.includes("maxBodyBytes"),
 			);
 		}
+	});
+
+	test("responseLoggerValidateOptions caps mask at 1024 printable characters", () => {
+		responseLoggerValidateOptions({ mask: "***omitted***" });
+		responseLoggerValidateOptions({ mask: "x".repeat(1024) });
+		throws(() => responseLoggerValidateOptions({ mask: "x".repeat(1025) }), {
+			name: "TypeError",
+			message: "Option 'mask' must have length <= 1024",
+			cause: { package: "@middy/response-logger" },
+		});
+		throws(() => responseLoggerValidateOptions({ mask: "line\nbreak" }), {
+			name: "TypeError",
+			message: /^Option 'mask' must match pattern /,
+			cause: { package: "@middy/response-logger" },
+		});
+	});
+
+	test("responseLoggerValidateOptions caps maxBodyBytes at the longest string V8 can hold", () => {
+		responseLoggerValidateOptions({
+			maxBodyBytes: bufferConstants.MAX_STRING_LENGTH,
+		});
+		throws(
+			() =>
+				responseLoggerValidateOptions({
+					maxBodyBytes: bufferConstants.MAX_STRING_LENGTH + 1,
+				}),
+			{
+				name: "TypeError",
+				message: `Option 'maxBodyBytes' must be <= ${bufferConstants.MAX_STRING_LENGTH}`,
+				cause: { package: "@middy/response-logger" },
+			},
+		);
 	});
 
 	test("It should destroy the source stream when the consumer destroys the teed response early", async (t) => {
@@ -957,5 +1133,268 @@ describe("@middy/response-logger", () => {
 		strictEqual(chunkResponse, "ab");
 		strictEqual(consoleError.mock.callCount(), 1);
 		strictEqual(consoleError.mock.calls[0].arguments[0], error);
+	});
+
+	test("It should still end a Node stream when an async logger rejects on flush", async (t) => {
+		const error = new Error("log sink unreachable");
+		const consoleError = t.mock.method(console, "error", () => {});
+		const handler = middy(async () => Readable.from(["a", "b"]), {
+			executionMode: executionModeStreamifyResponse,
+		}).use(
+			responseLogger({
+				logger: async () => {
+					await setImmediate();
+					throw error;
+				},
+			}),
+		);
+		let chunkResponse = "";
+		const responseStream = createWritableStream((chunk) => {
+			chunkResponse += chunk;
+		});
+		strictEqual(await handler({}, responseStream, defaultContext), undefined);
+		strictEqual(chunkResponse, "ab");
+		strictEqual(consoleError.mock.callCount(), 1);
+		strictEqual(consoleError.mock.calls[0].arguments[0], error);
+	});
+
+	test("It should end a Node stream only once an async logger has settled", async (t) => {
+		let shipped = false;
+		const handler = middy(async () => Readable.from(["a", "b"]), {
+			executionMode: executionModeStreamifyResponse,
+		}).use(
+			responseLogger({
+				logger: async () => {
+					await setImmediate();
+					shipped = true;
+				},
+			}),
+		);
+		let chunkResponse = "";
+		const responseStream = createWritableStream((chunk) => {
+			chunkResponse += chunk;
+		});
+		strictEqual(await handler({}, responseStream, defaultContext), undefined);
+		strictEqual(chunkResponse, "ab");
+		strictEqual(shipped, true);
+	});
+
+	test("It should end a Web stream only once an async logger has settled", async (t) => {
+		let shipped = false;
+		const handler = middy(
+			async () =>
+				new ReadableStream({
+					start(controller) {
+						controller.enqueue("a");
+						controller.enqueue("b");
+						controller.close();
+					},
+				}),
+			{ executionMode: executionModeStreamifyResponse },
+		).use(
+			responseLogger({
+				logger: async () => {
+					await setImmediate();
+					shipped = true;
+				},
+			}),
+		);
+		let chunkResponse = "";
+		const responseStream = createWritableStream((chunk) => {
+			chunkResponse += chunk;
+		});
+		strictEqual(await handler({}, responseStream, defaultContext), undefined);
+		strictEqual(chunkResponse, "ab");
+		strictEqual(shipped, true);
+	});
+
+	test("It should still end a Web stream when an async logger rejects on flush", async (t) => {
+		const error = new Error("log sink unreachable");
+		const consoleError = t.mock.method(console, "error", () => {});
+		const handler = middy(
+			async () =>
+				new ReadableStream({
+					start(controller) {
+						controller.enqueue("a");
+						controller.enqueue("b");
+						controller.close();
+					},
+				}),
+			{ executionMode: executionModeStreamifyResponse },
+		).use(
+			responseLogger({
+				logger: async () => {
+					await setImmediate();
+					throw error;
+				},
+			}),
+		);
+		let chunkResponse = "";
+		const responseStream = createWritableStream((chunk) => {
+			chunkResponse += chunk;
+		});
+		strictEqual(await handler({}, responseStream, defaultContext), undefined);
+		strictEqual(chunkResponse, "ab");
+		strictEqual(consoleError.mock.callCount(), 1);
+		strictEqual(consoleError.mock.calls[0].arguments[0], error);
+	});
+
+	test("It should leave a body stream untouched when omitPaths drops response.body", async (t) => {
+		for (const makeStream of [
+			() => Readable.from(["secret-body"]),
+			() => webStreamOf("secret-body"),
+		]) {
+			const logger = t.mock.fn();
+			const stream = makeStream();
+			for (const omitPaths of [
+				["response.body"],
+				["Response.Body"],
+				[["response", "body"]],
+			]) {
+				logger.mock.resetCalls();
+				const handler = middy(async () => ({
+					statusCode: 201,
+					body: stream,
+				})).use(responseLogger({ logger, omitPaths }));
+
+				const response = await handler({}, defaultContext);
+
+				strictEqual(response.body, stream);
+				strictEqual(logger.mock.callCount(), 1);
+				deepStrictEqual(logger.mock.calls[0].arguments[0].response, {
+					statusCode: 201,
+				});
+			}
+		}
+	});
+
+	test("It should leave a streamed response untouched when omitPaths drops the whole response", async (t) => {
+		for (const makeStream of [
+			() => Readable.from(["secret-body"]),
+			() => webStreamOf("secret-body"),
+		]) {
+			const logger = t.mock.fn();
+			const stream = makeStream();
+			const bare = middy(async () => stream).use(
+				responseLogger({ logger, omitPaths: ["response"] }),
+			);
+			strictEqual(await bare({ foo: "bar" }, defaultContext), stream);
+
+			const wrapped = middy(async () => ({
+				statusCode: 201,
+				body: stream,
+			})).use(responseLogger({ logger, omitPaths: ["response"], mask: "***" }));
+			strictEqual((await wrapped({}, defaultContext)).body, stream);
+
+			strictEqual(logger.mock.callCount(), 2);
+			const [bareRequest] = logger.mock.calls[0].arguments;
+			strictEqual(Object.hasOwn(bareRequest, "response"), false);
+			deepStrictEqual(bareRequest.event, { foo: "bar" });
+			strictEqual(logger.mock.calls[1].arguments[0].response, "***");
+		}
+	});
+
+	test("It should leave a bare stream untouched when omitPaths names a path under response", async (t) => {
+		for (const makeStream of [
+			() => Readable.from(["secret-body"]),
+			() => webStreamOf("secret-body"),
+		]) {
+			for (const omitPaths of [
+				["response.body"],
+				["response.headers.set-cookie"],
+			]) {
+				const logger = t.mock.fn();
+				const stream = makeStream();
+
+				const handler = middy(async () => stream).use(
+					responseLogger({ logger, omitPaths }),
+				);
+				strictEqual(await handler({ foo: "bar" }, defaultContext), stream);
+
+				const masked = middy(async () => stream).use(
+					responseLogger({ logger, omitPaths, mask: "***" }),
+				);
+				strictEqual(await masked({ foo: "bar" }, defaultContext), stream);
+
+				strictEqual(logger.mock.callCount(), 2);
+				const [request] = logger.mock.calls[0].arguments;
+				strictEqual(Object.hasOwn(request, "response"), false);
+				deepStrictEqual(request.event, { foo: "bar" });
+				strictEqual(logger.mock.calls[1].arguments[0].response, "***");
+			}
+		}
+	});
+
+	test("It should leave a body stream untouched when omitPaths reaches past response.body", async (t) => {
+		for (const makeStream of [
+			() => Readable.from(["secret-body"]),
+			() => webStreamOf("secret-body"),
+		]) {
+			const logger = t.mock.fn();
+			const stream = makeStream();
+			const lambdaHandler = async () => ({
+				statusCode: 201,
+				headers: { "set-cookie": "session=1", etag: "abc" },
+				body: stream,
+			});
+			const omitPaths = ["response.body.token", "response.headers.set-cookie"];
+
+			const handler = middy(lambdaHandler).use(
+				responseLogger({ logger, omitPaths }),
+			);
+			strictEqual((await handler({}, defaultContext)).body, stream);
+
+			const masked = middy(lambdaHandler).use(
+				responseLogger({ logger, omitPaths, mask: "***" }),
+			);
+			strictEqual((await masked({}, defaultContext)).body, stream);
+
+			strictEqual(logger.mock.callCount(), 2);
+			deepStrictEqual(logger.mock.calls[0].arguments[0].response, {
+				statusCode: 201,
+				headers: { etag: "abc" },
+			});
+			deepStrictEqual(logger.mock.calls[1].arguments[0].response, {
+				statusCode: 201,
+				headers: { "set-cookie": "***", etag: "abc" },
+				body: "***",
+			});
+		}
+	});
+
+	test("It should still capture a body stream when omitPaths only names its siblings", async (t) => {
+		const logger = t.mock.fn();
+		const handler = middy(
+			async () => ({
+				statusCode: 201,
+				headers: { "set-cookie": "session=1", etag: "abc" },
+				body: webStreamOf("stream-body"),
+			}),
+			{ executionMode: executionModeStreamifyResponse },
+		).use(
+			responseLogger({
+				logger,
+				omitPaths: ["response.headers.set-cookie", "response.bodyless"],
+			}),
+		);
+		let chunkResponse = "";
+		const responseStream = createWritableStream((chunk) => {
+			chunkResponse += chunk;
+		});
+		await handler({}, responseStream, defaultContext);
+		strictEqual(chunkResponse, "stream-body");
+		deepStrictEqual(logger.mock.calls[0].arguments[0].response, {
+			statusCode: 201,
+			headers: { etag: "abc" },
+			body: "stream-body",
+		});
+	});
+
+	test("It should still capture a bare stream when omitPaths names nothing under response", async (t) => {
+		const { sent, logged } = await runWebStream(webStreamOf("abc", "def"), {
+			omitPaths: ["event.headers.authorization", "internal.response"],
+		});
+		strictEqual(sent, "abcdef");
+		strictEqual(logged, "abcdef");
 	});
 });

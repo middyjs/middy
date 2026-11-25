@@ -95,6 +95,20 @@ test("contextKey and the adapter's client type narrow middyContext", () => {
 		});
 });
 
+test("accepts a password function, the form the client receives with internalKey", () => {
+	expect(rdsMiddleware).type.toBeCallableWith({
+		client,
+		config: { host: validHost, password: () => "token" },
+	});
+	expect(rdsMiddleware).type.toBeCallableWith({
+		client,
+		config: { host: validHost, password: async () => "token" },
+	});
+	expect<indexModule.RdsPassword>().type.toBe<
+		string | (() => string | Promise<string>)
+	>();
+});
+
 test("rejects misspelled option", () => {
 	expect(rdsMiddleware).type.not.toBeCallableWith({
 		client,
