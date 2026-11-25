@@ -175,6 +175,23 @@ describe("@middy/ecs-http", () => {
 		});
 	});
 
+	// https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html
+	test("ecsHttpValidateOptions accepts a targetGroupArn in every partition", () => {
+		for (const partition of ["aws", "aws-cn", "aws-us-gov"]) {
+			ecsHttpValidateOptions({
+				handler: noop,
+				requestContext: {
+					elb: {
+						targetGroupArn: targetGroupArn.replace(
+							"arn:aws:",
+							`arn:${partition}:`,
+						),
+					},
+				},
+			});
+		}
+	});
+
 	test("ecsHttpValidateOptions bounds every option", () => {
 		const manyFields = Object.fromEntries(
 			Array.from({ length: 1024 }, (_, i) => [`k${i}`, "v"]),
@@ -242,6 +259,8 @@ describe("@middy/ecs-http", () => {
 			{ requestContext: { ...manyFields, extra: "v" } },
 			{ requestContext: { elb: "elb" } },
 			{ requestContext: { elb: { targetGroupArn: "my-target-group" } } },
+			{ requestContext: { elb: { targetGroupArn: `x${targetGroupArn}` } } },
+			{ requestContext: { elb: { targetGroupArn: `${targetGroupArn} ` } } },
 			{
 				requestContext: {
 					elb: { targetGroupArn: `${targetGroupArn}${"x".repeat(1024)}` },

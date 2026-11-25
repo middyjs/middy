@@ -1253,6 +1253,7 @@ describe("@middy/http-dpop", () => {
 		}
 		for (const origin of [
 			"api.example.com",
+			"xhttps://api.example.com",
 			"ftp://api.example.com",
 			"https://api example.com",
 			`https://${"a".repeat(1017)}`,

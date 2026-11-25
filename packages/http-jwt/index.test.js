@@ -6002,6 +6002,7 @@ describe("@middy/http-jwt", () => {
 			"http://idp.example.com/jwks",
 			"idp.example.com/jwks",
 			"https://idp.example.com/a b",
+			"xhttps://idp.example.com/jwks",
 		]) {
 			throws(
 				() =>
@@ -6062,6 +6063,20 @@ describe("@middy/http-jwt", () => {
 		});
 	});
 
+	test("httpJwtValidateOptions accepts printable text for tokenQueryStringName and rejects a control character anywhere", () => {
+		// Digits (\p{N}) and symbols (\p{S}) are printable text.
+		for (const name of ["id_token2", "$token+id", "jeton_d'accès"]) {
+			httpJwtValidateOptions({ tokenQueryStringName: name });
+		}
+		for (const name of ["\nid_token", "id_token\n", "id\ntoken"]) {
+			throws(() => httpJwtValidateOptions({ tokenQueryStringName: name }), {
+				name: "TypeError",
+				message:
+					"Option 'tokenQueryStringName' must match pattern /^[\\p{L}\\p{N}\\p{P}\\p{S} ]+$/u",
+			});
+		}
+	});
+
 	test("httpJwtValidateOptions accepts a media type typ of at most 255 characters", () => {
 		for (const typ of ["at+jwt", "application/at+jwt", "JWT"]) {
 			httpJwtValidateOptions({ typ });
@@ -6075,6 +6090,31 @@ describe("@middy/http-jwt", () => {
 
 	test("httpJwtValidateOptions accepts a time span maxTokenAge and rejects any other string", () => {
 		for (const maxTokenAge of ["1h", "30 minutes", "1.5 days", 0, 3600]) {
+			httpJwtValidateOptions({ maxTokenAge });
+		}
+		// Every unit spelling jose accepts, singular and plural, plus a fraction
+		// with more than one digit.
+		for (const maxTokenAge of [
+			"1 second",
+			"2 seconds",
+			"1 sec",
+			"2 secs",
+			"1 minute",
+			"1 min",
+			"2 mins",
+			"1 hour",
+			"2 hours",
+			"1 hr",
+			"2 hrs",
+			"1 day",
+			"1 week",
+			"2 weeks",
+			"1 year",
+			"2 years",
+			"1 yr",
+			"2 yrs",
+			"1.25h",
+		]) {
 			httpJwtValidateOptions({ maxTokenAge });
 		}
 		for (const maxTokenAge of ["1 fortnight", "-1h", "1h ago", "", -1]) {

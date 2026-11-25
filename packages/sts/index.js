@@ -138,7 +138,12 @@ const assumeRoleInputSchema = {
 			maxLength: 256,
 			pattern: /^[\w+=/:,.@-]+$/u,
 		},
-		TokenCode: { type: "string", maxLength: 6, pattern: /^\d{6}$/u },
+		TokenCode: {
+			type: "string",
+			minLength: 6,
+			maxLength: 6,
+			pattern: /^\d+$/u,
+		},
 		SourceIdentity: {
 			type: "string",
 			minLength: 2,

@@ -5825,6 +5825,8 @@ describe("awsClientOptionsSchema", () => {
 			{ accessKeyId: "A", secretAccessKey: "s", credentialScope: "a b" },
 			{ accessKeyId: "A", secretAccessKey: "s", accountId: "12345678901" },
 			{ accessKeyId: "A", secretAccessKey: "s", accountId: "1234567890123" },
+			{ accessKeyId: "A", secretAccessKey: "s", accountId: "x12345678901" },
+			{ accessKeyId: "A", secretAccessKey: "s", accountId: "12345678901x" },
 			{ accessKeyId: "A", secretAccessKey: "s", expiration: "2026-01-01" },
 		]) {
 			rejects({ credentials }, oneOf("credentials"));

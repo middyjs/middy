@@ -2208,6 +2208,7 @@ describe("dsqlValidateOptions connection config", () => {
 			oneOf("target_session_attrs"),
 		);
 		rejectsConfig({ slot: "My-Slot" }, oneOf("slot"));
+		rejectsConfig({ slot: "my_slot-1" }, oneOf("slot"));
 		rejectsConfig({ slot: "x".repeat(64) }, oneOf("slot"));
 	});
 

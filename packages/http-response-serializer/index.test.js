@@ -944,6 +944,8 @@ describe("@middy/http-response-serializer", () => {
 		for (const defaultContentType of [
 			"application/json",
 			"application/json; charset=utf-8",
+			// RFC 9110 5.6.6: OWS is allowed before the ";" as well as after it.
+			"text/plain \t;charset=utf-8",
 			'multipart/form-data;boundary="a b"',
 			"application/vnd.api+json",
 		]) {

@@ -331,6 +331,20 @@ describe("@middy/ws-router", () => {
 		}
 	});
 
+	test("wsRouterValidateOptions rejects a routeKey that starts with a control character", () => {
+		throws(
+			() =>
+				wsRouterValidateOptions({
+					routes: [{ routeKey: "\n$connect", handler: () => {} }],
+				}),
+			{
+				name: "TypeError",
+				message:
+					"Option 'routes[0].routeKey' must match pattern /^[\\p{L}\\p{N}\\p{P}\\p{S} ]+$/u",
+			},
+		);
+	});
+
 	test("wsRouterValidateOptions leaves a duplicate routeKey to construction", () => {
 		const routes = [
 			{ routeKey: "$connect", handler: () => {} },

@@ -56,7 +56,7 @@ const awsClientOptionsRule = {
 		...awsClientOptionsSchema.properties,
 		accountId: {
 			oneOf: [
-				{ type: "string", maxLength: 12, pattern: /^\d{12}$/u },
+				{ type: "string", minLength: 12, maxLength: 12, pattern: /^\d+$/u },
 				functionRule,
 			],
 		},

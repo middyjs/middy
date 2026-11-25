@@ -1101,6 +1101,9 @@ describe("@middy/http-content-negotiation", () => {
 				"text/plain",
 				"text/x-dvi",
 				"text/html;level=1",
+				"text/html ;level=1",
+				"text/html; level=1",
+				'text/plain;charset="utf-8"',
 				"application/vnd.api+json",
 			],
 			contextKey: "http-content-negotiation",
@@ -1114,6 +1117,7 @@ describe("@middy/http-content-negotiation", () => {
 			[{ availableLanguages: ["en-"] }, "availableLanguages[0]"],
 			[{ availableLanguages: ["toolonglang"] }, "availableLanguages[0]"],
 			[{ availableMediaTypes: ["text"] }, "availableMediaTypes[0]"],
+			[{ availableMediaTypes: [" text/plain"] }, "availableMediaTypes[0]"],
 			[
 				{ availableMediaTypes: ["text/plain\r\nX-Injected: 1"] },
 				"availableMediaTypes[0]",

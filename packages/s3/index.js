@@ -138,8 +138,9 @@ const getObjectInputSchema = {
 		ChecksumMode: { type: "string", enum: ["ENABLED"] },
 		ExpectedBucketOwner: {
 			type: "string",
+			minLength: 12,
 			maxLength: 12,
-			pattern: /^\d{12}$/u,
+			pattern: /^\d+$/u,
 		},
 		IfMatch: headerValueRule,
 		IfModifiedSince: { $ref: "#/$defs/Date" },

@@ -965,11 +965,19 @@ describe("@middy/s3", () => {
 			],
 			[
 				{ ExpectedBucketOwner: "12345678901" },
-				"Option 'fetchData.key.ExpectedBucketOwner' must match pattern /^\\d{12}$/u",
+				"Option 'fetchData.key.ExpectedBucketOwner' must have length >= 12",
 			],
 			[
 				{ ExpectedBucketOwner: "1234567890123" },
-				"Option 'fetchData.key.ExpectedBucketOwner' must match pattern /^\\d{12}$/u",
+				"Option 'fetchData.key.ExpectedBucketOwner' must have length <= 12",
+			],
+			[
+				{ ExpectedBucketOwner: "x12345678901" },
+				"Option 'fetchData.key.ExpectedBucketOwner' must match pattern /^\\d+$/u",
+			],
+			[
+				{ ExpectedBucketOwner: "12345678901x" },
+				"Option 'fetchData.key.ExpectedBucketOwner' must match pattern /^\\d+$/u",
 			],
 			[
 				{ IfModifiedSince: "2026-01-01" },

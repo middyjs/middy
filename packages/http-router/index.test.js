@@ -1300,6 +1300,19 @@ describe("@middy/http-router", () => {
 		}
 	});
 
+	test("httpRouterValidateOptions rejects a path that does not start with '/' or holds a space separator other than U+0020", () => {
+		for (const path of ["a/b", "/a\u00A0b"]) {
+			throws(
+				() =>
+					httpRouterValidateOptions({
+						routes: [{ method: "GET", path, handler: () => {} }],
+					}),
+				{ name: "TypeError" },
+				JSON.stringify(path),
+			);
+		}
+	});
+
 	test("httpRouterValidateOptions leaves duplicate routes to the factory", () => {
 		const options = {
 			routes: [

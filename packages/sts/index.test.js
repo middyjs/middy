@@ -840,7 +840,12 @@ describe("@middy/sts", () => {
 			"fetchData.role.RoleArn",
 		);
 		rejects(role({ RoleArn: "arn:aws:iam::1:r/" }), "fetchData.role.RoleArn");
+		rejects(role({ RoleArn: `x${roleArn}` }), "fetchData.role.RoleArn");
+		rejects(role({ RoleArn: `${roleArn} x` }), "fetchData.role.RoleArn");
 		accepts(role({ RoleArn: "arn:aws:iam::1:role/r" }));
+		accepts(role({ RoleArn: "arn:aws-cn:iam::123456789012:role/demo" }));
+		// ARN syntax: arn:partition:service:region:account-id:resource
+		accepts(role({ RoleArn: "arn:aws:iam:us-east-1:123456789012:role/demo" }));
 		accepts(role({ RoleArn: `arn:aws:iam::1:role/${"r".repeat(2028)}` }));
 		rejects(
 			role({ RoleArn: `arn:aws:iam::1:role/${"r".repeat(2029)}` }),
@@ -895,6 +900,8 @@ describe("@middy/sts", () => {
 		accepts(role({ Policy: "ÿ".repeat(2048) }));
 		rejects(role({ Policy: "{".repeat(2049) }), "fetchData.role.Policy");
 		rejects(role({ Policy: "Ā" }), "fetchData.role.Policy");
+		rejects(role({ Policy: "Ā{}" }), "fetchData.role.Policy");
+		rejects(role({ Policy: "{}Ā" }), "fetchData.role.Policy");
 		rejects(role({ Policy: "\u0000" }), "fetchData.role.Policy");
 	});
 
@@ -943,6 +950,10 @@ describe("@middy/sts", () => {
 		);
 		rejects(
 			role({ Tags: [{ Key: "k#", Value: "v" }] }),
+			"fetchData.role.Tags[0].Key",
+		);
+		rejects(
+			role({ Tags: [{ Key: "#k", Value: "v" }] }),
 			"fetchData.role.Tags[0].Key",
 		);
 		rejects(
@@ -1026,6 +1037,7 @@ describe("@middy/sts", () => {
 		rejects(role({ TokenCode: "12345" }), "fetchData.role.TokenCode");
 		rejects(role({ TokenCode: "1234567" }), "fetchData.role.TokenCode");
 		rejects(role({ TokenCode: "12345a" }), "fetchData.role.TokenCode");
+		rejects(role({ TokenCode: "a12345" }), "fetchData.role.TokenCode");
 	});
 
 	test("stsValidateOptions applies the AssumeRole limits to SourceIdentity", () => {

@@ -37,7 +37,7 @@ const privateLinkEndpointHostPattern = matchWhole([
 	ipv4Pattern,
 	ipv6Pattern,
 ]);
-const privateLinkEndpointHost = new RegExp(privateLinkEndpointHostPattern, "u");
+const privateLinkEndpointHost = new RegExp(privateLinkEndpointHostPattern);
 
 const fn = { $ref: "#/$defs/Function" };
 const flag = { type: "boolean" };
@@ -65,7 +65,7 @@ const dsqlHost = {
 		{
 			type: "string",
 			maxLength: maxHostnameLength,
-			pattern: new RegExp(matchWhole([clusterHostPattern]), "u"),
+			pattern: new RegExp(matchWhole([clusterHostPattern])),
 		},
 		{
 			type: "string",

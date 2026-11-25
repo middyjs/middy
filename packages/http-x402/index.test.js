@@ -1079,6 +1079,41 @@ describe("@middy/http-x402", () => {
 		strictEqual(requirements.amount, "10000");
 	});
 
+	test("price conversion: string '.25' without a leading zero with decimals:6 produces amount 250000", async (t) => {
+		const { MockFacilitatorClient, mockVerify } = makeMockClient(
+			t,
+			defaultVerifyResult,
+			defaultSettleResult,
+		);
+		const options = {
+			...defaultOptions,
+			price: ".25",
+			decimals: 6,
+			FacilitatorClient: MockFacilitatorClient,
+		};
+		// The option schema and the conversion agree on this form.
+		httpX402ValidateOptions(options);
+		const handler = middy(() => ({
+			statusCode: 200,
+			body: "ok",
+			headers: {},
+		})).use(httpX402(options));
+
+		await handler(
+			{
+				headers: {
+					"payment-signature": makePaymentHeader(
+						withAccepted({ amount: "250000" }),
+					),
+				},
+			},
+			defaultContext,
+		);
+
+		const [, requirements] = mockVerify.mock.calls[0].arguments;
+		strictEqual(requirements.amount, "250000");
+	});
+
 	test("18-decimal string price produces exact integer atomic amount", async (t) => {
 		const { MockFacilitatorClient, mockVerify } = makeMockClient(
 			t,

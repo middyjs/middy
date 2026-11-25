@@ -1092,6 +1092,8 @@ describe("@middy/dynamodb", () => {
 			[{ maxRetries: 3 }, "Unknown option 'awsClientOptions.maxRetries'"],
 			[{ accountId: "12345678901" }, oneOf("accountId")],
 			[{ accountId: "1234567890123" }, oneOf("accountId")],
+			[{ accountId: "x12345678901" }, oneOf("accountId")],
+			[{ accountId: "12345678901x" }, oneOf("accountId")],
 			[{ accountIdEndpointMode: "always" }, oneOf("accountIdEndpointMode")],
 			[
 				{ endpointCacheSize: -1 },

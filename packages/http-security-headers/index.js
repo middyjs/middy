@@ -179,7 +179,6 @@ const optionSchema = {
 				structuredFieldKey,
 				new RegExp(
 					`^(?:${allowlistMember}(?: {1,1024}${allowlistMember}){0,1023})?$`,
-					"u",
 				),
 			),
 		),
@@ -189,10 +188,10 @@ const optionSchema = {
 		poweredBy: { type: "boolean" },
 		referrerPolicy: booleanOr(enumObject("policy", referrerPolicyValues)),
 		reportingEndpoints: booleanOr(
-			headerMap(structuredFieldKey, new RegExp(`^${endpointUrl}$`, "u")),
+			headerMap(structuredFieldKey, new RegExp(`^${endpointUrl}$`)),
 		),
 		reportTo: booleanOr(
-			headerMap(/^[\w.-]+$/u, new RegExp(`^(?:${endpointUrl})?$`, "u"), {
+			headerMap(/^[\w.-]+$/u, new RegExp(`^(?:${endpointUrl})?$`), {
 				maxAge: {
 					type: "integer",
 					minimum: 0,

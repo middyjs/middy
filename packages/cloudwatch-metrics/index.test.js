@@ -361,6 +361,7 @@ describe("@middy/cloudwatch-metrics", () => {
 			{ dimensions: [thirty, { Action: "Buy" }] },
 			{ dimensions: { ["k".repeat(250)]: "v".repeat(1024) } },
 			{ dimensions: { " :key": " value " } },
+			{ dimensions: { "  key": "v" } },
 			{
 				dimensions: Array.from({ length: 1024 }, (_, i) => ({ d: `v${i}` })),
 			},
@@ -398,6 +399,7 @@ describe("@middy/cloudwatch-metrics", () => {
 			{ ":key": "v" },
 			{ "": "v" },
 			{ "   ": "v" },
+			{ "key\n": "v" },
 			{ ["k".repeat(251)]: "v" },
 			{ key: "" },
 			{ key: "   " },

@@ -744,6 +744,7 @@ describe("@middy/service-discovery", () => {
 		rejects(discover({ OwnerAccount: "12345678901" }), "OwnerAccount");
 		rejects(discover({ OwnerAccount: "1234567890123" }), "OwnerAccount");
 		rejects(discover({ OwnerAccount: "12345678901a" }), "OwnerAccount");
+		rejects(discover({ OwnerAccount: "a12345678901" }), "OwnerAccount");
 	});
 
 	for (const name of ["QueryParameters", "OptionalParameters"]) {

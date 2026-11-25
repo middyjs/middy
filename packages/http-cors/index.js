@@ -26,10 +26,10 @@ const headerString = (pattern) => ({
 });
 
 const headerList = headerString(
-	new RegExp(listPattern(`${tchar}+`, `${tchar}{1,1024}`), "u"),
+	new RegExp(listPattern(`${tchar}+`, `${tchar}{1,1024}`)),
 );
 
-const token = new RegExp(`^${tchar}+$`, "u");
+const token = new RegExp(`^${tchar}+$`);
 
 const listOf = (items, maxItems) => ({
 	type: "array",
@@ -77,7 +77,7 @@ const optionSchema = {
 		},
 		headers: headerList,
 		methods: headerString(
-			new RegExp(listPattern("(?:\\*|[A-Z]+)", "(?:\\*|[A-Z]{1,1024})"), "u"),
+			new RegExp(listPattern("(?:\\*|[A-Z]+)", "(?:\\*|[A-Z]{1,1024})")),
 		),
 		origin: originSchema,
 		origins: listOf(originSchema, 1024),
@@ -102,7 +102,6 @@ const optionSchema = {
 					cacheDirective("+", "*"),
 					cacheDirective("{1,1024}", "{0,1024}"),
 				),
-				"u",
 			),
 		),
 		vary: headerList,

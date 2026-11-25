@@ -4612,6 +4612,7 @@ describe("@middy/ecs-batch", () => {
 			{ queueUrl: 1 },
 			{ queueUrl: "not-a-url" },
 			{ queueUrl: "sqs://q" },
+			{ queueUrl: "xhttps://sqs.us-east-1.amazonaws.com/111/q" },
 			{ queueUrl: "https://sqs.us-east-1.amazonaws.com/111/a q" },
 			{ queueUrl: `https://${"q".repeat(1017)}` },
 			{ client: "sqs" },
@@ -4626,6 +4627,8 @@ describe("@middy/ecs-batch", () => {
 			{ eventSourceArn: 1 },
 			{ eventSourceArn: "q" },
 			{ eventSourceArn: "arn:aws:sqs:us-east-1:111:q" },
+			{ eventSourceArn: "xarn:aws:sqs:us-east-1:123456789012:q" },
+			{ eventSourceArn: "arn:aws:sqs:us-east-1:123456789012:q x" },
 			{
 				eventSourceArn: `arn:aws:sqs:us-east-1:123456789012:${"q".repeat(990)}`,
 			},
@@ -4787,6 +4790,9 @@ describe("@middy/ecs-batch", () => {
 		const accepted = [
 			{},
 			{ streamArn: "arn:aws:kinesis:us-east-1:123456789012:stream/s" },
+			{
+				streamArn: "arn:aws-us-gov:kinesis:us-gov-west-1:123456789012:stream/s",
+			},
 			{ client: { send: noop } },
 			{ shardIteratorType: "AT_SEQUENCE_NUMBER" },
 			{ shardIteratorType: "AFTER_SEQUENCE_NUMBER" },
@@ -4857,6 +4863,8 @@ describe("@middy/ecs-batch", () => {
 			{ streamArn: "arn:aws:kinesis:us-east-1:111:stream/s" },
 			{ streamArn: "arn:aws:kinesis:us-east-1::stream/s" },
 			{ streamArn: "arn:aws:sqs:us-east-1:123456789012:stream/s" },
+			{ streamArn: "xarn:aws:kinesis:us-east-1:123456789012:stream/s" },
+			{ streamArn: "arn:aws:kinesis:us-east-1:123456789012:stream/s x" },
 			{
 				streamArn: `arn:aws:kinesis:us-east-1:123456789012:stream/${"s".repeat(2003)}`,
 			},
@@ -4986,6 +4994,10 @@ describe("@middy/ecs-batch", () => {
 			},
 			{ streamArn: `arn:aws:dynamodb:::table/${"t".repeat(12)}` },
 			{
+				streamArn:
+					"arn:aws-us-gov:dynamodb:us-gov-west-1:111122223333:table/Forum/stream/2015-05-20T20:51:10.252",
+			},
+			{
 				streamArn: `arn:aws:dynamodb:us-east-1:123456789012:table/${"t".repeat(978)}`,
 			},
 			...awsRegions.map((awsRegion) => ({ awsRegion })),
@@ -5020,10 +5032,19 @@ describe("@middy/ecs-batch", () => {
 			{ shardId: "s".repeat(27) },
 			{ shardId: "s".repeat(66) },
 			{ shardId: `${"s".repeat(27)} ` },
+			{ shardId: ` ${"s".repeat(27)}` },
 			{ streamArn: "arn" },
 			{ streamArn: "arn:aws:dynamodb:us-east-1:111:table/t/stream/2024" },
 			{ streamArn: `arn:aws:dynamodb:::table/${"t".repeat(11)}` },
 			{ streamArn: "arn:aws:kinesis:us-east-1:123456789012:stream/events" },
+			{
+				streamArn:
+					"xarn:aws:dynamodb:us-west-2:111122223333:table/Forum/stream/2015-05-20T20:51:10.252",
+			},
+			{
+				streamArn:
+					"arn:aws:dynamodb:us-west-2:111122223333:table/Forum/stream/2015-05-20T20:51:10.252 x",
+			},
 			{
 				streamArn: `arn:aws:dynamodb:us-east-1:123456789012:table/${"t".repeat(979)}`,
 			},
@@ -5222,6 +5243,11 @@ describe("@middy/ecs-batch", () => {
 			{ ssl: {} },
 			{ ssl: { rejectUnauthorized: true, ca: ["pem"] } },
 			{ eventSourceArn: "arn:aws:kafka:us-east-1:123456789012:cluster/c/1" },
+			{
+				eventSourceArn:
+					"arn:aws-us-gov:kafka:us-gov-west-1:123456789012:cluster/c/1",
+			},
+			{ eventSourceArn: "arn:aws:kafka:::cluster/c/1" },
 			{ selfManaged: true },
 			{ heartbeatIntervalMs: 1 },
 			{ heartbeatIntervalMs: 2_147_483_647 },
@@ -5279,6 +5305,7 @@ describe("@middy/ecs-batch", () => {
 			{ brokers: ["b1"] },
 			{ brokers: ["b1:port"] },
 			{ brokers: ["b1:123456"] },
+			{ brokers: ["tcp://b1:9092"] },
 			{ brokers: ["b1:9092", "b1:9092"] },
 			{ brokers: Array.from({ length: 1025 }, (_, i) => `b${i}:9092`) },
 			{ brokers: [`${"b".repeat(296)}:9092`] },
@@ -5293,6 +5320,8 @@ describe("@middy/ecs-batch", () => {
 			{ topics: Array.from({ length: 1025 }, (_, i) => `t${i}`) },
 			{ eventSourceArn: "cluster" },
 			{ eventSourceArn: "arn:aws:kafka:us-east-1:111:cluster/c/1" },
+			{ eventSourceArn: "xarn:aws:kafka:us-east-1:123456789012:cluster/c/1" },
+			{ eventSourceArn: "arn:aws:kafka:us-east-1:123456789012:cluster/c/1 x" },
 			{ foo: "bar" },
 		];
 		for (const extra of rejected) {
@@ -5617,6 +5646,11 @@ describe("@middy/ecs-batch", () => {
 			{ client: { subscribe: noop } },
 			{ connect: noop },
 			{ eventSourceArn: "arn:aws:mq:us-east-2:123456789012:broker:b:1" },
+			{
+				eventSourceArn:
+					"arn:aws-us-gov:mq:us-gov-west-1:123456789012:broker:b:1",
+			},
+			{ eventSourceArn: "arn:aws:mq:::broker:b:1" },
 			{ maxRetryAttempts: -1 },
 			{ maxRetryAttempts: 10000 },
 			{ retryDelayMs: 0 },
@@ -5657,6 +5691,8 @@ describe("@middy/ecs-batch", () => {
 			{ destination: "d".repeat(1025) },
 			{ eventSourceArn: "broker" },
 			{ eventSourceArn: "arn:aws:mq:us-east-2:111:broker:b:1" },
+			{ eventSourceArn: "xarn:aws:mq:us-east-2:123456789012:broker:b:1" },
+			{ eventSourceArn: "arn:aws:mq:us-east-2:123456789012:broker:b:1 x" },
 			...badStompConnectOptions.map((connectOptions) => ({ connectOptions })),
 			{ foo: "bar" },
 		];
@@ -5844,6 +5880,11 @@ describe("@middy/ecs-batch", () => {
 			{ channel: { consume: noop } },
 			{ connect: noop },
 			{ eventSourceArn: "arn:aws:mq:us-east-2:123456789012:broker:b:1" },
+			{
+				eventSourceArn:
+					"arn:aws-us-gov:mq:us-gov-west-1:123456789012:broker:b:1",
+			},
+			{ eventSourceArn: "arn:aws:mq:::broker:b:1" },
 			{ maxRetryAttempts: -1 },
 			{ maxRetryAttempts: 10000 },
 			{ retryDelayMs: 0 },
@@ -5884,6 +5925,7 @@ describe("@middy/ecs-batch", () => {
 			{ retryDelayMs: "1" },
 			{ retryDelayMs: 2_147_483_648 },
 			{ url: "http://localhost" },
+			{ url: "xamqp://localhost" },
 			{ url: "amqp://a b" },
 			{ url: `amqp://${"u".repeat(1018)}` },
 			{ queue: "" },
@@ -5897,6 +5939,8 @@ describe("@middy/ecs-batch", () => {
 			{ batchWindowMs: 300_001 },
 			{ eventSourceArn: "broker" },
 			{ eventSourceArn: "arn:aws:mq:us-east-2:111:broker:b:1" },
+			{ eventSourceArn: "xarn:aws:mq:us-east-2:123456789012:broker:b:1" },
+			{ eventSourceArn: "arn:aws:mq:us-east-2:123456789012:broker:b:1 x" },
 			{ foo: "bar" },
 		];
 		for (const extra of rejected) {

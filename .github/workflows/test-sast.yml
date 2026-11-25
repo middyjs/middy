@@ -370,9 +370,9 @@ jobs:
           disable-telemetry: true
           allowed-endpoints: >
             api.github.com:443
-            ghcr.io:443
+            files.pythonhosted.org:443
             github.com:443
-            pkg-containers.githubusercontent.com:443
+            pypi.org:443
       # allowed-endpoints: >
       #   github.com:443
       - name: Checkout repository
@@ -381,9 +381,9 @@ jobs:
           persist-credentials: false
       # allowed-endpoints: >
       #   api.github.com:443
-      #   ghcr.io:443
+      #   files.pythonhosted.org:443
       #   github.com:443
-      #   pkg-containers.githubusercontent.com:443
+      #   pypi.org:443
       - name: zizmor
         uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
 

@@ -632,7 +632,12 @@ const awsCredentialIdentityRule = objectOf(
 		sessionToken: { ...visibleTextRule, maxLength: 16384 },
 		credentialScope: visibleTextRule,
 		// https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-identifiers.html
-		accountId: { type: "string", maxLength: 12, pattern: /^\d{12}$/u },
+		accountId: {
+			type: "string",
+			minLength: 12,
+			maxLength: 12,
+			pattern: /^\d+$/u,
+		},
 		expiration: instanceRule,
 	},
 	["accessKeyId", "secretAccessKey"],

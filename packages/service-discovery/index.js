@@ -78,7 +78,12 @@ const discoverInstancesInputSchema = {
 			type: "string",
 			enum: ["HEALTHY", "UNHEALTHY", "ALL", "HEALTHY_OR_ELSE_ALL"],
 		},
-		OwnerAccount: { type: "string", maxLength: 12, pattern: /^\d{12}$/u },
+		OwnerAccount: {
+			type: "string",
+			minLength: 12,
+			maxLength: 12,
+			pattern: /^\d+$/u,
+		},
 	},
 	required: ["NamespaceName", "ServiceName"],
 	additionalProperties: false,
