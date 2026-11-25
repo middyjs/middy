@@ -6117,6 +6117,10 @@ describe("@middy/http-jwt", () => {
 		]) {
 			httpJwtValidateOptions({ maxTokenAge });
 		}
+		// jose matches the unit case-insensitively.
+		for (const maxTokenAge of ["1H", "30 Minutes", "2 HRS"]) {
+			httpJwtValidateOptions({ maxTokenAge });
+		}
 		for (const maxTokenAge of ["1 fortnight", "-1h", "1h ago", "", -1]) {
 			throws(() => httpJwtValidateOptions({ maxTokenAge }), {
 				message: "Option 'maxTokenAge' must match exactly one schema in oneOf",

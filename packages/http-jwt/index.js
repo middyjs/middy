@@ -229,7 +229,7 @@ const optionSchema = {
 					type: "string",
 					maxLength: 1024,
 					pattern:
-						/^\d+(\.\d+)? ?(seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|years?|yrs?|y)$/u,
+						/^\d+(\.\d+)? ?(seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|years?|yrs?|y)$/iu,
 				},
 				{ type: "number", minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
 			],
