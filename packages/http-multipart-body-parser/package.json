@@ -63,7 +63,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@fastify/busboy": "3.2.5",
+		"@fastify/busboy": "3.2.6",
 		"@middy/util": "8.0.0-rc.0"
 	},
 	"peerDependencies": {
